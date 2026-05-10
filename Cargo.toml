@@ -4,13 +4,15 @@ version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 
-[dependencies]
-hex = { version = "0.4.3", default-features = false }
-sha3 = { version = "0.10.8", default-features = false }
-blake3 = { version = "1.5.1", default-features = false }
+[workspace]
+members = [
+  "crates/consensus",
+  "crates/pal",
+]
 
-[build-dependencies]
-sha3 = "0.10.8"
+[dependencies]
+qash-consensus = { path = "crates/consensus" }
+qash-pal = { path = "crates/pal" }
 
 [profile.release]
 opt-level = 3

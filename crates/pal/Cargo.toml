@@ -1,0 +1,11 @@
+[package]
+name = "qash-pal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+qash-consensus = { path = "../consensus" }
+
+[features]
+default = []
+std = []

@@ -1,0 +1,15 @@
+[package]
+name = "qash-consensus"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+blake3 = { version = "1.5.1", default-features = false }
+sha3 = { version = "0.10.8", default-features = false }
+hex = { version = "0.4.3", default-features = false }
+
+[features]
+default = []
