@@ -6,8 +6,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+        uses: dtolnay/rust-toolchain@stable
       - name: Build & Test
         run: cargo test --no-default-features
