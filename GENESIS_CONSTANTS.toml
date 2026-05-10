@@ -1,0 +1,68 @@
+[meta]
+version = "1.0.0"
+lock_algorithm = "SHA3-256"
+deployment_model = "one-shot"
+governance = "zero"
+genesis_hash = "SHA3-256:PLACEHOLDER"
+
+[fixed_point]
+scale = 1_000_000
+intermediate_width = 128
+rounding_mode = "floor_toward_neg_inf"
+overflow_policy = "absorbing_halt"
+
+[lyapunov]
+weight_divergence_D = 400_000
+weight_conflict_C = 350_000
+weight_slash_Sigma = 250_000
+epsilon_threshold = 20_000
+evaluation_window = 3
+max_queries_per_epoch = 1_000_000
+
+[epoch.timing]
+duration_ms = 500
+max_control_loop_latency_ms = 450
+sync_tolerance_ms = 50
+epoch_counter_seed = "0xQASH_EPOCH_PRNG_SEED_2026"
+
+[obfuscation]
+method = "concatenation_injective"
+leaf_index_bytes = 48
+sparse_merkle_depth = 384
+hash_cascade = ["SHA3-256", "BLAKE3", "KangarooTwelve"]
+
+[hardware]
+authorized_platforms = [
+  "x86_64_avx2", "aarch64_neon", "riscv64_vector",
+  "loongarch_loongson", "arm_loongson", "vliw_elbrus",
+  "itron_renesas_rx", "itron_renesas_rl78", "itron_arm_cortex_m",
+  "esp32_s3", "snapdragon_arm64", "apple_silicon_arm64"
+]
+attestation_modes = ["tpm_2_0", "trustzone", "secure_enclave", "software_hash_merkle"]
+require_hardware_tee = false
+
+[consensus.receipts]
+include_in_state_root = false
+
+[clone_protocol]
+enabled = true
+version = "v1.1"
+channels = ["QR_code", "NFC", "BLE"]
+petn_crcs_integration = "BLE_only"
+qr_mode = "chunked_self_authenticated"
+nfc_mode = "direct_apdu"
+max_offline_hops = 7
+max_offline_epochs = 12
+
+[crypto.cascade]
+primary_signature = "Dilithium5"
+anchor_signature = "SLH-DSA-SHA3-256"
+fallback_signature = "Falcon-512"
+hash_primitives = ["SHA3-256", "BLAKE3", "KangarooTwelve", "SM3", "Streebog"]
+pqc_agility_epoch = 10000
+
+[validation]
+interval_precision_digits = 12
+gershgorin_precheck = true
+symmetry_enforcement = "strict"
+cross_isa_determinism_required = true

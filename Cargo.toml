@@ -1,0 +1,22 @@
+[package]
+name = "qash"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+hex = { version = "0.4.3", default-features = false }
+sha3 = { version = "0.10.8", default-features = false }
+blake3 = { version = "1.5.1", default-features = false }
+
+[build-dependencies]
+sha3 = "0.10.8"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+overflow-checks = true
+debug-assertions = true
+strip = true

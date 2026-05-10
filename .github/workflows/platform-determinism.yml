@@ -1,0 +1,28 @@
+name: Cross-Platform Determinism
+on:
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+jobs:
+  verify:
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, riscv64gc-unknown-linux-gnu]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust with Target
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - name: Build
+        run: cargo build --target ${{ matrix.target }} --release
+      - name: Verify Hash
+        run: |
+          if command -v openssl >/dev/null 2>&1; then
+            openssl dgst -sha3-256 target/${{ matrix.target }}/release/qash
+          else
+            echo "openssl not available; install in runner"
+            exit 1
+          fi
