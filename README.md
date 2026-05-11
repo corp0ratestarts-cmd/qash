@@ -1,7 +1,183 @@
 # QASH Protocol
+
 ![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)
 ![Cross-Platform Determinism](https://github.com/<OWNER>/qash/actions/workflows/platform-determinism.yml/badge.svg)
 ![QASH CI](https://github.com/<OWNER>/qash/actions/workflows/ci.yml/badge.svg)
 
-Post-quantum, zero-governance, deterministic consensus protocol.
-`GENESIS_CONSTANTS.toml` is immutable. Modifying it requires a new network.
+---
+
+## What QASH Is
+
+QASH is a **deterministic replicated transition calculus** with post-quantum
+cryptographic anchoring and formally machine-checkable safety properties.
+
+The central architectural invariant is:
+
+> **Identical replay produces identical state.**
+>
+> All subsystems are subordinate to this guarantee.
+
+QASH is **not**:
+- A probabilistic consensus chain
+- A Nakamoto-style longest-chain system
+- A validator lottery or leader election system
+- A speculative execution VM
+- A conventional blockchain node
+
+QASH **is**:
+- A deterministic replicated state machine
+- A replay-verifiable execution environment
+- A formally constrained transition system whose safety properties
+  are intended to be machine-provable from explicit axioms
+- A protocol where serialization is ontology: two states that encode
+  identically are the same state
+
+---
+
+## Repository Structure
+
+```
+docs/spec/          ← Protocol law (normative)
+  00_execution_model.md   Deterministic execution substrate
+  01_consensus.md         State space, encoding, transition function, stability
+
+proofs/             ← Formal theorems (Coq)
+  contractivity/
+    encode_injectivity.v  TH-1 (CLOSED), TH-2
+  safety/
+    absorbing_halt.v      TH-4, TH-5, TH-6, TH-8 partial
+
+model/              ← Canonical executable semantics (extracted from proofs)
+  README.md               Model contract and extraction notes
+
+crates/
+  consensus/        ← no_std consensus core (Domain A)
+  pal/              ← Platform Abstraction Layer (Domain B)
+
+src/                ← Hosted binary entrypoint
+GENESIS_CONSTANTS.toml   Immutable genesis parameters (not yet locked)
+```
+
+The relationship between layers:
+
+```
+docs/spec/    = normative semantic law        (what the protocol IS)
+proofs/       = formal guarantees             (what is PROVED about it)
+model/        = canonical executable model    (what it COMPUTES, extracted from proofs)
+crates/       = optimized implementation      (what is DEPLOYED)
+```
+
+The runtime (`crates/`) must be observationally equivalent to the model
+for all admissible inputs. This equivalence is a future formal proof target.
+
+---
+
+## Theorem Status
+
+| ID | Name | Class | Status |
+|----|------|-------|--------|
+| TH-1 | Encoding injectivity | Formal theorem | ✅ CLOSED |
+| TH-2 | Encoding totality | Formal theorem | ✅ CLOSED |
+| TH-3 | Convergence decrease δ_window ≤ 0 | Formal theorem | 🔲 PLACEHOLDER |
+| TH-4 | Φ_safety monotonicity | Formal theorem | ✅ CLOSED |
+| TH-5 | Φ_safety boundedness | Formal theorem | ✅ CLOSED |
+| TH-6 | Halt correctness | Formal theorem | ✅ CLOSED |
+| TH-7 | Replay invariance RT-1 | Verification claim | 🟡 PARTIAL |
+| TH-8 | Succession soundness | Formal theorem | 🟡 PARTIAL (TH-1 closed, composition pending) |
+
+Genesis lock requires TH-1, TH-2 closed (done) and TH-7 full test vector suite.
+
+---
+
+## Foundational Axioms
+
+All guarantees reduce to three axioms. Everything above them is deductively certain.
+
+```
+AX-1  Authorized ISAs implement two's complement arithmetic correctly
+AX-2  Pinned Rust toolchain produces correct code for authorized ISAs
+AX-3  SHA3-256 is collision-resistant  (cryptographic assumption, not theorem)
+```
+
+---
+
+## `GENESIS_CONSTANTS.toml` Is Immutable
+
+Once locked, `GENESIS_CONSTANTS.toml` cannot be modified.
+Any change requires a new network. There are no protocol upgrades, governance
+votes, or emergency patches. This is a design property, not a limitation.
+
+---
+
+## Contributing
+
+QASH implementation discipline is closer to **kernel development** or
+**avionics software** than conventional blockchain development.
+
+### The non-negotiable rules for Domain A (consensus core)
+
+```
+FORBIDDEN in crates/consensus/ and anything it calls:
+  - f32, f64, or any floating-point type
+  - HashMap or HashSet (use BTreeMap, BTreeSet)
+  - panic!(), unwrap(), expect()  — use explicit match + absorbing_reset()
+  - unsafe blocks
+  - std::time (wall clock)
+  - OS randomness
+  - nondeterministic iteration order
+  - usize or isize  (use explicit u32/u64/i64/i128)
+  - Rust default / on signed integers for protocol arithmetic  (use div_euclid)
+  - Any heap allocation without statically-bounded size
+```
+
+### Domain B (PAL) rules
+
+```
+PERMITTED in crates/pal/:
+  - unsafe under formal audit and review
+  - SIMD and hardware acceleration
+  - OS networking, clocks, entropy
+  - Dynamic allocation
+
+FORBIDDEN in crates/pal/:
+  - Any Domain B value influencing Domain A state transitions
+  - Clock or entropy inputs to the consensus execution path
+```
+
+### Every PR must
+
+- Pass `cargo test --no-default-features` (consensus core)
+- Pass `cargo build -p qash-pal --features std`
+- Pass cross-ISA determinism check (automated in CI)
+- Not introduce `Admitted` to any proof file without an explicit
+  tracking issue and mathematical justification
+
+### Contribution philosophy
+
+> Nothing gets coded until it has a corresponding definition in the spec.
+> No transaction type enters the protocol unless its effect on δ_window
+> has a formal proof obligation filed.
+
+New features that cannot be proved to preserve the convergence invariant
+will not be merged, regardless of utility. This is the cost of formal
+replay guarantees. It is also the source of QASH's long-term value.
+
+---
+
+## Spec Version Binding
+
+The spec version is content-addressed:
+
+```
+spec_hash = SHA3-256(00_execution_model.md ∥ 01_consensus.md)
+```
+
+This hash is recorded in `GENESIS_CONSTANTS.toml` at genesis lock time.
+Any runtime must declare the spec hash it implements. Mismatches are
+flagged by CI as non-conforming, regardless of test passage.
+
+---
+
+*QASH is licensed GPL-3.0-or-later.*
+*`GENESIS_CONSTANTS.toml` will be immutable after genesis lock.*
+*Modifying it requires a new network.*
