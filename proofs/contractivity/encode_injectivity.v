@@ -337,8 +337,6 @@ Lemma vwf_slash   vr : ValidatorWF vr -> is_i64 (vr_slash_acc vr).
 Proof. intros H. apply (ve_slash _ (vwf_enc _ H)). Qed.
 Lemma vwf_nonce   vr : ValidatorWF vr -> is_u64 (vr_nonce vr).
 Proof. intros H. apply (ve_nonce _ (vwf_enc _ H)). Qed.
-Lemma vwf_nonce   vr : ValidatorWF vr -> is_u64 (vr_nonce vr).
-Proof. intros H. apply (ve_nonce _ (vwf_enc _ H)). Qed.
 
 (** Encode a ValidatorRecord as 89 bytes:
     48 (id) + 8 (score) + 8 (div) + 8 (conf) + 8 (slash) + 8 (nonce) + 1 (active) *)
