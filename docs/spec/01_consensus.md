@@ -26,7 +26,7 @@
 | `i128` | 128-bit signed integer (intermediate arithmetic width) |
 | `⊥` | Absorbing halt state (irreversible) |
 | `G` | Genesis constants block (immutable) |
-| `R_n` | State root at epoch `n` = `H_domain(STATE_ROOT, Encode(S_n))` |
+| `R_n` | `S_n.state_root` — the stored consensus artifact; admissibility invariant defined in §2 |
 | `∥` | Concatenation |
 | `H_domain` | Domain-separated hash (defined in `00_execution_model.md §E4`) |
 
@@ -94,7 +94,9 @@ The protocol state at epoch `t` is a tuple:
 ```
 S_t = (
   epoch:         u64,        // monotonically increasing, seeded at genesis
-  state_root:    [u8; 32],   // SHA3-256(Encode(S_{t-1})), zeroed at genesis
+  state_root:    [u8; 32],   // Stores R_t = S_t.state_root (consensus artifact)
+                             // Canonical commitment invariant (§2):
+                             // R_t = H_domain(STATE_ROOT, Encode_for_commitment(S_t, prior_root(t)))
   validators:    [V_i; N],   // fixed-size validator array, N defined at genesis
   ledger_root:   [u8; 32],   // root of the sparse Merkle accumulator
   entropy_seed:  [u8; 32],   // forward-secure: seed_{t+1} = SHA3-256(seed_t)
@@ -118,7 +120,11 @@ Each validator record `V_i` is a tuple:
 
 ```
 V_i = (
-  id:            [u8; 48],   // concatenation-injective: validator_id(8) ∥ epoch(8) ∥ seed(32)
+  id:            [u8; 48],   // STABLE public-key-derived validator identity
+                             // = H_domain(VALIDATOR_ID, public_key_bytes)[0..48]
+                             // This is the validator's CONSENSUS IDENTITY — fixed at
+                             // genesis and unchanged across all epochs. It is NOT
+                             // the Merkle leaf index (see note below).
   score:         i64,        // ∈ [i64::MIN, i64::MAX], checked arithmetic
   divergence:    i64,        // D_i,t: deviation metric, defined in §4
   conflict:      i64,        // C_i,t: conflict metric, defined in §4
@@ -126,6 +132,18 @@ V_i = (
   active:        bool,
 )
 ```
+
+> **Validator identity vs Merkle leaf index:**
+> `V_i.id` is the validator's **stable consensus identity** — a 48-byte
+> truncated hash of the validator's public key, fixed at genesis. It never
+> changes across epochs and anchors slash accounting continuity.
+>
+> The `obfuscation` section of `GENESIS_CONSTANTS.toml` defines a separate
+> **Merkle leaf index** construction: `validator_id(8) ∥ epoch(8) ∥ seed(32)`.
+> This 48-byte epoch-relative concatenation is used exclusively for sparse
+> Merkle tree leaf addressing — not for validator consensus identity. The two
+> constructions are distinct and must not be conflated. Epoch-relative Merkle
+> leaf indices change each epoch; the consensus identity `V_i.id` never does.
 
 ### Admissibility constraints
 
@@ -137,8 +155,9 @@ A state `S_t` is **admissible** if and only if:
 3. ∀ i: S_t.validators[i].divergence ∈ [0, i64::MAX]  (divergence is non-negative)
 4. ∀ i: S_t.validators[i].slash_acc ∈ [0, i64::MAX]   (slash accumulator is non-negative)
 5. S_t.entropy_seed ≠ [0u8; 32]  (zero seed is forbidden post-genesis)
-6. S_t.state_root = H_domain(STATE_ROOT=0x00000001, Encode(S_{t-1}))
-   where H_domain is defined in 00_execution_model.md §E4
+6. S_t.state_root = H_domain(STATE_ROOT=0x00000001, Encode_for_commitment(S_t, prior_root(t)))
+   This is the canonical commitment invariant defined in §2.
+   prior_root(t) = S_{t-1}.state_root for t≥1; [0u8;32] for t=0.
 ```
 
 ---
@@ -160,6 +179,76 @@ A state `S_t` is **admissible** if and only if:
 > The SHA3-256 of this document is recorded in `GENESIS_CONSTANTS.toml`
 > at genesis lock time. Any runtime that implements a different encoding
 > is not a QASH implementation regardless of other conformance.
+
+### Encoding vs state root computation
+
+`Encode(S_t)` encodes the state **as-is**, including the current `state_root` field.
+This is used for: wire transmission, storage, and replay.
+
+### Prior root as a total function
+
+```
+prior_root : ℕ → [u8; 32]
+prior_root(0)     = [0u8; 32]
+prior_root(t + 1) = S_t.state_root
+```
+
+This is the authoritative definition. All references to "prior root" use `prior_root(t)`.
+The function is total over all epoch indices, supporting structural induction in Coq.
+
+### substitute_root
+
+```
+substitute_root(S : State, new_root : [u8; 32]) → State
+  S' where S'.state_root = new_root
+           S'.f = S.f  for all field f ≠ state_root
+```
+
+`substitute_root` is a pure record update. Then:
+
+```
+Encode_for_commitment(S, prior_root) := Encode(substitute_root(S, prior_root))
+```
+
+### Encoding ontology (normative)
+
+> **No other encoding variants are permitted anywhere in this protocol.**
+>
+> | Use case | Function |
+> |----------|----------|
+> | Transmission, storage, replay, equality, decoding, TH-1 | `Encode` |
+> | State root commitment (transition step 9 only) | `Encode_for_commitment` |
+>
+> Two states are consensus-identical iff `Encode(S_a) = Encode(S_b)`.
+> Future documents must not introduce alternative serializations or zeroing variants.
+
+`Encode_for_commitment(S, prior_root)` is a **commitment preimage constructor**.
+It is NOT an alternative wire encoding — `Encode` remains the sole canonical wire format.
+`Encode_for_commitment` is a deterministic state transformation used solely before hashing:
+
+```
+Encode_for_commitment(S, prior_root) := Encode(substitute_root(S, prior_root))
+```
+
+This is the **sole normative definition**. The informal notation
+`Encode(S with state_root := prior_root)` is non-normative shorthand only
+and must not be treated as a separate semantic object in proofs or implementations.
+
+The state root is then:
+
+```
+state_root_t = H_domain(STATE_ROOT, Encode_for_commitment(S_t, prior_root(t)))
+```
+
+**Key invariant:** The wire encoding of S_t always contains the commitment to S_{t-1}.
+The `state_root` field binds S_t to the prior state, creating a verifiable chain
+analogous to blockchain header chaining.
+
+**Genesis:** `S_0.state_root = [0u8; 32]` (prior_root at genesis = all-zeros).
+
+**Why not zeroing:** Zeroing (the `Encode_canonical_inputs` approach) is equivalent
+at genesis but loses chain history at t > 0. Prior_root substitution makes chaining
+explicit and preserves the "Encode = identity" invariant.
 
 `Encode(S_t)` produces a deterministic byte sequence.
 This encoding is **protocol law**: any deviation is a consensus failure, not an implementation bug.
@@ -233,7 +322,14 @@ I_t = (
 `I_t` is admissible if and only if:
 - all signatures verify under their respective validator public keys,
 - `epoch_anchor` verifies under the epoch anchor key,
-- `M ≤ max_queries_per_epoch`.
+- `M ≤ max_queries_per_epoch`,
+- **`I_t.transactions` is canonically ordered before admission into Domain A.**
+
+The canonical ordering is defined in `02_transition_axioms.md §A10`:
+transactions are sorted by `H_domain(ENTROPY_ADVANCE, S_t.entropy_seed ∥ Encode(τ))`.
+An `I_t` whose transactions are not in this order is inadmissible and triggers
+absorbing halt. This closes the determinism leak where two validators could
+admit semantically equivalent but differently-ordered transaction batches.
 
 ### Transition steps
 
@@ -268,15 +364,16 @@ Given admissible `(S_t, I_t)`:
 8. Increment epoch:
    S'.epoch ← S_t.epoch + 1
 
-9. Compute new state root:
-   S'.state_root ← H_domain(STATE_ROOT=0x00000001, Encode(S'))
-   // H_domain defined in 00_execution_model.md §E4
+9. Compute new state root using prior-root substitution (LAST step):
+   S'.state_root ← H_domain(STATE_ROOT=0x00000001, Encode_for_commitment(S', prior_root(t+1)))
+   // prior_root(t+1) = S_t.state_root by definition (§2)
 
 10. return S'
 ```
 
 All steps are pure functions over fixed-size, statically-bounded data structures.
-No heap allocation is permitted at any step.
+No unbounded or nondeterministically-sized allocation is permitted.
+See 00_execution_model.md §E3 for the full allocation policy.
 
 ---
 
@@ -545,8 +642,8 @@ Then:
 Replay_{p_x}(G, T) = Replay_{p_y}(G, T) = R_n
 ```
 
-where `R_n = S_n.state_root = H_domain(STATE_ROOT, Encode(S_n))`
-and `H_domain` is defined in `00_execution_model.md §E4`.
+where `R_n = S_n.state_root` and the canonical commitment invariant (§2) holds:
+`R_n = H_domain(STATE_ROOT, Encode_for_commitment(S_n, prior_root(n)))`
 
 That is: deterministic re-execution of the canonical input sequence from genesis
 produces a bitwise-identical state root on all authorized platforms.
@@ -587,12 +684,19 @@ All protocol guarantees reduce to the following proof graph.
 Each node is a theorem or axiom. Edges are dependency arrows (A → B means B depends on A).
 No implementation claim is valid until its proof obligations are discharged.
 
-### Axiom layer (trusted, not proved within the system)
+### Axiom layer (class: ASSUMED — trusted, not proved within the system)
 
 ```
-AX-1  ISA correctness:       authorized ISAs implement two's complement arithmetic correctly
-AX-2  Compiler correctness:  pinned Rust toolchain produces correct code for authorized ISAs
-AX-3  Hash security:         SHA3-256 is collision-resistant (cryptographic assumption)
+AX-1  ISA correctness:   [ASSUMED] authorized ISAs implement two's complement correctly
+AX-2  Compiler:          [ASSUMED] pinned Rust toolchain produces correct code
+AX-3  Hash security:     [ASSUMED] SHA3-256 modeled as injective over protocol state space.
+                                   IMPORTANT: SHA3-256 is NOT mathematically injective
+                                   (collisions exist by pigeonhole). This axiom assumes
+                                   collisions are computationally unreachable within the
+                                   protocol's admissible state space. It is a computational
+                                   assumption modeled as a mathematical axiom. Named
+                                   AX3_sha3_assumed_injective in the Coq proof files to
+                                   make the trust class explicit.
 ```
 
 ### Theorem and verification claim layer
@@ -617,12 +721,41 @@ TH-2  Encoding totality
       Proof file: proofs/contractivity/encode_injectivity.v (co-located)
       Status: PROVED
 
-TH-3  Convergence decrease
-      ∀ admissible honest (S_t, I_t): δ_window(T(S_t, I_t)) ≤ 0
-      Depends on: TH-1, AX-1, AX-2
+TH-3  Convergence non-increase (revised — see note)
+      ∀ admissible honest (S_t, I_t): δ_window(T(S_t, I_t)) ≤ ε_honest
+      where ε_honest = 2_000  (see two-threshold model below)
+      Depends on: TH-1, AX-1, AX-2, §A8 proof obligations for all admitted τ
       Class: FORMAL THEOREM
       Proof file: proofs/contractivity/lyapunov_stability.v
       Status: PLACEHOLDER
+
+      NOTE on target strength: the original target δ_window ≤ 0 (strict
+      non-increase per epoch) is too strong for any nontrivial transaction
+      system — the protocol explicitly permits bounded perturbation via
+      §A8 Form B. The revised target δ_window ≤ ε_honest provides:
+        - a mathematically achievable convergence guarantee
+        - a safety margin: ε_honest (2_000) << ε_halt (20_000)
+        - compatibility with §A8 Form B perturbation budgets
+
+      Two-threshold model:
+        ε_honest = 2_000  — proof target; honest transactions must stay within
+        ε_halt   = 20_000 — halt trigger; ε_honest << ε_halt gives safety margin
+        ratio    = 10×    — ten epochs of full perturbation before halt
+
+      TH-3 proof strategy (via §A8 composition):
+        For each admitted τᵢ: δ_window(τᵢ) ≤ δ_window + ε_τᵢ  (§A8 obligation)
+        Σ ε_τᵢ ≤ ε_honest per epoch                              (epoch budget)
+        ∴ δ_window(ApplyAll(S_t, I_t)) ≤ δ_window(S_t) + ε_honest
+
+TH-3a Halt determinism (corollary of RT-1)
+      If Replay(G, T) derives halt_flag=true at epoch n on one honest
+      validator, then every honest validator replaying the same admissible T
+      must derive halt_flag=true at epoch n.
+      Depends on: TH-7 (RT-1 replay invariance), TH-6
+      Class: FORMAL THEOREM (follows from RT-1 applied to halt_flag field)
+      Proof: halt_flag is part of Encode(S_n); RT-1 guarantees identical
+             Encode(S_n) on all honest Ξ; therefore identical halt_flag.
+      Status: STATED (proof follows from RT-1 composition)
 
 TH-4  Φ_safety monotonicity
       ∀ admissible (S_t, I_t): Φ_safety(T(S_t, I_t)) ≥ Φ_safety(S_t)
