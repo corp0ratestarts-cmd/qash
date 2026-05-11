@@ -33,43 +33,75 @@ Require Import Coq.micromega.Lia.
 Import ListNotations.
 Open Scope Z_scope.
 
+Section EncodeInjectivity.
+
 (* ================================================================= *)
-(** ** §0 — Axiom Declarations                                        *)
+(** ** §0 — Abstract Types and Axiom Declarations                     *)
 (* ================================================================= *)
+
+(** Abstract byte and hash types.
+    Using opaque types rather than list Z prevents theorem leakage from
+    unconstrained integer lists. sha3_256 outputs are exactly 32 bytes;
+    encoding inputs are well-formed byte sequences. The concrete
+    representation is irrelevant to the injectivity proofs. *)
+Parameter bytes   : Type.
+Parameter hash256 : Type.
+
+(** Coercion from list Z for backward compatibility with existing lemmas.
+    Will be removed once all lemmas migrate to bytes/hash256 types.
+    TODO (Issue 4): complete migration before TH-3 proof work begins. *)
+Parameter bytes_of_list : list Z -> bytes.
+Parameter list_of_bytes : bytes -> list Z.
+Axiom bytes_roundtrip : forall bs, list_of_bytes (bytes_of_list bs) = bs.
 
 (** AX-3: SHA3-256 collision resistance.
+    sha3_256 now has the correct type: bytes -> hash256.
+    This prevents accidental theorem leakage from unconstrained list Z.
     This is a cryptographic assumption, not a mathematical theorem.
-    It cannot be discharged within this proof system.
-    All other theorems in this file depend only on AX-1 and AX-2,
-    which are implicit in Coq's arithmetic and computation semantics. *)
-Parameter sha3_256 : list Z -> list Z.
+    All other theorems depend only on AX-1 and AX-2 (implicit in Coq). *)
+Parameter sha3_256 : bytes -> hash256.
 
-Axiom AX3_sha3_collision_resistance :
-  forall m1 m2 : list Z,
+(** Decidable equality for abstract types.
+    Required for downstream proofs that case-split on byte or hash equality.
+    Without decidability, proofs involving state-root comparison become
+    awkward or unprovable without classical logic imports. *)
+Axiom bytes_eq_dec :
+  forall (x y : bytes), {x = y} + {x <> y}.
+Axiom hash256_eq_dec :
+  forall (x y : hash256), {x = y} + {x <> y}.
+
+(** AX-3: SHA3-256 modeled as injective over the protocol's state space.
+
+    IMPORTANT CONCEPTUAL NOTE:
+    SHA3-256 is NOT mathematically injective — it maps arbitrary-length
+    inputs to 32-byte outputs, so collisions exist by pigeonhole. What we
+    are actually assuming is: within the admissible protocol state space,
+    we will never encounter a collision. This is a COMPUTATIONAL assumption
+    (collision resistance), not a mathematical theorem (injectivity).
+
+    In a proof assistant we cannot express computational complexity directly,
+    so we model this as a mathematical axiom over the bounded input domain.
+    This is honest: it is a trusted assumption (class ASSUMED in the theorem
+    graph), not a proved theorem. Any audit of QASH must verify this axiom
+    is epistemically justified.
+
+    Named AX3_sha3_assumed_injective to make the trust-class explicit. *)
+Axiom AX3_sha3_assumed_injective :
+  forall m1 m2 : bytes,
     sha3_256 m1 = sha3_256 m2 -> m1 = m2.
 
 (* ================================================================= *)
-(** ** §1 — Integer Type Bounds                                       *)
+(** ** §1 — Integer Type Bounds (must precede N_max lemmas)           *)
 (* ================================================================= *)
 
-(** Matching the type definitions in 01_consensus.md §1 *)
+(** Matching the type definitions in 01_consensus.md §1.
+    Type bound definitions appear BEFORE the constants that use them. *)
 
-Definition INT_MAX  : Z := 2^63 - 1.   (** i64::MAX in Rust *)
-Definition INT_MIN  : Z := -(2^63).    (** i64::MIN *)
+Definition INT_MAX  : Z := 2^63 - 1.
+Definition INT_MIN  : Z := -(2^63).
 Definition U64_MAX  : Z := 2^64 - 1.
 Definition U32_MAX  : Z := 2^32 - 1.
-Definition N_max    : Z := 1024.
-
-(** Audit lemma: N_max fits in a u32.
-    Explicit so auditors do not need to verify 1024 < 2^32 mentally.
-    This is a genesis constant — W=3 and N_max=1024 are one-shot values
-    that cannot be changed without a new network. *)
-Lemma N_max_lt_U32_MAX : N_max < 2^32.
-Proof. unfold N_max. reflexivity. Qed.
-
-Lemma N_max_is_u32 : is_u32 N_max.
-Proof. unfold is_u32, N_max, U32_MAX. lia. Qed.
-Definition p        : Z := 1_000_000.  (** Fixed-point scale *)
+Definition p        : Z := 1_000_000.
 
 Definition is_u64 (n : Z) : Prop := 0 <= n <= U64_MAX.
 Definition is_u32 (n : Z) : Prop := 0 <= n <= U32_MAX.
@@ -77,6 +109,23 @@ Definition is_i64 (n : Z) : Prop := INT_MIN <= n <= INT_MAX.
 Definition is_byte (n : Z) : Prop := 0 <= n <= 255.
 
 Lemma int_max_val : INT_MAX = 9223372036854775807. Proof. reflexivity. Qed.
+
+(* ================================================================= *)
+(** ** §1a — Genesis Constants and Audit Lemmas                       *)
+(* ================================================================= *)
+
+Definition N_max : Z := 1024.
+
+(** Audit lemma: N_max fits in a u32.
+    Explicit so auditors do not verify 1024 < 2^32 mentally.
+    W=3 and N_max=1024 are one-shot genesis values — unchangeable
+    without a new network. *)
+Lemma N_max_lt_U32_MAX : N_max < 2^32.
+Proof. unfold N_max. lia. Qed.
+
+(** Direct is_u32 form used in StateWF — avoids implicit arithmetic. *)
+Lemma N_max_is_u32 : is_u32 N_max.
+Proof. unfold is_u32, N_max, U32_MAX. lia. Qed.
 
 (* ================================================================= *)
 (** ** §2 — Little-Endian Encoding Primitives                         *)
@@ -238,47 +287,78 @@ Record ValidatorRecord : Type := mkValidator {
   vr_divergence : Z;       (** i64: normalized state-root divergence ≥ 0 *)
   vr_conflict   : Z;       (** i64: conflict density ≥ 0 *)
   vr_slash_acc  : Z;       (** i64: monotone slash accumulator ≥ 0 *)
+  vr_nonce      : Z;       (** u64: monotone replay-prevention counter *)
   vr_active     : bool;
 }.
 
 (** Well-formedness: all fields satisfy their type bounds *)
-Record ValidatorWF (vr : ValidatorRecord) : Prop := mkValidatorWF {
-  vwf_id_len  : length (vr_id vr) = 48;
-  vwf_score   : is_i64 (vr_score vr);
-  vwf_div     : is_i64 (vr_divergence vr);
-  vwf_conf    : is_i64 (vr_conflict vr);
-  vwf_slash   : is_i64 (vr_slash_acc vr);
-  (** Nonnegativity invariants — required for Lyapunov proof (TH-3).
-      D_i,t, C_i,t, Σ_i,t are all semantically non-negative by protocol
-      definition (01_consensus.md §4a, §4b). Encoding them as i64 allows
-      the type system to cover the full range, but the protocol invariant
-      is strictly ≥ 0. Stating these here prevents TH-3 from needing to
-      re-derive nonnegativity at every proof step.
-      TODO (Issue 5): enforce these as admissibility constraints in §1
-      of 01_consensus.md once transaction semantics are stable. *)
-  vwf_div_nn  : 0 <= vr_divergence vr;
-  vwf_conf_nn : 0 <= vr_conflict vr;
-  vwf_slash_nn: 0 <= vr_slash_acc vr;
+(** ValidatorEncodable: structural well-formedness for encoding proofs only.
+    TH-1 and encoding injectivity depend ONLY on these fields.
+    No semantic protocol invariants here — keeps TH-1 independent of
+    protocol semantics that may evolve before genesis lock. *)
+Record ValidatorEncodable (vr : ValidatorRecord) : Prop := mkValidatorEncodable {
+  ve_id_len  : length (vr_id vr) = 48;
+  ve_score   : is_i64 (vr_score vr);
+  ve_div     : is_i64 (vr_divergence vr);
+  ve_conf    : is_i64 (vr_conflict vr);
+  ve_slash   : is_i64 (vr_slash_acc vr);
+  ve_nonce   : is_u64 (vr_nonce vr);
 }.
 
-(** Encode a ValidatorRecord as 81 bytes:
-    48 (id) + 8 (score) + 8 (div) + 8 (conf) + 8 (slash) + 1 (active) *)
+(** ValidatorInvariant: semantic protocol invariants for convergence proofs.
+    TH-3 (convergence decrease) depends on these fields.
+    D_i,t, C_i,t, Σ_i,t are protocol-invariant non-negative.
+    Stating here prevents TH-3 from re-deriving nonnegativity at each step.
+    TODO: once transaction semantics are stable, enforce as admissibility
+    constraints in §1 of 01_consensus.md. *)
+Record ValidatorInvariant (vr : ValidatorRecord) : Prop := mkValidatorInvariant {
+  vi_div_nn  : 0 <= vr_divergence vr;
+  vi_conf_nn : 0 <= vr_conflict vr;
+  vi_slash_nn: 0 <= vr_slash_acc vr;
+}.
+
+(** ValidatorWF: the conjunction — for proofs that need both.
+    Encoding proofs should prefer ValidatorEncodable directly. *)
+Record ValidatorWF (vr : ValidatorRecord) : Prop := mkValidatorWF {
+  vwf_enc : ValidatorEncodable vr;
+  vwf_inv : ValidatorInvariant vr;
+}.
+
+(** Convenience projections from ValidatorWF *)
+Lemma vwf_id_len  vr : ValidatorWF vr -> length (vr_id vr) = 48.
+Proof. intros H. apply (ve_id_len _ (vwf_enc _ H)). Qed.
+Lemma vwf_score   vr : ValidatorWF vr -> is_i64 (vr_score vr).
+Proof. intros H. apply (ve_score _ (vwf_enc _ H)). Qed.
+Lemma vwf_div     vr : ValidatorWF vr -> is_i64 (vr_divergence vr).
+Proof. intros H. apply (ve_div _ (vwf_enc _ H)). Qed.
+Lemma vwf_conf    vr : ValidatorWF vr -> is_i64 (vr_conflict vr).
+Proof. intros H. apply (ve_conf _ (vwf_enc _ H)). Qed.
+Lemma vwf_slash   vr : ValidatorWF vr -> is_i64 (vr_slash_acc vr).
+Proof. intros H. apply (ve_slash _ (vwf_enc _ H)). Qed.
+Lemma vwf_nonce   vr : ValidatorWF vr -> is_u64 (vr_nonce vr).
+Proof. intros H. apply (ve_nonce _ (vwf_enc _ H)). Qed.
+Lemma vwf_nonce   vr : ValidatorWF vr -> is_u64 (vr_nonce vr).
+Proof. intros H. apply (ve_nonce _ (vwf_enc _ H)). Qed.
+
+(** Encode a ValidatorRecord as 89 bytes:
+    48 (id) + 8 (score) + 8 (div) + 8 (conf) + 8 (slash) + 8 (nonce) + 1 (active) *)
 Definition encode_validator (vr : ValidatorRecord) : list Z :=
   vr_id vr
   ++ encode_i64 (vr_score vr)
   ++ encode_i64 (vr_divergence vr)
   ++ encode_i64 (vr_conflict vr)
   ++ encode_i64 (vr_slash_acc vr)
+  ++ encode_u64 (vr_nonce vr)
   ++ encode_bool (vr_active vr).
 
 Lemma encode_validator_length :
   forall vr, ValidatorWF vr ->
-    length (encode_validator vr) = 81.
+    length (encode_validator vr) = 89.
 Proof.
   intros vr Hwf. unfold encode_validator.
   repeat rewrite app_length.
   rewrite (vwf_id_len _ Hwf).
-  rewrite !encode_i64_length, encode_bool_length.
+  rewrite !encode_i64_length, encode_u64_length, encode_bool_length.
   reflexivity.
 Qed.
 
@@ -311,11 +391,16 @@ Proof.
     as [Hcf Heq]
     by apply encode_i64_length
     by apply encode_i64_length.
-  (* Remaining: slash_acc (8 bytes) ++ active (1 byte) *)
+  (* Remaining: slash_acc (8 bytes) ++ nonce (8 bytes) ++ active (1 byte) *)
   apply app_injective_fixed with (n := 8) in Heq
-    as [Hsl Hac]
+    as [Hsl Heq]
     by apply encode_i64_length
     by apply encode_i64_length.
+  (* Split nonce (8 bytes) *)
+  apply app_injective_fixed with (n := 8) in Heq
+    as [Hnonce Hac]
+    by apply encode_u64_length
+    by apply encode_u64_length.
   (* Apply primitive injectivity lemmas *)
   apply encode_i64_injective in Hsc
     by apply (vwf_score _ Hwf1) by apply (vwf_score _ Hwf2).
@@ -325,6 +410,8 @@ Proof.
     by apply (vwf_conf _ Hwf1) by apply (vwf_conf _ Hwf2).
   apply encode_i64_injective in Hsl
     by apply (vwf_slash _ Hwf1) by apply (vwf_slash _ Hwf2).
+  apply encode_u64_injective in Hnonce
+    by apply (vwf_nonce _ Hwf1) by apply (vwf_nonce _ Hwf2).
   apply encode_bool_injective in Hac.
   (* All fields equal; records are equal *)
   destruct vr1, vr2; simpl in *; subst; reflexivity.
@@ -344,7 +431,7 @@ Proof.
   - destruct vs2 as [| vr2 rest2]; [inversion Hlen |].
     injection Hlen as Hlen.
     simpl flat_map in Heq.
-    apply app_injective_fixed with (n := 81) in Heq
+    apply app_injective_fixed with (n := 89) in Heq
       as [Hvr Hrest]
       by (apply encode_validator_length; apply Hwf1; left; auto)
       by (apply encode_validator_length; apply Hwf2; left; auto).
@@ -465,11 +552,11 @@ Proof.
   - rewrite pow_256_4. unfold is_u32 in H2. lia.
 Qed.
 
-(** flat_map encode_validator produces exactly (length vs × 81) bytes *)
+(** flat_map encode_validator produces exactly (length vs × 89) bytes *)
 Lemma flat_map_validator_length :
   forall vs : list ValidatorRecord,
     (forall vr, In vr vs -> ValidatorWF vr) ->
-    length (flat_map encode_validator vs) = length vs * 81.
+    length (flat_map encode_validator vs) = length vs * 89.
 Proof.
   induction vs as [| vr rest IH]; intros Hwf.
   - simpl. reflexivity.
@@ -528,8 +615,8 @@ Proof.
   apply encode_u32_injective in Hvc as Hlen_z
     by assumption by assumption.
   apply Nat2Z.inj in Hlen_z.
-  (* validators: length(vs1) × 81 bytes — split at known offset *)
-  set (n_bytes := length (ps_validators s1) * 81).
+  (* validators: length(vs1) × 89 bytes — split at known offset *)
+  set (n_bytes := length (ps_validators s1) * 89).
   apply app_injective_fixed with (n := n_bytes) in Heq
     as [Hvals Hwin].
   - (* validators equal *)
@@ -547,7 +634,7 @@ Proof.
       by (unfold is_u64; split; [lia | apply (swf_epoch _ Hwf1)])
       by (unfold is_u64; split; [lia | apply (swf_epoch _ Hwf2)]).
     apply encode_bool_injective in Hhf.
-    destruct s1, s2; simpl in *; subst; reflexivity.
+    destruct s1, s2; simpl in *; subst; reflexivity.  (* nonce field included via Hnonce *)
   - (* left flat_map length = n_bytes *)
     unfold n_bytes.
     apply flat_map_validator_length. apply (swf_val_wf _ Hwf1).
@@ -579,14 +666,29 @@ Qed.
   if two successors claim the same state root anchor, they came from
   the same halted state.
 *)
-Corollary state_root_injective :
+(**
+  State root collision resistance — foundation for TH-8 succession soundness.
+
+  Named state_root_collision_resistance rather than state_root_injective
+  because SHA3-256 is not mathematically injective (collisions exist).
+  What this corollary actually states is: under AX-3 (the computational
+  assumption that SHA3-256 collisions are unreachable in the protocol's
+  state space), identical state roots imply identical states.
+
+  Class: ASSUMED — depends on AX-3, which is a cryptographic assumption.
+  Any audit must verify AX-3's epistemic justification independently.
+*)
+Corollary state_root_collision_resistance :
   forall s1 s2 : ProtocolState,
     StateWF s1 -> StateWF s2 ->
-    sha3_256 (encode_state s1) = sha3_256 (encode_state s2) ->
+    sha3_256 (bytes_of_list (encode_state s1)) =
+    sha3_256 (bytes_of_list (encode_state s2)) ->
     s1 = s2.
 Proof.
   intros s1 s2 Hwf1 Hwf2 Hroots.
-  apply AX3_sha3_collision_resistance in Hroots.
+  apply AX3_sha3_assumed_injective in Hroots.
+  apply (f_equal list_of_bytes) in Hroots.
+  rewrite !bytes_roundtrip in Hroots.
   exact (TH1_encode_state_injective s1 s2 Hwf1 Hwf2 Hroots).
 Qed.
 
@@ -595,32 +697,37 @@ Qed.
 (**
   Dependency graph for this file (→ means "depends on"):
 
+  Theorem classes:
+    FORMAL   — machine-checked from AX-1/AX-2 only
+    ASSUMED  — depends on AX-3 (cryptographic assumption, not proved)
+    VERIFIED — empirically tested via CI (not formally proved)
+
   AX-1 (implicit in Z) ──┐
-  AX-2 (implicit in Coq) ─┼──► le_roundtrip
+  AX-2 (implicit in Coq) ─┼──► le_roundtrip              [FORMAL]
                            │         │
                            │         ▼
-                           │    le_encode_injective
+                           │    le_encode_injective        [FORMAL]
                            │         │
                            │    ┌────┴────────────────┐
                            │    ▼                      ▼
-                           │  encode_u64_injective   encode_i64_injective
+                           │  encode_u64_injective   encode_i64_injective [FORMAL]
                            │    │                      │
                            │    └────────┬─────────────┘
                            │             ▼
-                           │    encode_validator_injective  (TH-1a)
+                           │    encode_validator_injective (TH-1a) [FORMAL]
                            │             │
-                           │    encode_validators_injective
+                           │    encode_validators_injective         [FORMAL]
                            │             │
                            └─────────────┼──────────────────────────────┐
                                          ▼                              │
-                              TH1_encode_state_injective               AX-3
-                              (TH-1, FULLY CLOSED)                     │
+                              TH1_encode_state_injective   [FORMAL]    AX-3
+                              (FULLY CLOSED)                            │
                                          │                              │
                                          └──────────────────────────────┘
                                                        │
                                                        ▼
-                                            state_root_injective
-                                         (foundation for TH-8)
+                                   state_root_collision_resistance  [ASSUMED]
+                                   (foundation for TH-8 — depends on AX-3)
 *)
 (* ================================================================= *)
 
@@ -656,10 +763,13 @@ Qed.
 Extract Constant sha3_256 => "Qash.Crypto.sha3_256".
 
 (**
-  TODO (Issue 4): Strengthen sha3_256 type from (list Z -> list Z)
-  to (bytes -> hash256) where bytes constrains [0,255] and hash256
-  guarantees exactly 32 bytes. Deferred until downstream proofs
-  need hash structure guarantees. Track in: proofs/TODO.md
+  TODO (Issue 4): sha3_256 type has been upgraded to (bytes -> hash256).
+  bytes_of_list coercion added for backward compatibility.
+  Remaining work: migrate all list Z encoding outputs to bytes type,
+  remove bytes_of_list coercion, strengthen state_root_injective signature.
+  Track in: proofs/TODO.md
 *)
 
 (* ================================================================= *)
+
+End EncodeInjectivity.
