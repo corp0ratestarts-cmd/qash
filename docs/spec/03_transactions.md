@@ -349,12 +349,9 @@ For any admissible input set `I_t`:
 where `ε_honest = 2000` is the convergence proof target from
 `01_consensus.md §5`.
 
-> **NOTE (consistency with 02_transition_axioms.md):**
-> §A8 of `02_transition_axioms.md` currently references `ε = 20_000` (the halt
-> threshold, ε_halt). The proof target is `ε_honest = 2_000`. TX-k budgets
-> must sum to ε_honest to leave a 10× safety margin before halt. A future
-> consolidation pass will harmonize §A8 to reference `ε_honest` explicitly.
-> Until then, the binding requirement here is `Σ ε_τ ≤ ε_honest = 2_000`.
+This matches the two-threshold model defined in `02_transition_axioms.md §A8`:
+`ε_honest = 2_000` is the proof target; `ε_halt = 20_000` is the halt trigger
+with a 10× safety margin. TX-k budgets must sum to ≤ ε_honest per epoch.
 
 ### Budget accounting function
 
