@@ -165,12 +165,19 @@ Proof.
   - (* n = S n' *)
     rewrite Nat2Z.inj_succ, Z.pow_succ_r in Hv by lia.
     simpl le_encode. simpl le_decode.
-    rewrite IH.
-    + rewrite Z.add_comm, Z.mul_comm.
-      symmetry. apply Z.div_mod. lia.
-    + split.
+    assert (Hrange : 0 <= v / 256 < 256 ^ Z.of_nat n').
+    {
+      split.
       * apply Z.div_pos; lia.
-      * apply Z.div_lt_upper_bound; lia.
+      * apply Z.div_lt_upper_bound; [lia|lia].
+    }
+    specialize (IH (v / 256) Hrange).
+    rewrite IH.
+    assert (H256 : (256:Z) <> 0) by lia.
+    change
+      (v mod 256 + 256 * (v / 256) = v).
+    rewrite Z.add_comm.
+    exact (eq_sym (Z.div_mod v 256 H256)).
 Qed.
 
 (** Injectivity of le_encode over fixed width *)
@@ -187,13 +194,13 @@ Proof.
 Qed.
 
 (** u64 encoding — 8 bytes *)
-Definition encode_u64 (v : Z) : list Z := le_encode v 8.
-Definition encode_u32 (v : Z) : list Z := le_encode v 4.
+Definition encode_u64 (v : Z) : list Z := le_encode v 8%nat.
+Definition encode_u32 (v : Z) : list Z := le_encode v 4%nat.
 
-Lemma encode_u64_length : forall v, length (encode_u64 v) = 8.
+Lemma encode_u64_length : forall v, length (encode_u64 v) = 8%nat.
 Proof. intros. apply le_encode_length. Qed.
 
-Lemma encode_u32_length : forall v, length (encode_u32 v) = 4.
+Lemma encode_u32_length : forall v, length (encode_u32 v) = 4%nat.
 Proof. intros. apply le_encode_length. Qed.
 
 Lemma pow_256_8 : (256 : Z) ^ Z.of_nat 8 = 2^64.
@@ -206,16 +213,16 @@ Lemma encode_u64_injective :
     v1 = v2.
 Proof.
   intros v1 v2 H1 H2 Heq.
-  apply le_encode_injective with (n := 8); try assumption.
-  - rewrite pow_256_8. unfold is_u64 in H1. lia.
-  - rewrite pow_256_8. unfold is_u64 in H2. lia.
+  apply le_encode_injective with (n := 8%nat); try assumption.
+  - rewrite pow_256_8. unfold is_u64, U64_MAX in H1. lia.
+  - rewrite pow_256_8. unfold is_u64, U64_MAX in H2. lia.
 Qed.
 
 (** i64 encoding — shift to unsigned range then encode 8 bytes.
     We use v + 2^63 to map [-2^63, 2^63-1] → [0, 2^64-1]. *)
-Definition encode_i64 (v : Z) : list Z := le_encode (v + 2^63) 8.
+Definition encode_i64 (v : Z) : list Z := le_encode (v + 2^63) 8%nat.
 
-Lemma encode_i64_length : forall v, length (encode_i64 v) = 8.
+Lemma encode_i64_length : forall v, length (encode_i64 v) = 8%nat.
 Proof. intros. unfold encode_i64. apply le_encode_length. Qed.
 
 Lemma encode_i64_injective :
@@ -230,7 +237,7 @@ Proof.
       0 <= v + 2^63 < 256 ^ Z.of_nat 8).
   { intros v Hv. unfold is_i64, INT_MIN, INT_MAX in Hv.
     rewrite pow_256_8. lia. }
-  apply le_encode_injective with (n := 8) in Heq.
+  apply le_encode_injective with (n := 8%nat) in Heq.
   - lia.
   - apply Hshift; assumption.
   - apply Hshift; assumption.
@@ -240,7 +247,7 @@ Qed.
 Definition encode_bool (b : bool) : list Z :=
   [if b then 1 else 0].
 
-Lemma encode_bool_length : forall b, length (encode_bool b) = 1.
+Lemma encode_bool_length : forall b, length (encode_bool b) = 1%nat.
 Proof. destruct b; reflexivity. Qed.
 
 Lemma encode_bool_injective :
@@ -297,7 +304,7 @@ Record ValidatorRecord : Type := mkValidator {
     No semantic protocol invariants here — keeps TH-1 independent of
     protocol semantics that may evolve before genesis lock. *)
 Record ValidatorEncodable (vr : ValidatorRecord) : Prop := mkValidatorEncodable {
-  ve_id_len  : length (vr_id vr) = 48;
+  ve_id_len  : length (vr_id vr) = 48%nat;
   ve_score   : is_i64 (vr_score vr);
   ve_div     : is_i64 (vr_divergence vr);
   ve_conf    : is_i64 (vr_conflict vr);
@@ -325,7 +332,7 @@ Record ValidatorWF (vr : ValidatorRecord) : Prop := mkValidatorWF {
 }.
 
 (** Convenience projections from ValidatorWF *)
-Lemma vwf_id_len  vr : ValidatorWF vr -> length (vr_id vr) = 48.
+Lemma vwf_id_len  vr : ValidatorWF vr -> length (vr_id vr) = 48%nat.
 Proof. intros H. apply (ve_id_len _ (vwf_enc _ H)). Qed.
 Lemma vwf_score   vr : ValidatorWF vr -> is_i64 (vr_score vr).
 Proof. intros H. apply (ve_score _ (vwf_enc _ H)). Qed.
@@ -351,7 +358,7 @@ Definition encode_validator (vr : ValidatorRecord) : list Z :=
 
 Lemma encode_validator_length :
   forall vr, ValidatorWF vr ->
-    length (encode_validator vr) = 89.
+    length (encode_validator vr) = 89%nat.
 Proof.
   intros vr Hwf. unfold encode_validator.
   repeat rewrite app_length.
@@ -370,7 +377,7 @@ Proof.
   intros vr1 vr2 Hwf1 Hwf2 Heq.
   unfold encode_validator in Heq.
   (* Split off id field (48 bytes) *)
-  apply app_injective_fixed with (n := 48) in Heq
+  apply app_injective_fixed with (n := 48%nat) in Heq
     as [Hid Heq]
     by apply (vwf_id_len _ Hwf1)
     by apply (vwf_id_len _ Hwf2).
@@ -475,15 +482,15 @@ Definition encode_state (s : ProtocolState) : list Z :=
 
 Record StateWF (s : ProtocolState) : Prop := mkStateWF {
   swf_epoch    : is_u64 (ps_epoch s);
-  swf_sr_len   : length (ps_state_root s) = 32;
-  swf_lr_len   : length (ps_ledger_root s) = 32;
-  swf_es_len   : length (ps_entropy_seed s) = 32;
+  swf_sr_len   : length (ps_state_root s) = 32%nat;
+  swf_lr_len   : length (ps_ledger_root s) = 32%nat;
+  swf_es_len   : length (ps_entropy_seed s) = 32%nat;
   (** N_max = 1024 < 2^32 = U32_MAX+1, so validator count fits in u32.
       Stated as is_u32 directly so TH-1 proof does not rely on implicit
       arithmetic about N_max. See N_max_lt_U32_MAX for the audit lemma. *)
   swf_n_bound  : is_u32 (Z.of_nat (length (ps_validators s)));
   swf_val_wf   : forall vr, In vr (ps_validators s) -> ValidatorWF vr;
-  swf_lw_len   : length (ps_lyapunov_window s) = 3;
+  swf_lw_len   : length (ps_lyapunov_window s) = 3%nat;
   (** W = 3 is a one-shot genesis constant. encode_window_injective is
       intentionally hardcoded for length=3 and must not be generalized. *)
   swf_lw_wf    : forall w, In w (ps_lyapunov_window s) -> is_i64 w;
@@ -491,9 +498,9 @@ Record StateWF (s : ProtocolState) : Prop := mkStateWF {
 
 (** Window encoding auxiliary lemmas *)
 Lemma encode_window_length_3 :
-  forall ws, length ws = 3 ->
+  forall ws, length ws = 3%nat ->
     (forall w, In w ws -> is_i64 w) ->
-    length (encode_window ws) = 24.
+    length (encode_window ws) = 24%nat.
 Proof.
   intros ws Hlen Hwf.
   destruct ws as [| w1 [| w2 [| w3 [|]]]]; simpl in *; try lia.
@@ -502,7 +509,7 @@ Qed.
 
 Lemma encode_window_injective :
   forall ws1 ws2,
-    length ws1 = 3 -> length ws2 = 3 ->
+    length ws1 = 3%nat -> length ws2 = 3%nat ->
     (** W = 3 is hardcoded intentionally. W is a one-shot genesis constant
         (evaluation_window in GENESIS_CONSTANTS.toml). Generalizing to
         arbitrary n would imply W is configurable, which it is not.
