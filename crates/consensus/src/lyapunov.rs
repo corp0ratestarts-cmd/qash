@@ -2,7 +2,10 @@
 
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
 
-pub const WINDOW_SIZE: usize = 3;
+/// Protocol-facing window size (u32). Used in wire encoding.
+pub const WINDOW_SIZE_WIRE: u32 = 3;
+/// Array-sizing alias (usize required by Rust array syntax; not stored in state).
+pub const WINDOW_SIZE: usize = WINDOW_SIZE_WIRE as usize;
 
 pub const WEIGHT_D: FixedPoint = FixedPoint::from_raw(400_000);
 pub const WEIGHT_C: FixedPoint = FixedPoint::from_raw(350_000);
@@ -85,13 +88,12 @@ impl ConvergenceWindow {
         min
     }
 
-    #[cfg(test)]
     pub fn raw_parts(&self) -> (u8, &[FixedPoint; WINDOW_SIZE]) {
         (self.filled, &self.values)
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LyapunovEval {
     /// V_convergence = Σ(α·D + β·C). Used for δ_window check.
     pub v_convergence: FixedPoint,

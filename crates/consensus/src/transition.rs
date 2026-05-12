@@ -5,7 +5,10 @@ use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
 use crate::hash::{h_domain, DomainTag};
 use crate::lyapunov::{self, ConvergenceWindow, LyapunovEval, ValidatorMetrics, LyapunovError};
 
-pub const MAX_VALIDATORS: usize = 1024;
+/// Protocol-facing limit (u32 per Domain A rules). Used in wire validation.
+pub const MAX_VALIDATORS_WIRE: u32 = 1024;
+/// Array-sizing alias (usize is required by Rust array syntax; not stored in state).
+pub const MAX_VALIDATORS: usize = MAX_VALIDATORS_WIRE as usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -67,6 +70,7 @@ impl From<LyapunovError> for TransitionHalt {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct TransitionResult {
     pub state_root: [u8; 32],
     pub lyapunov: LyapunovEval,
@@ -129,7 +133,7 @@ fn run_pipeline(state: &mut EpochState, input: &EpochInput) -> Result<Transition
 }
 
 fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), TransitionHalt> {
-    if state.validator_count as usize > MAX_VALIDATORS {
+    if state.validator_count > MAX_VALIDATORS_WIRE {
         return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
     }
     if input.update_count != state.validator_count {

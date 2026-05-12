@@ -8,7 +8,10 @@ use qash_consensus::transition::{
 use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
 use qash_consensus::fixed_point::FixedPoint;
 
-const EXPECTED_PARAMS_HASH_V0: [u8; 32] = [0u8; 32]; // fill after first reference run
+const EXPECTED_PARAMS_HASH_V0: [u8; 32] = [
+    56, 29, 201, 142, 216, 6, 210, 169, 115, 237, 60, 131, 127, 134, 88, 115,
+    154, 7, 20, 52, 92, 236, 129, 14, 173, 186, 52, 21, 59, 190, 112, 2,
+];
 
 fn genesis_state() -> EpochState {
     EpochState {
@@ -110,7 +113,8 @@ fn golden_halt_reason_preserved() {
 
     // Fill window
     for _ in 0..WINDOW_SIZE {
-        let r = advance_epoch(&mut state, &idle_input(state.validator_count));
+        let n = state.validator_count;
+        let r = advance_epoch(&mut state, &idle_input(n));
         assert!(r.is_ok());
     }
 
@@ -127,7 +131,8 @@ fn golden_halt_reason_preserved() {
     // Subsequent calls return SAME reason and do not mutate.
     let fp = state_fingerprint(&state);
     for _ in 0..10 {
-        let r = advance_epoch(&mut state, &idle_input(state.validator_count));
+        let n = state.validator_count;
+        let r = advance_epoch(&mut state, &idle_input(n));
         assert_eq!(r, Err(HaltReason::LyapunovViolation));
         assert_eq!(state_fingerprint(&state), fp);
     }
@@ -139,7 +144,8 @@ fn window_check_precedes_push() {
 
     // Fill window with idle epochs (V_convergence=0)
     for _ in 0..WINDOW_SIZE {
-        let r = advance_epoch(&mut state, &idle_input(state.validator_count));
+        let n = state.validator_count;
+        let r = advance_epoch(&mut state, &idle_input(n));
         assert!(r.is_ok());
     }
     assert!(state.convergence_window.is_full());

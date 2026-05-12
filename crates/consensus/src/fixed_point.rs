@@ -116,16 +116,15 @@ mod tests {
 
     #[test]
     fn floor_div_examples() {
-        assert_eq!(floor_div_i128(7, 2).unwrap(), 3);
-        assert_eq!(floor_div_i128(-7, 2).unwrap(), -4);
-        assert_eq!(floor_div_i128(7, -2).unwrap(), -4);
-        assert_eq!(floor_div_i128(-7, -2).unwrap(), 3);
+        assert_eq!(floor_div_i128(7, 2), Ok(3));
+        assert_eq!(floor_div_i128(-7, 2), Ok(-4));
+        assert_eq!(floor_div_i128(7, -2), Ok(-4));
+        assert_eq!(floor_div_i128(-7, -2), Ok(3));
     }
 
     #[test]
     fn mul_rescales() {
         let half = FixedPoint::from_raw(500_000);
-        let quarter = half.checked_mul(half).unwrap();
-        assert_eq!(quarter.raw(), 250_000);
+        assert_eq!(half.checked_mul(half).map(|x| x.raw()), Ok(250_000));
     }
 }
