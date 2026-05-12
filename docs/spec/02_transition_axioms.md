@@ -270,16 +270,27 @@ excursion of the convergence potential. Epoch advancement is preserved.
 where `ε_τ` is a **transition-class-specific perturbation budget** satisfying:
 
 ```
-ε_τ ∈ [0, ε/2]   where ε = epsilon_threshold = 20_000
+ε_τ ∈ [0, ε_honest / 2]   where ε_honest = 2_000  (proof target)
 
 and for any epoch I_t = {τ₁, ..., τₘ}:
-  Σᵢ ε_τᵢ ≤ ε
+  Σᵢ ε_τᵢ ≤ ε_honest
 ```
 
-The epoch-level budget constraint ensures that even if every transaction in
-an epoch contributes its maximum perturbation, the total remains within the
-stability threshold `ε`. This prevents budget exhaustion from transaction
-accumulation.
+Two distinct thresholds (defined in `01_consensus.md §5`):
+
+| Constant | Value | Role |
+|----------|-------|------|
+| `ε_honest` | 2_000 | Proof target. Per-epoch budget cap for §A8 Form B. TX-k budgets must sum to ≤ ε_honest. |
+| `ε_halt`   | 20_000 | Halt trigger. δ_window > ε_halt triggers absorbing halt. |
+| ratio      | 10×   | Safety margin: ten epochs of full-budget perturbation before halt. |
+
+The epoch-level budget constraint (`Σᵢ ε_τᵢ ≤ ε_honest`) ensures that even if
+every transaction in an epoch contributes its maximum perturbation, the total
+stays within the proof target ε_honest. The 10× margin to ε_halt absorbs
+unforeseen drift, accumulated round-off, or proof-discovered slack.
+
+This prevents budget exhaustion from transaction accumulation and keeps the
+halt trigger structurally unreachable in honest operation.
 
 ### Form C — Φ_safety-only effect (special case)
 
@@ -310,19 +321,24 @@ state and prove its §A8 form explicitly as a named lemma in
 
 ### Connection to TH-3
 
-TH-3 (`δ_window(T(S_t, I_t)) ≤ 0`) will eventually be proved by
-composing the §A8 obligations of all admitted transaction types:
+TH-3 (`δ_window(T(S_t, I_t)) ≤ ε_honest`) is proved by composing the §A8
+obligations of all admitted transaction types in `I_t`:
 
 ```
 TH-3 proof structure:
-  ∀ τᵢ ∈ I_t: δ_window(τᵢ(S)) ≤ δ_window(S) + ε_τᵢ    (by §A8 of each τᵢ)
-  Σ ε_τᵢ ≤ ε                                              (epoch budget)
-  ∴ δ_window(ApplyAll(S_t, I_t)) ≤ δ_window(S_t) + ε     (composition)
-  ≤ ε_threshold                                            (stability criterion)
+  ∀ τᵢ ∈ I_t: δ_window(τᵢ(S)) ≤ δ_window(S) + ε_τᵢ        (by §A8 of each τᵢ)
+  Σ ε_τᵢ ≤ ε_honest                                       (epoch budget, §A8)
+  ∴ δ_window(ApplyAll(S_t, I_t)) ≤ δ_window(S_t) + ε_honest   (composition)
+  ≤ ε_honest                                              (TH-3 target)
+  < ε_halt                                                (10× margin; halt unreachable)
 ```
 
-This structure means TH-3 is provable if and only if every transaction class
-satisfies §A8. The axiom is the proof strategy.
+TH-3 is provable if and only if every admitted transaction class satisfies
+§A8. The axiom is the proof strategy. The 10× margin between ε_honest and
+ε_halt ensures that even adversarial-but-admissible behavior cannot trigger
+absorbing halt within a single epoch — halt requires accumulation across
+multiple epochs, which slash accounting (Φ_safety) attributes to specific
+validators.
 
 ---
 
