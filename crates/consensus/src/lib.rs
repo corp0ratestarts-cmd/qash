@@ -1,15 +1,18 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
-use blake3::Hasher;
+#[cfg(test)]
+extern crate std;
 
-/// Deterministic, no-alloc consensus hash function used by the core.
-pub fn consensus_hash(input: &[u8]) -> [u8; 32] {
-    let mut hasher = Hasher::new();
-    hasher.update(input);
-    let out = hasher.finalize();
-    let bytes = out.as_bytes();
-    let mut res = [0u8; 32];
-    res.copy_from_slice(&bytes[..32]);
-    res
-}
+pub mod hash;
+pub mod fixed_point;
+pub mod encoding;
+pub mod lyapunov;
+pub mod transition;
+pub mod params;
+
+// Re-exports (ergonomic public API)
+pub use fixed_point::FixedPoint;
+pub use hash::{h_domain, sha3_256, DomainTag};
+pub use lyapunov::{ValidatorMetrics, LyapunovEval};
+pub use transition::{EpochState, EpochInput, ValidatorUpdate, HaltReason, advance_epoch, MAX_VALIDATORS};
