@@ -9,5 +9,8 @@ crate-type = ["rlib"]
 [dependencies]
 sha3 = { version = "0.10.8", default-features = false }
 
+[dev-dependencies]
+sha3 = { version = "0.10.8", default-features = false }
+
 [features]
 default = []

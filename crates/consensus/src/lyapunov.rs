@@ -88,6 +88,8 @@ impl ConvergenceWindow {
         min
     }
 
+    /// Access raw window internals. Used by golden replay tests.
+    /// Not part of the consensus transition API.
     pub fn raw_parts(&self) -> (u8, &[FixedPoint; WINDOW_SIZE]) {
         (self.filled, &self.values)
     }

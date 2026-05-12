@@ -1,6 +1,9 @@
 fn main() {
-    // Hosted binary entrypoint: uses the consensus core (no_std crate) via path dependency
-    let data = b"genesis";
-    let hash = qash_consensus::consensus_hash(data);
-    println!("qash consensus hash: {:02x?}", hash);
+    let params_hash = qash_consensus::params::consensus_params_hash();
+    print!("QASH consensus params hash: ");
+    for b in &params_hash {
+        print!("{:02x}", b);
+    }
+    println!();
+    println!("encoding version: {}", qash_consensus::encoding::ENCODING_VERSION);
 }
