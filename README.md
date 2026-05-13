@@ -76,16 +76,19 @@ for all admissible inputs. This equivalence is a future formal proof target.
 
 | ID | Name | Class | Status |
 |----|------|-------|--------|
-| TH-1 | Encoding injectivity | Formal theorem | ✅ CLOSED |
-| TH-2 | Encoding totality | Formal theorem | ✅ CLOSED |
-| TH-3 | Convergence decrease δ_window ≤ 0 | Formal theorem | 🔲 PLACEHOLDER |
-| TH-4 | Φ_safety monotonicity | Formal theorem | ✅ CLOSED |
-| TH-5 | Φ_safety boundedness | Formal theorem | ✅ CLOSED |
-| TH-6 | Halt correctness | Formal theorem | ✅ CLOSED |
-| TH-7 | Replay invariance RT-1 | Verification claim | 🟡 PARTIAL |
-| TH-8 | Succession soundness | Formal theorem | 🟡 PARTIAL (TH-1 closed, composition pending) |
+| TH-1 | Encoding injectivity | Formal theorem | ❌ WIP (not compiling) |
+| TH-2 | Encoding totality | Formal theorem | ❌ WIP (blocked on TH-1 framework) |
+| TH-3 | Convergence decrease δ_window ≤ 0 | Formal theorem | 🔲 NOT STARTED |
+| TH-4 | Φ_safety monotonicity | Formal theorem | ❌ WIP (not compiling) |
+| TH-5 | Φ_safety boundedness | Formal theorem | ❌ WIP (not compiling) |
+| TH-6 | Halt correctness | Formal theorem | ❌ WIP (not compiling) |
+| TH-7 | Replay invariance RT-1 | Verification claim | 🟡 CI-VERIFIED (not formally proved) |
+| TH-8 | Succession soundness | Formal theorem | ❌ WIP (depends on TH-1) |
 
-Genesis lock requires TH-1, TH-2 closed (done) and TH-7 full test vector suite.
+Canonical theorem/proof status source: `proofs/STATUS.md`.
+
+Genesis lock requires TH-1, TH-2, TH-4, TH-5, TH-6, and TH-8 discharged with `coqc`
+and no `Admitted`, plus TH-7 full test vector suite.
 
 ---
 

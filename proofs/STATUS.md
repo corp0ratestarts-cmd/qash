@@ -1,5 +1,7 @@
 # Proof Status
 
+`proofs/STATUS.md` is the canonical source of theorem/proof status for this repository.
+
 The Coq files in `_wip/` are design sketches, not verified proofs.
 They were drafted to capture proof obligations and theorem structure
 but have not been mechanically verified by `coqc`.
@@ -30,3 +32,12 @@ direct Coq experience, ideally interactively with `coqide` or `Proof General`.
 These proofs must be discharged (no `Admitted`, compiles with `coqc`)
 before `GENESIS_CONSTANTS.toml` is locked. Until then, theorems are
 specification-level claims, not formal guarantees.
+
+## Proof done gate (required for status = CLOSED)
+
+A theorem may be marked CLOSED only when all conditions are met:
+
+1. The theorem statement and supporting lemmas compile via `coqc`.
+2. The theorem's proof tree has no `Admitted`/`Axiom` placeholders in its dependency chain.
+3. CI runs `coqc` for the touched proof targets and passes on the pinned toolchain.
+4. Any status table outside this file is updated in the same PR.
