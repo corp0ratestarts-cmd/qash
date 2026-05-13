@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "status": "code-derived scaffold pending ADR-003 full state encoding",
+  "description": "Golden-vector manifest for fixed-point, leaf-index, and noop epoch replay. The vector runner computes current executable outputs; cross-ISA CI compares those outputs byte-for-byte.",
+  "vectors": [
+    {
+      "name": "fixed_point_0_4_times_0_35",
+      "pdf_section": "§2.4",
+      "inputs": {
+        "left_raw": 400000,
+        "right_raw": 350000
+      },
+      "expected_raw": 140000
+    },
+    {
+      "name": "leaf_index_validator_1_epoch_2_seed_ab",
+      "pdf_section": "§3.2",
+      "inputs": {
+        "validator_id": 1,
+        "epoch": 2,
+        "epoch_seed_hex": "abababababababababababababababababababababababababababababababab"
+      },
+      "expected_leaf_index_hex": "01000000000000000200000000000000abababababababababababababababababababababababababababababababab"
+    },
+    {
+      "name": "genesis_noop_epochs",
+      "pdf_section": "§4.2",
+      "status": "expected roots are intentionally produced by qash-vector-runner until ADR-003 defines full state encoding",
+      "epochs": [
+        {
+          "epoch": 1,
+          "inputs": [],
+          "expected_state_root_hex": "7612c333f02983af0049da0e1adef54d5e2e5b06dafe0c6110d5879fb6b42fed",
+          "expected_lyapunov_raw": 0,
+          "expected_phi_safety_raw": 0,
+          "expected_halted": false
+        },
+        {
+          "epoch": 2,
+          "inputs": [],
+          "expected_state_root_hex": "c16db0946e472a667eb1096e2c9b6354711cb6babdd826f7ed15bf80526bb663",
+          "expected_lyapunov_raw": 0,
+          "expected_phi_safety_raw": 0,
+          "expected_halted": false
+        }
+      ]
+    }
+  ]
+}

@@ -3,26 +3,35 @@ on:
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'crates/consensus/**'
+      - 'tests/vector-runner/**'
+      - 'tests/vectors/**'
+      - 'scripts/verify_cross_isa_identity.sh'
+      - '.github/workflows/platform-determinism.yml'
+
 jobs:
   verify:
-    strategy:
-      matrix:
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, riscv64gc-unknown-linux-gnu]
     runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      SOURCE_DATE_EPOCH: 0
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust with Target
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust from rust-toolchain.toml
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
-          targets: ${{ matrix.target }}
-      - name: Build
-        run: cargo build --target ${{ matrix.target }} --release
-      - name: Verify Hash
+          targets: |
+            x86_64-unknown-linux-gnu
+            aarch64-unknown-linux-gnu
+            riscv64gc-unknown-linux-gnu
+      - name: Install cross runners and linkers
         run: |
-          if command -v openssl >/dev/null 2>&1; then
-            openssl dgst -sha3-256 target/${{ matrix.target }}/release/qash
-          else
-            echo "openssl not available; install in runner"
-            exit 1
-          fi
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            gcc-riscv64-linux-gnu \
+            qemu-user
+      - name: Verify cross-ISA vector identity
+        run: scripts/verify_cross_isa_identity.sh

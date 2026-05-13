@@ -1,19 +1,56 @@
 name: QASH CI
 on: [push, pull_request]
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      SOURCE_DATE_EPOCH: 0
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+      - name: Setup Rust from rust-toolchain.toml
+        uses: dtolnay/rust-toolchain@master
       - name: Build
-        run: cargo build --no-default-features
+        run: cargo build --workspace --no-default-features --locked
       - name: Test
-        run: cargo test --no-default-features
+        run: cargo test --workspace --no-default-features --locked
+      - name: Vector runner smoke test
+        run: cargo run -p qash-vector-runner --locked -- --vectors tests/vectors/vectors.v1.json --out out.native.json
       - name: Clippy (consensus)
-        run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D warnings
+        run: cargo clippy -p qash-consensus --locked -- -D clippy::unwrap_used -D clippy::expect_used -D warnings
       - name: Clippy (workspace)
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --locked -- -D warnings
+
+  proofs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Coq 8.16.0
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y opam
+          opam init --bare --no-setup --disable-sandboxing
+          opam switch create qash ocaml-base-compiler.4.14.0
+          eval "$(opam env --switch=qash)"
+          opam install -y coq.8.16.0
+          echo "$(opam var --switch=qash bin)" >> "$GITHUB_PATH"
+      - name: Coq proofs
+        run: |
+          cd proofs
+          make clean
+          make all
+
+  tla-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apalache smoke check
+        run: |
+          test -f tla/QASHConsensus.tla
+          test -f tla/QASHConsensus.cfg
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            ghcr.io/apalache-mc/apalache:v0.57.0 \
+            apalache-mc check --length=10 --config=tla/QASHConsensus.cfg tla/QASHConsensus.tla

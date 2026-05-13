@@ -11,6 +11,7 @@
 
 Require Import Coq.Lists.List.
 Require Import Coq.Arith.Arith.
+Require Import Coq.ZArith.ZArith.
 Require Import Coq.micromega.Lia.
 Import ListNotations.
 
@@ -125,5 +126,3 @@ Lemma app_total_length :
     (forall x, length (f x) = k) ->
     length (flat_map f xs) = length xs * k.
 Proof. exact flat_map_fixed_length_Z. Qed.
-
-End. (* list_inj *)

@@ -4,17 +4,21 @@ The Coq files in `_wip/` are design sketches, not verified proofs.
 They were drafted to capture proof obligations and theorem structure
 but have not been mechanically verified by `coqc`.
 
+`proofs/Makefile` and `proofs/_CoqProject` now define the checked proof set for
+CI. A theorem is not closed until that CI job compiles it and the proof contains
+no `Admitted.` marker.
+
 ## Theorem Status
 
 | ID | Name | Class | Compiles | Notes |
 |----|------|-------|----------|-------|
 | TH-1 | Encoding injectivity | FORMAL | ❌ | Sketch in `_wip/encode_injectivity.v.draft` |
 | TH-2 | Encoding totality | FORMAL | ❌ | Trivial; will compile once TH-1 framework is fixed |
-| TH-3 | Convergence decrease | FORMAL | — | Not started |
+| TH-3 | Convergence decrease | FORMAL | ⚠️ CI pending | `contractivity/lyapunov_stability.v`; depends on ERR-001 two-function partition |
 | TH-4 | Φ_safety monotonicity | FORMAL | ❌ | Sketch in `_wip/absorbing_halt.v.draft` |
 | TH-5 | Φ_safety boundedness | FORMAL | ❌ | Sketch in `_wip/absorbing_halt.v.draft` |
 | TH-6 | Halt correctness | FORMAL | ❌ | Sketch in `_wip/absorbing_halt.v.draft` |
-| TH-7 | Replay invariance | VERIFIED | — | CI-tested, not formally proved |
+| TH-7 | Replay invariance | VERIFIED | ⚠️ Partial | Vector runner scaffold exists; full cross-ISA QEMU CI pending |
 | TH-8 | Succession soundness | FORMAL | ❌ | Depends on TH-1 |
 
 ## Why files were moved to _wip/

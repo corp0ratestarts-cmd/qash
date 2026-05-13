@@ -1,9 +1,16 @@
 # QASH Transaction Semantics
 ## `docs/spec/03_transactions.md` — Protocol Version 1.0
 
-> **Status:** Canonical transaction law. All state mutation reachable from
-> `T(S_t, I_t)` is constrained by this document.
-> Modifying this document requires a new genesis. No exceptions.
+> **Authority notice:** The QASH v1.0 PDF in `spec/pdf/QASH_Spec_v1.0.pdf`
+> is the normative source of truth once checked in. This file is a pre-existing
+> engineering specification and must be treated as derived/non-normative unless
+> a traceability row, erratum, or ADR explicitly elevates a requirement.
+> See `docs/traceability.md`.
+
+
+> **Status:** Derived engineering specification. It is constrained by the
+> normative PDF, accepted errata, and accepted ADRs.
+> Transaction rules become genesis-binding only after traceability review.
 
 ---
 

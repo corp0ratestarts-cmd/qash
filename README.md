@@ -37,7 +37,11 @@ QASH **is**:
 ## Repository Structure
 
 ```
-docs/spec/          ← Protocol law (normative)
+spec/pdf/           ← Normative PDF source of truth (v1.0, checked in before genesis lock)
+docs/traceability.md ← PDF requirement → code → test → proof contract
+docs/errata/         ← Normative corrections/clarifications to the PDF
+docs/adr/            ← Engineering decisions and PDF-silent gap definitions
+docs/spec/           ← Pre-existing derived engineering specs pending mirror migration
   00_execution_model.md   Deterministic execution substrate
   01_consensus.md         State space, encoding, transition function, stability
 
@@ -61,7 +65,10 @@ GENESIS_CONSTANTS.toml   Immutable genesis parameters (not yet locked)
 The relationship between layers:
 
 ```
-docs/spec/    = normative semantic law        (what the protocol IS)
+spec/pdf/     = normative source of truth      (what the protocol INTENDS)
+docs/traceability.md = audit contract          (what is mapped to code/tests/proofs)
+docs/errata/  = explicit PDF corrections       (what changes/clarifies the PDF)
+docs/adr/     = engineering decisions          (how PDF gaps are filled)
 proofs/       = formal guarantees             (what is PROVED about it)
 model/        = canonical executable model    (what it COMPUTES, extracted from proofs)
 crates/       = optimized implementation      (what is DEPLOYED)
@@ -70,22 +77,29 @@ crates/       = optimized implementation      (what is DEPLOYED)
 The runtime (`crates/`) must be observationally equivalent to the model
 for all admissible inputs. This equivalence is a future formal proof target.
 
+The prior `docs/spec/` documents remain useful engineering specs, but the
+repository now resolves authority through the PDF-first governance model in
+`docs/traceability.md`: PDF quote → erratum/ADR if needed → code → test/vector
+→ proof.
+
 ---
 
 ## Theorem Status
 
 | ID | Name | Class | Status |
 |----|------|-------|--------|
-| TH-1 | Encoding injectivity | Formal theorem | ✅ CLOSED |
-| TH-2 | Encoding totality | Formal theorem | ✅ CLOSED |
-| TH-3 | Convergence decrease δ_window ≤ 0 | Formal theorem | 🔲 PLACEHOLDER |
-| TH-4 | Φ_safety monotonicity | Formal theorem | ✅ CLOSED |
-| TH-5 | Φ_safety boundedness | Formal theorem | ✅ CLOSED |
-| TH-6 | Halt correctness | Formal theorem | ✅ CLOSED |
+| TH-1 | Encoding injectivity | Formal theorem | ⚠️ CLAIMED / CI-PENDING |
+| TH-2 | Encoding totality | Formal theorem | ⚠️ CLAIMED / CI-PENDING |
+| TH-3 | Convergence decrease δ_window ≤ 0 | Formal theorem | ⚠️ PARTIAL / ERR-001 dependent |
+| TH-4 | Φ_safety monotonicity | Formal theorem | ⚠️ CLAIMED / CI-PENDING |
+| TH-5 | Φ_safety boundedness | Formal theorem | ⚠️ CLAIMED / CI-PENDING |
+| TH-6 | Halt correctness | Formal theorem | ⚠️ CLAIMED / CI-PENDING |
 | TH-7 | Replay invariance RT-1 | Verification claim | 🟡 PARTIAL |
-| TH-8 | Succession soundness | Formal theorem | 🟡 PARTIAL (TH-1 closed, composition pending) |
+| TH-8 | Succession soundness | Formal theorem | 🟡 PARTIAL / CI-PENDING |
 
-Genesis lock requires TH-1, TH-2 closed (done) and TH-7 full test vector suite.
+Genesis lock requires proof artifacts to compile in CI without `Admitted` and
+requires TH-7 to pass the full cross-ISA golden-vector suite. No theorem is
+considered closed solely because a draft file exists.
 
 ---
 
