@@ -1,6 +1,9 @@
 COQC ?= coqc
 COQDEP ?= coqdep
-VFILES := concat_injective.v lyapunov_decrease.v
+VFILES := concat_injective.v lyapunov_decrease.v \
+          cascade/cascade_health_bounded.v \
+          cascade/cascade_collision_resistance.v \
+          cascade/cascade_determinism.v
 VOFILES := $(VFILES:.v=.vo)
 
 all: .depend $(VOFILES)

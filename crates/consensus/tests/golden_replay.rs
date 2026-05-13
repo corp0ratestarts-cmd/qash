@@ -8,9 +8,10 @@ use qash_consensus::transition::{
 use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
 use qash_consensus::fixed_point::FixedPoint;
 
+// v1.1 params hash: weights D=350k, C=300k, S=200k, CH=150k (Appendix J.2 target)
 const EXPECTED_PARAMS_HASH_V0: [u8; 32] = [
-    56, 29, 201, 142, 216, 6, 210, 169, 115, 237, 60, 131, 127, 134, 88, 115,
-    154, 7, 20, 52, 92, 236, 129, 14, 173, 186, 52, 21, 59, 190, 112, 2,
+    87, 76, 78, 78, 126, 0, 230, 138, 161, 118, 237, 8, 130, 5, 227, 203,
+    195, 89, 104, 7, 198, 105, 110, 124, 93, 37, 147, 98, 168, 246, 150, 113,
 ];
 
 fn genesis_state() -> EpochState {

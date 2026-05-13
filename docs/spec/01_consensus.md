@@ -1,5 +1,5 @@
 # QASH Consensus Specification
-## `docs/spec/01_consensus.md` — Protocol Version 1.0
+## `docs/spec/01_consensus.md` — Protocol Version 1.1
 
 > **Status:** Canonical root specification. All implementation is constrained by this document.
 > Modifying this document requires a new genesis. No exceptions.
@@ -14,8 +14,9 @@
 | `S_t[k]` | Component `k` of state at epoch `t` |
 | `T(S_t, I_t)` | State transition function |
 | `I_t` | Canonical input set at epoch `t` |
-| `V_convergence(S_t)` | Operational Lyapunov candidate — dynamic terms only |
+| `V_convergence(S_t)` | Operational Lyapunov candidate — dynamic terms only (D, C, CH) |
 | `Φ_safety(S_t)` | Monotone safety accumulator — slash evidence only |
+| `CH_t` | Cascade health factor: cascade verification pass rate, epoch-relative |
 | `δ_window` | Rolling-window excursion: `V_convergence(S_t) − min(lyapunov_window)`. Not a temporal derivative — measures deviation from the rolling minimum, not V_{t+1} − V_t |
 | `ε` | Convergence tolerance (`epsilon_threshold` in genesis) |
 | `Φ_max` | Derived safety bound: `N_max × γ × INT_MAX` |
@@ -395,15 +396,17 @@ non-decreasing term inside a convergence function invalidates all convergence pr
 It contains only terms that can both increase and decrease, enabling convergence analysis.
 
 ```
-V_convergence(S_t) = Σ_i [ α · D_i,t  +  β · C_i,t ]
+V_convergence(S_t) = Σ_i [ α · D_i,t  +  β · C_i,t ]  +  χ · CH_t
 ```
 
-where the sum is over all active validators.
+where the first sum is over all active validators and `CH_t` is the epoch-level
+cascade health factor (see §4c).
 
 | Symbol | Genesis constant | Value | Semantic meaning |
 |--------|-----------------|-------|-----------------|
-| `α` | `weight_divergence_D` | `400_000` | Weight on per-validator state divergence |
-| `β` | `weight_conflict_C` | `350_000` | Weight on per-validator conflict density |
+| `α` | `weight_divergence_D` | `350_000` | Weight on per-validator state divergence |
+| `β` | `weight_conflict_C` | `300_000` | Weight on per-validator conflict density |
+| `χ` | `weight_cascade_health_CH` | `150_000` | Weight on cascade verification health |
 
 **Component definitions:**
 
@@ -451,11 +454,39 @@ V_convergence(S_t):
                 + (β as i128) × (C_i,t as i128)
     if term > i128::MAX − acc: trigger absorbing_halt()
     acc ← acc + term
+  ch_term: i128 ← (χ as i128) × (CH_t as i128)
+  if ch_term > i128::MAX − acc: trigger absorbing_halt()
+  acc ← acc + ch_term
   return floor_div(acc, p as i128)   // floor_div defined in 00_execution_model.md §E1
 ```
 
-`V_convergence(S_t) ∈ [0, N_max × (α + β) × p / p]` = `[0, N_max × (α + β)]`
+`V_convergence(S_t) ∈ [0, N_max × (α + β) × p / p + χ]`
+= `[0, N_max × (α + β) + χ]`
 for all admissible states. This bound is structurally enforced by type widths.
+
+---
+
+### §4c — Cascade Health Factor `CH_t`
+
+> **Scope:** Epoch-level cascade verification health. Input to `V_convergence`.
+> **Domain:** Domain A. `CH_t` is derived solely from cascade proof results admitted
+> into the current epoch input set `I_t` — no wall-clock or entropy ingress.
+
+`CH_t` is a normalized measure of cascade verification failures in the current epoch.
+It is bounded in `[0, p]` and increases when cascade proofs fail verification.
+
+```
+cascade_fail_count_t  ← count of cascade proof rejections in I_t
+CH_t = cascade_fail_count_t × p / max_queries_per_epoch
+CH_t ∈ [0, p]
+```
+
+`CH_t = 0` when all cascade proofs in the epoch verify correctly.
+`CH_t = p` when every admitted input carries a failed cascade proof.
+
+The cascade proof is the sparse-Merkle inclusion proof over the L7 output of
+`H_cascade` as defined in `00_execution_model.md §E4`. Proof format is specified
+in `docs/spec/07_hash_cascade.md`.
 
 ---
 
@@ -475,7 +506,7 @@ upper bound that, when crossed, makes continuation inadmissible.
 
 | Symbol | Genesis constant | Value | Semantic meaning |
 |--------|-----------------|-------|-----------------|
-| `γ` | `weight_slash_Sigma` | `250_000` | Weight on per-validator slash accumulation |
+| `γ` | `weight_slash_Sigma` | `200_000` | Weight on per-validator slash accumulation |
 
 `Σ_i,t` — **Slash accumulator**: monotone non-decreasing running sum of slash events
 for validator `i`. Never decreases. Saturates at `INT_MAX`.
@@ -499,8 +530,8 @@ absorbing halt before the cap logic is reached.
 
 ```
 Φ_max    := N_max × γ × INT_MAX
-           = 1024 × 250_000 × (2^63 − 1)
-           ≈ 2.36 × 10^21
+           = 1024 × 200_000 × (2^63 − 1)
+           ≈ 1.89 × 10^21
 
 Φ_max_safe := Φ_max / 2       (halt triggers before representational exhaustion)
 ```
@@ -594,7 +625,7 @@ CONDITION 2 PASS  iff  Φ_safety(S_t) < Φ_max_safe
 CONDITION 2 FAIL  iff  Φ_safety(S_t) ≥ Φ_max_safe  → absorbing halt
 ```
 
-where `Φ_max_safe = Φ_max / 2 = N_max × γ × (2^63 − 1) / 2`.
+where `Φ_max_safe = Φ_max / 2 = 1024 × 200_000 × (2^63 − 1) / 2`.
 
 This condition triggers before representational exhaustion by construction.
 Overflow is unreachable as a protocol invariant, not merely by runtime check.
@@ -793,23 +824,48 @@ TH-8  Succession soundness (RT-2)
       Class: FORMAL THEOREM
       Proof file: proofs/safety/absorbing_halt.v
       Status: PLACEHOLDER
+
+TH-9  Cascade health boundedness
+      ∀ admissible S_t: CH_t ∈ [0, p]
+      χ · CH_t ∈ [0, χ · p] ⊂ [0, i128::MAX]  (no overflow)
+      Depends on: AX-1, AX-2, §4c definition
+      Class: FORMAL THEOREM
+      Proof file: proofs/cascade/cascade_health_bounded.v
+      Status: PLACEHOLDER
+
+TH-10 Cascade survival
+      If H_cascade(x) = H_cascade(y) then x = y
+      (collision resistance of the 7-layer astronomical cascade)
+      Depends on: AX-3 (extended to all five L1 primitives), AX-2
+      Class: FORMAL THEOREM (conditioned on extended AX-3 for all primitives)
+      Proof file: proofs/cascade/cascade_collision_resistance.v
+      Status: PLACEHOLDER
+
+TH-11 Cascade determinism
+      ∀ ISA ∈ Tier A: H_cascade_ISA(input) = H_cascade_ref(input)
+      Depends on: TH-7 (replay invariance), AX-1, AX-2
+      Class: VERIFICATION CLAIM
+      Verification: cross-ISA test vectors including cascade output
+      Status: PLACEHOLDER
 ```
 
 ### Dependency graph (ASCII)
 
 ```
-AX-1 ──┬──────────────────────────────────────┐
-        │                                      │
-AX-2 ──┼──────────────────────┐               │
-        │                      │               │
-        ▼                      ▼               ▼
-      TH-1 ──► TH-2      TH-4 ──► TH-5 ──► TH-6
-        │         │         │                  │
-        │         └────┬────┘                  │
-        ▼              ▼                        ▼
-      TH-3           TH-7                    TH-8
-                                               ▲
-AX-3 ─────────────────────────────────────────┘
+AX-1 ──┬──────────────────────────────────────┬──────────┐
+        │                                      │          │
+AX-2 ──┼──────────────────────┐               │          │
+        │                      │               │          │
+        ▼                      ▼               ▼          ▼
+      TH-1 ──► TH-2      TH-4 ──► TH-5 ──► TH-6      TH-9
+        │         │         │                  │          │
+        │         └────┬────┘                  │          ▼
+        ▼              ▼                        ▼        TH-3
+      TH-3           TH-7                    TH-8          ▲
+        ▲              ▲                       ▲         TH-11
+        │              └────────────TH-11──────┘
+        └────────────────────────────────────────
+AX-3 ───────────────────────────────────────────► TH-8, TH-10
 ```
 
 ### Genesis lock gate
@@ -833,9 +889,10 @@ genesis parameters — their values follow necessarily from the listed sources.
 | `fixed_point.intermediate_width` | E1 | Mandates `i128` for all intermediates | TH-1, TH-3 |
 | `fixed_point.rounding_mode` | E1 | `floor_div` toward −∞ | TH-3 |
 | `fixed_point.overflow_policy` | §0, §3 | Absorbing halt on `i128` overflow | TH-6 |
-| `lyapunov.weight_divergence_D` | §4a | `α = 400_000` | TH-3 |
-| `lyapunov.weight_conflict_C` | §4a | `β = 350_000` | TH-3 |
-| `lyapunov.weight_slash_Sigma` | §4b | `γ = 250_000` | TH-4, TH-5 |
+| `lyapunov.weight_divergence_D` | §4a | `α = 350_000` | TH-3 |
+| `lyapunov.weight_conflict_C` | §4a | `β = 300_000` | TH-3 |
+| `lyapunov.weight_slash_Sigma` | §4b | `γ = 200_000` | TH-4, TH-5 |
+| `lyapunov.weight_cascade_health_CH` | §4a, §4c | `χ = 150_000` | TH-3, TH-9 |
 | `lyapunov.epsilon_threshold` | §5 | `ε = 20_000` | TH-3 |
 | `lyapunov.evaluation_window` | §5 | `W = 3` | TH-3 |
 | `lyapunov.max_queries_per_epoch` | §3, §4a | Bounds `M`; normalizes `C_i,t` | TH-3 |

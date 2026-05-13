@@ -7,10 +7,11 @@ pub const WINDOW_SIZE_WIRE: u32 = 3;
 /// Array-sizing alias (usize required by Rust array syntax; not stored in state).
 pub const WINDOW_SIZE: usize = WINDOW_SIZE_WIRE as usize;
 
-pub const WEIGHT_D: FixedPoint = FixedPoint::from_raw(400_000);
-pub const WEIGHT_C: FixedPoint = FixedPoint::from_raw(350_000);
-pub const WEIGHT_S: FixedPoint = FixedPoint::from_raw(250_000);
-pub const EPSILON:  FixedPoint = FixedPoint::from_raw(20_000);
+pub const WEIGHT_D:  FixedPoint = FixedPoint::from_raw(350_000);
+pub const WEIGHT_C:  FixedPoint = FixedPoint::from_raw(300_000);
+pub const WEIGHT_S:  FixedPoint = FixedPoint::from_raw(200_000);
+pub const WEIGHT_CH: FixedPoint = FixedPoint::from_raw(150_000);
+pub const EPSILON:   FixedPoint = FixedPoint::from_raw(20_000);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LyapunovError {

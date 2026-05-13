@@ -18,6 +18,7 @@ pub fn consensus_params_hash() -> [u8; 32] {
     //   weight_d: i128              =  16
     //   weight_c: i128              =  16
     //   weight_s: i128              =  16
+    //   weight_ch: i128             =  16
     //   epsilon: i128               =  16
     //   scale: i128                 =  16
     //   window_size: u32            =   4
@@ -25,8 +26,8 @@ pub fn consensus_params_hash() -> [u8; 32] {
     //   encoding_header_size: u32   =   4
     //   fixed_point_byte_width: u32 =   4
     //   domain tags ×5: u32 each    =  20
-    //                         TOTAL = 124
-    const BUF_SIZE: usize = 124;
+    //                         TOTAL = 140
+    const BUF_SIZE: usize = 140;
     let mut buf = [0u8; BUF_SIZE];
     let mut o: usize = 0;
 
@@ -36,6 +37,7 @@ pub fn consensus_params_hash() -> [u8; 32] {
     buf[o..o + 16].copy_from_slice(&lyapunov::WEIGHT_D.raw().to_le_bytes()); o += 16;
     buf[o..o + 16].copy_from_slice(&lyapunov::WEIGHT_C.raw().to_le_bytes()); o += 16;
     buf[o..o + 16].copy_from_slice(&lyapunov::WEIGHT_S.raw().to_le_bytes()); o += 16;
+    buf[o..o + 16].copy_from_slice(&lyapunov::WEIGHT_CH.raw().to_le_bytes()); o += 16;
 
     buf[o..o + 16].copy_from_slice(&lyapunov::EPSILON.raw().to_le_bytes()); o += 16;
     buf[o..o + 16].copy_from_slice(&fixed_point::SCALE.to_le_bytes()); o += 16;

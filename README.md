@@ -40,12 +40,18 @@ QASH **is**:
 docs/spec/          ← Protocol law (normative)
   00_execution_model.md   Deterministic execution substrate
   01_consensus.md         State space, encoding, transition function, stability
+  07_hash_cascade.md      Astronomical depth-7 cascade spec (v1.1)
+  09_migration_v1.0_to_v1.1.md  Migration guide and compatibility window
 
 proofs/             ← Formal theorems (Coq)
   contractivity/
     encode_injectivity.v  TH-1 (CLOSED), TH-2
   safety/
     absorbing_halt.v      TH-4, TH-5, TH-6, TH-8 partial
+  cascade/
+    cascade_health_bounded.v     TH-9 (CH boundedness)
+    cascade_collision_resistance.v TH-10 (cascade survival)
+    cascade_determinism.v        TH-11 (cross-ISA cascade)
 
 model/              ← Canonical executable semantics (extracted from proofs)
   README.md               Model contract and extraction notes
@@ -78,14 +84,17 @@ for all admissible inputs. This equivalence is a future formal proof target.
 |----|------|-------|--------|
 | TH-1 | Encoding injectivity | Formal theorem | ✅ CLOSED |
 | TH-2 | Encoding totality | Formal theorem | ✅ CLOSED |
-| TH-3 | Convergence decrease δ_window ≤ 0 | Formal theorem | 🔲 PLACEHOLDER |
+| TH-3 | Convergence decrease δ_window ≤ ε_honest | Formal theorem | 🔲 PLACEHOLDER |
 | TH-4 | Φ_safety monotonicity | Formal theorem | ✅ CLOSED |
 | TH-5 | Φ_safety boundedness | Formal theorem | ✅ CLOSED |
 | TH-6 | Halt correctness | Formal theorem | ✅ CLOSED |
 | TH-7 | Replay invariance RT-1 | Verification claim | 🟡 PARTIAL |
 | TH-8 | Succession soundness | Formal theorem | 🟡 PARTIAL (TH-1 closed, composition pending) |
+| TH-9 | Cascade health boundedness | Formal theorem | 🔲 PLACEHOLDER |
+| TH-10 | Cascade collision resistance (survival) | Formal theorem | 🔲 PLACEHOLDER |
+| TH-11 | Cascade cross-ISA determinism | Verification claim | 🔲 PLACEHOLDER |
 
-Genesis lock requires TH-1, TH-2 closed (done) and TH-7 full test vector suite.
+Genesis lock requires TH-1, TH-2 closed (done), TH-9 closed, and TH-7 full test vector suite.
 
 ---
 
@@ -96,7 +105,10 @@ All guarantees reduce to three axioms. Everything above them is deductively cert
 ```
 AX-1  Authorized ISAs implement two's complement arithmetic correctly
 AX-2  Pinned Rust toolchain produces correct code for authorized ISAs
-AX-3  SHA3-256 is collision-resistant  (cryptographic assumption, not theorem)
+AX-3  SHA3-256 (and each of the five cascade primitives) is collision-resistant
+      (cryptographic assumption, not theorem). Extended in v1.1 to cover all five
+      L1 primitives used in H_cascade. Cascade survival (TH-10) requires at least
+      one primitive to remain collision-resistant.
 ```
 
 ---

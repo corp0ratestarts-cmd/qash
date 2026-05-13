@@ -1,5 +1,5 @@
 # QASH Execution Model
-## `docs/spec/00_execution_model.md` — Protocol Version 1.0
+## `docs/spec/00_execution_model.md` — Protocol Version 1.1
 
 > **Status:** Canonical execution law. All implementation is constrained by this document.
 > `01_consensus.md` depends on the semantics defined here.
@@ -330,16 +330,44 @@ H_domain(tag: u32, input: &[u8]) → [u8; 32]:
   SHA3-256( tag.to_le_bytes() ∥ input )
 ```
 
-### Hash cascade
+### Astronomical hash cascade (v1.1)
 
-For operations requiring the full hash cascade (see `GENESIS_CONSTANTS.toml`):
+For operations requiring the full cascade (obfuscation leaf hashing, clone-chunk
+verification, cascade-health commitment):
 
 ```
-H_cascade(input: &[u8]) → [u8; 32]:
-  SHA3-256( BLAKE3( KangarooTwelve(input) ) )
+H_cascade(input: &[u8]) → [u8; 64]:
+
+  Layer composition (depth = 7, mode = recursive_binding):
+
+  L1: h1_sha3   = SHA3-256(  "QASH:CASCADE:L1:PARALLEL" ∥ input )   // [u8; 32]
+      h1_blake3  = BLAKE3(    "QASH:CASCADE:L1:PARALLEL" ∥ input )   // [u8; 32]
+      h1_k12     = K12(       "QASH:CASCADE:L1:PARALLEL" ∥ input )   // [u8; 32]
+      h1_sm3     = SM3(       "QASH:CASCADE:L1:PARALLEL" ∥ input )   // [u8; 32]
+      h1_streeb  = Streebog(  "QASH:CASCADE:L1:PARALLEL" ∥ input )   // [u8; 32]
+      parallel   = h1_sha3 ∥ h1_blake3 ∥ h1_k12 ∥ h1_sm3 ∥ h1_streeb  // [u8; 160]
+
+  L2: bound = SHA3-512( "QASH:CASCADE:L2:BIND" ∥ parallel )          // [u8; 64]
+
+  L3..L6: (recursive expansion — each layer feeds the next)
+      L_n = SHA3-512( "QASH:CASCADE:L{n}:EXPAND" ∥ L_{n-1} )         // [u8; 64]
+
+  L7: output = SHA3-512( "QASH:CASCADE:L7:FINALIZE" ∥ L6 )           // [u8; 64]
 ```
 
-The cascade is used for: obfuscation layer leaf hashing.
+Domain separators are the 7 strings listed in `GENESIS_CONSTANTS.toml`
+under `[crypto.cascade].domain_separators`. They are encoded as UTF-8
+and prepended without length prefix (fixed strings, no ambiguity).
+
+The binding primitive (`SHA3-512`) is specified in `binding_primitive`.
+The cascade is fully sequential after L1 (no parallel stages in L2–L7),
+ensuring the full 64-byte output depends on all five L1 primitives.
+
+The cascade is used for:
+- Obfuscation layer leaf hashing (replacing the former serial chain)
+- Clone-chunk verification (`cascade_bound` mode)
+- Cascade-health (CH) commitment included in V_convergence (v1.1, §4c)
+
 It is **not** used for state root computation (which uses `H_domain` above).
 
 ---

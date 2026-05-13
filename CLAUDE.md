@@ -34,7 +34,7 @@ QASH is a post-quantum, zero-governance, deterministic consensus protocol implem
 - **`crates/pal`** (`qash-pal`) — Platform Abstraction Layer. Defines `Time`, `Net`, `Attest`, and `Halt` traits. The `std` feature gates a `hosted::Host` stub implementation. PAL code is Domain B and may use `unsafe` under audit.
 - **`src/`** — Hosted binary (`qash`) plus stub modules (`consensus`, `crypto`, `hardware`, `obfuscation`, `offline`). Most module files are currently empty stubs. `main.rs` is a thin entrypoint that calls `qash_consensus::consensus_hash`.
 - **`GENESIS_CONSTANTS.toml`** — Immutable genesis parameters (fixed-point scale, Lyapunov weights, epoch timing, crypto cascade, hardware attestation modes, clone-protocol settings). Modifying this file defines a new network — treat it as append-only.
-- **`proofs/`** — Coq/formal proofs: `contractivity/lyapunov_stability.v` and `safety/absorbing_halt.v`.
+- **`proofs/`** — Coq/formal proofs: `contractivity/lyapunov_stability.v`, `safety/absorbing_halt.v`, and `cascade/` (TH-9, TH-10, TH-11 targets).
 
 ### Domain A vs Domain B (critical partition)
 
@@ -51,8 +51,9 @@ Cross-domain contamination (a Domain B value influencing a Domain A computation)
 - Intermediate arithmetic width: `i128`
 - Overflow policy: `absorbing_halt` (irreversible halt, never panic or saturating arithmetic)
 - Epoch duration: 500 ms, max control-loop latency 450 ms
-- Post-quantum crypto cascade: Dilithium5 (primary), SLH-DSA-SHA3-256 (anchor), Falcon-512 (fallback)
-- Hash cascade: SHA3-256 → BLAKE3 → KangarooTwelve
+- Post-quantum crypto cascade: Dilithium5 (primary), SLH-DSA-SHA3-256 (anchor), Falcon-512 (fallback), ML-KEM-768 (KEM)
+- Lyapunov weights (v1.1): α=350_000 (D), β=300_000 (C), γ=200_000 (Σ), χ=150_000 (CH)
+- Astronomical hash cascade (depth=7, recursive_binding): L1 parallel over SHA3-256+BLAKE3+K12+SM3+Streebog, bound via SHA3-512, L3-L7 recursive expansion, finalize at L7 → [u8; 64]
 - Max validators: 1024
 
 ### Arithmetic rules for Domain A code

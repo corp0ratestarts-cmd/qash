@@ -1,5 +1,5 @@
 [meta]
-version = "1.0.0"
+version = "1.1.0"
 lock_algorithm = "SHA3-256"
 deployment_model = "one-shot"
 governance = "zero"
@@ -12,9 +12,10 @@ rounding_mode = "floor_toward_neg_inf"
 overflow_policy = "absorbing_halt"
 
 [lyapunov]
-weight_divergence_D = 400_000
-weight_conflict_C = 350_000
-weight_slash_Sigma = 250_000
+weight_divergence_D = 350_000
+weight_conflict_C = 300_000
+weight_slash_Sigma = 200_000
+weight_cascade_health_CH = 150_000
 epsilon_threshold = 20_000
 evaluation_window = 3
 max_queries_per_epoch = 1_000_000
@@ -26,10 +27,9 @@ sync_tolerance_ms = 50
 epoch_counter_seed = "0xQASH_EPOCH_PRNG_SEED_2026"
 
 [obfuscation]
-method = "concatenation_injective"
+method = "cascade_derived_injective"
 leaf_index_bytes = 48
 sparse_merkle_depth = 384
-hash_cascade = ["SHA3-256", "BLAKE3", "KangarooTwelve"]
 
 [hardware]
 authorized_platforms = [
@@ -46,20 +46,50 @@ include_in_state_root = false
 
 [clone_protocol]
 enabled = true
-version = "v1.1"
+version = "v1.2"
 channels = ["QR_code", "NFC", "BLE"]
 petn_crcs_integration = "BLE_only"
 qr_mode = "chunked_self_authenticated"
 nfc_mode = "direct_apdu"
 max_offline_hops = 7
 max_offline_epochs = 12
+chunk_verification_mode = "cascade_bound"
 
 [crypto.cascade]
 primary_signature = "Dilithium5"
 anchor_signature = "SLH-DSA-SHA3-256"
 fallback_signature = "Falcon-512"
+kem_primary = "ML-KEM-768"
 hash_primitives = ["SHA3-256", "BLAKE3", "KangarooTwelve", "SM3", "Streebog"]
 pqc_agility_epoch = 10000
+cascade_depth = 7
+cascade_composition_mode = "recursive_binding"
+binding_primitive = "SHA3-512"
+domain_separators = [
+  "QASH:CASCADE:L1:PARALLEL",
+  "QASH:CASCADE:L2:BIND",
+  "QASH:CASCADE:L3:EXPAND",
+  "QASH:CASCADE:L4:EXPAND",
+  "QASH:CASCADE:L5:EXPAND",
+  "QASH:CASCADE:L6:EXPAND",
+  "QASH:CASCADE:L7:FINALIZE",
+]
+cascade_verification_required = true
+cascade_proof_inclusion = "sparse_merkle"
+
+[crypto.cascade.rotation_schedule]
+epoch_0     = "Dilithium5"
+epoch_10000 = "ML-DSA-87"
+epoch_20000 = "SLH-DSA-SHA3-256"
+epoch_30000 = "Falcon-512"
+epoch_40000 = "TERMINAL_HALT"
+
+[migration.compatibility]
+accept_v1_0_validators = true
+migration_window_epochs = 100
+v1_0_validator_cascade_mode = "parallel_only"
+post_migration_enforcement = "cascade_required"
+state_conversion_proof_required = true
 
 [validation]
 interval_precision_digits = 12
