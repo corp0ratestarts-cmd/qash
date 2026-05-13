@@ -87,6 +87,16 @@ overflow policy:    absorbing halt  (any result exceeding i128 range triggers �
 
 ---
 
+## §0b — Adversarial Scope and Claim Separation
+
+Adversarial assumptions are defined in `04_adversarial_model.md` and are
+binding for theorem interpretation.
+
+- Safety claims are unconditional with respect to transport behavior.
+- Liveness claims are conditional and must state environmental assumptions.
+- Consensus-state determinism claims are Domain-A claims and are independent
+  of Domain-B message timing, ordering, and scheduling behavior.
+
 ## §1 — State Space
 
 The protocol state at epoch `t` is a tuple:

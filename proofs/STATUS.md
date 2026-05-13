@@ -30,3 +30,19 @@ direct Coq experience, ideally interactively with `coqide` or `Proof General`.
 These proofs must be discharged (no `Admitted`, compiles with `coqc`)
 before `GENESIS_CONSTANTS.toml` is locked. Until then, theorems are
 specification-level claims, not formal guarantees.
+
+
+## Adversarial theorem obligations (tracked)
+
+- TH-A1 Partition Safety: **planned**
+  - Non-goals: no progress guarantee during active partition.
+- TH-A2 Reordering Safety: **planned**
+  - Non-goals: no FIFO / exactly-once transport guarantees.
+- TH-A3 Byzantine Boundary Safety: **planned**
+  - Non-goals: does not prevent adversarial attempts; proves deterministic rejection/accounting.
+- TH-A4 Conditional Liveness: **planned**
+  - Assumptions required: eventual delivery, healed partition, sufficient active honest validators.
+
+CI simulation rollout:
+- Phase 1: non-blocking adversarial scenario hook enabled in CI.
+- Phase 2: promote to blocking after stability baseline is met.
