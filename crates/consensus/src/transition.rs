@@ -13,13 +13,14 @@ pub const MAX_VALIDATORS: usize = MAX_VALIDATORS_WIRE as usize;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum HaltReason {
-    None             = 0x00,
-    LyapunovViolation= 0x01, // H1
-    ArithOverflow    = 0x02, // H2
-    EpochOverflow    = 0x03, // H3
-    DecodeInvalid    = 0x04, // H4
-    RoundtripFailure = 0x05, // H5 (not used in this slice yet)
-    HaltFlagSet      = 0x06, // H6 (explicit external halt; reserved)
+    None                = 0x00,
+    LyapunovViolation   = 0x01, // H1: δ_window > ε
+    ArithOverflow       = 0x02, // H2
+    EpochOverflow       = 0x03, // H3
+    DecodeInvalid       = 0x04, // H4
+    RoundtripFailure    = 0x05, // H5 (reserved)
+    HaltFlagSet         = 0x06, // H6 (reserved)
+    PhiSafetyViolation  = 0x07, // H7: Φ_safety ≥ PHI_MAX_SAFE (ADR-001)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -104,6 +105,9 @@ fn run_pipeline(state: &mut EpochState, input: &EpochInput) -> Result<Transition
     if lyap.halt_triggered {
         return Err(TransitionHalt { reason: HaltReason::LyapunovViolation });
     }
+    if lyap.phi_halt_triggered {
+        return Err(TransitionHalt { reason: HaltReason::PhiSafetyViolation });
+    }
 
     let next_epoch = state.epoch.checked_add(1).ok_or(TransitionHalt { reason: HaltReason::EpochOverflow })?;
     let next_entropy = h_domain(DomainTag::EntropyAdvance, &state.entropy_seed);
@@ -179,7 +183,7 @@ fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), Transit
 /// Evaluate Lyapunov over the *effective* state (projected view) with zero allocation.
 fn evaluate_projected(state: &EpochState, input: &EpochInput) -> Result<LyapunovEval, TransitionHalt> {
     let mut v_sum = FixedPoint::ZERO;
-    let mut max_slash = FixedPoint::ZERO;
+    let mut sum_slash = FixedPoint::ZERO;
 
     for i in 0..state.validator_count as usize {
         let (d, c, s) = match &input.updates[i] {
@@ -195,14 +199,13 @@ fn evaluate_projected(state: &EpochState, input: &EpochInput) -> Result<Lyapunov
         let term_c = lyapunov::WEIGHT_C.checked_mul(c)?;
         let term = term_d.checked_add(term_c)?;
         v_sum = v_sum.checked_add(term)?;
-
-        max_slash = max_slash.max(s);
+        sum_slash = sum_slash.checked_add(s)?;
     }
 
-    let phi = lyapunov::WEIGHT_S.checked_mul(max_slash)?;
+    let phi = lyapunov::WEIGHT_S.checked_mul(sum_slash)?;
     let v_total = v_sum.checked_add(phi)?;
 
-    // IMPORTANT: δ_window is checked against V_CONVERGENCE (v_sum), NOT V_total.
+    // δ_window is checked against V_convergence, NOT V_total.
     let (delta_window, halt_triggered) = if state.convergence_window.is_full() {
         let delta = lyapunov::compute_delta_window(v_sum, &state.convergence_window)?;
         (delta, delta.raw() > lyapunov::EPSILON.raw())
@@ -210,12 +213,15 @@ fn evaluate_projected(state: &EpochState, input: &EpochInput) -> Result<Lyapunov
         (FixedPoint::ZERO, false)
     };
 
+    let phi_halt_triggered = phi.raw() >= lyapunov::PHI_MAX_SAFE.raw();
+
     Ok(LyapunovEval {
         v_convergence: v_sum,
         phi_safety: phi,
         v_total,
         delta_window,
         halt_triggered,
+        phi_halt_triggered,
     })
 }
 

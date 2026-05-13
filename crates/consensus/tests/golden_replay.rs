@@ -9,8 +9,8 @@ use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE}
 use qash_consensus::fixed_point::FixedPoint;
 
 const EXPECTED_PARAMS_HASH_V0: [u8; 32] = [
-    56, 29, 201, 142, 216, 6, 210, 169, 115, 237, 60, 131, 127, 134, 88, 115,
-    154, 7, 20, 52, 92, 236, 129, 14, 173, 186, 52, 21, 59, 190, 112, 2,
+    169, 22, 175, 55, 46, 177, 233, 148, 28, 89, 109, 15, 56, 130, 140, 27,
+    19, 160, 187, 185, 162, 26, 95, 51, 96, 156, 123, 156, 172, 238, 162, 129,
 ];
 
 fn genesis_state() -> EpochState {
