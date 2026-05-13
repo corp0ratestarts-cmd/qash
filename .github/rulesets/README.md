@@ -27,4 +27,5 @@ curl -L \
 
 Before enabling the `main` ruleset, replace `@your-username` in
 `.github/CODEOWNERS` with the real maintainer account or team. The ruleset has
-no bypass actors by design.
+no bypass actors by design. The branch ruleset also requires the `coq-proofs`
+CI context so proof-status drift cannot bypass the genesis-lock gate.

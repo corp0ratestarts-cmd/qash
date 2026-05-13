@@ -126,4 +126,3 @@ Lemma app_total_length :
     length (flat_map f xs) = length xs * k.
 Proof. exact flat_map_fixed_length_Z. Qed.
 
-End. (* list_inj *)

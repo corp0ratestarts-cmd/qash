@@ -9,5 +9,6 @@
 crates/consensus/src/ @your-username
 crates/consensus/tests/ @your-username
 GENESIS_CONSTANTS.toml @your-username
+proofs/ @your-username
 .github/workflows/ @your-username
 .github/rulesets/ @your-username

@@ -560,19 +560,20 @@ This is equality, not merely non-increase. It follows trivially because:
 ### Proof obligation
 
 ```
-File:    proofs/contractivity/tx_perturbation_0.v   (PENDING)
+File:    proofs/contractivity/tx_perturbation_0.v
 Theorem: TX0_perturbation_bound
 
-Statement (informal):
-  ∀ S_t τ, 𝒜_TX0 S_t τ →
-    V_convergence (𝒯_TX0 S_t τ) = V_convergence S_t.
+Statement (active Coq model):
+  ∀ validator nonce_next window_min,
+    δ_window(𝒯_TX0(validator, nonce_next), window_min)
+      ≤ δ_window(validator, window_min).
 
-Proof sketch:
-  By touch-set confinement, only validators[author_idx].nonce changes.
-  V_convergence is defined as Σ_i (α·D_i + β·C_i); it does not reference nonce.
-  Therefore V_convergence is invariant under TX-0 application.
-  
-Status: TARGET (depends on proof infrastructure repair tracked in proofs/STATUS.md)
+Stronger corollary:
+  `TX0_delta_window_invariant` proves equality, because TX-0 changes only
+  nonce and V_convergence is a function only of divergence and conflict.
+
+Status: ACTIVE for the TX-0 perturbation model. Full TH-3 composition across
+all admitted transactions remains tracked in proofs/STATUS.md.
 ```
 
 ### Idempotence
