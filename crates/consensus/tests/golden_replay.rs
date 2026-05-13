@@ -10,8 +10,8 @@ use qash_consensus::fixed_point::FixedPoint;
 
 // v1.1 params hash: weights D=350k, C=300k, S=200k, CH=150k (Appendix J.2 target)
 const EXPECTED_PARAMS_HASH_V0: [u8; 32] = [
-    87, 76, 78, 78, 126, 0, 230, 138, 161, 118, 237, 8, 130, 5, 227, 203,
-    195, 89, 104, 7, 198, 105, 110, 124, 93, 37, 147, 98, 168, 246, 150, 113,
+    129, 1, 94, 12, 146, 77, 74, 166, 201, 43, 196, 22, 194, 69, 120, 16,
+    196, 46, 42, 220, 0, 227, 171, 125, 0, 6, 165, 123, 222, 176, 135, 149,
 ];
 
 fn genesis_state() -> EpochState {
@@ -19,6 +19,8 @@ fn genesis_state() -> EpochState {
         epoch: 0,
         halt_reason: HaltReason::None,
         entropy_seed: [0u8; 32],
+        state_root: [0u8; 32],
+        ledger_root: [0u8; 32],
         validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
         validator_count: 4,
         convergence_window: ConvergenceWindow::new(),
@@ -29,6 +31,7 @@ fn idle_input(n: u32) -> EpochInput {
     EpochInput {
         updates: [None; MAX_VALIDATORS],
         update_count: n,
+        cascade_fail_count: 0,
     }
 }
 
@@ -48,6 +51,8 @@ fn state_fingerprint(state: &EpochState) -> [u8; 32] {
     hasher.update(state.validator_count.to_le_bytes());
     hasher.update([state.halt_reason as u8, 0x00, 0x00, 0x00]);
     hasher.update(state.entropy_seed);
+    hasher.update(state.state_root);
+    hasher.update(state.ledger_root);
 
     for i in 0..state.validator_count as usize {
         let v = &state.validators[i];

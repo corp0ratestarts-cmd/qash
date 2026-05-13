@@ -13,21 +13,22 @@ const HASH_ALGORITHM_ID: u32 = 0x0000_0001; // SHA3-256
 
 pub fn consensus_params_hash() -> [u8; 32] {
     // Layout (all LE):
-    //   encoding_version: u32       =   4
-    //   hash_algorithm_id: u32      =   4
-    //   weight_d: i128              =  16
-    //   weight_c: i128              =  16
-    //   weight_s: i128              =  16
-    //   weight_ch: i128             =  16
-    //   epsilon: i128               =  16
-    //   scale: i128                 =  16
-    //   window_size: u32            =   4
-    //   max_validators: u32         =   4
-    //   encoding_header_size: u32   =   4
-    //   fixed_point_byte_width: u32 =   4
-    //   domain tags ×5: u32 each    =  20
-    //                         TOTAL = 140
-    const BUF_SIZE: usize = 140;
+    //   encoding_version: u32         =   4
+    //   hash_algorithm_id: u32        =   4
+    //   weight_d: i128                =  16
+    //   weight_c: i128                =  16
+    //   weight_s: i128                =  16
+    //   weight_ch: i128               =  16
+    //   epsilon: i128                 =  16
+    //   scale: i128                   =  16
+    //   max_queries_per_epoch: i128   =  16
+    //   window_size: u32              =   4
+    //   max_validators: u32           =   4
+    //   encoding_header_size: u32     =   4
+    //   fixed_point_byte_width: u32   =   4
+    //   domain tags ×5: u32 each      =  20
+    //                           TOTAL = 156
+    const BUF_SIZE: usize = 156;
     let mut buf = [0u8; BUF_SIZE];
     let mut o: usize = 0;
 
@@ -41,6 +42,7 @@ pub fn consensus_params_hash() -> [u8; 32] {
 
     buf[o..o + 16].copy_from_slice(&lyapunov::EPSILON.raw().to_le_bytes()); o += 16;
     buf[o..o + 16].copy_from_slice(&fixed_point::SCALE.to_le_bytes()); o += 16;
+    buf[o..o + 16].copy_from_slice(&lyapunov::MAX_QUERIES_PER_EPOCH.to_le_bytes()); o += 16;
 
     buf[o..o + 4].copy_from_slice(&(lyapunov::WINDOW_SIZE as u32).to_le_bytes()); o += 4;
     buf[o..o + 4].copy_from_slice(&(transition::MAX_VALIDATORS as u32).to_le_bytes()); o += 4;

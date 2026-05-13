@@ -1,4 +1,7 @@
 //! Canonical deterministic encoding (no hashing in this module).
+//!
+//! The commitment preimage format (used for prior-root-bound state root computation,
+//! ADR-003 accepted) is documented below and must remain frozen after genesis lock.
 
 use crate::fixed_point::{self, FixedPoint};
 
@@ -98,6 +101,75 @@ pub fn encode_validator_dynamic(
     out[0..16].copy_from_slice(&fixed_point::encode_fixed_point(divergence));
     out[16..32].copy_from_slice(&fixed_point::encode_fixed_point(conflict));
     out[32..48].copy_from_slice(&fixed_point::encode_fixed_point(slash_accum));
+}
+
+// ─── Commitment preimage (ADR-003 accepted) ───────────────────────────────
+
+/// Max validators constant (must match transition::MAX_VALIDATORS_WIRE = 1024).
+const MAX_VALIDATORS_PREIMAGE: usize = 1024;
+
+/// Commitment preimage layout (all integers little-endian):
+///
+/// [version: u32][epoch: u64][prior_root: 32 B][ledger_root: 32 B]
+/// [entropy_seed: 32 B][halt_flag: u8][pad: 3 B][validator_count: u32]
+/// [for each of validator_count validators: div(i64) + con(i64) + slash(i64)]
+/// [window_filled: u8][w0: i64][w1: i64][w2: i64]
+///
+/// = 116 + 24·N + 25 bytes  (max with N=1024: 24717 bytes)
+///
+/// NOTE: spec §2 wire format additionally includes per-validator id[48]/score/active
+/// which are not yet tracked; those fields will be added before genesis lock.
+pub const MAX_COMMITMENT_PREIMAGE: usize = 116 + 24 * MAX_VALIDATORS_PREIMAGE + 25;
+
+/// Writes the commitment preimage for `H_domain(STATE_ROOT, ...)` into `out`.
+/// Returns the number of bytes written (varies with validator_count).
+///
+/// Preconditions (caller-enforced, checked by step_1_validate):
+///   - validators_d/c/s slices have length == validator_count
+///   - all values are within i64 range (slash already validated by step_1_validate)
+#[allow(clippy::too_many_arguments)]
+pub fn encode_commitment_preimage(
+    epoch: u64,
+    prior_root: &[u8; 32],
+    ledger_root: &[u8; 32],
+    entropy_seed: &[u8; 32],
+    halt_flag: u8,
+    validator_count: u32,
+    validators_d: &[i64],
+    validators_c: &[i64],
+    validators_s: &[i64],
+    window_filled: u8,
+    window_v0: i64,
+    window_v1: i64,
+    window_v2: i64,
+    out: &mut [u8; MAX_COMMITMENT_PREIMAGE],
+) -> u32 {
+    let mut o: usize = 0;
+
+    out[o..o+4].copy_from_slice(&ENCODING_VERSION.to_le_bytes()); o += 4;
+    out[o..o+8].copy_from_slice(&epoch.to_le_bytes()); o += 8;
+    out[o..o+32].copy_from_slice(prior_root); o += 32;
+    out[o..o+32].copy_from_slice(ledger_root); o += 32;
+    out[o..o+32].copy_from_slice(entropy_seed); o += 32;
+    out[o] = halt_flag; o += 1;
+    out[o] = 0x00; out[o+1] = 0x00; out[o+2] = 0x00; o += 3;
+    out[o..o+4].copy_from_slice(&validator_count.to_le_bytes()); o += 4;
+
+    let vc = validator_count as usize;
+    let mut i = 0usize;
+    while i < vc {
+        out[o..o+8].copy_from_slice(&validators_d[i].to_le_bytes()); o += 8;
+        out[o..o+8].copy_from_slice(&validators_c[i].to_le_bytes()); o += 8;
+        out[o..o+8].copy_from_slice(&validators_s[i].to_le_bytes()); o += 8;
+        i += 1;
+    }
+
+    out[o] = window_filled; o += 1;
+    out[o..o+8].copy_from_slice(&window_v0.to_le_bytes()); o += 8;
+    out[o..o+8].copy_from_slice(&window_v1.to_le_bytes()); o += 8;
+    out[o..o+8].copy_from_slice(&window_v2.to_le_bytes()); o += 8;
+
+    o as u32
 }
 
 /// Decode as 3×i128 LE; enforce D,C bounds in [0, SCALE] (H4 on violation).

@@ -4,8 +4,8 @@
 ## P0 — Genesis-Lock Prerequisites (current)
 | ID | PDF § (p.) | PDF quote | Code | Test/Vector | Proof | Status | Blocking |
 |---|---|---|---|---|---|---|---|
-| P0-1 | §4.1 (pp. 9–10) | `L = W_D·D + W_C·C + W_S·Σ` / halt predicate | `crates/consensus/src/{lyapunov,transition}.rs` | — | `proofs/lyapunov_decrease.v` (TBD CI) | ⚠️ | Needs vectors + proof CI; ERR-001 resolved |
-| P0-2 | §4.2 (p. 10) | `compute_state_root(state, crypto_suite)` | `crates/consensus/src/encoding.rs` | — | — | 🔶 | ADR-003 (PDF-SILENT) |
+| P0-1 | §4.1 (pp. 9–10) | `L = W_D·D + W_C·C + W_S·Σ` / halt predicate | `crates/consensus/src/{lyapunov,transition}.rs` | golden_replay.rs (5 tests) | `proofs/contractivity/lyapunov_stability.v` TH-3a/3b/3c | 🟡 | Needs cross-ISA vectors; Coq CI not yet wired |
+| P0-2 | §4.2 (p. 10) | `compute_state_root(state, crypto_suite)` | `crates/consensus/src/{encoding,transition}.rs` (prior-root binding) | golden_replay.rs state_root checks | — | 🟡 | ADR-003 implemented; vectors needed |
 | P0-3 | §2.4 (pp. 4–5) | FixedPoint i128 SCALE=1_000_000 | `crates/consensus/src/fixed_point.rs` | `crates/consensus/src/fixed_point.rs` tests | — | ⚠️ | Add golden vectors |
 | P0-4 | §2.5 (p. 5), §8.4 (pp. 23–24) | cross-ISA script in YAML | `.github/workflows/ci.yml` | `scripts/verify_cross_isa_identity.sh` + vectors | — | ❌ | script+runner missing |
 | P0-5 | §2.3 (pp. 3–4) | `trigger_absorbing_halt(..)->!` | `crates/consensus/src/transition.rs` + `crates/pal` | — | — | 🔶 | ADR-004 |

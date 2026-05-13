@@ -1,5 +1,5 @@
 # ADR-001 — Φ_safety: aggregation + threshold + halt gate
-**Status:** Proposed  
+**Status:** Accepted  
 **Filed:** 2026-05-13  
 **Depends on:** ERR-001 (Accepted)  
 **PDF anchor:** PDF-SILENT (no independent Φ gate or threshold defined)
@@ -15,14 +15,16 @@ Rationale (non-normative):
 - Monotonicity proof is straightforward.
 
 Implementation note:
-- Current code uses `max`; must change to sum if this ADR is accepted.
+- Implemented as sum in `lyapunov.rs` (evaluate) and `transition.rs` (evaluate_projected).
 
 ### D2 — Threshold parameter
-Add new genesis constant:
-```toml
-[lyapunov]
-phi_max_safe = ???   # REQUIRED before genesis lock
+Derived constant (not in TOML; computed from genesis constants):
 ```
+PHI_MAX_SAFE = N_max × floor(γ_raw × i64::MAX / p) / 2
+             = 1024 × floor(200_000 × 9_223_372_036_854_775_807 / 1_000_000) / 2
+             ≈ 9.44 × 10^20
+```
+Implemented in `lyapunov.rs` as `PHI_MAX_SAFE: i128`.
 
 ### D3 — Halt gate
 If `Φ_safety(t) >= phi_max_safe` then absorbing halt with a distinct reason.
