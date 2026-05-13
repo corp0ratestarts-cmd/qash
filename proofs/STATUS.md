@@ -12,7 +12,7 @@ but have not been mechanically verified by `coqc`.
 |----|------|-------|----------|-------|
 | TH-1 | Encoding injectivity | FORMAL | ❌ | Sketch in `_wip/encode_injectivity.v.draft` |
 | TH-2 | Encoding totality | FORMAL | ❌ | Trivial; will compile once TH-1 framework is fixed |
-| TH-3 | Convergence decrease | FORMAL | — | Not started |
+| TH-3 | Convergence decrease / halt gate | FORMAL | ✅ (subset) | `proofs/contractivity/lyapunov_stability.v` proves TH-3a/3b/3c; full end-to-end convergence composition still open |
 | TH-4 | Φ_safety monotonicity | FORMAL | ❌ | Sketch in `_wip/absorbing_halt.v.draft` |
 | TH-5 | Φ_safety boundedness | FORMAL | ❌ | Sketch in `_wip/absorbing_halt.v.draft` |
 | TH-6 | Halt correctness | FORMAL | ❌ | Sketch in `_wip/absorbing_halt.v.draft` |

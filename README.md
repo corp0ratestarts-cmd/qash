@@ -78,7 +78,7 @@ for all admissible inputs. This equivalence is a future formal proof target.
 |----|------|-------|--------|
 | TH-1 | Encoding injectivity | Formal theorem | ❌ WIP (not compiling) |
 | TH-2 | Encoding totality | Formal theorem | ❌ WIP (blocked on TH-1 framework) |
-| TH-3 | Convergence decrease δ_window ≤ 0 | Formal theorem | 🔲 NOT STARTED |
+| TH-3 | Convergence decrease / halt gate (TH-3a/3b/3c) | Formal theorem | 🟡 PARTIAL (local Coq proof complete; system-level convergence pending) |
 | TH-4 | Φ_safety monotonicity | Formal theorem | ❌ WIP (not compiling) |
 | TH-5 | Φ_safety boundedness | Formal theorem | ❌ WIP (not compiling) |
 | TH-6 | Halt correctness | Formal theorem | ❌ WIP (not compiling) |
