@@ -3,7 +3,7 @@ version = "1.0.0"
 lock_algorithm = "SHA3-256"
 deployment_model = "one-shot"
 governance = "zero"
-genesis_hash = "SHA3-256:PLACEHOLDER"
+genesis_hash = "QASH-CONSENSUS-ROOT-v1:PLACEHOLDER"
 
 [fixed_point]
 scale = 1_000_000
@@ -58,7 +58,7 @@ max_offline_epochs = 12
 primary_signature = "Dilithium5"
 anchor_signature = "SLH-DSA-SHA3-256"
 fallback_signature = "Falcon-512"
-hash_primitives = ["SHA3-256", "BLAKE3", "KangarooTwelve", "SM3", "Streebog"]
+hash_primitives = ["SHA3-256", "SM3"]
 pqc_agility_epoch = 10000
 
 [validation]

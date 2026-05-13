@@ -2,8 +2,8 @@
 
 use crate::encoding;
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
-use crate::hash::{h_domain, DomainTag};
-use crate::lyapunov::{self, ConvergenceWindow, LyapunovEval, ValidatorMetrics, LyapunovError};
+use crate::hash::{combine_primitive_digests, h_domain, ConsensusDigestSet, DomainTag};
+use crate::lyapunov::{self, ConvergenceWindow, LyapunovError, LyapunovEval, ValidatorMetrics};
 
 /// Protocol-facing limit (u32 per Domain A rules). Used in wire validation.
 pub const MAX_VALIDATORS_WIRE: u32 = 1024;
@@ -13,13 +13,13 @@ pub const MAX_VALIDATORS: usize = MAX_VALIDATORS_WIRE as usize;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum HaltReason {
-    None             = 0x00,
-    LyapunovViolation= 0x01, // H1
-    ArithOverflow    = 0x02, // H2
-    EpochOverflow    = 0x03, // H3
-    DecodeInvalid    = 0x04, // H4
-    RoundtripFailure = 0x05, // H5 (not used in this slice yet)
-    HaltFlagSet      = 0x06, // H6 (explicit external halt; reserved)
+    None = 0x00,
+    LyapunovViolation = 0x01, // H1
+    ArithOverflow = 0x02,     // H2
+    EpochOverflow = 0x03,     // H3
+    DecodeInvalid = 0x04,     // H4
+    RoundtripFailure = 0x05,  // H5 (not used in this slice yet)
+    HaltFlagSet = 0x06,       // H6 (explicit external halt; reserved)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -57,15 +57,21 @@ struct TransitionHalt {
 
 impl From<OverflowError> for TransitionHalt {
     fn from(_: OverflowError) -> Self {
-        TransitionHalt { reason: HaltReason::ArithOverflow }
+        TransitionHalt {
+            reason: HaltReason::ArithOverflow,
+        }
     }
 }
 
 impl From<LyapunovError> for TransitionHalt {
     fn from(e: LyapunovError) -> Self {
         match e {
-            LyapunovError::Overflow => TransitionHalt { reason: HaltReason::ArithOverflow },
-            LyapunovError::UnboundedMetric => TransitionHalt { reason: HaltReason::DecodeInvalid },
+            LyapunovError::Overflow => TransitionHalt {
+                reason: HaltReason::ArithOverflow,
+            },
+            LyapunovError::UnboundedMetric => TransitionHalt {
+                reason: HaltReason::DecodeInvalid,
+            },
         }
     }
 }
@@ -73,10 +79,14 @@ impl From<LyapunovError> for TransitionHalt {
 #[derive(Debug, PartialEq, Eq)]
 pub struct TransitionResult {
     pub state_root: [u8; 32],
+    pub primitive_roots: ConsensusDigestSet,
     pub lyapunov: LyapunovEval,
 }
 
-pub fn advance_epoch(state: &mut EpochState, input: &EpochInput) -> Result<TransitionResult, HaltReason> {
+pub fn advance_epoch(
+    state: &mut EpochState,
+    input: &EpochInput,
+) -> Result<TransitionResult, HaltReason> {
     // Absorbing: if already halted, return the original reason; do not mutate.
     if state.is_halted() {
         return Err(state.halt_reason);
@@ -92,7 +102,10 @@ pub fn advance_epoch(state: &mut EpochState, input: &EpochInput) -> Result<Trans
     }
 }
 
-fn run_pipeline(state: &mut EpochState, input: &EpochInput) -> Result<TransitionResult, TransitionHalt> {
+fn run_pipeline(
+    state: &mut EpochState,
+    input: &EpochInput,
+) -> Result<TransitionResult, TransitionHalt> {
     // ┌──────────────────────────────────────────────────┐
     // │ PRE-COMMIT PHASE: state is READ-ONLY             │
     // │ Any error returns without mutation.              │
@@ -102,10 +115,14 @@ fn run_pipeline(state: &mut EpochState, input: &EpochInput) -> Result<Transition
 
     let lyap = evaluate_projected(state, input)?;
     if lyap.halt_triggered {
-        return Err(TransitionHalt { reason: HaltReason::LyapunovViolation });
+        return Err(TransitionHalt {
+            reason: HaltReason::LyapunovViolation,
+        });
     }
 
-    let next_epoch = state.epoch.checked_add(1).ok_or(TransitionHalt { reason: HaltReason::EpochOverflow })?;
+    let next_epoch = state.epoch.checked_add(1).ok_or(TransitionHalt {
+        reason: HaltReason::EpochOverflow,
+    })?;
     let next_entropy = h_domain(DomainTag::EntropyAdvance, &state.entropy_seed);
 
     // ╔══════════════════════════════════════════════════╗
@@ -127,17 +144,25 @@ fn run_pipeline(state: &mut EpochState, input: &EpochInput) -> Result<Transition
     state.entropy_seed = next_entropy;
     state.epoch = next_epoch;
 
-    let root = state_root_header_only(state);
+    let (root, primitive_roots) = state_root_header_only(state);
 
-    Ok(TransitionResult { state_root: root, lyapunov: lyap })
+    Ok(TransitionResult {
+        state_root: root,
+        primitive_roots,
+        lyapunov: lyap,
+    })
 }
 
 fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), TransitionHalt> {
     if state.validator_count > MAX_VALIDATORS_WIRE {
-        return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+        return Err(TransitionHalt {
+            reason: HaltReason::DecodeInvalid,
+        });
     }
     if input.update_count != state.validator_count {
-        return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+        return Err(TransitionHalt {
+            reason: HaltReason::DecodeInvalid,
+        });
     }
 
     let scale_raw = SCALE;
@@ -148,20 +173,28 @@ fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), Transit
             let c = u.conflict_new.raw();
 
             if d < 0 || d > scale_raw || c < 0 || c > scale_raw {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
 
             if !u.slash_accum_new.is_non_negative() {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
 
             if u.slash_accum_new.raw() < state.validators[i].slash_accum.raw() {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
 
             // Implementation/serialization-domain bound (policy): keep Σ within i64.
             if u.slash_accum_new.to_i64().is_err() {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
         }
     }
@@ -169,7 +202,9 @@ fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), Transit
     // trailing slots must be None
     for i in state.validator_count as usize..MAX_VALIDATORS {
         if input.updates[i].is_some() {
-            return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+            return Err(TransitionHalt {
+                reason: HaltReason::DecodeInvalid,
+            });
         }
     }
 
@@ -177,7 +212,10 @@ fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), Transit
 }
 
 /// Evaluate Lyapunov over the *effective* state (projected view) with zero allocation.
-fn evaluate_projected(state: &EpochState, input: &EpochInput) -> Result<LyapunovEval, TransitionHalt> {
+fn evaluate_projected(
+    state: &EpochState,
+    input: &EpochInput,
+) -> Result<LyapunovEval, TransitionHalt> {
     let mut v_sum = FixedPoint::ZERO;
     let mut max_slash = FixedPoint::ZERO;
 
@@ -219,7 +257,7 @@ fn evaluate_projected(state: &EpochState, input: &EpochInput) -> Result<Lyapunov
     })
 }
 
-fn state_root_header_only(state: &EpochState) -> [u8; 32] {
+fn state_root_header_only(state: &EpochState) -> ([u8; 32], ConsensusDigestSet) {
     let mut header = [0u8; encoding::STATE_HEADER_SIZE as usize];
     encoding::encode_state_header(
         state.epoch,
@@ -228,5 +266,7 @@ fn state_root_header_only(state: &EpochState) -> [u8; 32] {
         &state.entropy_seed,
         &mut header,
     );
-    h_domain(DomainTag::StateRoot, &header)
+    let primitive_roots = crate::hash::consensus_primitive_digests(DomainTag::StateRoot, &header);
+    let root = combine_primitive_digests(&primitive_roots);
+    (root, primitive_roots)
 }

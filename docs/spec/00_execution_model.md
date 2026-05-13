@@ -298,13 +298,21 @@ alignment. All reads and writes must be via properly-typed, alignment-safe opera
 All cryptographic hash operations in the deterministic domain use the following
 canonical construction unless explicitly specified otherwise.
 
-### Primary hash: SHA3-256
+### Consensus hash suite
 
-Used for: state root `R_t`, entropy seed advancement, `GENESIS_CONSTANTS.toml` lock hash.
+State roots are not defined by a single primitive. Each active consensus
+primitive hashes the same domain-separated preimage, and the primitive outputs
+are folded into one 32-byte state root. The active v1 suite is:
 
 ```
 SHA3-256(input) → [u8; 32]
+SM3-256(input)  → [u8; 32]
 ```
+
+`SHA3-256` remains the fold/hash used for entropy advancement and
+`GENESIS_CONSTANTS.toml` lock hashing, but state-root security depends on the
+entire active digest set. A primitive that is merely logged outside this
+construction is not consensus-active.
 
 Input must be a single contiguous byte slice. No streaming API is used in the D domain
 (streaming APIs permit platform-divergent buffering behavior).
@@ -316,19 +324,38 @@ Domain tags are 4-byte little-endian u32 values prepended to the input.
 
 ```
 Domain tag assignments:
-  0x00000001  STATE_ROOT       — Encode(S_t) → R_t
+  0x00000001  STATE_ROOT       — Encode(S_t) → primitive sub-roots
   0x00000002  ENTROPY_ADVANCE  — seed_t → seed_{t+1}
   0x00000003  VALIDATOR_ID     — validator_id generation
   0x00000004  LEAF_HASH        — sparse Merkle leaf
   0x00000005  INTERNAL_HASH    — sparse Merkle internal node
+  0x00000006  CONSENSUS_ROOT   — folds active primitive sub-roots
 ```
 
-Canonical form:
+Canonical single-primitive form:
 
 ```
 H_domain(tag: u32, input: &[u8]) → [u8; 32]:
   SHA3-256( tag.to_le_bytes() ∥ input )
 ```
+
+Consensus state-root form:
+
+```
+root_SHA3 = SHA3-256(STATE_ROOT.to_le_bytes() ∥ input)
+root_SM3  = SM3-256(STATE_ROOT.to_le_bytes() ∥ input)
+
+H_consensus_domain(STATE_ROOT, input) =
+  SHA3-256(
+    CONSENSUS_ROOT.to_le_bytes()
+    ∥ 2u32.to_le_bytes()
+    ∥ SHA3_PRIMITIVE_ID.to_le_bytes() ∥ root_SHA3
+    ∥ SM3_PRIMITIVE_ID.to_le_bytes()  ∥ root_SM3
+  )
+```
+
+Validators must compute every active primitive. Divergence in any primitive
+changes the folded root and is consensus-visible.
 
 ### Hash cascade
 
@@ -340,7 +367,8 @@ H_cascade(input: &[u8]) → [u8; 32]:
 ```
 
 The cascade is used for: obfuscation layer leaf hashing.
-It is **not** used for state root computation (which uses `H_domain` above).
+It is **not** used for state root computation; state roots use
+`H_consensus_domain` above.
 
 ---
 

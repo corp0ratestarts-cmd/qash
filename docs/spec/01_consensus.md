@@ -96,7 +96,7 @@ S_t = (
   epoch:         u64,        // monotonically increasing, seeded at genesis
   state_root:    [u8; 32],   // Stores R_t = S_t.state_root (consensus artifact)
                              // Canonical commitment invariant (§2):
-                             // R_t = H_domain(STATE_ROOT, Encode_for_commitment(S_t, prior_root(t)))
+                             // R_t = H_consensus_domain(STATE_ROOT, Encode_for_commitment(S_t, prior_root(t)))
   validators:    [V_i; N],   // fixed-size validator array, N defined at genesis
   ledger_root:   [u8; 32],   // root of the sparse Merkle accumulator
   entropy_seed:  [u8; 32],   // forward-secure: seed_{t+1} = SHA3-256(seed_t)
@@ -155,7 +155,7 @@ A state `S_t` is **admissible** if and only if:
 3. ∀ i: S_t.validators[i].divergence ∈ [0, i64::MAX]  (divergence is non-negative)
 4. ∀ i: S_t.validators[i].slash_acc ∈ [0, i64::MAX]   (slash accumulator is non-negative)
 5. S_t.entropy_seed ≠ [0u8; 32]  (zero seed is forbidden post-genesis)
-6. S_t.state_root = H_domain(STATE_ROOT=0x00000001, Encode_for_commitment(S_t, prior_root(t)))
+6. S_t.state_root = H_consensus_domain(STATE_ROOT=0x00000001, Encode_for_commitment(S_t, prior_root(t)))
    This is the canonical commitment invariant defined in §2.
    prior_root(t) = S_{t-1}.state_root for t≥1; [0u8;32] for t=0.
 ```
@@ -237,7 +237,7 @@ and must not be treated as a separate semantic object in proofs or implementatio
 The state root is then:
 
 ```
-state_root_t = H_domain(STATE_ROOT, Encode_for_commitment(S_t, prior_root(t)))
+state_root_t = H_consensus_domain(STATE_ROOT, Encode_for_commitment(S_t, prior_root(t)))
 ```
 
 **Key invariant:** The wire encoding of S_t always contains the commitment to S_{t-1}.
@@ -365,7 +365,7 @@ Given admissible `(S_t, I_t)`:
    S'.epoch ← S_t.epoch + 1
 
 9. Compute new state root using prior-root substitution (LAST step):
-   S'.state_root ← H_domain(STATE_ROOT=0x00000001, Encode_for_commitment(S', prior_root(t+1)))
+   S'.state_root ← H_consensus_domain(STATE_ROOT=0x00000001, Encode_for_commitment(S', prior_root(t+1)))
    // prior_root(t+1) = S_t.state_root by definition (§2)
 
 10. return S'
@@ -643,7 +643,7 @@ Replay_{p_x}(G, T) = Replay_{p_y}(G, T) = R_n
 ```
 
 where `R_n = S_n.state_root` and the canonical commitment invariant (§2) holds:
-`R_n = H_domain(STATE_ROOT, Encode_for_commitment(S_n, prior_root(n)))`
+`R_n = H_consensus_domain(STATE_ROOT, Encode_for_commitment(S_n, prior_root(n)))`
 
 That is: deterministic re-execution of the canonical input sequence from genesis
 produces a bitwise-identical state root on all authorized platforms.
@@ -689,8 +689,8 @@ No implementation claim is valid until its proof obligations are discharged.
 ```
 AX-1  ISA correctness:   [ASSUMED] authorized ISAs implement two's complement correctly
 AX-2  Compiler:          [ASSUMED] pinned Rust toolchain produces correct code
-AX-3  Hash security:     [ASSUMED] SHA3-256 modeled as injective over protocol state space.
-                                   IMPORTANT: SHA3-256 is NOT mathematically injective
+AX-3  Hash security:     [ASSUMED] the active consensus hash suite (SHA3-256 + SM3-256, folded by SHA3-256) is modeled as collision-resistant over protocol state space.
+                                   IMPORTANT: no fixed-width hash root is mathematically injective
                                    (collisions exist by pigeonhole). This axiom assumes
                                    collisions are computationally unreachable within the
                                    protocol's admissible state space. It is a computational

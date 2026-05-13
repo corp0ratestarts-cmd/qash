@@ -1,16 +1,16 @@
 use sha3::{Digest, Sha3_256};
 
+use qash_consensus::fixed_point::FixedPoint;
 use qash_consensus::hash::DomainTag;
+use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
 use qash_consensus::params::consensus_params_hash;
 use qash_consensus::transition::{
     advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
 };
-use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
-use qash_consensus::fixed_point::FixedPoint;
 
 const EXPECTED_PARAMS_HASH_V0: [u8; 32] = [
-    56, 29, 201, 142, 216, 6, 210, 169, 115, 237, 60, 131, 127, 134, 88, 115,
-    154, 7, 20, 52, 92, 236, 129, 14, 173, 186, 52, 21, 59, 190, 112, 2,
+    67, 252, 243, 98, 176, 70, 79, 168, 182, 190, 200, 22, 3, 42, 115, 220, 153, 216, 120, 206,
+    181, 220, 212, 221, 138, 120, 5, 76, 102, 32, 195, 233,
 ];
 
 fn genesis_state() -> EpochState {
@@ -98,13 +98,14 @@ fn halt_freezes_entire_state_except_halt_reason() {
     let res = advance_epoch(&mut state, &spike);
     assert_eq!(res, Err(HaltReason::LyapunovViolation));
 
-    // Temporarily reset halt_reason to compare all other fields
-    let stored = state.halt_reason;
+    // Temporarily reset halt_reason to compare all other fields.
     state.halt_reason = HaltReason::None;
     let fp_after = state_fingerprint(&state);
-    state.halt_reason = stored;
 
-    assert_eq!(fp_before, fp_after, "state mutated during failed transition");
+    assert_eq!(
+        fp_before, fp_after,
+        "state mutated during failed transition"
+    );
 }
 
 #[test]
@@ -126,7 +127,10 @@ fn golden_halt_reason_preserved() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    assert_eq!(advance_epoch(&mut state, &spike), Err(HaltReason::LyapunovViolation));
+    assert_eq!(
+        advance_epoch(&mut state, &spike),
+        Err(HaltReason::LyapunovViolation)
+    );
 
     // Subsequent calls return SAME reason and do not mutate.
     let fp = state_fingerprint(&state);
@@ -160,13 +164,14 @@ fn window_check_precedes_push() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    assert_eq!(advance_epoch(&mut state, &spike), Err(HaltReason::LyapunovViolation));
+    assert_eq!(
+        advance_epoch(&mut state, &spike),
+        Err(HaltReason::LyapunovViolation)
+    );
 
-    // Reset halt reason for fingerprint equality comparison
-    let stored = state.halt_reason;
+    // Reset halt reason for fingerprint equality comparison.
     state.halt_reason = HaltReason::None;
     assert_eq!(state_fingerprint(&state), fp_before);
-    state.halt_reason = stored;
 }
 
 #[test]
@@ -197,4 +202,29 @@ fn within_epsilon_does_not_halt() {
 
     let r = advance_epoch(&mut state, &input);
     assert!(r.is_ok());
+}
+
+#[test]
+fn transition_root_folds_all_active_primitives() {
+    let mut state = genesis_state();
+    let result = advance_epoch(&mut state, &idle_input(4)).expect("idle epoch advances");
+
+    assert_eq!(
+        result.state_root,
+        qash_consensus::hash::combine_primitive_digests(&result.primitive_roots)
+    );
+
+    let mut changed = result.primitive_roots;
+    changed[0].digest[0] ^= 0x01;
+    assert_ne!(
+        result.state_root,
+        qash_consensus::hash::combine_primitive_digests(&changed)
+    );
+
+    changed = result.primitive_roots;
+    changed[1].digest[0] ^= 0x01;
+    assert_ne!(
+        result.state_root,
+        qash_consensus::hash::combine_primitive_digests(&changed)
+    );
 }

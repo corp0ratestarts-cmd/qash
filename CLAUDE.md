@@ -52,7 +52,7 @@ Cross-domain contamination (a Domain B value influencing a Domain A computation)
 - Overflow policy: `absorbing_halt` (irreversible halt, never panic or saturating arithmetic)
 - Epoch duration: 500 ms, max control-loop latency 450 ms
 - Post-quantum crypto cascade: Dilithium5 (primary), SLH-DSA-SHA3-256 (anchor), Falcon-512 (fallback)
-- Hash cascade: SHA3-256 → BLAKE3 → KangarooTwelve
+- Consensus state root: folded SHA3-256 + SM3-256 primitive roots; obfuscation cascade: SHA3-256 → BLAKE3 → KangarooTwelve
 - Max validators: 1024
 
 ### Arithmetic rules for Domain A code

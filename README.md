@@ -103,7 +103,7 @@ All guarantees reduce to three axioms. Everything above them is deductively cert
 ```
 AX-1  Authorized ISAs implement two's complement arithmetic correctly
 AX-2  Pinned Rust toolchain produces correct code for authorized ISAs
-AX-3  SHA3-256 is collision-resistant  (cryptographic assumption, not theorem)
+AX-3  Active consensus hash suite is collision-resistant  (cryptographic assumption, not theorem)
 ```
 
 ---
