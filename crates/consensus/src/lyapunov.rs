@@ -10,7 +10,7 @@ pub const WINDOW_SIZE: usize = WINDOW_SIZE_WIRE as usize;
 pub const WEIGHT_D: FixedPoint = FixedPoint::from_raw(400_000);
 pub const WEIGHT_C: FixedPoint = FixedPoint::from_raw(350_000);
 pub const WEIGHT_S: FixedPoint = FixedPoint::from_raw(250_000);
-pub const EPSILON:  FixedPoint = FixedPoint::from_raw(20_000);
+pub const EPSILON: FixedPoint = FixedPoint::from_raw(20_000);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LyapunovError {
@@ -19,14 +19,16 @@ pub enum LyapunovError {
 }
 
 impl From<OverflowError> for LyapunovError {
-    fn from(_: OverflowError) -> Self { LyapunovError::Overflow }
+    fn from(_: OverflowError) -> Self {
+        LyapunovError::Overflow
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValidatorMetrics {
-    pub divergence: FixedPoint,   // D in [0, SCALE]
-    pub conflict: FixedPoint,     // C in [0, SCALE]
-    pub slash_accum: FixedPoint,  // Σ >= 0 (monotone; not bounded by protocol)
+    pub divergence: FixedPoint,  // D in [0, SCALE]
+    pub conflict: FixedPoint,    // C in [0, SCALE]
+    pub slash_accum: FixedPoint, // Σ >= 0 (monotone; not bounded by protocol)
 }
 
 impl ValidatorMetrics {
@@ -39,8 +41,10 @@ impl ValidatorMetrics {
     #[inline]
     pub fn metrics_bounded(&self) -> bool {
         let s = SCALE;
-        self.divergence.raw() >= 0 && self.divergence.raw() <= s &&
-        self.conflict.raw()  >= 0 && self.conflict.raw()  <= s
+        self.divergence.raw() >= 0
+            && self.divergence.raw() <= s
+            && self.conflict.raw() >= 0
+            && self.conflict.raw() <= s
     }
 }
 
@@ -48,6 +52,12 @@ impl ValidatorMetrics {
 pub struct ConvergenceWindow {
     pub(crate) values: [FixedPoint; WINDOW_SIZE],
     pub(crate) filled: u8,
+}
+
+impl Default for ConvergenceWindow {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ConvergenceWindow {

@@ -1,7 +1,29 @@
 name: QASH CI
+
 on: [push, pull_request]
+
 jobs:
-  build-and-test:
+  build-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Build
+        run: cargo build --no-default-features
+
+  test-determinism:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Test
+        run: cargo test --no-default-features
+      - name: Verify deterministic build pipeline
+        run: ./scripts/verify_two_stage_build.sh
+
+  clippy-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -9,10 +31,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - name: Build
-        run: cargo build --no-default-features
-      - name: Test
-        run: cargo test --no-default-features
       - name: Clippy (consensus)
         run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D warnings
       - name: Clippy (workspace)
