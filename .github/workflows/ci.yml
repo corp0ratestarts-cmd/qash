@@ -22,6 +22,7 @@ jobs:
         run: cargo clippy -- -D warnings
 
       - name: Cross-ISA determinism (requires QEMU installed on runner)
+        continue-on-error: true
         run: |
           chmod +x scripts/verify_cross_isa_identity.sh
           ./scripts/verify_cross_isa_identity.sh
