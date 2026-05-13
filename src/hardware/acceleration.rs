@@ -1,5 +1,3 @@
-#![no_std]
-
 pub trait AccelerationBackend {
     fn accelerate_hash_cascade(
         &self,
