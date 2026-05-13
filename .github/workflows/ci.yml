@@ -1,19 +1,37 @@
-name: QASH CI
+name: ci
 on: [push, pull_request]
 jobs:
-  build-and-test:
+  build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
+
+      - name: Toolchain (PDF pin)
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
-      - name: Build
-        run: cargo build --no-default-features
-      - name: Test
-        run: cargo test --no-default-features
+          toolchain: 1.75.0
+          components: rustfmt, clippy
+
+      - name: Build + tests
+        run: cargo test --workspace --no-default-features
+
       - name: Clippy (consensus)
         run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D warnings
+
       - name: Clippy (workspace)
         run: cargo clippy -- -D warnings
+
+      - name: Cross-ISA determinism (requires QEMU installed on runner)
+        run: |
+          chmod +x scripts/verify_cross_isa_identity.sh
+          ./scripts/verify_cross_isa_identity.sh
+
+      - name: Coq proofs (requires pinned Coq install step)
+        run: |
+          echo "TBD: install Coq 8.16.0, then:"
+          echo "cd proofs && make all && ! grep -R 'Admitted\\.' ."
+
+      - name: Apalache (requires install)
+        run: |
+          echo "TBD: install apalache-mc, then:"
+          echo "apalache-mc check --length=100 tla/QASHConsensus.tla"

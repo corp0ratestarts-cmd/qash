@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "vectors": [
+    {
+      "name": "genesis_epoch0_noop",
+      "genesis_constants_toml_path": "GENESIS_CONSTANTS.toml",
+      "epochs": [
+        { "epoch": 0, "inputs": [], "expected_state_root_hex": "TBD", "expected_halted": false }
+      ]
+    }
+  ]
+}
