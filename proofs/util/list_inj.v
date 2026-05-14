@@ -11,6 +11,7 @@
 
 Require Import Coq.Lists.List.
 Require Import Coq.Arith.Arith.
+Require Import Coq.ZArith.ZArith.
 Require Import Coq.micromega.Lia.
 Import ListNotations.
 
@@ -26,9 +27,10 @@ Lemma flat_map_fixed_length :
     (forall x : A, length (f x) = k) ->
     length (flat_map f xs) = length xs * k.
 Proof.
-  induction xs as [| x xs IH]; intros Hk.
+  intros A f xs k Hk.
+  induction xs as [| x xs IH].
   - simpl. reflexivity.
-  - simpl. rewrite app_length, IH by assumption, Hk. lia.
+  - simpl. rewrite app_length. rewrite IH. rewrite (Hk x). lia.
 Qed.
 
 (** Variant over list Z (used by encode_injectivity.v) *)
@@ -37,51 +39,10 @@ Lemma flat_map_fixed_length_Z :
     (forall x : A, length (f x) = k) ->
     length (flat_map f xs) = length xs * k.
 Proof.
-  induction xs as [| x xs IH]; intros Hk.
+  intros A f xs k Hk.
+  induction xs as [| x xs IH].
   - simpl. reflexivity.
-  - simpl. rewrite app_length, IH by assumption, Hk. lia.
-Qed.
-
-(** ** flat_map injectivity under fixed-width encoding
-
-    Preconditions:
-      k > 0        — required: if k = 0, f _ = [] and all lists map to []
-                     making the theorem false (any two lists give same output)
-      length f = k — each element encodes to exactly k bytes
-      f injective  — the element encoder is injective
-
-    Result: flat_map f is injective over lists of equal length.
-
-    NOTE: the equal-length hypothesis is necessary because flat_map
-    of a fixed-width injective encoder is NOT injective over lists of
-    different lengths (different lists can encode to the same total bytes
-    if padded differently — but here we enforce equal length explicitly). *)
-Lemma flat_map_inj_fixed :
-  forall (A : Type) (f : A -> list Z) (xs ys : list A) (k : nat),
-    k > 0 ->
-    (forall x, length (f x) = k) ->
-    (forall x y, f x = f y -> x = y) ->
-    length xs = length ys ->
-    flat_map f xs = flat_map f ys ->
-    xs = ys.
-Proof.
-  intros A f xs.
-  induction xs as [| x xs IHxs]; intros ys k Hk_pos Hlen Hinj Hsame_len Heq.
-  - (* xs = [] *)
-    destruct ys; [reflexivity | simpl in Hsame_len; lia].
-  - (* xs = x :: xs' *)
-    destruct ys as [| y ys]; [simpl in Hsame_len; lia |].
-    injection Hsame_len as Hsame_len.
-    simpl flat_map in Heq.
-    (* Split head from tail using fixed-width *)
-    assert (Hlenx : length (f x) = k) by apply Hlen.
-    assert (Hleny : length (f y) = k) by apply Hlen.
-    (* f x and f y are the first k bytes of each side *)
-    assert (Hpre : f x = f y /\ flat_map f xs = flat_map f ys).
-    { apply (app_inj_1 _ _ _ _ (eq_trans Hlenx (eq_sym Hleny))). exact Heq. }
-    destruct Hpre as [Hhd Htl].
-    apply Hinj in Hhd.
-    apply IHxs in Htl; [subst; reflexivity | assumption | assumption | assumption | assumption].
+  - simpl. rewrite app_length. rewrite IH. rewrite (Hk x). lia.
 Qed.
 
 (* ================================================================= *)
@@ -91,10 +52,8 @@ Qed.
 (** The core segmentation lemma: equal concatenations with equal-length
     left parts have equal left parts and equal right parts.
 
-    This is the engine behind recursive structural injectivity.
-    It converts "equal concatenations" into "equal components" field by field.
-    Used in every injectivity proof in encode_injectivity.v via
-    app_injective_fixed. *)
+    Used in every injectivity proof in encode_injectivity.v and in
+    flat_map_inj_fixed below. *)
 Lemma app_cancel_left :
   forall (A : Type) (a1 a2 b1 b2 : list A) (k : nat),
     length a1 = k ->
@@ -118,6 +77,37 @@ Proof.
     simpl in Heq. exact Heq.
 Qed.
 
+(** ** flat_map injectivity under fixed-width encoding
+
+    Preconditions:
+      k > 0        — required: if k = 0, all lists map to [] (not injective)
+      length f = k — each element encodes to exactly k bytes
+      f injective  — the element encoder is injective
+
+    Result: flat_map f is injective over lists of equal length. *)
+Lemma flat_map_inj_fixed :
+  forall (A : Type) (f : A -> list Z) (xs ys : list A) (k : nat),
+    k > 0 ->
+    (forall x, length (f x) = k) ->
+    (forall x y, f x = f y -> x = y) ->
+    length xs = length ys ->
+    flat_map f xs = flat_map f ys ->
+    xs = ys.
+Proof.
+  intros A f xs.
+  induction xs as [| x xs IHxs]; intros ys k Hk_pos Hlen Hinj Hsame_len Heq.
+  - destruct ys; [reflexivity | simpl in Hsame_len; lia].
+  - destruct ys as [| y ys]; [simpl in Hsame_len; lia |].
+    injection Hsame_len as Hsame_len.
+    simpl flat_map in Heq.
+    assert (Hlenx : length (f x) = k) by apply Hlen.
+    assert (Hleny : length (f y) = k) by apply Hlen.
+    destruct (@app_cancel_left Z (f x) (f y) (flat_map f xs) (flat_map f ys) k Hlenx Hleny Heq) as [Hhd Htl].
+    apply Hinj in Hhd.
+    apply (IHxs ys k Hk_pos Hlen Hinj Hsame_len) in Htl.
+    subst; reflexivity.
+Qed.
+
 (** Width-arithmetic lemma used in segmentation:
     if all elements encode to k bytes, the total length is determined *)
 Lemma app_total_length :
@@ -126,4 +116,3 @@ Lemma app_total_length :
     length (flat_map f xs) = length xs * k.
 Proof. exact flat_map_fixed_length_Z. Qed.
 
-End. (* list_inj *)

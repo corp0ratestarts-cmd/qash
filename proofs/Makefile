@@ -1,6 +1,7 @@
 COQC ?= coqc
 COQDEP ?= coqdep
-VFILES := concat_injective.v lyapunov_decrease.v \
+VFILES := util/list_inj.v \
+          concat_injective.v lyapunov_decrease.v \
           contractivity/lyapunov_stability.v \
           cascade/cascade_health_bounded.v \
           cascade/cascade_collision_resistance.v \
