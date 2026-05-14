@@ -151,9 +151,11 @@ fn main() {
                     std::process::exit(1);
                 }
                 updates[u.slot] = Some(ValidatorUpdate {
-                    divergence_new:  fp(u.divergence_new),
-                    conflict_new:    fp(u.conflict_new),
-                    slash_accum_new: fp(u.slash_accum_new),
+                    divergence_new:       fp(u.divergence_new),
+                    conflict_new:         fp(u.conflict_new),
+                    slash_accum_new:      fp(u.slash_accum_new),
+                    signature_health_new: FixedPoint::ZERO,
+                    blinding_health_new:  FixedPoint::ZERO,
                 });
             }
 
@@ -161,9 +163,11 @@ fn main() {
                 for slot in updates.iter_mut().take(vc as usize) {
                     if slot.is_none() {
                         *slot = Some(ValidatorUpdate {
-                            divergence_new:  fp(all.divergence_new),
-                            conflict_new:    fp(all.conflict_new),
-                            slash_accum_new: fp(all.slash_accum_new),
+                            divergence_new:       fp(all.divergence_new),
+                            conflict_new:         fp(all.conflict_new),
+                            slash_accum_new:      fp(all.slash_accum_new),
+                            signature_health_new: FixedPoint::ZERO,
+                            blinding_health_new:  FixedPoint::ZERO,
                         });
                     }
                 }
