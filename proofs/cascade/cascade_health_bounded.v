@@ -12,7 +12,6 @@
     Depends on: AX-1, AX-2, §4c definition in 01_consensus.md
 *)
 
-Require Import Coq.Arith.Arith.
 Require Import Coq.ZArith.ZArith.
 Require Import Coq.micromega.Lia.
 Open Scope Z_scope.
@@ -22,18 +21,12 @@ Definition p           : Z := 1_000_000.
 Definition chi         : Z := 150_000.
 Definition max_queries : Z := 1_000_000.
 
-Lemma p_pos            : 0 < p.           Proof. unfold p.           lia. Qed.
-Lemma chi_nonneg       : 0 <= chi.        Proof. unfold chi.         lia. Qed.
-Lemma max_queries_pos  : 0 < max_queries. Proof. unfold max_queries. lia. Qed.
-
-(** Since p = max_queries, the division is exact. *)
-Lemma p_eq_max_queries : p = max_queries.
-Proof. unfold p, max_queries. reflexivity. Qed.
-
-(** Exact-division helper: fail_count * 1_000_000 / 1_000_000 = fail_count.
-    Proved via Z.div_unique with quotient = fail_count, remainder = 0. *)
-Lemma mul_div_self (n : Z) (Hnn : 0 <= n) :
-    n * 1_000_000 / 1_000_000 = n.
+(** Exact-division helper: n * 1_000_000 / 1_000_000 = n.
+    Proved via Z.div_unique: quotient = n, remainder = 0.
+    Preconditions: 0 <= n is not required — holds for all n when divisor > 0
+    and the division is exact. We state 0 <= n because all callers have this. *)
+Lemma mul_div_self (n : Z) :
+  n * 1_000_000 / 1_000_000 = n.
 Proof.
   apply (Z.div_unique _ _ _ 0); lia.
 Qed.
@@ -46,8 +39,7 @@ Lemma ch_t_upper_bound :
 Proof.
   intros fail_count [Hlo Hhi].
   unfold max_queries, p in *.
-  assert (Heq : fail_count * 1_000_000 / 1_000_000 = fail_count)
-    by (apply mul_div_self; lia).
+  rewrite mul_div_self.
   split; lia.
 Qed.
 
@@ -68,11 +60,10 @@ Qed.
 Lemma ch_term_admissible :
   forall (fail_count : Z),
   0 <= fail_count <= max_queries ->
-  let ch_t := fail_count * p / max_queries in
-  0 <= chi * ch_t <= chi * p.
+  0 <= chi * (fail_count * p / max_queries) <= chi * p.
 Proof.
   intros fail_count Hbounds.
-  pose proof (ch_t_upper_bound fail_count Hbounds) as Hch.
   apply cascade_health_term_no_overflow.
-  exact Hch.
+  apply ch_t_upper_bound.
+  exact Hbounds.
 Qed.
