@@ -4,6 +4,7 @@
 #[cfg(test)]
 extern crate std;
 
+pub mod blinding;
 pub mod cascade;
 pub mod hash;
 pub mod fixed_point;

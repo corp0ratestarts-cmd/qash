@@ -7,14 +7,23 @@ pub const WINDOW_SIZE_WIRE: u32 = 3;
 /// Array-sizing alias (usize required by Rust array syntax; not stored in state).
 pub const WINDOW_SIZE: usize = WINDOW_SIZE_WIRE as usize;
 
-pub const WEIGHT_D:  FixedPoint = FixedPoint::from_raw(350_000);
-pub const WEIGHT_C:  FixedPoint = FixedPoint::from_raw(300_000);
-pub const WEIGHT_S:  FixedPoint = FixedPoint::from_raw(200_000);
-pub const WEIGHT_CH: FixedPoint = FixedPoint::from_raw(150_000);
-// v1.1.1 weights — zero until blinding rollout epoch.
-// When activated: α→320k, β→280k, γ→180k, χ→130k, SH→90k (sum still 1_000_000).
-pub const WEIGHT_SH: FixedPoint = FixedPoint::from_raw(0);
-pub const WEIGHT_BH: FixedPoint = FixedPoint::from_raw(0);
+// v1.1 genesis weights (PDF1 §4.1 / GENESIS_CONSTANTS.toml)
+pub const WEIGHT_D:  FixedPoint = FixedPoint::from_raw(350_000); // divergence
+pub const WEIGHT_C:  FixedPoint = FixedPoint::from_raw(300_000); // conflict
+pub const WEIGHT_S:  FixedPoint = FixedPoint::from_raw(200_000); // slash accumulator
+pub const WEIGHT_CH: FixedPoint = FixedPoint::from_raw(150_000); // cascade health
+
+// v1.1.1 blinding-health weights — zero until blinding rollout epoch.
+// Activation requires a weight rebalancing (spec §6.6.3, confirmed Option 2 analysis):
+//   D:  350_000 → 320_000  (-30k)
+//   C:  300_000 → 280_000  (-20k)
+//   Σ:  200_000 → 180_000  (-20k)
+//   CH: 150_000 → 130_000  (-20k)
+//   BH: 0       → 90_000   (+90k)   sum = 1_000_000 ✓
+// This rebalancing is a genesis-incompatible change requiring a migration epoch.
+pub const WEIGHT_SH: FixedPoint = FixedPoint::from_raw(0); // signature health
+pub const WEIGHT_BH: FixedPoint = FixedPoint::from_raw(0); // blinding health
+
 pub const EPSILON:   FixedPoint = FixedPoint::from_raw(20_000);
 
 /// Genesis parameter: max transactions admitted per epoch.

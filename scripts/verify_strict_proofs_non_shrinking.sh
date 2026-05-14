@@ -56,5 +56,9 @@ if [[ $errors -gt 0 ]]; then
   exit 1
 fi
 
-added=$(comm -13 <(echo "$PREV_PROOFS") <(echo "$HEAD_PROOFS") | grep -v '^$' | wc -l)
+added=0
+while IFS= read -r proof; do
+  [[ -z "$proof" ]] && continue
+  added=$((added + 1))
+done < <(comm -13 <(echo "$PREV_PROOFS") <(echo "$HEAD_PROOFS") 2>/dev/null || true)
 echo "verify_strict_proofs_non_shrinking: OK (${added} added, 0 removed)"
