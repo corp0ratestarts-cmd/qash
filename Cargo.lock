@@ -168,7 +168,11 @@ dependencies = [
 name = "qash-consensus"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "sha3",
+ "sm3",
+ "streebog",
+ "tiny-keccak",
 ]
 
 [[package]]
