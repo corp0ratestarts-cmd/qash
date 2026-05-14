@@ -27,6 +27,19 @@ fn genesis_state() -> EpochState {
     }
 }
 
+fn genesis_state_n(n: u32) -> EpochState {
+    EpochState {
+        epoch: 0,
+        halt_reason: HaltReason::None,
+        entropy_seed: [0u8; 32],
+        state_root: [0u8; 32],
+        ledger_root: [0u8; 32],
+        validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
+        validator_count: n,
+        convergence_window: ConvergenceWindow::new(),
+    }
+}
+
 fn idle_input(n: u32) -> EpochInput {
     EpochInput {
         updates: [None; MAX_VALIDATORS],
@@ -203,4 +216,39 @@ fn within_epsilon_does_not_halt() {
 
     let r = advance_epoch(&mut state, &input);
     assert!(r.is_ok());
+}
+
+// ── Φ_safety (ADR-001) unit tests ────────────────────────────────────────────
+
+#[test]
+fn phi_safety_violation_at_512_validators() {
+    // 512 validators each at max slash → Φ = PHI_MAX_SAFE → PhiSafetyViolation
+    let mut state = genesis_state_n(512);
+    let mut updates = [None::<ValidatorUpdate>; MAX_VALIDATORS];
+    for u in updates.iter_mut().take(512) {
+        *u = Some(ValidatorUpdate {
+            divergence_new:  FixedPoint::ZERO,
+            conflict_new:    FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::from_raw(i64::MAX as i128),
+        });
+    }
+    let input = EpochInput { updates, update_count: 512, cascade_fail_count: 0 };
+    assert_eq!(advance_epoch(&mut state, &input), Err(HaltReason::PhiSafetyViolation));
+}
+
+#[test]
+fn phi_below_threshold_at_511_validators() {
+    // 511 validators each at max slash → Φ < PHI_MAX_SAFE → no halt
+    let mut state = genesis_state_n(511);
+    let mut updates = [None::<ValidatorUpdate>; MAX_VALIDATORS];
+    for u in updates.iter_mut().take(511) {
+        *u = Some(ValidatorUpdate {
+            divergence_new:  FixedPoint::ZERO,
+            conflict_new:    FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::from_raw(i64::MAX as i128),
+        });
+    }
+    let input = EpochInput { updates, update_count: 511, cascade_fail_count: 0 };
+    assert!(advance_epoch(&mut state, &input).is_ok());
+    assert_eq!(state.halt_reason, HaltReason::None);
 }
