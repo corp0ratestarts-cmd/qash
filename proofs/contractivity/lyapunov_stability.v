@@ -130,39 +130,30 @@ Definition min3 (a b c : Z) : Z :=
 Lemma min3_le_left  : forall a b c, min3 a b c <= a.
 Proof.
   intros a b c. unfold min3.
-  destruct (a <=? b) eqn:Hab; destruct (a <=? c) eqn:Hac;
-    try (apply Z.leb_le in Hab); try (apply Z.leb_le in Hac);
-    try (apply Z.leb_nle in Hab); try (apply Z.leb_nle in Hac); lia.
+  destruct (Z.leb_spec a b); destruct (Z.leb_spec a c);
+    destruct (Z.leb_spec b c); lia.
 Qed.
 
 Lemma min3_le_mid   : forall a b c, min3 a b c <= b.
 Proof.
   intros a b c. unfold min3.
-  destruct (a <=? b) eqn:Hab; destruct (a <=? c) eqn:Hac;
-    destruct (b <=? c) eqn:Hbc;
-    try (apply Z.leb_le in Hab); try (apply Z.leb_le in Hac);
-    try (apply Z.leb_le in Hbc);
-    try (apply Z.leb_nle in Hab); try (apply Z.leb_nle in Hac);
-    try (apply Z.leb_nle in Hbc); lia.
+  destruct (Z.leb_spec a b); destruct (Z.leb_spec a c);
+    destruct (Z.leb_spec b c); lia.
 Qed.
 
 Lemma min3_le_right : forall a b c, min3 a b c <= c.
 Proof.
   intros a b c. unfold min3.
-  destruct (a <=? b) eqn:Hab; destruct (a <=? c) eqn:Hac;
-    destruct (b <=? c) eqn:Hbc;
-    try (apply Z.leb_le in Hab); try (apply Z.leb_le in Hac);
-    try (apply Z.leb_le in Hbc);
-    try (apply Z.leb_nle in Hab); try (apply Z.leb_nle in Hac);
-    try (apply Z.leb_nle in Hbc); lia.
+  destruct (Z.leb_spec a b); destruct (Z.leb_spec a c);
+    destruct (Z.leb_spec b c); lia.
 Qed.
 
 Lemma min3_nonneg : forall a b c,
     0 <= a -> 0 <= b -> 0 <= c -> 0 <= min3 a b c.
 Proof.
-  intros a b c Ha Hb Hc.
-  unfold min3.
-  destruct (a <=? b); destruct (a <=? c); destruct (b <=? c); lia.
+  intros a b c Ha Hb Hc. unfold min3.
+  destruct (Z.leb_spec a b); destruct (Z.leb_spec a c);
+    destruct (Z.leb_spec b c); lia.
 Qed.
 
 Definition window_min (w : Window) : Z :=
@@ -277,8 +268,8 @@ Theorem TH3c_finalize_list_zero :
     sum_validators (repeat finalize_metrics n) = 0.
 Proof.
   induction n as [| n' IH].
-  - simpl. reflexivity.
-  - simpl. rewrite TH3c_finalize_zero. rewrite IH. lia.
+  - reflexivity.
+  - simpl. rewrite IH. lia.
 Qed.
 
 (* ================================================================= *)
