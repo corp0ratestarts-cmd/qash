@@ -8,3 +8,5 @@
 *.glob
 *.aux
 .*.aux
+.lia.cache
+.depend
