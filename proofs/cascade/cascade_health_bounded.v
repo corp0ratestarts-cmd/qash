@@ -28,7 +28,7 @@ Definition max_queries : Z := 1_000_000.
 Lemma mul_div_self (n : Z) :
   n * 1_000_000 / 1_000_000 = n.
 Proof.
-  apply (Z.div_unique _ _ _ 0); lia.
+  apply Z.div_mul. lia.
 Qed.
 
 (** CH_t is bounded in [0, p]. *)
@@ -51,9 +51,7 @@ Lemma cascade_health_term_no_overflow :
 Proof.
   intros ch_t [Hlo Hhi].
   unfold chi, p in *.
-  split.
-  - apply Z.mul_nonneg_nonneg; lia.
-  - apply Z.mul_le_mono_nonneg_l; lia.
+  split; lia.
 Qed.
 
 (** Combined: for any admissible fail_count, χ · CH_t ∈ [0, χ · p]. *)
