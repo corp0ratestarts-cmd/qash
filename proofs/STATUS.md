@@ -11,6 +11,13 @@ These files are compiled by `make all` in CI and must remain Admitted-free:
 | TH-3c | FinalizeEpoch → V_convergence = 0 | `contractivity/lyapunov_stability.v` | ✅ PROVED |
 | TH-9 | CH_t ∈ [0,p], χ·CH_t no overflow | `cascade/cascade_health_bounded.v` | ✅ PROVED |
 | TH-GC | Grace convergence: ε_honest-bounded steps → δ_window ≤ 3×ε_honest < ε_halt → no H1 halt | `contractivity/lyapunov_grace_convergence.v` | ✅ PROVED |
+| TH-1 | Encoding injectivity: encode_state(s1) = encode_state(s2) → s1 = s2 | `encoding_injectivity.v` | ✅ PROVED |
+| TH-2 | Encoding totality: encode_state total over well-formed states | `encoding_injectivity.v` | ✅ PROVED |
+| TH-4 | Φ_safety monotonicity: Φ_safety(T(S,I)) ≥ Φ_safety(S) | `safety/absorbing_halt.v` | ✅ PROVED |
+| TH-5 | Φ_safety boundedness: Φ_safety(S) ≤ Φ_max for all admissible S | `safety/absorbing_halt.v` | ✅ PROVED |
+| TH-6 | Halt correctness: halt_flag=true → no admissible transitions | `safety/absorbing_halt.v` | ✅ PROVED |
+| TH-8 | Succession soundness (partial): halted state frozen, root unique via TH-1+AX-3 | `safety/absorbing_halt.v` | ✅ PROVED (partial) |
+| ERR-001 | V_convergence partition: not monotone, can reach 0; distinct from Φ_safety | `lyapunov_decrease.v` | ✅ PROVED |
 | — | List encoding infrastructure | `util/list_inj.v` | ✅ PROVED |
 
 **Also compiled (no proof obligations):**
@@ -21,22 +28,16 @@ These files are compiled by `make all` in CI and must remain Admitted-free:
 | `cascade/cascade_determinism.v` | Verification claim (TH-11) — CI-tested, no Coq proof by design |
 | `blinding/blinding_non_interference.v` | `Axiom` — PRF security of H_cascade_keyed (§3.7.5); full proof deferred post-genesis |
 | `concat_injective.v` | Stub (TBD) |
-| `lyapunov_decrease.v` | Stub (TBD) |
 
 ## Sketch Drafts (in `_wip/`, NOT compiled by CI)
 
-The Coq files in `_wip/` are design sketches. They capture correct proof
-strategy but use invalid Coq syntax (`apply ... by X by Y`, Z/nat scope-mixing)
-and have not been mechanically verified by `coqc`.
+The Coq files in `_wip/` are historical design sketches. The valid proofs have
+been promoted to real files with syntax fixed; originals kept for audit trail.
 
-| ID | Name | Draft file | Issue |
-|----|------|------------|-------|
-| TH-1 | Encoding injectivity | `_wip/encode_injectivity.v.draft` | Invalid tactic syntax |
-| TH-2 | Encoding totality | (depends on TH-1) | Blocked by TH-1 |
-| TH-4 | Φ_safety monotonicity | `_wip/absorbing_halt.v.draft` | Invalid tactic syntax |
-| TH-5 | Φ_safety boundedness | `_wip/absorbing_halt.v.draft` | Invalid tactic syntax |
-| TH-6 | Halt correctness | `_wip/absorbing_halt.v.draft` | Invalid tactic syntax |
-| TH-8 | Succession soundness | (depends on TH-1) | Blocked by TH-1 |
+| ID | Original Draft | Promoted To | Status |
+|----|---------------|-------------|--------|
+| TH-1/2 | `_wip/encode_injectivity.v.draft` | `encoding_injectivity.v` | ✅ Promoted |
+| TH-4/5/6/8 | `_wip/absorbing_halt.v.draft` | `safety/absorbing_halt.v` | ✅ Promoted |
 
 ## TH-7: Replay Invariance
 
@@ -49,5 +50,11 @@ deterministic state machine with absorbing halt and the golden hash vectors.
 For genesis-lock, the following are required:
 - ✅ TH-3 (Lyapunov stability) — proved
 - ✅ TH-9 (Cascade health boundedness) — proved
-- TH-1/2/4/5/6/8 — remain as post-genesis obligations or must be discharged
-  before final sign-off (see ADR-001 and docs/release/rc_checklist_pack.md)
+- ✅ TH-GC (Grace convergence / tolerance pillar) — proved
+- ✅ TH-1/TH-2 (Encoding injectivity / totality) — proved
+- ✅ TH-4/TH-5/TH-6 (Φ_safety monotonicity, boundedness, halt terminal) — proved
+- ✅ TH-8 (Succession soundness partial) — proved; full composition deferred post-genesis
+- ✅ ERR-001 (V_convergence partition) — proved
+
+All pre-genesis proof obligations discharged. See ADR-001 for Φ_safety threshold
+and ADR-004 for halt layering (Domain A vs PAL).

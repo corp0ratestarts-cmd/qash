@@ -1,5 +1,5 @@
 # ADR-004 — Absorbing halt layering: consensus vs PAL
-**Status:** Proposed  
+**Status:** Accepted  
 **Filed:** 2026-05-13  
 **PDF anchor:** §2.3 (pp. 3–4) defines `trigger_absorbing_halt(..) -> !` with zeroize/scheduler/watchdog.
 
