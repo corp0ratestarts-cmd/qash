@@ -45,8 +45,19 @@ pub fn h_cascade(input: &[u8]) -> [u8; 64] {
 /// Usage:
 ///   - Obfuscation leaf hashing: `h_cascade_keyed(seed_t, validator_id ∥ epoch_le8)`
 ///   - Genesis hash: `h_cascade_keyed(&[], canonical_genesis_bytes)` (no blinding key)
+/// Domain separators — all seven levels (spec §1–§3, §7).
+/// These constants are mirrored in GENESIS_CONSTANTS.toml [crypto.cascade.domain_separators].
+/// The domain_separator_parity integration test asserts byte equality between both sources.
+pub const DOM_SEP_L1: &[u8] = b"QASH:CASCADE:L1:PARALLEL";
+pub const DOM_SEP_L2: &[u8] = b"QASH:CASCADE:L2:BIND";
+pub const DOM_SEP_L3: &[u8] = b"QASH:CASCADE:L3:EXPAND";
+pub const DOM_SEP_L4: &[u8] = b"QASH:CASCADE:L4:EXPAND";
+pub const DOM_SEP_L5: &[u8] = b"QASH:CASCADE:L5:EXPAND";
+pub const DOM_SEP_L6: &[u8] = b"QASH:CASCADE:L6:EXPAND";
+pub const DOM_SEP_L7: &[u8] = b"QASH:CASCADE:L7:FINALIZE";
+
 pub fn h_cascade_keyed(context_key: &[u8], input: &[u8]) -> [u8; 64] {
-    let l1_sep = b"QASH:CASCADE:L1:PARALLEL";
+    let l1_sep = DOM_SEP_L1;
 
     // L1: five primitives in parallel — spec §1
     let h1_sha3   = l1_sha3_256(l1_sep, input);
@@ -64,14 +75,14 @@ pub fn h_cascade_keyed(context_key: &[u8], input: &[u8]) -> [u8; 64] {
     parallel[128..160].copy_from_slice(&h1_streeb);
 
     // L2: binding layer with optional context_key — spec §2, §4
-    let l2 = sha3_512_layer_keyed(b"QASH:CASCADE:L2:BIND", context_key, &parallel);
+    let l2 = sha3_512_layer_keyed(DOM_SEP_L2, context_key, &parallel);
 
     // L3–L7: recursive expansion — spec §2, §3
-    let l3 = sha3_512_layer(b"QASH:CASCADE:L3:EXPAND",   &l2);
-    let l4 = sha3_512_layer(b"QASH:CASCADE:L4:EXPAND",   &l3);
-    let l5 = sha3_512_layer(b"QASH:CASCADE:L5:EXPAND",   &l4);
-    let l6 = sha3_512_layer(b"QASH:CASCADE:L6:EXPAND",   &l5);
-    sha3_512_layer(b"QASH:CASCADE:L7:FINALIZE", &l6)
+    let l3 = sha3_512_layer(DOM_SEP_L3, &l2);
+    let l4 = sha3_512_layer(DOM_SEP_L4, &l3);
+    let l5 = sha3_512_layer(DOM_SEP_L5, &l4);
+    let l6 = sha3_512_layer(DOM_SEP_L6, &l5);
+    sha3_512_layer(DOM_SEP_L7, &l6)
 }
 
 // ---------------------------------------------------------------------------

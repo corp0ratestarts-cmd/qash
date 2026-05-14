@@ -8,6 +8,13 @@ VFILES := util/list_inj.v \
           cascade/cascade_determinism.v
 VOFILES := $(VFILES:.v=.vo)
 
+# STRICT_PROOFS: files in the no-Admitted gate.
+# This list is APPEND-ONLY — CI enforces it never shrinks across commits.
+# To add a proof: add it here AND ensure it compiles without Admitted.
+STRICT_PROOFS := \
+    contractivity/lyapunov_stability.v \
+    cascade/cascade_health_bounded.v
+
 all: .depend $(VOFILES)
 .depend: $(VFILES)
 	$(COQDEP) -Q . QASH $(VFILES) > .depend

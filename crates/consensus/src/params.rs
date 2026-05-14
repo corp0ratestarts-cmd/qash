@@ -1,12 +1,27 @@
 //! Consensus parameter fingerprinting (used by tests/main only).
 //! Nothing in the consensus path should depend on this module.
 
-// Compile-time guard: PHI_MAX_SAFE in code must equal the value pinned in
-// GENESIS_CONSTANTS.toml (phi_max_safe = 944473296573929042432).
+// Compile-time guards: every numeric genesis constant in Rust must match
+// GENESIS_CONSTANTS.toml exactly. Drift → build break.
+
+const _GENESIS_WEIGHT_D:   i128 = 350_000;
+const _GENESIS_WEIGHT_C:   i128 = 300_000;
+const _GENESIS_WEIGHT_S:   i128 = 200_000;
+const _GENESIS_WEIGHT_CH:  i128 = 150_000;
+const _GENESIS_EPSILON:    i128 = 20_000;
 const _GENESIS_PHI_MAX_SAFE: i128 = 944_473_296_573_929_042_432;
+
 const _: () = {
-    if crate::lyapunov::PHI_MAX_SAFE != _GENESIS_PHI_MAX_SAFE {
-        panic!("PHI_MAX_SAFE in lyapunov.rs does not match phi_max_safe pinned in GENESIS_CONSTANTS.toml");
+    if crate::lyapunov::WEIGHT_D.raw()  != _GENESIS_WEIGHT_D  { panic!("WEIGHT_D mismatch vs GENESIS_CONSTANTS.toml"); }
+    if crate::lyapunov::WEIGHT_C.raw()  != _GENESIS_WEIGHT_C  { panic!("WEIGHT_C mismatch vs GENESIS_CONSTANTS.toml"); }
+    if crate::lyapunov::WEIGHT_S.raw()  != _GENESIS_WEIGHT_S  { panic!("WEIGHT_S mismatch vs GENESIS_CONSTANTS.toml"); }
+    if crate::lyapunov::WEIGHT_CH.raw() != _GENESIS_WEIGHT_CH { panic!("WEIGHT_CH mismatch vs GENESIS_CONSTANTS.toml"); }
+    if crate::lyapunov::EPSILON.raw()   != _GENESIS_EPSILON   { panic!("EPSILON mismatch vs GENESIS_CONSTANTS.toml"); }
+    if crate::lyapunov::PHI_MAX_SAFE    != _GENESIS_PHI_MAX_SAFE { panic!("PHI_MAX_SAFE in lyapunov.rs does not match phi_max_safe pinned in GENESIS_CONSTANTS.toml"); }
+    // Weight sum invariant: α + β + γ + χ ≤ 1_000_000 (= SCALE).
+    // 90_000 headroom reserved for v1.1.1 blinding_health rollout.
+    if _GENESIS_WEIGHT_D + _GENESIS_WEIGHT_C + _GENESIS_WEIGHT_S + _GENESIS_WEIGHT_CH > 1_000_000 {
+        panic!("Lyapunov weights exceed SCALE — invariant violated");
     }
 };
 

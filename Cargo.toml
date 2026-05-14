@@ -24,6 +24,10 @@ streebog    = { version = "0.10", default-features = false }
 name = "compute-genesis-hash"
 path = "src/bin/compute_genesis_hash.rs"
 
+[[bin]]
+name = "generate-schema"
+path = "src/bin/generate_schema.rs"
+
 [profile.release]
 opt-level = 3
 lto = true
