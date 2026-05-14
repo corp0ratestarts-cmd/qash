@@ -71,6 +71,8 @@ jobs:
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu \
             gcc-riscv64-linux-gnu \
+            libc6-arm64-cross \
+            libc6-riscv64-cross \
             qemu-user
 
       - name: Cross-ISA determinism
