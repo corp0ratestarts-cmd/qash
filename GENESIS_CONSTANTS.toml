@@ -3,7 +3,8 @@ version = "1.1.0"
 lock_algorithm = "QASH-CASCADE-7"
 deployment_model = "one-shot"
 governance = "zero"
-genesis_hash = "QASH-CASCADE-7:ee3f88a8ffe7c74cf8bfac189adb8861f3202821447523f05c70eb4f9c40e51b727bc537c811eb183580ca8e96c40c8321952a9bb8db4f7f5341272d1a444784"
+genesis_blind_nonce = "SHA3-256:QASH:GENESIS:BLIND:v1.1:a40f9a061579b263a522c6702aa6bf16ca0e03e0b6779b0f71ada2cb223f27e2"
+genesis_hash = "QASH-CASCADE-7:63be85c25adf68f0f2376a51b711b0f3890cfabb89d92108191689853a77867cd365c8db7bbe41506ca1872c5eecaf5186a0b9c8466ca0fcd23179ae87f95a23"
 
 [fixed_point]
 scale = 1_000_000
