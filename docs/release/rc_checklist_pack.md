@@ -15,7 +15,7 @@ Branch: `claude/review-and-push-itHqh`
 | Nonzero-slash unit tests | ✅ GO | `crates/consensus/tests/golden_replay.rs`: `phi_safety_violation_at_512_validators`, `phi_below_threshold_at_511_validators` |
 | Coq proofs — gated subset | ✅ GO | CI `coq-proofs` job: TH-3a/b/c + TH-9 fully proved, no `Admitted`; `util/list_inj.v` infrastructure proved |
 | build-test CI | ✅ GO | `cargo test --workspace`, clippy strict, vector runner golden pass |
-| genesis_hash | ✅ GO | `GENESIS_CONSTANTS.toml`: `SHA3-256:14b0ff7bca2f822161227433317096c5bb704960b6e65ec0e2f07c8021472b29` (self-verified) |
+| genesis_hash | ✅ GO | `GENESIS_CONSTANTS.toml`: `QASH-CASCADE-7:ee3f88a8ffe7c74cf8bfac189adb8861f3202821447523f05c70eb4f9c40e51b727bc537c811eb183580ca8e96c40c8321952a9bb8db4f7f5341272d1a444784` (self-verified) |
 | cross-ISA determinism | 🟡 ADVISORY | CI job `continue-on-error: true`; sysroot + QEMU fix pushed, awaiting CI result |
 | two-stage build verify | 🟡 ADVISORY | `scripts/verify_two_stage_build.sh` is a stub — reserved post-genesis |
 | Coq proofs — full formal suite | 🟡 ADVISORY | TH-1/2/4/5/6/8 remain design sketches in `proofs/_wip/`; post-genesis obligation |
@@ -74,7 +74,7 @@ Branch: `claude/review-and-push-itHqh`
 | `window` (W) | 3 | `lyapunov::WINDOW_SIZE` |
 | `phi_max_safe` | 944_473_296_573_929_042_432 | `lyapunov::PHI_MAX_SAFE` |
 | `max_validators` | 1024 | `transition::MAX_VALIDATORS` |
-| `genesis_hash` | SHA3-256:14b0ff7bca2f822161227433317096c5bb704960b6e65ec0e2f07c8021472b29 | `GENESIS_CONSTANTS.toml` |
+| `genesis_hash` | QASH-CASCADE-7:ee3f88a8ffe7c74cf8bfac189adb8861f3202821447523f05c70eb4f9c40e51b727bc537c811eb183580ca8e96c40c8321952a9bb8db4f7f5341272d1a444784 | `GENESIS_CONSTANTS.toml` |
 
 **Config fingerprint** (`consensus_params_hash()`): run after genesis_hash is locked.
 
@@ -110,7 +110,7 @@ the release is blocked. All ✅ GO and all sign-offs required before merge to ma
 
 ## Pre-Merge Checklist
 
-- [x] `genesis_hash` computed and pinned: `SHA3-256:14b0ff7bca2f822161227433317096c5bb704960b6e65ec0e2f07c8021472b29`
+- [x] `genesis_hash` computed and pinned: `QASH-CASCADE-7:ee3f88a8ffe7c74cf8bfac189adb8861f3202821447523f05c70eb4f9c40e51b727bc537c811eb183580ca8e96c40c8321952a9bb8db4f7f5341272d1a444784`
 - [ ] All cargo tests pass: `cargo test --workspace --no-default-features`
 - [ ] Coq CI green (coq-proofs job): no Admitted in gated scope
 - [ ] Vector runner golden pass: all 5 vectors pass including phi_safety vectors
