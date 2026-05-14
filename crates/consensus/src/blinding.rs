@@ -38,17 +38,14 @@ use crate::cascade::{h_cascade, h_cascade_keyed};
 /// Blinding mode selector (part of on-chain state type once blinding activates).
 ///
 /// Until WEIGHT_BH is set to 90_000, `None` is the operative mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BlindingMode {
     /// No blinding — pre-v1.1.1 behaviour. Identity for all operations.
+    #[default]
     None,
     /// Epoch-bound PRF: H_cascade_keyed(epoch_key, input).
     /// epoch_key derived via h_cascade_derive(epoch_root, epoch, entropy_seed).
     EpochBoundPRF,
-}
-
-impl Default for BlindingMode {
-    fn default() -> Self { BlindingMode::None }
 }
 
 // ---------------------------------------------------------------------------
