@@ -87,18 +87,20 @@ Definition v_validator (v : ValidatorMetrics) : Z :=
 
 Lemma v_validator_nonneg : forall v, 0 <= v_validator v.
 Proof.
-  intros v. unfold v_validator, weight_D, weight_C, weight_CH.
+  intros v.
   pose proof (vm_D_lo v); pose proof (vm_C_lo v); pose proof (vm_CH_lo v).
+  unfold v_validator, weight_D, weight_C, weight_CH in *.
   lia.
 Qed.
 
 Lemma v_validator_bounded : forall v,
     v_validator v <= (weight_D + weight_C + weight_CH) * scale.
 Proof.
-  intros v. unfold v_validator, weight_D, weight_C, weight_CH, scale.
+  intros v.
   pose proof (vm_D_lo v); pose proof (vm_D_hi v).
   pose proof (vm_C_lo v); pose proof (vm_C_hi v).
   pose proof (vm_CH_lo v); pose proof (vm_CH_hi v).
+  unfold v_validator, weight_D, weight_C, weight_CH, scale in *.
   lia.
 Qed.
 
