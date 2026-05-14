@@ -18,6 +18,7 @@ These files are compiled by `make all` in CI and must remain Admitted-free:
 |------|--------|
 | `cascade/cascade_collision_resistance.v` | `Axiom` — cryptographic assumption (TH-10), not `Admitted` |
 | `cascade/cascade_determinism.v` | Verification claim (TH-11) — CI-tested, no Coq proof by design |
+| `blinding/blinding_non_interference.v` | `Axiom` — PRF security of H_cascade_keyed (§3.7.5); full proof deferred post-genesis |
 | `concat_injective.v` | Stub (TBD) |
 | `lyapunov_decrease.v` | Stub (TBD) |
 

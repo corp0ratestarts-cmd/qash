@@ -24,6 +24,13 @@ pub const WEIGHT_CH: FixedPoint = FixedPoint::from_raw(150_000); // cascade heal
 pub const WEIGHT_SH: FixedPoint = FixedPoint::from_raw(0); // signature health
 pub const WEIGHT_BH: FixedPoint = FixedPoint::from_raw(0); // blinding health
 
+// v1.2 mandatory baseline weights — ORAM + PETN-CRCS (spec §6.6.2, §7.2).
+// Both layers are structurally required for the 4-pillar traceability resistance model.
+// Access-pattern and network-emission obfuscation are genesis-mandatory; weights are
+// zero until the v1.2 rollout epoch when a further rebalancing will be specified.
+pub const WEIGHT_OH:  FixedPoint = FixedPoint::from_raw(0); // ORAM determinism health
+pub const WEIGHT_DCH: FixedPoint = FixedPoint::from_raw(0); // disclosure compliance health (PETN-CRCS)
+
 pub const EPSILON:   FixedPoint = FixedPoint::from_raw(20_000);
 
 /// Genesis parameter: max transactions admitted per epoch.

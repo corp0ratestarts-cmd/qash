@@ -5,7 +5,8 @@ VFILES := util/list_inj.v \
           contractivity/lyapunov_stability.v \
           cascade/cascade_health_bounded.v \
           cascade/cascade_collision_resistance.v \
-          cascade/cascade_determinism.v
+          cascade/cascade_determinism.v \
+          blinding/blinding_non_interference.v
 VOFILES := $(VFILES:.v=.vo)
 
 # STRICT_PROOFS: files in the no-Admitted gate.

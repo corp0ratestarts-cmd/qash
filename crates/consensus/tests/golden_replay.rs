@@ -112,6 +112,8 @@ fn halt_freezes_entire_state_except_halt_reason() {
         conflict_new: FixedPoint::ZERO,
         // absolute: monotone
         slash_accum_new: FixedPoint::ZERO,
+        signature_health_new: FixedPoint::ZERO,
+        blinding_health_new: FixedPoint::ZERO,
     });
 
     let res = advance_epoch(&mut state, &spike);
@@ -143,6 +145,8 @@ fn golden_halt_reason_preserved() {
         divergence_new: FixedPoint::from_raw(1_000_000),
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
+        signature_health_new: FixedPoint::ZERO,
+        blinding_health_new: FixedPoint::ZERO,
     });
 
     assert_eq!(advance_epoch(&mut state, &spike), Err(HaltReason::LyapunovViolation));
@@ -177,6 +181,8 @@ fn window_check_precedes_push() {
         divergence_new: FixedPoint::from_raw(1_000_000),
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
+        signature_health_new: FixedPoint::ZERO,
+        blinding_health_new: FixedPoint::ZERO,
     });
 
     assert_eq!(advance_epoch(&mut state, &spike), Err(HaltReason::LyapunovViolation));
@@ -200,6 +206,8 @@ fn within_epsilon_does_not_halt() {
                 divergence_new: FixedPoint::from_raw(10_000),
                 conflict_new: FixedPoint::ZERO,
                 slash_accum_new: FixedPoint::ZERO,
+                signature_health_new: FixedPoint::ZERO,
+                blinding_health_new: FixedPoint::ZERO,
             });
         }
         let r = advance_epoch(&mut state, &input);
@@ -212,6 +220,8 @@ fn within_epsilon_does_not_halt() {
         divergence_new: FixedPoint::from_raw(15_000),
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
+        signature_health_new: FixedPoint::ZERO,
+        blinding_health_new: FixedPoint::ZERO,
     });
 
     let r = advance_epoch(&mut state, &input);
@@ -227,9 +237,11 @@ fn phi_safety_violation_at_512_validators() {
     let mut updates = [None::<ValidatorUpdate>; MAX_VALIDATORS];
     for u in updates.iter_mut().take(512) {
         *u = Some(ValidatorUpdate {
-            divergence_new:  FixedPoint::ZERO,
-            conflict_new:    FixedPoint::ZERO,
-            slash_accum_new: FixedPoint::from_raw(i64::MAX as i128),
+            divergence_new:       FixedPoint::ZERO,
+            conflict_new:         FixedPoint::ZERO,
+            slash_accum_new:      FixedPoint::from_raw(i64::MAX as i128),
+            signature_health_new: FixedPoint::ZERO,
+            blinding_health_new:  FixedPoint::ZERO,
         });
     }
     let input = EpochInput { updates, update_count: 512, cascade_fail_count: 0 };
@@ -243,9 +255,11 @@ fn phi_below_threshold_at_511_validators() {
     let mut updates = [None::<ValidatorUpdate>; MAX_VALIDATORS];
     for u in updates.iter_mut().take(511) {
         *u = Some(ValidatorUpdate {
-            divergence_new:  FixedPoint::ZERO,
-            conflict_new:    FixedPoint::ZERO,
-            slash_accum_new: FixedPoint::from_raw(i64::MAX as i128),
+            divergence_new:       FixedPoint::ZERO,
+            conflict_new:         FixedPoint::ZERO,
+            slash_accum_new:      FixedPoint::from_raw(i64::MAX as i128),
+            signature_health_new: FixedPoint::ZERO,
+            blinding_health_new:  FixedPoint::ZERO,
         });
     }
     let input = EpochInput { updates, update_count: 511, cascade_fail_count: 0 };

@@ -27,7 +27,9 @@ pub enum HaltReason {
 pub struct ValidatorUpdate {
     pub divergence_new: FixedPoint,
     pub conflict_new: FixedPoint,
-    pub slash_accum_new: FixedPoint, // absolute, monotone; must fit in i64
+    pub slash_accum_new: FixedPoint,      // absolute, monotone; must fit in i64
+    pub signature_health_new: FixedPoint, // SH ∈ [0, SCALE]; zero-weight until v1.1.1
+    pub blinding_health_new: FixedPoint,  // BH ∈ [0, SCALE]; zero-weight until v1.1.1
 }
 
 pub struct EpochInput {
@@ -135,9 +137,11 @@ fn run_pipeline(state: &mut EpochState, input: &EpochInput) -> Result<Transition
 
     for i in 0..state.validator_count as usize {
         if let Some(ref u) = input.updates[i] {
-            state.validators[i].divergence = u.divergence_new;
-            state.validators[i].conflict = u.conflict_new;
-            state.validators[i].slash_accum = u.slash_accum_new;
+            state.validators[i].divergence        = u.divergence_new;
+            state.validators[i].conflict          = u.conflict_new;
+            state.validators[i].slash_accum       = u.slash_accum_new;
+            state.validators[i].signature_health  = u.signature_health_new;
+            state.validators[i].blinding_health   = u.blinding_health_new;
         }
     }
 
@@ -184,6 +188,12 @@ fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), Transit
                 return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
             }
 
+            let sh = u.signature_health_new.raw();
+            let bh = u.blinding_health_new.raw();
+            if sh < 0 || sh > scale_raw || bh < 0 || bh > scale_raw {
+                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+            }
+
             if !u.slash_accum_new.is_non_negative() {
                 return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
             }
@@ -225,9 +235,19 @@ fn evaluate_projected(state: &EpochState, input: &EpochInput) -> Result<Lyapunov
             ),
         };
 
-        let term_d = lyapunov::WEIGHT_D.checked_mul(d)?;
-        let term_c = lyapunov::WEIGHT_C.checked_mul(c)?;
-        let term = term_d.checked_add(term_c)?;
+        let (sh, bh) = match &input.updates[i] {
+            Some(u) => (u.signature_health_new, u.blinding_health_new),
+            None => (
+                state.validators[i].signature_health,
+                state.validators[i].blinding_health,
+            ),
+        };
+
+        let term_d  = lyapunov::WEIGHT_D.checked_mul(d)?;
+        let term_c  = lyapunov::WEIGHT_C.checked_mul(c)?;
+        let term_sh = lyapunov::WEIGHT_SH.checked_mul(sh)?;
+        let term_bh = lyapunov::WEIGHT_BH.checked_mul(bh)?;
+        let term = term_d.checked_add(term_c)?.checked_add(term_sh)?.checked_add(term_bh)?;
         v_sum = v_sum.checked_add(term)?;
 
         // Φ_safety: sum of γ·Σ_i over all validators (ADR-001 accepted — sum, not max).
