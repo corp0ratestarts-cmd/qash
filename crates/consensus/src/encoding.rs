@@ -70,23 +70,27 @@ pub fn decode_state_header(
     ))
 }
 
-/// 48-byte leaf index (384-bit) from (validator_id, epoch, seed).
-pub fn compute_leaf_index(validator_id: u64, epoch: u64, epoch_seed: &[u8; 32]) -> [u8; 48] {
-    let mut out = [0u8; 48];
-    out[0..8].copy_from_slice(&validator_id.to_le_bytes());
-    out[8..16].copy_from_slice(&epoch.to_le_bytes());
-    out[16..48].copy_from_slice(epoch_seed);
-    out
-}
+/// 48-byte cascade-derived leaf index (spec v1.1 §3.2).
+///
+/// Computes `h_cascade(validator_id_le8 ‖ epoch_le8 ‖ epoch_seed)[0..48]`.
+/// The 64-byte cascade output is truncated to 48 bytes (384 bits), which is
+/// the sparse Merkle tree leaf width defined in GENESIS_CONSTANTS.toml
+/// [obfuscation] leaf_index_bytes = 48.
+pub fn compute_cascade_leaf_index(
+    validator_id: u64,
+    epoch: u64,
+    epoch_seed: &[u8; 32],
+) -> [u8; 48] {
+    let mut input = [0u8; 48]; // 8 + 8 + 32
+    input[0..8].copy_from_slice(&validator_id.to_le_bytes());
+    input[8..16].copy_from_slice(&epoch.to_le_bytes());
+    input[16..48].copy_from_slice(epoch_seed);
 
-pub fn decode_leaf_index(bytes: &[u8; 48]) -> (u64, u64, [u8; 32]) {
-    let mut a = [0u8; 8];
-    let mut b = [0u8; 8];
-    let mut seed = [0u8; 32];
-    a.copy_from_slice(&bytes[0..8]);
-    b.copy_from_slice(&bytes[8..16]);
-    seed.copy_from_slice(&bytes[16..48]);
-    (u64::from_le_bytes(a), u64::from_le_bytes(b), seed)
+    let cascade_out = crate::cascade::h_cascade(&input);
+
+    let mut leaf = [0u8; 48];
+    leaf.copy_from_slice(&cascade_out[0..48]);
+    leaf
 }
 
 pub const VALIDATOR_DYNAMIC_SIZE: u32 = 48;

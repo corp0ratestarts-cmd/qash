@@ -18,10 +18,13 @@ const _: () = {
     if crate::lyapunov::WEIGHT_CH.raw() != _GENESIS_WEIGHT_CH { panic!("WEIGHT_CH mismatch vs GENESIS_CONSTANTS.toml"); }
     if crate::lyapunov::EPSILON.raw()   != _GENESIS_EPSILON   { panic!("EPSILON mismatch vs GENESIS_CONSTANTS.toml"); }
     if crate::lyapunov::PHI_MAX_SAFE    != _GENESIS_PHI_MAX_SAFE { panic!("PHI_MAX_SAFE in lyapunov.rs does not match phi_max_safe pinned in GENESIS_CONSTANTS.toml"); }
-    // Weight sum invariant: α + β + γ + χ ≤ 1_000_000 (= SCALE).
-    // 90_000 headroom reserved for v1.1.1 blinding_health rollout.
-    if _GENESIS_WEIGHT_D + _GENESIS_WEIGHT_C + _GENESIS_WEIGHT_S + _GENESIS_WEIGHT_CH > 1_000_000 {
-        panic!("Lyapunov weights exceed SCALE — invariant violated");
+    // Weight sum invariant: all active + pending weights ≤ 1_000_000 (= SCALE).
+    // WEIGHT_SH and WEIGHT_BH are currently 0 (v1.1.1 rollout not yet active).
+    // When v1.1.1 activates, D/C/S/CH will be reduced to maintain sum = 1_000_000.
+    if _GENESIS_WEIGHT_D + _GENESIS_WEIGHT_C + _GENESIS_WEIGHT_S + _GENESIS_WEIGHT_CH
+        + crate::lyapunov::WEIGHT_SH.raw() + crate::lyapunov::WEIGHT_BH.raw() > 1_000_000
+    {
+        panic!("Lyapunov weights (including v1.1.1 zero-weights) exceed SCALE — invariant violated");
     }
 };
 

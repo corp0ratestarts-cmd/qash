@@ -11,6 +11,10 @@ pub const WEIGHT_D:  FixedPoint = FixedPoint::from_raw(350_000);
 pub const WEIGHT_C:  FixedPoint = FixedPoint::from_raw(300_000);
 pub const WEIGHT_S:  FixedPoint = FixedPoint::from_raw(200_000);
 pub const WEIGHT_CH: FixedPoint = FixedPoint::from_raw(150_000);
+// v1.1.1 weights — zero until blinding rollout epoch.
+// When activated: α→320k, β→280k, γ→180k, χ→130k, SH→90k (sum still 1_000_000).
+pub const WEIGHT_SH: FixedPoint = FixedPoint::from_raw(0);
+pub const WEIGHT_BH: FixedPoint = FixedPoint::from_raw(0);
 pub const EPSILON:   FixedPoint = FixedPoint::from_raw(20_000);
 
 /// Genesis parameter: max transactions admitted per epoch.
@@ -38,23 +42,31 @@ impl From<OverflowError> for LyapunovError {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValidatorMetrics {
-    pub divergence: FixedPoint,   // D in [0, SCALE]
-    pub conflict: FixedPoint,     // C in [0, SCALE]
-    pub slash_accum: FixedPoint,  // Σ >= 0 (monotone; bounded by i64::MAX via admissibility)
+    pub divergence: FixedPoint,        // D in [0, SCALE]
+    pub conflict: FixedPoint,          // C in [0, SCALE]
+    pub slash_accum: FixedPoint,       // Σ >= 0 (monotone)
+    /// Signature-scheme health (v1.1.1).  Zero-weight until blinding rollout.
+    pub signature_health: FixedPoint,  // SH in [0, SCALE]
+    /// Blinding-protocol health (v1.1.1). Zero-weight until blinding rollout.
+    pub blinding_health: FixedPoint,   // BH in [0, SCALE]
 }
 
 impl ValidatorMetrics {
     pub const ZERO: ValidatorMetrics = ValidatorMetrics {
-        divergence: FixedPoint::ZERO,
-        conflict: FixedPoint::ZERO,
-        slash_accum: FixedPoint::ZERO,
+        divergence:       FixedPoint::ZERO,
+        conflict:         FixedPoint::ZERO,
+        slash_accum:      FixedPoint::ZERO,
+        signature_health: FixedPoint::ZERO,
+        blinding_health:  FixedPoint::ZERO,
     };
 
     #[inline]
     pub fn metrics_bounded(&self) -> bool {
         let s = SCALE;
-        self.divergence.raw() >= 0 && self.divergence.raw() <= s &&
-        self.conflict.raw()  >= 0 && self.conflict.raw()  <= s
+        self.divergence.raw()       >= 0 && self.divergence.raw()       <= s &&
+        self.conflict.raw()         >= 0 && self.conflict.raw()         <= s &&
+        self.signature_health.raw() >= 0 && self.signature_health.raw() <= s &&
+        self.blinding_health.raw()  >= 0 && self.blinding_health.raw()  <= s
     }
 }
 
@@ -145,9 +157,12 @@ pub fn evaluate(
         if !v.metrics_bounded() {
             return Err(LyapunovError::UnboundedMetric);
         }
-        let term_d = WEIGHT_D.checked_mul(v.divergence)?;
-        let term_c = WEIGHT_C.checked_mul(v.conflict)?;
-        let term = term_d.checked_add(term_c)?;
+        let term_d  = WEIGHT_D.checked_mul(v.divergence)?;
+        let term_c  = WEIGHT_C.checked_mul(v.conflict)?;
+        // v1.1.1 terms (zero-weight until blinding rollout; computed now for forward compat)
+        let term_sh = WEIGHT_SH.checked_mul(v.signature_health)?;
+        let term_bh = WEIGHT_BH.checked_mul(v.blinding_health)?;
+        let term = term_d.checked_add(term_c)?.checked_add(term_sh)?.checked_add(term_bh)?;
         v_sum = v_sum.checked_add(term)?;
 
         // Φ_safety: sum over validators (ADR-001 accepted — sum, not max)
