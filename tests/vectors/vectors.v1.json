@@ -3,9 +3,85 @@
   "vectors": [
     {
       "name": "genesis_epoch0_noop",
-      "genesis_constants_toml_path": "GENESIS_CONSTANTS.toml",
+      "initial_validator_count": 4,
       "epochs": [
-        { "epoch": 0, "inputs": [], "expected_state_root_hex": "TBD", "expected_halted": false }
+        {
+          "cascade_fail_count": 0,
+          "expected_state_root_hex": "487714f1c5abe5c69fe1d9d3d8441bd26f2dc26808a5a7ef47b361d961e29428",
+          "expected_halt_reason": "None"
+        }
+      ]
+    },
+    {
+      "name": "genesis_3epoch_window_fill",
+      "initial_validator_count": 4,
+      "epochs": [
+        {
+          "cascade_fail_count": 0,
+          "expected_state_root_hex": "487714f1c5abe5c69fe1d9d3d8441bd26f2dc26808a5a7ef47b361d961e29428",
+          "expected_halt_reason": "None"
+        },
+        {
+          "cascade_fail_count": 0,
+          "expected_state_root_hex": "604f4a349a8d1e0ca6491737c390089405521d006aef4e96075912da9f48a81c",
+          "expected_halt_reason": "None"
+        },
+        {
+          "cascade_fail_count": 0,
+          "expected_state_root_hex": "6ff02e83281e2784724cb5caa4f29274bb1937d70eb3f08b4d9eaab735d8b2b7",
+          "expected_halt_reason": "None"
+        }
+      ]
+    },
+    {
+      "name": "lyapunov_halt_spike",
+      "initial_validator_count": 4,
+      "epochs": [
+        {
+          "cascade_fail_count": 0,
+          "expected_state_root_hex": "487714f1c5abe5c69fe1d9d3d8441bd26f2dc26808a5a7ef47b361d961e29428",
+          "expected_halt_reason": "None"
+        },
+        {
+          "cascade_fail_count": 0,
+          "expected_state_root_hex": "604f4a349a8d1e0ca6491737c390089405521d006aef4e96075912da9f48a81c",
+          "expected_halt_reason": "None"
+        },
+        {
+          "cascade_fail_count": 0,
+          "expected_state_root_hex": "6ff02e83281e2784724cb5caa4f29274bb1937d70eb3f08b4d9eaab735d8b2b7",
+          "expected_halt_reason": "None"
+        },
+        {
+          "validator_updates": [{ "slot": 0, "divergence_new": 1000000, "conflict_new": 0, "slash_accum_new": 0 }],
+          "cascade_fail_count": 0,
+          "expected_state_root_hex": "6ff02e83281e2784724cb5caa4f29274bb1937d70eb3f08b4d9eaab735d8b2b7",
+          "expected_halt_reason": "LyapunovViolation"
+        }
+      ]
+    },
+    {
+      "name": "phi_below_threshold_511_validators",
+      "initial_validator_count": 511,
+      "epochs": [
+        {
+          "all_validators_update": { "divergence_new": 0, "conflict_new": 0, "slash_accum_new": 9223372036854775807 },
+          "cascade_fail_count": 0,
+          "expected_state_root_hex": "d9f288eba619d4745db2a6db386ea9c3a082d19dac1f00d8424fe86811906b7c",
+          "expected_halt_reason": "None"
+        }
+      ]
+    },
+    {
+      "name": "phi_safety_violation_512_validators",
+      "initial_validator_count": 512,
+      "epochs": [
+        {
+          "all_validators_update": { "divergence_new": 0, "conflict_new": 0, "slash_accum_new": 9223372036854775807 },
+          "cascade_fail_count": 0,
+          "expected_state_root_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+          "expected_halt_reason": "PhiSafetyViolation"
+        }
       ]
     }
   ]

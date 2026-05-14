@@ -7,7 +7,7 @@ TARGETS=( "x86_64-unknown-linux-gnu" "aarch64-unknown-linux-gnu" "riscv64gc-unkn
 ref_out=""
 
 for target in "${TARGETS[@]}"; do
-  cargo build -p qash-vector-runner --release --target "$target"
+  cargo build -p qash-vector-runner --release --no-default-features --target "$target"
   bin="target/${target}/release/qash-vector-runner"
   out="out.${target}.json"
 

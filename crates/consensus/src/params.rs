@@ -1,6 +1,15 @@
 //! Consensus parameter fingerprinting (used by tests/main only).
 //! Nothing in the consensus path should depend on this module.
 
+// Compile-time guard: PHI_MAX_SAFE in code must equal the value pinned in
+// GENESIS_CONSTANTS.toml (phi_max_safe = 944473296573929042432).
+const _GENESIS_PHI_MAX_SAFE: i128 = 944_473_296_573_929_042_432;
+const _: () = {
+    if crate::lyapunov::PHI_MAX_SAFE != _GENESIS_PHI_MAX_SAFE {
+        panic!("PHI_MAX_SAFE in lyapunov.rs does not match phi_max_safe pinned in GENESIS_CONSTANTS.toml");
+    }
+};
+
 use crate::{
     encoding,
     fixed_point,

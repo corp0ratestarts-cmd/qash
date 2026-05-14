@@ -19,6 +19,9 @@ weight_cascade_health_CH = 150_000
 epsilon_threshold = 20_000
 evaluation_window = 3
 max_queries_per_epoch = 1_000_000
+# PHI_MAX_SAFE = N_max × floor(γ_raw × i64::MAX / p) / 2
+# = 1024 × floor(200_000 × 9_223_372_036_854_775_807 / 1_000_000) / 2
+phi_max_safe = 944473296573929042432
 
 [epoch.timing]
 duration_ms = 500
