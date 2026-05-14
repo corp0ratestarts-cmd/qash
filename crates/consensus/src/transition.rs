@@ -270,12 +270,15 @@ fn evaluate_projected(state: &EpochState, input: &EpochInput) -> Result<Lyapunov
         (FixedPoint::ZERO, false)
     };
 
+    let tolerance_margin_remaining = lyapunov::compute_tolerance_margin(delta_window);
+
     Ok(LyapunovEval {
         v_convergence: v_sum,
         phi_safety: phi_acc,
         v_total,
         delta_window,
         halt_triggered,
+        tolerance_margin_remaining,
     })
 }
 

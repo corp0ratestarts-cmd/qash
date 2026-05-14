@@ -33,6 +33,11 @@ pub const WEIGHT_DCH: FixedPoint = FixedPoint::from_raw(0); // disclosure compli
 
 pub const EPSILON:   FixedPoint = FixedPoint::from_raw(20_000);
 
+/// Honest-validator perturbation budget per epoch (spec §A8).
+/// TH-GC: with WINDOW_SIZE epochs of bounded increments ≤ EPSILON_HONEST,
+/// δ_window ≤ WINDOW_SIZE × EPSILON_HONEST = 6_000 << EPSILON → no halt.
+pub const EPSILON_HONEST: FixedPoint = FixedPoint::from_raw(2_000);
+
 /// Genesis parameter: max transactions admitted per epoch.
 pub const MAX_QUERIES_PER_EPOCH: i128 = 1_000_000;
 
@@ -149,6 +154,9 @@ pub struct LyapunovEval {
     pub delta_window: FixedPoint,
     /// Whether δ_window > ε (triggers H1 halt).
     pub halt_triggered: bool,
+    /// Tolerance margin remaining before H1 halt: max(0, EPSILON − δ_window).
+    /// Zero means halt triggers on this epoch. Implements §11.5 Tolerance pillar (TH-GC).
+    pub tolerance_margin_remaining: FixedPoint,
 }
 
 pub fn compute_delta_window(
@@ -157,6 +165,15 @@ pub fn compute_delta_window(
 ) -> Result<FixedPoint, LyapunovError> {
     let min_w = window.min_value();
     Ok(v_current.checked_sub(min_w)?)
+}
+
+/// Tolerance margin remaining = max(0, EPSILON − δ_window). Domain A, no allocation.
+pub fn compute_tolerance_margin(delta: FixedPoint) -> FixedPoint {
+    if delta.raw() >= EPSILON.raw() {
+        FixedPoint::ZERO
+    } else {
+        FixedPoint::from_raw(EPSILON.raw() - delta.raw())
+    }
 }
 
 /// Standalone evaluate() for unit tests. Main path uses evaluate_projected() in transition.rs.
@@ -200,12 +217,15 @@ pub fn evaluate(
         (FixedPoint::ZERO, false)
     };
 
+    let tolerance_margin_remaining = compute_tolerance_margin(delta_window);
+
     Ok(LyapunovEval {
         v_convergence: v_sum,
         phi_safety: phi_acc,
         v_total,
         delta_window,
         halt_triggered,
+        tolerance_margin_remaining,
     })
 }
 

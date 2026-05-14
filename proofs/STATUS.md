@@ -10,6 +10,7 @@ These files are compiled by `make all` in CI and must remain Admitted-free:
 | TH-3b | Halt iff δ > ε | `contractivity/lyapunov_stability.v` | ✅ PROVED |
 | TH-3c | FinalizeEpoch → V_convergence = 0 | `contractivity/lyapunov_stability.v` | ✅ PROVED |
 | TH-9 | CH_t ∈ [0,p], χ·CH_t no overflow | `cascade/cascade_health_bounded.v` | ✅ PROVED |
+| TH-GC | Grace convergence: ε_honest-bounded steps → δ_window ≤ 3×ε_honest < ε_halt → no H1 halt | `contractivity/lyapunov_grace_convergence.v` | ✅ PROVED |
 | — | List encoding infrastructure | `util/list_inj.v` | ✅ PROVED |
 
 **Also compiled (no proof obligations):**

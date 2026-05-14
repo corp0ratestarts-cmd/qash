@@ -3,6 +3,7 @@ COQDEP ?= coqdep
 VFILES := util/list_inj.v \
           concat_injective.v lyapunov_decrease.v \
           contractivity/lyapunov_stability.v \
+          contractivity/lyapunov_grace_convergence.v \
           cascade/cascade_health_bounded.v \
           cascade/cascade_collision_resistance.v \
           cascade/cascade_determinism.v \
@@ -14,6 +15,7 @@ VOFILES := $(VFILES:.v=.vo)
 # To add a proof: add it here AND ensure it compiles without Admitted.
 STRICT_PROOFS := \
     contractivity/lyapunov_stability.v \
+    contractivity/lyapunov_grace_convergence.v \
     cascade/cascade_health_bounded.v
 
 all: .depend $(VOFILES)

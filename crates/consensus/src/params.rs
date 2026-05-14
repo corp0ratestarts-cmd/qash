@@ -18,6 +18,10 @@ const _: () = {
     if crate::lyapunov::WEIGHT_CH.raw() != _GENESIS_WEIGHT_CH { panic!("WEIGHT_CH mismatch vs GENESIS_CONSTANTS.toml"); }
     if crate::lyapunov::EPSILON.raw()   != _GENESIS_EPSILON   { panic!("EPSILON mismatch vs GENESIS_CONSTANTS.toml"); }
     if crate::lyapunov::PHI_MAX_SAFE    != _GENESIS_PHI_MAX_SAFE { panic!("PHI_MAX_SAFE in lyapunov.rs does not match phi_max_safe pinned in GENESIS_CONSTANTS.toml"); }
+    // TH-GC ordering invariant: honest budget must be strictly below halt threshold.
+    if crate::lyapunov::EPSILON_HONEST.raw() >= crate::lyapunov::EPSILON.raw() {
+        panic!("EPSILON_HONEST must be strictly less than EPSILON (ε_halt) for TH-GC to hold");
+    }
     // Weight sum invariant: all active + pending weights ≤ 1_000_000 (= SCALE).
     // WEIGHT_SH and WEIGHT_BH are currently 0 (v1.1.1 rollout not yet active).
     // When v1.1.1 activates, D/C/S/CH will be reduced to maintain sum = 1_000_000.
