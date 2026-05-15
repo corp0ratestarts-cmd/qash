@@ -347,19 +347,19 @@ Proof.
       (vwf_id_len _ Hwf1) (vwf_id_len _ Hwf2) Heq) as [Hid Hrest1].
   (* Split off score (8 bytes) *)
   destruct (app_injective_fixed _ _ _ _ 8%nat
-      encode_i64_length encode_i64_length Hrest1) as [Hsc Hrest2].
+      (encode_i64_length _) (encode_i64_length _) Hrest1) as [Hsc Hrest2].
   (* Split off divergence (8 bytes) *)
   destruct (app_injective_fixed _ _ _ _ 8%nat
-      encode_i64_length encode_i64_length Hrest2) as [Hdv Hrest3].
+      (encode_i64_length _) (encode_i64_length _) Hrest2) as [Hdv Hrest3].
   (* Split off conflict (8 bytes) *)
   destruct (app_injective_fixed _ _ _ _ 8%nat
-      encode_i64_length encode_i64_length Hrest3) as [Hcf Hrest4].
+      (encode_i64_length _) (encode_i64_length _) Hrest3) as [Hcf Hrest4].
   (* Split off slash_acc (8 bytes) *)
   destruct (app_injective_fixed _ _ _ _ 8%nat
-      encode_i64_length encode_i64_length Hrest4) as [Hsl Hrest5].
+      (encode_i64_length _) (encode_i64_length _) Hrest4) as [Hsl Hrest5].
   (* Split nonce (8 bytes) from active (1 byte) *)
   destruct (app_injective_fixed _ _ _ _ 8%nat
-      encode_u64_length encode_u64_length Hrest5) as [Hnonce Hac].
+      (encode_u64_length _) (encode_u64_length _) Hrest5) as [Hnonce Hac].
   (* Apply primitive injectivity lemmas *)
   apply (encode_i64_injective _ _ (vwf_score _ Hwf1) (vwf_score _ Hwf2)) in Hsc.
   apply (encode_i64_injective _ _ (vwf_div _ Hwf1) (vwf_div _ Hwf2)) in Hdv.
@@ -451,8 +451,10 @@ Lemma encode_window_length_3 :
     length (encode_window ws) = 24%nat.
 Proof.
   intros ws Hlen Hwf.
-  destruct ws as [| w1 [| w2 [| w3 [|]]]]; simpl in *; try lia.
-  repeat rewrite app_length, encode_i64_length. reflexivity.
+  destruct ws as [| w1 [| w2 [| w3 [|]]]]; simpl in Hlen; try lia.
+  unfold encode_window.
+  rewrite !app_length, (encode_i64_length w1), (encode_i64_length w2), (encode_i64_length w3).
+  simpl length. lia.
 Qed.
 
 Lemma encode_window_injective :
@@ -471,13 +473,13 @@ Proof.
   simpl encode_window in Heq.
   (* Split a *)
   destruct (app_injective_fixed _ _ _ _ 8%nat
-      encode_i64_length encode_i64_length Heq) as [Ha Hrest1].
+      (encode_i64_length _) (encode_i64_length _) Heq) as [Ha Hrest1].
   (* Split b *)
   destruct (app_injective_fixed _ _ _ _ 8%nat
-      encode_i64_length encode_i64_length Hrest1) as [Hb Hc].
+      (encode_i64_length _) (encode_i64_length _) Hrest1) as [Hb Hc].
   (* Hc : encode_i64 c1 ++ [] = encode_i64 c2 ++ [] *)
   destruct (app_injective_fixed _ _ _ _ 8%nat
-      encode_i64_length encode_i64_length Hc) as [Hc' _].
+      (encode_i64_length _) (encode_i64_length _) Hc) as [Hc' _].
   apply (encode_i64_injective _ _
       (Hwf1 _ (or_introl eq_refl))
       (Hwf2 _ (or_introl eq_refl))) in Ha.
@@ -501,15 +503,15 @@ Lemma encode_u32_injective :
 Proof.
   intros v1 v2 H1 H2 Heq.
   apply le_encode_injective with (n := 4%nat); try assumption.
-  - rewrite pow_256_4. unfold is_u32 in H1. lia.
-  - rewrite pow_256_4. unfold is_u32 in H2. lia.
+  - rewrite pow_256_4. unfold is_u32, U32_MAX in H1. lia.
+  - rewrite pow_256_4. unfold is_u32, U32_MAX in H2. lia.
 Qed.
 
 (** flat_map encode_validator produces exactly (length vs × 89) bytes *)
 Lemma flat_map_validator_length :
   forall vs : list ValidatorRecord,
     (forall vr, In vr vs -> ValidatorWF vr) ->
-    length (flat_map encode_validator vs) = length vs * 89.
+    length (flat_map encode_validator vs) = (length vs * 89)%nat.
 Proof.
   induction vs as [| vr rest IH]; intros Hwf.
   - simpl. reflexivity.
@@ -538,7 +540,7 @@ Proof.
   unfold encode_state in Heq.
   (* epoch: 8 bytes *)
   destruct (app_injective_fixed _ _ _ _ 8%nat
-      encode_u64_length encode_u64_length Heq) as [Hep Hrest1].
+      (encode_u64_length _) (encode_u64_length _) Heq) as [Hep Hrest1].
   (* state_root: 32 bytes *)
   destruct (app_injective_fixed _ _ _ _ 32%nat
       (swf_sr_len _ Hwf1) (swf_sr_len _ Hwf2) Hrest1) as [Hsr Hrest2].
@@ -550,10 +552,10 @@ Proof.
       (swf_es_len _ Hwf1) (swf_es_len _ Hwf2) Hrest3) as [Hes Hrest4].
   (* halt_flag: 1 byte *)
   destruct (app_injective_fixed _ _ _ _ 1%nat
-      encode_bool_length encode_bool_length Hrest4) as [Hhf Hrest5].
+      (encode_bool_length _) (encode_bool_length _) Hrest4) as [Hhf Hrest5].
   (* validator_count: 4 bytes *)
   destruct (app_injective_fixed _ _ _ _ 4%nat
-      encode_u32_length encode_u32_length Hrest5) as [Hvc Hrest6].
+      (encode_u32_length _) (encode_u32_length _) Hrest5) as [Hvc Hrest6].
   (* validator_count encodes equal lengths → validator lists have same length *)
   assert (Hvc_u32_1 : is_u32 (Z.of_nat (length (ps_validators s1))))
     by apply (swf_n_bound _ Hwf1).
@@ -562,11 +564,11 @@ Proof.
   pose proof (encode_u32_injective _ _ Hvc_u32_1 Hvc_u32_2 Hvc) as Hlen_z.
   apply Nat2Z.inj in Hlen_z.
   (* validators: length(vs1) × 89 bytes *)
-  set (n_bytes := length (ps_validators s1) * 89).
+  set (n_bytes := (length (ps_validators s1) * 89)%nat).
   assert (Hfml1 : length (flat_map encode_validator (ps_validators s1)) = n_bytes).
   { unfold n_bytes. apply flat_map_validator_length. apply (swf_val_wf _ Hwf1). }
   assert (Hfml2 : length (flat_map encode_validator (ps_validators s2)) = n_bytes).
-  { unfold n_bytes. rewrite <- Hlen_z. apply flat_map_validator_length. apply (swf_val_wf _ Hwf2). }
+  { unfold n_bytes. rewrite Hlen_z. apply flat_map_validator_length. apply (swf_val_wf _ Hwf2). }
   destruct (app_injective_fixed _ _ _ _ n_bytes Hfml1 Hfml2 Hrest6) as [Hvals Hwin].
   (* validators equal *)
   apply (encode_validators_injective _ _ Hlen_z
@@ -658,8 +660,3 @@ Qed.
 (* ================================================================= *)
 
 End EncodeInjectivity.
-
-(** AX-3 maps to an external cryptographic primitive.
-    Extract Constant is placed outside the Section so extraction
-    targets the globally qualified name. *)
-Extract Constant sha3_256 => "Qash.Crypto.sha3_256".
