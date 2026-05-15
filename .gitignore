@@ -1,5 +1,8 @@
 .aider*
 
+# Rust build output
+target/
+
 # Coq build artifacts
 *.vo
 *.vok
