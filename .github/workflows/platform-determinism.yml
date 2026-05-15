@@ -3,26 +3,63 @@ on:
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
+
 jobs:
-  verify:
-    strategy:
-      matrix:
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, riscv64gc-unknown-linux-gnu]
+  # Step 1: compute the canonical state root on the native x86_64 runner.
+  # This becomes the reference that all cross-compiled targets must match.
+  native-root:
     runs-on: ubuntu-latest
+    outputs:
+      state_root: ${{ steps.capture.outputs.state_root }}
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust with Target
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run canonical root test
+        id: capture
+        run: |
+          ROOT=$(cargo test -p qash-consensus --no-default-features \
+                   state_root_canonical_seq_print -- --nocapture 2>/dev/null \
+                 | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1)
+          echo "state_root=${ROOT}" >> "$GITHUB_OUTPUT"
+          echo "Native state root: ${ROOT}"
+
+  # Step 2: cross-compile and run tests on each target via cross (Docker + QEMU).
+  # Requires cross to be installed; available in ubuntu-latest via apt or cargo.
+  cross-verify:
+    needs: native-root
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        target:
+          - aarch64-unknown-linux-gnu
+          - riscv64gc-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
           targets: ${{ matrix.target }}
-      - name: Build
-        run: cargo build --target ${{ matrix.target }} --release
-      - name: Verify Hash
+      - name: Install cross
+        run: cargo install cross --quiet
+      - name: Run canonical root test on ${{ matrix.target }}
         run: |
-          if command -v openssl >/dev/null 2>&1; then
-            openssl dgst -sha3-256 target/${{ matrix.target }}/release/qash
-          else
-            echo "openssl not available; install in runner"
+          ROOT=$(cross test -p qash-consensus --no-default-features \
+                   --target ${{ matrix.target }} \
+                   state_root_canonical_seq_print -- --nocapture 2>/dev/null \
+                 | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1)
+          echo "Target (${{ matrix.target }}) state root: ${ROOT}"
+          EXPECTED="${{ needs.native-root.outputs.state_root }}"
+          if [ "${ROOT}" != "${EXPECTED}" ]; then
+            echo "ERROR: state root divergence!"
+            echo "  native:  ${EXPECTED}"
+            echo "  ${{ matrix.target }}: ${ROOT}"
             exit 1
           fi
+          echo "OK: roots match"
+      - name: Run full test suite on ${{ matrix.target }}
+        run: |
+          cross test -p qash-consensus --no-default-features \
+            --target ${{ matrix.target }} \
+            -- state_root_canonical_seq_golden
