@@ -4,9 +4,9 @@
 #[cfg(test)]
 extern crate std;
 
-pub mod hash;
-pub mod fixed_point;
 pub mod encoding;
+pub mod fixed_point;
+pub mod hash;
 pub mod lyapunov;
 pub mod public;
 pub mod transition;

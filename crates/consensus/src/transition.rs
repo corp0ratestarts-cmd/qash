@@ -332,7 +332,9 @@ struct TransitionHalt {
 
 impl From<OverflowError> for TransitionHalt {
     fn from(_: OverflowError) -> Self {
-        TransitionHalt { reason: HaltReason::ArithOverflow }
+        TransitionHalt {
+            reason: HaltReason::ArithOverflow,
+        }
     }
 }
 
@@ -348,6 +350,7 @@ impl From<LyapunovError> for TransitionHalt {
 #[derive(Debug, PartialEq, Eq)]
 pub struct TransitionResult {
     pub state_root: [u8; 32],
+    pub primitive_roots: ConsensusDigestSet,
     pub lyapunov: LyapunovEval,
 }
 
@@ -383,7 +386,9 @@ fn run_pipeline(
 
     let lyap = evaluate_projected(state, input)?;
     if lyap.halt_triggered {
-        return Err(TransitionHalt { reason: HaltReason::LyapunovViolation });
+        return Err(TransitionHalt {
+            reason: HaltReason::LyapunovViolation,
+        });
     }
 
     let next_epoch =
@@ -418,7 +423,11 @@ fn run_pipeline(
     let root = compute_state_root(state, &prior_root);
     state.state_root = root;
 
-    Ok(TransitionResult { state_root: root, lyapunov: lyap })
+    Ok(TransitionResult {
+        state_root: root,
+        primitive_roots,
+        lyapunov: lyap,
+    })
 }
 
 fn step_1_validate(
@@ -426,10 +435,14 @@ fn step_1_validate(
     input: &EpochInput,
 ) -> Result<(), TransitionHalt> {
     if state.validator_count > MAX_VALIDATORS_WIRE {
-        return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+        return Err(TransitionHalt {
+            reason: HaltReason::DecodeInvalid,
+        });
     }
     if input.update_count != state.validator_count {
-        return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+        return Err(TransitionHalt {
+            reason: HaltReason::DecodeInvalid,
+        });
     }
 
     let scale_raw = SCALE;
@@ -440,27 +453,37 @@ fn step_1_validate(
             let c = u.conflict_new.raw();
 
             if d < 0 || d > scale_raw || c < 0 || c > scale_raw {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
 
             if !u.slash_accum_new.is_non_negative() {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
 
             if u.slash_accum_new.raw() < state.validators[i].slash_accum.raw() {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
 
             // Keep Σ within i64 for wire encoding.
             if u.slash_accum_new.to_i64().is_err() {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
         }
     }
 
     for i in state.validator_count as usize..MAX_VALIDATORS {
         if input.updates[i].is_some() {
-            return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+            return Err(TransitionHalt {
+                reason: HaltReason::DecodeInvalid,
+            });
         }
     }
 

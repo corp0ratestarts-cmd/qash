@@ -1,13 +1,18 @@
 //! Domain-separated hashing (consensus-critical).
 //!
-//! H_domain(tag, input) = SHA3-256( tag_u32_le || input )
+//! State roots use a multi-primitive commitment:
+//!
+//! `R = SHA3-256(CONSENSUS_ROOT || n || id_1 || H_1(tag || input) || ...)`
+//!
+//! Every authorized primitive contributes a sub-root. A primitive that is only
+//! logged but omitted from this construction is not consensus-active.
 
 use sha3::{Digest, Sha3_256};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum DomainTag {
-    StateRoot      = 0x0000_0001,
+    StateRoot = 0x0000_0001,
     EntropyAdvance = 0x0000_0002,
     ValidatorId    = 0x0000_0003,
     LeafHash       = 0x0000_0004,
@@ -15,22 +20,72 @@ pub enum DomainTag {
     TxId           = 0x0000_0010,
 }
 
-pub fn h_domain(tag: DomainTag, input: &[u8]) -> [u8; 32] {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u32)]
+pub enum HashPrimitive {
+    Sha3_256 = 0x0000_0001,
+    Sm3 = 0x0000_0002,
+}
+
+pub const CONSENSUS_HASH_PRIMITIVE_COUNT: usize = 2;
+pub const DIGEST_BYTES: usize = 32;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PrimitiveDigest {
+    pub primitive: HashPrimitive,
+    pub digest: [u8; DIGEST_BYTES],
+}
+
+pub type ConsensusDigestSet = [PrimitiveDigest; CONSENSUS_HASH_PRIMITIVE_COUNT];
+
+/// Domain-separated SHA3-256. This remains the canonical primitive for entropy
+/// advancement and for folding the active primitive digest set into one root.
+pub fn h_domain(tag: DomainTag, input: &[u8]) -> [u8; DIGEST_BYTES] {
+    sha3_256_tagged(tag, input)
+}
+
+/// Domain-separated multi-primitive root. Use for consensus commitments whose
+/// security must not depend on a single primitive.
+pub fn h_consensus_domain(tag: DomainTag, input: &[u8]) -> [u8; DIGEST_BYTES] {
+    let roots = consensus_primitive_digests(tag, input);
+    combine_primitive_digests(&roots)
+}
+
+pub fn consensus_primitive_digests(tag: DomainTag, input: &[u8]) -> ConsensusDigestSet {
+    [
+        PrimitiveDigest {
+            primitive: HashPrimitive::Sha3_256,
+            digest: sha3_256_tagged(tag, input),
+        },
+        PrimitiveDigest {
+            primitive: HashPrimitive::Sm3,
+            digest: sm3_256_tagged(tag, input),
+        },
+    ]
+}
+
+pub fn combine_primitive_digests(roots: &ConsensusDigestSet) -> [u8; DIGEST_BYTES] {
     let mut hasher = Sha3_256::new();
-    hasher.update((tag as u32).to_le_bytes());
-    hasher.update(input);
+    hasher.update((DomainTag::ConsensusRoot as u32).to_le_bytes());
+    hasher.update((roots.len() as u32).to_le_bytes());
+
+    for root in roots {
+        hasher.update((root.primitive as u32).to_le_bytes());
+        hasher.update(root.digest);
+    }
+
     let out = hasher.finalize();
-    let mut res = [0u8; 32];
+    let mut res = [0u8; DIGEST_BYTES];
     res.copy_from_slice(&out);
     res
 }
 
 /// Untagged SHA3-256 (only where the spec explicitly requires it).
-pub fn sha3_256(input: &[u8]) -> [u8; 32] {
+pub fn sha3_256(input: &[u8]) -> [u8; DIGEST_BYTES] {
     let mut hasher = Sha3_256::new();
     hasher.update(input);
     let out = hasher.finalize();
-    let mut res = [0u8; 32];
+    let mut res = [0u8; DIGEST_BYTES];
     res.copy_from_slice(&out);
     res
 }

@@ -43,9 +43,13 @@ docs/spec/          ← Protocol law (normative)
 
 proofs/             ← Formal theorems (Coq)
   contractivity/
-    encode_injectivity.v  TH-1 (CLOSED), TH-2
-  safety/
-    absorbing_halt.v      TH-4, TH-5, TH-6, TH-8 partial
+    lyapunov_stability.v  TH-3a/TH-3b/TH-3c foundation proofs
+    tx_perturbation_0.v   TX-0 §A8 Form A proof obligation
+  util/
+    list_inj.v            fixed-width list/encoding support lemmas
+  _wip/
+    encode_injectivity.v.draft  TH-1/TH-2 draft, not genesis-lock evidence
+    absorbing_halt.v.draft      TH-4/TH-5/TH-6/TH-8 draft, not CI-gated
 
 model/              ← Canonical executable semantics (extracted from proofs)
   README.md               Model contract and extraction notes
@@ -76,16 +80,19 @@ for all admissible inputs. This equivalence is a future formal proof target.
 
 | ID | Name | Class | Status |
 |----|------|-------|--------|
-| TH-1 | Encoding injectivity | Formal theorem | ✅ CLOSED |
-| TH-2 | Encoding totality | Formal theorem | ✅ CLOSED |
-| TH-3 | Convergence decrease δ_window ≤ 0 | Formal theorem | 🔲 PLACEHOLDER |
-| TH-4 | Φ_safety monotonicity | Formal theorem | ✅ CLOSED |
-| TH-5 | Φ_safety boundedness | Formal theorem | ✅ CLOSED |
-| TH-6 | Halt correctness | Formal theorem | ✅ CLOSED |
+| TH-1 | Encoding injectivity | Formal theorem | 🟡 DRAFT (`_wip/`, not CI-closed) |
+| TH-2 | Encoding totality | Formal theorem | 🟡 DRAFT (`_wip/`, not CI-closed) |
+| TH-3 | Convergence decrease / halt gate | Formal theorem | 🟡 PARTIAL (TH-3a/3b/3c active; composition pending) |
+| TX-0 §A8 | No-op perturbation bound | Formal theorem | ✅ ACTIVE (`TX0_perturbation_bound`) |
+| TH-4 | Φ_safety monotonicity | Formal theorem | 🟡 DRAFT (`_wip/`, not CI-closed) |
+| TH-5 | Φ_safety boundedness | Formal theorem | 🟡 DRAFT (`_wip/`, not CI-closed) |
+| TH-6 | Halt correctness | Formal theorem | 🟡 DRAFT (`_wip/`, not CI-closed) |
 | TH-7 | Replay invariance RT-1 | Verification claim | 🟡 PARTIAL |
-| TH-8 | Succession soundness | Formal theorem | 🟡 PARTIAL (TH-1 closed, composition pending) |
+| TH-8 | Succession soundness | Formal theorem | 🟡 PARTIAL/DRAFT (placeholder import pending) |
 
-Genesis lock requires TH-1, TH-2 closed (done) and TH-7 full test vector suite.
+Genesis lock requires active `coqc`-checked proofs for TH-1 through TH-8,
+closed §A8 obligations for every admitted transaction type, and the full TH-7
+replay/test-vector gate. Draft files in `proofs/_wip/` are not lock evidence.
 
 ---
 
@@ -96,7 +103,7 @@ All guarantees reduce to three axioms. Everything above them is deductively cert
 ```
 AX-1  Authorized ISAs implement two's complement arithmetic correctly
 AX-2  Pinned Rust toolchain produces correct code for authorized ISAs
-AX-3  SHA3-256 is collision-resistant  (cryptographic assumption, not theorem)
+AX-3  Active consensus hash suite is collision-resistant  (cryptographic assumption, not theorem)
 ```
 
 ---

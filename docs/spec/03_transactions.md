@@ -563,9 +563,10 @@ This is equality, not merely non-increase. It follows trivially because:
 File:    proofs/contractivity/tx_perturbation_0.v
 Theorem: TX0_perturbation_bound
 
-Statement (informal):
-  ∀ S_t τ, 𝒜_TX0 S_t τ →
-    V_convergence (𝒯_TX0 S_t τ) = V_convergence S_t.
+Statement (active Coq model):
+  ∀ validator nonce_next window_min,
+    δ_window(𝒯_TX0(validator, nonce_next), window_min)
+      ≤ δ_window(validator, window_min).
 
 Proof sketch:
   By touch-set confinement, only validators[author_idx].nonce changes.

@@ -30,7 +30,7 @@ QASH is a post-quantum, zero-governance, deterministic consensus protocol implem
 
 ### Workspace layout
 
-- **`crates/consensus`** (`qash-consensus`) — `no_std`, no-alloc consensus core. The only logic that is proof-eligible and replay-invariant. Currently exposes `consensus_hash()` (BLAKE3-based). All code here must satisfy the Domain A constraints below.
+- **`crates/consensus`** (`qash-consensus`) — `no_std`, no-alloc consensus core. The only logic that is proof-eligible and replay-invariant. It includes substantive transition, encoding, fixed-point, hashing, Lyapunov, and parameter-fingerprint modules; all code here must satisfy the Domain A constraints below.
 - **`crates/pal`** (`qash-pal`) — Platform Abstraction Layer. Defines `Time`, `Net`, `Attest`, and `Halt` traits. The `std` feature gates a `hosted::Host` stub implementation. PAL code is Domain B and may use `unsafe` under audit.
 - **`src/`** — Hosted binary (`qash`) plus stub modules (`consensus`, `crypto`, `hardware`, `obfuscation`, `offline`). Most module files are currently empty stubs. `main.rs` is a thin entrypoint that calls `qash_consensus::consensus_hash`.
 - **`GENESIS_CONSTANTS.toml`** — Immutable genesis parameters (fixed-point scale, Lyapunov weights, epoch timing, crypto cascade, hardware attestation modes, clone-protocol settings). Modifying this file defines a new network — treat it as append-only.
@@ -52,7 +52,7 @@ Cross-domain contamination (a Domain B value influencing a Domain A computation)
 - Overflow policy: `absorbing_halt` (irreversible halt, never panic or saturating arithmetic)
 - Epoch duration: 500 ms, max control-loop latency 450 ms
 - Post-quantum crypto cascade: Dilithium5 (primary), SLH-DSA-SHA3-256 (anchor), Falcon-512 (fallback)
-- Hash cascade: SHA3-256 → BLAKE3 → KangarooTwelve
+- Consensus state root: folded SHA3-256 + SM3-256 primitive roots; obfuscation cascade: SHA3-256 → BLAKE3 → KangarooTwelve
 - Max validators: 1024
 
 ### Arithmetic rules for Domain A code

@@ -57,7 +57,7 @@ max_offline_epochs = 12
 primary_signature = "Dilithium5"
 anchor_signature = "SLH-DSA-SHA3-256"
 fallback_signature = "Falcon-512"
-hash_primitives = ["SHA3-256", "BLAKE3", "KangarooTwelve", "SM3", "Streebog"]
+hash_primitives = ["SHA3-256", "SM3"]
 pqc_agility_epoch = 10000
 
 [validation]
