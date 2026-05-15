@@ -24,6 +24,8 @@
     Status: PLACEHOLDER (Admitted)
 *)
 
+Require Import Coq.Lists.List.
+
 Axiom AX3_sha3_256_collision_resistant :
   forall x y : list bool, x <> y ->
   (* sha3_256(x) <> sha3_256(y) with overwhelming probability *)
