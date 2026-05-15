@@ -14,15 +14,15 @@ pub const MAX_VALIDATORS: usize = MAX_VALIDATORS_WIRE as usize;
 
 // Full-state wire format (canonical, deterministic):
 // [epoch:8][state_root:32][ledger_root:32][entropy_seed:32][halt:1][pad:3][vc:4]
-// [N × (div:8 + conf:8 + slash:8 + nonce:8)]
+// [N × (div:8 + conf:8 + slash:8 + nonce:8 + id:48)]
 // [window_filled:1][pad:3][window_vals:3×8]
 pub const FULL_STATE_FIXED_BYTES: usize = 112;
-pub const FULL_STATE_PER_VALIDATOR_BYTES: usize = 32;
+pub const FULL_STATE_PER_VALIDATOR_BYTES: usize = 80;
 pub const FULL_STATE_WINDOW_BYTES: usize = 28;
 pub const FULL_STATE_MAX_BYTES: usize = FULL_STATE_FIXED_BYTES
     + MAX_VALIDATORS * FULL_STATE_PER_VALIDATOR_BYTES
     + FULL_STATE_WINDOW_BYTES;
-// = 112 + 32768 + 28 = 32,908
+// = 112 + 81920 + 28 = 82,060
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -73,6 +73,8 @@ pub struct EpochState {
     pub convergence_window: ConvergenceWindow,
     /// TX replay protection (one nonce per validator slot).
     pub nonces: [u64; MAX_VALIDATORS],
+    /// Stable 48-byte consensus identity for each validator slot (fixed at genesis).
+    pub validator_ids: [[u8; 48]; MAX_VALIDATORS],
     /// This epoch's committed state root; used as prior_root for the next epoch.
     pub state_root: [u8; 32],
 }
@@ -144,7 +146,8 @@ fn write_state_bytes(
         out[pos + 8..pos + 16].copy_from_slice(&fp_to_i64_wire(v.conflict).to_le_bytes());
         out[pos + 16..pos + 24].copy_from_slice(&fp_to_i64_wire(v.slash_accum).to_le_bytes());
         out[pos + 24..pos + 32].copy_from_slice(&state.nonces[i].to_le_bytes());
-        pos += 32;
+        out[pos + 32..pos + 80].copy_from_slice(&state.validator_ids[i]);
+        pos += 80;
     }
 
     // Window: filled (1) + pad (3) + 3 × i64 (24) = 28 bytes.
@@ -218,20 +221,23 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
     }
 
     let scale_raw = SCALE;
-    let mut validators = [ValidatorMetrics::ZERO; MAX_VALIDATORS];
-    let mut nonces     = [0u64; MAX_VALIDATORS];
+    let mut validators    = [ValidatorMetrics::ZERO; MAX_VALIDATORS];
+    let mut nonces        = [0u64; MAX_VALIDATORS];
+    let mut validator_ids = [[0u8; 48]; MAX_VALIDATORS];
 
     for i in 0..vc {
         let mut d_b = [0u8; 8];
         let mut c_b = [0u8; 8];
         let mut s_b = [0u8; 8];
         let mut n_b = [0u8; 8];
+        let mut id  = [0u8; 48];
 
         d_b.copy_from_slice(&bytes[pos..pos + 8]);
         c_b.copy_from_slice(&bytes[pos + 8..pos + 16]);
         s_b.copy_from_slice(&bytes[pos + 16..pos + 24]);
         n_b.copy_from_slice(&bytes[pos + 24..pos + 32]);
-        pos += 32;
+        id.copy_from_slice(&bytes[pos + 32..pos + 80]);
+        pos += 80;
 
         let d_raw = i64::from_le_bytes(d_b) as i128;
         let c_raw = i64::from_le_bytes(c_b) as i128;
@@ -254,6 +260,7 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
             slash_accum: FixedPoint::from_raw(s_raw),
         };
         nonces[i] = nonce;
+        validator_ids[i] = id;
     }
 
     // Window: filled (1) + pad (3) + WINDOW_SIZE × i64.
@@ -294,6 +301,7 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
         validator_count,
         convergence_window: window,
         nonces,
+        validator_ids,
         state_root,
     })
 }
@@ -346,12 +354,13 @@ pub struct TransitionResult {
 pub fn advance_epoch(
     state: &mut EpochState,
     input: &EpochInput,
+    raw_txs: &[&[u8]],
 ) -> Result<TransitionResult, HaltReason> {
     if state.is_halted() {
         return Err(state.halt_reason);
     }
 
-    match run_pipeline(state, input) {
+    match run_pipeline(state, input, raw_txs) {
         Ok(r) => Ok(r),
         Err(h) => {
             state.halt_reason = h.reason;
@@ -363,6 +372,7 @@ pub fn advance_epoch(
 fn run_pipeline(
     state: &mut EpochState,
     input: &EpochInput,
+    raw_txs: &[&[u8]],
 ) -> Result<TransitionResult, TransitionHalt> {
     // ┌──────────────────────────────────────────────────┐
     // │ PRE-COMMIT PHASE: state is READ-ONLY             │
@@ -394,6 +404,11 @@ fn run_pipeline(
             state.validators[i].conflict    = u.conflict_new;
             state.validators[i].slash_accum = u.slash_accum_new;
         }
+    }
+
+    // TX-0 has ε_τ = 0; apply after metric update, before window/entropy advance.
+    if crate::transaction::apply_all(state, raw_txs, state.validator_count).is_err() {
+        return Err(TransitionHalt { reason: HaltReason::ArithOverflow });
     }
 
     state.convergence_window.push(lyap.v_convergence);

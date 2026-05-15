@@ -1,6 +1,7 @@
 use sha3::{Digest, Sha3_256};
 
 use qash_consensus::hash::DomainTag;
+use qash_consensus::transaction::{TX_VERSION, TX_TYPE_NOOP, TX0_WIRE_BYTES};
 use qash_consensus::params::consensus_params_hash;
 use qash_consensus::transition::{
     advance_epoch, decode_full_state, encode_full_state_into,
@@ -26,6 +27,7 @@ fn genesis_state() -> EpochState {
         validator_count: 4,
         convergence_window: ConvergenceWindow::new(),
         nonces: [0u64; MAX_VALIDATORS],
+        validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         state_root: [0u8; 32],
     }
 }
@@ -87,7 +89,7 @@ fn halt_freezes_entire_state_except_halt_reason() {
     // Fill window
     for _ in 0..WINDOW_SIZE {
         let input = idle_input(state.validator_count);
-        let r = advance_epoch(&mut state, &input);
+        let r = advance_epoch(&mut state, &input, &[]);
         assert!(r.is_ok());
     }
 
@@ -103,7 +105,7 @@ fn halt_freezes_entire_state_except_halt_reason() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    let res = advance_epoch(&mut state, &spike);
+    let res = advance_epoch(&mut state, &spike, &[]);
     assert_eq!(res, Err(HaltReason::LyapunovViolation));
 
     // Temporarily reset halt_reason to compare all other fields
@@ -122,7 +124,7 @@ fn golden_halt_reason_preserved() {
     // Fill window
     for _ in 0..WINDOW_SIZE {
         let n = state.validator_count;
-        let r = advance_epoch(&mut state, &idle_input(n));
+        let r = advance_epoch(&mut state, &idle_input(n), &[]);
         assert!(r.is_ok());
     }
 
@@ -134,13 +136,13 @@ fn golden_halt_reason_preserved() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    assert_eq!(advance_epoch(&mut state, &spike), Err(HaltReason::LyapunovViolation));
+    assert_eq!(advance_epoch(&mut state, &spike, &[]), Err(HaltReason::LyapunovViolation));
 
     // Subsequent calls return SAME reason and do not mutate.
     let fp = state_fingerprint(&state);
     for _ in 0..10 {
         let n = state.validator_count;
-        let r = advance_epoch(&mut state, &idle_input(n));
+        let r = advance_epoch(&mut state, &idle_input(n), &[]);
         assert_eq!(r, Err(HaltReason::LyapunovViolation));
         assert_eq!(state_fingerprint(&state), fp);
     }
@@ -153,7 +155,7 @@ fn window_check_precedes_push() {
     // Fill window with idle epochs (V_convergence=0)
     for _ in 0..WINDOW_SIZE {
         let n = state.validator_count;
-        let r = advance_epoch(&mut state, &idle_input(n));
+        let r = advance_epoch(&mut state, &idle_input(n), &[]);
         assert!(r.is_ok());
     }
     assert!(state.convergence_window.is_full());
@@ -168,7 +170,7 @@ fn window_check_precedes_push() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    assert_eq!(advance_epoch(&mut state, &spike), Err(HaltReason::LyapunovViolation));
+    assert_eq!(advance_epoch(&mut state, &spike, &[]), Err(HaltReason::LyapunovViolation));
 
     // Reset halt reason for fingerprint equality comparison
     let stored = state.halt_reason;
@@ -191,7 +193,7 @@ fn within_epsilon_does_not_halt() {
                 slash_accum_new: FixedPoint::ZERO,
             });
         }
-        let r = advance_epoch(&mut state, &input);
+        let r = advance_epoch(&mut state, &input, &[]);
         assert!(r.is_ok());
     }
 
@@ -203,7 +205,7 @@ fn within_epsilon_does_not_halt() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    let r = advance_epoch(&mut state, &input);
+    let r = advance_epoch(&mut state, &input, &[]);
     assert!(r.is_ok());
 }
 
@@ -267,7 +269,7 @@ fn roundtrip_full_state_with_window() {
     // Advance three epochs to fill the window.
     for _ in 0..WINDOW_SIZE {
         let n = state.validator_count;
-        advance_epoch(&mut state, &idle_input(n)).unwrap();
+        advance_epoch(&mut state, &idle_input(n), &[]).unwrap();
     }
 
     let mut buf = [0u8; FULL_STATE_MAX_BYTES];
@@ -304,8 +306,8 @@ fn state_root_is_deterministic() {
 
     for _ in 0..WINDOW_SIZE {
         let n = s1.validator_count;
-        advance_epoch(&mut s1, &idle_input(n)).unwrap();
-        advance_epoch(&mut s2, &idle_input(n)).unwrap();
+        advance_epoch(&mut s1, &idle_input(n), &[]).unwrap();
+        advance_epoch(&mut s2, &idle_input(n), &[]).unwrap();
     }
 
     assert_eq!(s1.state_root, s2.state_root, "state root is not deterministic");
@@ -319,7 +321,7 @@ fn state_root_changes_each_epoch() {
 
     for _ in 0..WINDOW_SIZE {
         let n = state.validator_count;
-        advance_epoch(&mut state, &idle_input(n)).unwrap();
+        advance_epoch(&mut state, &idle_input(n), &[]).unwrap();
         assert_ne!(state.state_root, prev_root, "state root did not change after epoch");
         prev_root = state.state_root;
     }
@@ -334,10 +336,10 @@ fn state_root_changes_each_epoch() {
 // If this test fails after a change to the encoding or hash logic, regenerate
 // by running with PRINT_GOLDEN=1 and updating the constant below.
 const EXPECTED_STATE_ROOT_3_EPOCHS: [u8; 32] = [
-     31,  87, 150, 182, 211, 186,  34, 210,
-    199, 112, 230, 159, 156,  68, 106, 132,
-    146,  85, 146,  35, 111, 147, 214, 246,
-     76,  21, 102, 230, 142,  51,  23, 185,
+    138, 219, 164, 211,  10,  54,  30,  39,
+    151, 223, 239,  42, 191, 141,  13, 181,
+    121, 224,  79, 241,   4,  74,  49,  44,
+    138, 224,  93, 197, 103, 104, 122, 198,
 ];
 
 /// Compute the canonical 3-epoch state root for the genesis sequence.
@@ -345,7 +347,7 @@ fn canonical_3epoch_root() -> [u8; 32] {
     let mut state = genesis_state();
     for _ in 0..3 {
         let n = state.validator_count;
-        advance_epoch(&mut state, &idle_input(n)).unwrap();
+        advance_epoch(&mut state, &idle_input(n), &[]).unwrap();
     }
     state.state_root
 }
@@ -384,6 +386,51 @@ fn arb_nonneg_slash() -> impl Strategy<Value = i128> {
 
 fn arb_entropy_seed() -> impl Strategy<Value = [u8; 32]> {
     proptest::array::uniform32(any::<u8>())
+}
+
+// ---------------------------------------------------------------------------
+// TX-0 integration test (Item 2)
+// ---------------------------------------------------------------------------
+
+fn make_tx0_bytes(author_id: [u8; 48], nonce: u64) -> [u8; TX0_WIRE_BYTES] {
+    let mut raw = [0u8; TX0_WIRE_BYTES];
+    raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
+    raw[2..4].copy_from_slice(&TX_TYPE_NOOP.to_le_bytes());
+    raw[4..12].copy_from_slice(&nonce.to_le_bytes());
+    raw[12..60].copy_from_slice(&author_id);
+    raw[60..64].copy_from_slice(&0u32.to_le_bytes());
+    raw
+}
+
+#[test]
+fn full_epoch_with_tx0() {
+    let mut state = genesis_state();
+    // Assign distinct author_ids to the 4 genesis validators.
+    for i in 0..4usize {
+        state.validator_ids[i][0] = i as u8 + 1;
+    }
+
+    let id0 = state.validator_ids[0];
+    let id1 = state.validator_ids[1];
+
+    let tx_a = make_tx0_bytes(id0, 0);
+    let tx_b = make_tx0_bytes(id1, 0);
+
+    let txs: &[&[u8]] = &[tx_a.as_slice(), tx_b.as_slice()];
+    let input = idle_input(state.validator_count);
+
+    let result = advance_epoch(&mut state, &input, txs);
+    assert!(result.is_ok(), "advance_epoch with TX-0s must succeed: {:?}", result);
+
+    // Both validators must have nonce 1 after the epoch.
+    assert_eq!(state.nonces[0], 1, "validator 0 nonce must be 1");
+    assert_eq!(state.nonces[1], 1, "validator 1 nonce must be 1");
+    // Uninvolved validators must remain at 0.
+    assert_eq!(state.nonces[2], 0);
+    assert_eq!(state.nonces[3], 0);
+
+    // State root must differ from genesis (state advanced).
+    assert_ne!(state.state_root, [0u8; 32]);
 }
 
 proptest! {
@@ -460,8 +507,8 @@ proptest! {
 
         for _ in 0..WINDOW_SIZE {
             let n = s1.validator_count;
-            advance_epoch(&mut s1, &idle_input(n)).unwrap();
-            advance_epoch(&mut s2, &idle_input(n)).unwrap();
+            advance_epoch(&mut s1, &idle_input(n), &[]).unwrap();
+            advance_epoch(&mut s2, &idle_input(n), &[]).unwrap();
         }
 
         prop_assert_eq!(s1.state_root, s2.state_root);
@@ -483,7 +530,7 @@ proptest! {
 
         for _ in 0..5 {
             let n = state.validator_count;
-            let r = advance_epoch(&mut state, &idle_input(n));
+            let r = advance_epoch(&mut state, &idle_input(n), &[]);
             prop_assert_eq!(r, Err(halt_reason));
             prop_assert_eq!(state.halt_reason, halt_reason);
         }

@@ -15,11 +15,11 @@ pub const TX_VERSION: u16 = 0x0001;
 /// TX type for no-op.
 pub const TX_TYPE_NOOP: u16 = 0x0000;
 /// Dilithium5 signature size (opaque in Domain A).
-pub const PQ_SIG_BYTES: usize = 3293;
+pub const PQ_SIG_BYTES: usize = 2420;
 
-/// Envelope header layout (20 bytes):
-/// [version:2][tx_type:2][validator_idx:4][nonce:8][payload_len:4]
-pub const TX_HEADER_BYTES: usize = 20;
+/// Envelope header layout (64 bytes):
+/// [version:2][tx_type:2][nonce:8][author_id:48][payload_len:4]
+pub const TX_HEADER_BYTES: usize = 64;
 
 /// Total wire size of a TX-0 envelope (no payload).
 pub const TX0_WIRE_BYTES: usize = TX_HEADER_BYTES + PQ_SIG_BYTES;
@@ -43,10 +43,10 @@ pub enum TxError {
 // ---------------------------------------------------------------------------
 
 /// A decoded TX-0 envelope. The signature is kept as a reference to the
-/// original raw bytes to avoid copying 3293 bytes onto the stack.
+/// original raw bytes to avoid copying 2420 bytes onto the stack.
 #[derive(Debug)]
 pub struct Tx0<'a> {
-    pub validator_idx: u32,
+    pub author_id: [u8; 48],
     pub nonce: u64,
     /// Raw signature bytes (opaque in Domain A).
     pub signature: &'a [u8; PQ_SIG_BYTES],
@@ -77,16 +77,15 @@ pub fn parse_tx0(raw: &[u8]) -> Result<(Tx0<'_>, usize), TxError> {
         return Err(TxError::UnknownType);
     }
 
-    let mut idx_b = [0u8; 4];
-    idx_b.copy_from_slice(&raw[4..8]);
-    let validator_idx = u32::from_le_bytes(idx_b);
-
     let mut nonce_b = [0u8; 8];
-    nonce_b.copy_from_slice(&raw[8..16]);
+    nonce_b.copy_from_slice(&raw[4..12]);
     let nonce = u64::from_le_bytes(nonce_b);
 
+    let mut author_id = [0u8; 48];
+    author_id.copy_from_slice(&raw[12..60]);
+
     let mut plen_b = [0u8; 4];
-    plen_b.copy_from_slice(&raw[16..20]);
+    plen_b.copy_from_slice(&raw[60..64]);
     let payload_len = u32::from_le_bytes(plen_b);
     if payload_len != 0 {
         return Err(TxError::MalformedEnvelope);
@@ -98,17 +97,17 @@ pub fn parse_tx0(raw: &[u8]) -> Result<(Tx0<'_>, usize), TxError> {
         Err(_) => return Err(TxError::MalformedEnvelope),
     };
 
-    Ok((Tx0 { validator_idx, nonce, signature: sig_arr }, TX0_WIRE_BYTES))
+    Ok((Tx0 { author_id, nonce, signature: sig_arr }, TX0_WIRE_BYTES))
 }
 
 // ---------------------------------------------------------------------------
 // tx_id: canonical identifier (used for sort key computation)
 // ---------------------------------------------------------------------------
 
-/// tx_id = H_domain(InternalHash, raw_bytes[..TX0_WIRE_BYTES])
+/// tx_id = H_domain(TxId, raw_bytes[..TX0_WIRE_BYTES])
 /// Commits to all envelope fields including the opaque signature.
 pub fn tx_id(raw: &[u8; TX0_WIRE_BYTES]) -> [u8; 32] {
-    h_domain(DomainTag::InternalHash, raw.as_slice())
+    h_domain(DomainTag::TxId, raw.as_slice())
 }
 
 // ---------------------------------------------------------------------------
@@ -128,18 +127,20 @@ pub fn sort_key(entropy_seed: &[u8; 32], tx_id_bytes: &[u8; 32]) -> [u8; 32] {
 // Admissibility
 // ---------------------------------------------------------------------------
 
+/// Find the validator slot index whose id matches `author_id`. O(N) scan.
+fn index_of_validator(state: &EpochState, author_id: &[u8; 48]) -> Option<usize> {
+    (0..state.validator_count as usize).find(|&i| &state.validator_ids[i] == author_id)
+}
+
 /// Check that the tx is admissible against the current state.
-/// For TX-0: validator_idx in range and nonce matches exactly.
-pub fn is_admissible(state: &EpochState, tx: &Tx0<'_>) -> Result<(), TxError> {
-    if tx.validator_idx >= state.validator_count {
-        return Err(TxError::AuthorNotFound);
-    }
-    let idx = tx.validator_idx as usize;
+/// For TX-0: author_id found in validator set and nonce matches exactly.
+pub fn is_admissible(state: &EpochState, tx: &Tx0<'_>) -> Result<usize, TxError> {
+    let idx = index_of_validator(state, &tx.author_id).ok_or(TxError::AuthorNotFound)?;
     let expected = state.nonces[idx];
     if tx.nonce != expected {
         return Err(TxError::NonceMismatch { expected, got: tx.nonce });
     }
-    Ok(())
+    Ok(idx)
 }
 
 // ---------------------------------------------------------------------------
@@ -147,9 +148,8 @@ pub fn is_admissible(state: &EpochState, tx: &Tx0<'_>) -> Result<(), TxError> {
 // ---------------------------------------------------------------------------
 
 /// Apply TX-0: increment the author's nonce. No other state change.
-/// Caller must have already verified admissibility.
-pub fn apply_tx_0(state: &mut EpochState, tx: &Tx0<'_>) -> Result<(), TxError> {
-    let idx = tx.validator_idx as usize;
+/// Caller must pass the slot index returned by `is_admissible`.
+pub fn apply_tx_0(state: &mut EpochState, idx: usize) -> Result<(), TxError> {
     state.nonces[idx] = state.nonces[idx]
         .checked_add(1)
         .ok_or(TxError::MalformedEnvelope)?;
@@ -174,11 +174,9 @@ impl SortEntry {
 /// Apply all transactions in `raw_txs` to `state`.
 ///
 /// Steps:
-/// 1. Parse each envelope (skip malformed; all-or-nothing per protocol: stop on first hard error).
-/// 2. Check admissibility (nonce).
-/// 3. Compute sort keys and sort by key (insertion sort — N ≤ max_count ≤ 1_000_000 in spec,
-///    but in practice bounded by the block; Domain A uses no heap so a fixed-size scratch array
-///    is used up to MAX_TX_PER_EPOCH).
+/// 1. Parse each envelope (skip malformed).
+/// 2. Check admissibility (author_id present, nonce matches).
+/// 3. Compute sort keys and sort by key (insertion sort).
 /// 4. Apply in sorted order; stop at `max_count`.
 ///
 /// Returns the count of successfully applied transactions.
@@ -187,7 +185,6 @@ pub fn apply_all(
     raw_txs: &[&[u8]],
     max_count: u32,
 ) -> Result<u32, TxError> {
-    // Scratch array for sort entries (stack-allocated; MAX_TX_PER_EPOCH = 1024 per slot budget).
     const MAX_TX_PER_EPOCH: usize = 1024;
 
     let n = if raw_txs.len() > MAX_TX_PER_EPOCH {
@@ -202,16 +199,15 @@ pub fn apply_all(
     for (raw_idx, raw) in raw_txs.iter().enumerate().take(n) {
         let (tx, consumed) = match parse_tx0(raw) {
             Ok(v) => v,
-            Err(_) => continue, // skip malformed
+            Err(_) => continue,
         };
         if consumed != TX0_WIRE_BYTES {
             continue;
         }
         if is_admissible(state, &tx).is_err() {
-            continue; // skip non-admissible
+            continue;
         }
 
-        // Compute sort key from the first TX0_WIRE_BYTES of raw.
         let key = if raw.len() >= TX0_WIRE_BYTES {
             let mut arr = [0u8; TX0_WIRE_BYTES];
             arr.copy_from_slice(&raw[..TX0_WIRE_BYTES]);
@@ -245,11 +241,11 @@ pub fn apply_all(
             Ok(v) => v,
             Err(_) => continue,
         };
-        // Re-check admissibility after earlier applications may have advanced nonces.
-        if is_admissible(state, &tx).is_err() {
-            continue;
-        }
-        apply_tx_0(state, &tx)?;
+        let idx = match is_admissible(state, &tx) {
+            Ok(i) => i,
+            Err(_) => continue,
+        };
+        apply_tx_0(state, idx)?;
         applied += 1;
     }
 
@@ -267,6 +263,11 @@ mod tests {
     use crate::transition::{HaltReason, MAX_VALIDATORS};
 
     fn make_state(vc: u32) -> EpochState {
+        let mut validator_ids = [[0u8; 48]; MAX_VALIDATORS];
+        // Give each slot a distinct non-zero id so linear scan works correctly.
+        for i in 0..vc as usize {
+            validator_ids[i][0] = i as u8 + 1;
+        }
         EpochState {
             epoch: 1,
             halt_reason: HaltReason::None,
@@ -275,28 +276,35 @@ mod tests {
             validator_count: vc,
             convergence_window: ConvergenceWindow::new(),
             nonces: [0u64; MAX_VALIDATORS],
+            validator_ids,
             state_root: [0u8; 32],
         }
     }
 
-    fn make_tx0_raw(validator_idx: u32, nonce: u64) -> [u8; TX0_WIRE_BYTES] {
+    fn make_tx0_raw(author_id: [u8; 48], nonce: u64) -> [u8; TX0_WIRE_BYTES] {
         let mut raw = [0u8; TX0_WIRE_BYTES];
         raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
         raw[2..4].copy_from_slice(&TX_TYPE_NOOP.to_le_bytes());
-        raw[4..8].copy_from_slice(&validator_idx.to_le_bytes());
-        raw[8..16].copy_from_slice(&nonce.to_le_bytes());
-        raw[16..20].copy_from_slice(&0u32.to_le_bytes()); // payload_len = 0
+        raw[4..12].copy_from_slice(&nonce.to_le_bytes());
+        raw[12..60].copy_from_slice(&author_id);
+        raw[60..64].copy_from_slice(&0u32.to_le_bytes()); // payload_len = 0
         // signature bytes remain zero (opaque in Domain A)
         raw
+    }
+
+    fn author_id(slot: u8) -> [u8; 48] {
+        let mut id = [0u8; 48];
+        id[0] = slot + 1;
+        id
     }
 
     #[test]
     fn tx0_noop_advances_nonce() {
         let mut state = make_state(2);
-        let raw = make_tx0_raw(0, 0);
+        let raw = make_tx0_raw(author_id(0), 0);
         let (tx, _) = parse_tx0(&raw).unwrap();
-        assert!(is_admissible(&state, &tx).is_ok());
-        apply_tx_0(&mut state, &tx).unwrap();
+        let idx = is_admissible(&state, &tx).unwrap();
+        apply_tx_0(&mut state, idx).unwrap();
         assert_eq!(state.nonces[0], 1);
         assert_eq!(state.nonces[1], 0);
     }
@@ -304,16 +312,18 @@ mod tests {
     #[test]
     fn tx0_wrong_nonce_rejected() {
         let state = make_state(2);
-        let raw = make_tx0_raw(0, 99);
+        let raw = make_tx0_raw(author_id(0), 99);
         let (tx, _) = parse_tx0(&raw).unwrap();
         let err = is_admissible(&state, &tx).unwrap_err();
         assert_eq!(err, TxError::NonceMismatch { expected: 0, got: 99 });
     }
 
     #[test]
-    fn tx0_out_of_range_validator_rejected() {
+    fn tx0_unknown_author_rejected() {
         let state = make_state(2);
-        let raw = make_tx0_raw(5, 0);
+        let mut unknown_id = [0u8; 48];
+        unknown_id[0] = 0xFF;
+        let raw = make_tx0_raw(unknown_id, 0);
         let (tx, _) = parse_tx0(&raw).unwrap();
         let err = is_admissible(&state, &tx).unwrap_err();
         assert_eq!(err, TxError::AuthorNotFound);
@@ -324,9 +334,9 @@ mod tests {
         let mut s1 = make_state(4);
         let mut s2 = make_state(4);
 
-        let tx_a = make_tx0_raw(0, 0);
-        let tx_b = make_tx0_raw(1, 0);
-        let tx_c = make_tx0_raw(2, 0);
+        let tx_a = make_tx0_raw(author_id(0), 0);
+        let tx_b = make_tx0_raw(author_id(1), 0);
+        let tx_c = make_tx0_raw(author_id(2), 0);
 
         let txs_forward: &[&[u8]] = &[tx_a.as_slice(), tx_b.as_slice(), tx_c.as_slice()];
         let txs_reverse: &[&[u8]] = &[tx_c.as_slice(), tx_b.as_slice(), tx_a.as_slice()];
@@ -342,7 +352,7 @@ mod tests {
 
     #[test]
     fn parse_tx0_invalid_version_rejected() {
-        let mut raw = make_tx0_raw(0, 0);
+        let mut raw = make_tx0_raw(author_id(0), 0);
         raw[0] = 0xFF;
         raw[1] = 0xFF;
         assert_eq!(parse_tx0(&raw).unwrap_err(), TxError::InvalidVersion);
@@ -350,8 +360,8 @@ mod tests {
 
     #[test]
     fn parse_tx0_nonzero_payload_rejected() {
-        let mut raw = make_tx0_raw(0, 0);
-        raw[16..20].copy_from_slice(&1u32.to_le_bytes());
+        let mut raw = make_tx0_raw(author_id(0), 0);
+        raw[60..64].copy_from_slice(&1u32.to_le_bytes());
         assert_eq!(parse_tx0(&raw).unwrap_err(), TxError::MalformedEnvelope);
     }
 }

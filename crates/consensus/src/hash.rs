@@ -12,6 +12,7 @@ pub enum DomainTag {
     ValidatorId    = 0x0000_0003,
     LeafHash       = 0x0000_0004,
     InternalHash   = 0x0000_0005,
+    TxId           = 0x0000_0010,
 }
 
 pub fn h_domain(tag: DomainTag, input: &[u8]) -> [u8; 32] {

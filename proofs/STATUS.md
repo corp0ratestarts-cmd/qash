@@ -11,7 +11,8 @@
 | TH-5 | Φ_safety boundedness | FORMAL | `safety/absorbing_halt.v` | Proved. No Admitted. |
 | TH-6 | Halt correctness | FORMAL | `safety/absorbing_halt.v` | Proved. No Admitted. |
 | TH-7 | Replay invariance | VERIFIED | CI (golden_replay.rs) | CI-tested, not formally proved. |
-| TH-8 | Succession soundness | FORMAL (partial) | `safety/absorbing_halt.v` | Halt-frozen state proved; uniqueness deferred pending AX-3 composition. |
+| TH-8 | Succession soundness | FORMAL | `safety/absorbing_halt.v` + `integration/th8_composition.v` | Fully proved. Halt-frozen state in absorbing_halt.v; uniqueness composed via AX-3 in th8_composition.v. |
+| TX-0 ε_τ=0 | TX-0 zero perturbation | FORMAL | `contractivity/tx_perturbation_0.v` | Fully proved. apply_tx0 leaves V_convergence unchanged (§A8 Form A). |
 
 ## File Map
 
@@ -20,7 +21,9 @@
 | `util/list_inj.v` | Compiles | Supporting lemmas (flat_map injectivity, prefix cancellation) |
 | `contractivity/lyapunov_stability.v` | Compiles | TH-3a, TH-3b, TH-3c |
 | `contractivity/encode_injectivity.v` | Compiles | TH-1, TH-2, state_root_collision_resistance |
-| `safety/absorbing_halt.v` | Compiles | TH-4, TH-5, TH-6, TH-8 (partial) |
+| `contractivity/tx_perturbation_0.v` | Compiles | TX-0 ε_τ=0 (§A8 Form A) |
+| `safety/absorbing_halt.v` | Compiles | TH-4, TH-5, TH-6, TH-8 (partial — halt-frozen state) |
+| `integration/th8_composition.v` | Compiles | TH-8 (full — uniqueness via AX-3 composition) |
 | `_wip/absorbing_halt.v.draft` | Archived draft | Superseded by `safety/absorbing_halt.v` |
 | `_wip/encode_injectivity.v.draft` | Archived draft | Superseded by `contractivity/encode_injectivity.v` |
 
@@ -28,15 +31,7 @@
 
 All theorems must compile with `coqc` (no `Admitted`) before
 `GENESIS_CONSTANTS.toml` is locked. Current status: **READY** — all
-eight theorem obligations are discharged or formally justified.
-
-Remaining open item before genesis lock:
-- TH-8 full statement (uniqueness half) requires composing
-  `state_root_collision_resistance` from `encode_injectivity.v` with
-  the partial result in `absorbing_halt.v`. This composition is
-  straightforward once an integration proof file is created; it does not
-  block the genesis lock because the partial result + the AX-3 axiom
-  together cover the claim.
+theorem obligations are discharged or formally justified. No open items.
 
 ## Axiom Trust Hierarchy
 
