@@ -253,7 +253,7 @@ Fields **permanently immutable** by any transaction (`01_consensus.md §1`):
 ```
 epoch          (advanced by epoch transition, not by τ)
 state_root     (computed last in transition step 9)
-halt_flag      (may be set true, never cleared — §A6 of 02)
+halt_reason    (may be set to non-zero, never cleared — §A6 of 02)
 validator[i].id (stable consensus identity)
 ```
 
