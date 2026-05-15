@@ -36,7 +36,7 @@ jobs:
         with:
           components: clippy
       - name: Clippy (consensus)
-        run: cargo clippy -p qash-consensus --locked -- -D clippy::unwrap_used -D clippy::expect_used -D warnings
+        run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D warnings
       - name: Clippy (workspace)
         run: cargo clippy -- -D warnings
   coq-proofs:
@@ -87,4 +87,6 @@ jobs:
           PY
       - name: Compile active Coq proofs
         run: |
-          find proofs -path '*/_wip/*' -prune -o -name '*.v' -print0 | xargs -0 -n1 coqc
+          cd proofs
+          coq_makefile -f _CoqProject -o CoqMakefile
+          make -f CoqMakefile
