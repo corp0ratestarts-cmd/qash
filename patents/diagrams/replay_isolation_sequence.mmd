@@ -1,0 +1,25 @@
+sequenceDiagram
+    autonumber
+    participant Net as Domain B: network / clock / OS
+    participant Gate as Domain A admissibility gate
+    participant T as Domain A transition T(S_t,I_t)
+    participant Enc as Canonical encoder
+    participant Hash as Domain-tagged hash
+    participant Pal as Domain B observer
+
+    Net->>Gate: externally signed candidate input I_t
+    Note over Net,Gate: clocks, entropy, and arrival order are not consensus inputs
+    Gate->>Gate: verify signatures, bounds, slot order, and metric monotonicity
+    alt input admissible
+        Gate->>T: admissible I_t only
+        T->>T: checked arithmetic and projected Lyapunov evaluation
+        alt halt condition or violation
+            T-->>Enc: absorbing halted state
+        else valid transition
+            T-->>Enc: next deterministic state S_{t+1}
+        end
+        Enc->>Hash: canonical bytes
+        Hash-->>Pal: state root / halt signal
+    else input invalid
+        Gate-->>Pal: reject or halt reason
+    end
