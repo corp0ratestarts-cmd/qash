@@ -10,9 +10,14 @@ pub mod encoding;
 pub mod lyapunov;
 pub mod transition;
 pub mod params;
+pub mod transaction;
 
 // Re-exports (ergonomic public API)
 pub use fixed_point::FixedPoint;
 pub use hash::{h_domain, sha3_256, DomainTag};
 pub use lyapunov::{ValidatorMetrics, LyapunovEval};
-pub use transition::{EpochState, EpochInput, ValidatorUpdate, HaltReason, advance_epoch, MAX_VALIDATORS};
+pub use transition::{
+    EpochState, EpochInput, ValidatorUpdate, HaltReason,
+    advance_epoch, encode_full_state_into, decode_full_state,
+    MAX_VALIDATORS, FULL_STATE_MAX_BYTES,
+};
