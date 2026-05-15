@@ -103,7 +103,7 @@ S_t = (
   lyapunov_window: [i64; W], // ring buffer of V_convergence(S_k) for k in [t-W, t-1]
                              // stores the W PRECEDING values only — excludes current epoch
                              // initialized to 0 for all k < 0 (pre-genesis padding)
-  halt_flag:     bool,       // once true, all transitions produce ⊥
+  halt_reason:   u8,         // 0x00=None (running); 0x01–0x06=halt codes; once non-zero, all transitions produce ⊥
 )
 ```
 
@@ -120,18 +120,23 @@ Each validator record `V_i` is a tuple:
 
 ```
 V_i = (
-  id:            [u8; 48],   // STABLE public-key-derived validator identity
-                             // = H_domain(VALIDATOR_ID, public_key_bytes)[0..48]
-                             // This is the validator's CONSENSUS IDENTITY — fixed at
-                             // genesis and unchanged across all epochs. It is NOT
-                             // the Merkle leaf index (see note below).
-  score:         i64,        // ∈ [i64::MIN, i64::MAX], checked arithmetic
-  divergence:    i64,        // D_i,t: deviation metric, defined in §4
-  conflict:      i64,        // C_i,t: conflict metric, defined in §4
-  slash_acc:     i64,        // Σ_i,t: accumulated slash weight, defined in §4
-  active:        bool,
+  id:         [u8; 48],   // STABLE public-key-derived validator identity
+                           // = H_domain(VALIDATOR_ID, public_key_bytes)[0..48]
+                           // Fixed at genesis; never changes across epochs.
+                           // Anchors slash accounting continuity.
+  divergence: i64,        // D_i,t ∈ [0, SCALE]; deviation metric, defined in §4a
+  conflict:   i64,        // C_i,t ∈ [0, SCALE]; conflict metric, defined in §4a
+  slash_acc:  i64,        // Σ_i,t ≥ 0 (monotone non-decreasing); defined in §4b
+  nonce:      u64,        // per-author replay counter; advanced on each admitted TX
 )
 ```
+
+> **Implementation note**: In the Rust reference implementation, `id` and `nonce`
+> are stored as parallel arrays (`EpochState.validator_ids` and `EpochState.nonces`)
+> rather than inside `ValidatorMetrics`, for cache efficiency. The spec presents all
+> fields together under `V_i` for conceptual clarity. The wire encoding interleaves
+> fields per validator slot (divergence, conflict, slash_acc, nonce, id) as defined
+> in §2. There is no semantic difference between the two representations.
 
 > **Validator identity vs Merkle leaf index:**
 > `V_i.id` is the validator's **stable consensus identity** — a 48-byte
@@ -151,7 +156,7 @@ A state `S_t` is **admissible** if and only if:
 
 ```
 1. S_t.epoch is strictly greater than S_{t-1}.epoch
-2. S_t.halt_flag = false  (halt states are terminal, not admissible for further transition)
+2. S_t.halt_reason = 0x00 (None)  (halt states are terminal; any non-zero halt_reason is inadmissible)
 3. ∀ i: S_t.validators[i].divergence ∈ [0, i64::MAX]  (divergence is non-negative)
 4. ∀ i: S_t.validators[i].slash_acc ∈ [0, i64::MAX]   (slash accumulator is non-negative)
 5. S_t.entropy_seed ≠ [0u8; 32]  (zero seed is forbidden post-genesis)
@@ -259,29 +264,49 @@ All fields are serialized in the order listed. No padding. No alignment gaps.
 All integers are **little-endian**.
 
 ```
-Encode(S_t):
+Encode(S_t):                                             — 112 fixed bytes, then validators, then window
 
-  epoch:           u64    →  8 bytes, little-endian
+  epoch:           u64     →  8 bytes, little-endian
   state_root:      [u8;32] → 32 bytes, verbatim
   ledger_root:     [u8;32] → 32 bytes, verbatim
   entropy_seed:    [u8;32] → 32 bytes, verbatim
-  halt_flag:       bool   →  1 byte: 0x00 = false, 0x01 = true; any other value is malformed
-  validator_count: u32    →  4 bytes, little-endian, must equal N from genesis
-  validators:      [Encode(V_i); N] → concatenated, no separators
+  halt_reason:     u8      →  1 byte  (valid values: 0x00–0x06; any other value is malformed)
+                               0x00  None              (running)
+                               0x01  LyapunovViolation (H1)
+                               0x02  ArithOverflow     (H2)
+                               0x03  EpochOverflow     (H3)
+                               0x04  DecodeInvalid     (H4)
+                               0x05  RoundtripFailure  (H5)
+                               0x06  HaltFlagSet       (H6, reserved)
+  pad:             [u8; 3] →  3 bytes, must be 0x00 0x00 0x00; non-zero is malformed
+  validator_count: u32     →  4 bytes, little-endian, must equal N from genesis
+                           — subtotal: 8+32+32+32+1+3+4 = 112 bytes
+  validators:      [Encode(V_i); N] → N × 80 bytes, concatenated, no separators
 
-Encode(V_i):
+Encode(V_i):                                             — 80 bytes per validator
 
+  divergence:      i64     →  8 bytes, little-endian, two's complement
+  conflict:        i64     →  8 bytes, little-endian, two's complement
+  slash_acc:       i64     →  8 bytes, little-endian, two's complement
+  nonce:           u64     →  8 bytes, little-endian
   id:              [u8;48] → 48 bytes, verbatim
-  score:           i64    →  8 bytes, little-endian, two's complement
-  divergence:      i64    →  8 bytes, little-endian, two's complement
-  conflict:        i64    →  8 bytes, little-endian, two's complement
-  slash_acc:       i64    →  8 bytes, little-endian, two's complement
-  active:          bool   →  1 byte: 0x00 = false, 0x01 = true; any other value is malformed
+                           — subtotal: 8+8+8+8+48 = 80 bytes
 
-lyapunov_window:   [i64; W] → W × 8 bytes, little-endian, two's complement, W=3
+Lyapunov window:                                         — 28 bytes
+
+  window_filled:   u8      →  1 byte (∈ [0, W]; value > W is malformed)
+  pad:             [u8; 3] →  3 bytes, must be 0x00 0x00 0x00; non-zero is malformed
+  lyapunov_window: [i64; W] → W × 8 bytes, little-endian, two's complement, W=3
+                           — subtotal: 1+3+24 = 28 bytes
 ```
 
-Total encoded size is fixed and computable at genesis from N and W. Variable-length encoding is forbidden.
+**Total encoded size** (fixed and computable at genesis from N and W):
+
+```
+|Encode(S_t)| = 112 + N × 80 + 28  bytes
+```
+
+Variable-length encoding is forbidden.
 
 ### Deterministic rejection
 
@@ -298,6 +323,44 @@ DecodeResult::Invalid(reason: u8)
 ```
 
 where `reason` is a protocol-defined error code. The error code is part of the canonical state.
+
+### Genesis hash procedure (normative)
+
+At genesis lock time, the SHA3-256 of the canonical spec document set is computed and
+recorded in `GENESIS_CONSTANTS.toml` as `genesis_hash`. This commits the genesis network
+to an immutable document tree. `GENESIS_CONSTANTS.toml` itself is excluded to avoid circularity.
+
+**Document set** (concatenated in lexicographic file-path order):
+
+```
+docs/spec/00_execution_model.md
+docs/spec/01_consensus.md
+docs/spec/02_transition_axioms.md
+docs/spec/03_transactions.md
+```
+
+**Computation:**
+
+```sh
+python3 -c "
+import hashlib, pathlib
+files = sorted([
+    'docs/spec/00_execution_model.md',
+    'docs/spec/01_consensus.md',
+    'docs/spec/02_transition_axioms.md',
+    'docs/spec/03_transactions.md',
+])
+h = hashlib.sha3_256()
+for f in files:
+    h.update(pathlib.Path(f).read_bytes())
+print('SHA3-256:' + h.hexdigest())
+"
+```
+
+**Format in `GENESIS_CONSTANTS.toml`:** `genesis_hash = "SHA3-256:<64 lowercase hex digits>"`
+
+Any subsequent modification to the above four documents constitutes a new genesis and
+requires recomputing this value.
 
 ---
 
@@ -336,7 +399,7 @@ admit semantically equivalent but differently-ordered transaction batches.
 Given admissible `(S_t, I_t)`:
 
 ```
-1. If S_t.halt_flag = true:       return ⊥
+1. If S_t.halt_reason ≠ None (0x00):  return ⊥
 
 2. Apply transactions:
    S' ← ApplyAll(S_t, I_t.transactions)
@@ -354,8 +417,8 @@ Given admissible `(S_t, I_t)`:
 6. Check stability criterion (§5) BEFORE updating the window:
    // Window contains preceding W values; current v is not yet in it
    If δ_window(v, S_t.lyapunov_window) > ε OR φ ≥ Φ_max_safe:
-                          S'.halt_flag ← true
-                          return S' with halt_flag=true (absorbing)
+                          S'.halt_reason ← LyapunovViolation (0x01)
+                          return S' with halt_reason set (absorbing)
 
 7. Update Lyapunov window with current value:
    S'.lyapunov_window ← rotate_left(S_t.lyapunov_window, v)
@@ -613,7 +676,7 @@ HALT     iff  δ_window > ε  OR   Φ_safety(S_t) ≥ Φ_max_safe
 
 ### Epoch gating invariant
 
-No state `S_{t+1}` with `S_t.halt_flag = true` is ever produced by an honest validator.
+No state `S_{t+1}` with `S_t.halt_reason ≠ None` is ever produced by an honest validator.
 Any such transition must be rejected deterministically by all other validators.
 
 ---
@@ -666,7 +729,7 @@ RT-1 depends on:
 
 ### Corollary RT-2 (Succession Soundness)
 
-If the network halts at epoch `n` (halt_flag = true), and a successor network `G'`
+If the network halts at epoch `n` (halt_reason ≠ None), and a successor network `G'`
 anchors to `R_n` as its genesis state root, then:
 
 ```
@@ -712,7 +775,7 @@ TH-1  Encoding injectivity
       Depends on: AX-1, AX-2
       Class: FORMAL THEOREM
       Proof file: proofs/contractivity/encode_injectivity.v
-      Status: TARGET (one Admitted pending final proof-term assembly)
+      Status: FORMAL — Coq compiles; zero Admitted beyond AX-1/AX-2
 
 TH-2  Encoding totality
       Encode is defined for all admissible S_t
@@ -727,7 +790,7 @@ TH-3  Convergence non-increase (revised — see note)
       Depends on: TH-1, AX-1, AX-2, §A8 proof obligations for all admitted τ
       Class: FORMAL THEOREM
       Proof file: proofs/contractivity/lyapunov_stability.v
-      Status: PLACEHOLDER
+      Status: FORMAL — proofs/contractivity/lyapunov_stability.v; zero Admitted beyond AX-1/AX-2
 
       NOTE on target strength: the original target δ_window ≤ 0 (strict
       non-increase per epoch) is too strong for any nontrivial transaction
@@ -748,13 +811,13 @@ TH-3  Convergence non-increase (revised — see note)
         ∴ δ_window(ApplyAll(S_t, I_t)) ≤ δ_window(S_t) + ε_honest
 
 TH-3a Halt determinism (corollary of RT-1)
-      If Replay(G, T) derives halt_flag=true at epoch n on one honest
+      If Replay(G, T) derives halt_reason ≠ None at epoch n on one honest
       validator, then every honest validator replaying the same admissible T
-      must derive halt_flag=true at epoch n.
+      must derive the same halt_reason at epoch n.
       Depends on: TH-7 (RT-1 replay invariance), TH-6
-      Class: FORMAL THEOREM (follows from RT-1 applied to halt_flag field)
-      Proof: halt_flag is part of Encode(S_n); RT-1 guarantees identical
-             Encode(S_n) on all honest Ξ; therefore identical halt_flag.
+      Class: FORMAL THEOREM (follows from RT-1 applied to halt_reason field)
+      Proof: halt_reason is part of Encode(S_n); RT-1 guarantees identical
+             Encode(S_n) on all honest Ξ; therefore identical halt_reason.
       Status: STATED (proof follows from RT-1 composition)
 
 TH-4  Φ_safety monotonicity
@@ -762,21 +825,21 @@ TH-4  Φ_safety monotonicity
       Depends on: AX-1, AX-2
       Class: FORMAL THEOREM
       Proof file: proofs/safety/absorbing_halt.v
-      Status: PLACEHOLDER
+      Status: FORMAL — proofs/safety/absorbing_halt.v; zero Admitted beyond AX-1/AX-2
 
 TH-5  Φ_safety boundedness
       ∀ admissible S_t: Φ_safety(S_t) ≤ Φ_max
       Depends on: TH-4, AX-1
       Class: FORMAL THEOREM
       Proof file: proofs/safety/absorbing_halt.v
-      Status: PLACEHOLDER
+      Status: FORMAL — proofs/safety/absorbing_halt.v; zero Admitted beyond AX-1/AX-2
 
 TH-6  Halt correctness
-      halt_flag = true ⇒ no further admissible transitions exist
+      halt_reason ≠ None ⇒ no further admissible transitions exist
       Depends on: TH-4, TH-5
       Class: FORMAL THEOREM
       Proof file: proofs/safety/absorbing_halt.v
-      Status: PLACEHOLDER
+      Status: FORMAL — proofs/safety/absorbing_halt.v; zero Admitted beyond AX-1/AX-2
 
 TH-7  Replay invariance (RT-1)
       ∀ ISA ∈ {x86_64, aarch64, riscv64}:
@@ -784,15 +847,15 @@ TH-7  Replay invariance (RT-1)
       Depends on: TH-1, TH-2, AX-1, AX-2
       Class: VERIFICATION CLAIM (empirical evidence, not deductive proof)
              platform-determinism.yml provides evidence; full proof requires TH-1 discharge
-      Verification: platform-determinism.yml + test vectors (02_test_vectors.md)
-      Status: PARTIAL — CI structure exists; full test vector suite pending
+      Verification: platform-determinism.yml + test vectors (docs/spec/07_test_vectors.md)
+      Status: PARTIAL — CI-verified on x86_64; aarch64 and riscv64gc cross-ISA runs pending
 
 TH-8  Succession soundness (RT-2)
       S'_0.state_root = R_n is the unique valid genesis for successor G'
       Depends on: TH-1, TH-6, AX-3
       Class: FORMAL THEOREM
       Proof file: proofs/safety/absorbing_halt.v
-      Status: PLACEHOLDER
+      Status: FORMAL — proofs/integration/th8_composition.v; zero Admitted beyond AX-1/AX-2/AX-3
 ```
 
 ### Dependency graph (ASCII)
@@ -815,9 +878,9 @@ AX-3 ─────────────────────────
 ### Genesis lock gate
 
 `GENESIS_CONSTANTS.toml` must not be locked until:
-- TH-1 and TH-2 are fully discharged (Coq proof compiles without axioms beyond AX-1/AX-2)
-- TH-7 passes CI on all Tier A platforms with complete test vector suite
-- TH-3, TH-4, TH-5, TH-6, TH-8 are at minimum fully stated with admitted lemmas
+- TH-1, TH-2, TH-3, TH-4, TH-5, TH-6, TH-8: FORMAL (Coq compiles; zero Admitted beyond AX-1/AX-2/AX-3)
+- TH-7: CI-verified on x86_64; aarch64 and riscv64gc cross-ISA runs must pass before final lock
+- `genesis_hash` in `GENESIS_CONSTANTS.toml` must be set to the SHA3-256 of the canonical spec document set (see §2 genesis hash procedure)
 
 ---
 

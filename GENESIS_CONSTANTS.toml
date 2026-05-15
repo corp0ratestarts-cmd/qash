@@ -3,7 +3,7 @@ version = "1.0.0"
 lock_algorithm = "SHA3-256"
 deployment_model = "one-shot"
 governance = "zero"
-genesis_hash = "SHA3-256:PLACEHOLDER"
+genesis_hash = "SHA3-256:b27e15c5037dc96278589df63dc58f4f07a18647d55be91a9009f130e3cc7208"
 
 [fixed_point]
 scale = 1_000_000

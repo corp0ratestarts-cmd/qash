@@ -560,7 +560,7 @@ This is equality, not merely non-increase. It follows trivially because:
 ### Proof obligation
 
 ```
-File:    proofs/contractivity/tx_perturbation_0.v   (PENDING)
+File:    proofs/contractivity/tx_perturbation_0.v
 Theorem: TX0_perturbation_bound
 
 Statement (informal):
@@ -571,8 +571,8 @@ Proof sketch:
   By touch-set confinement, only validators[author_idx].nonce changes.
   V_convergence is defined as Σ_i (α·D_i + β·C_i); it does not reference nonce.
   Therefore V_convergence is invariant under TX-0 application.
-  
-Status: TARGET (depends on proof infrastructure repair tracked in proofs/STATUS.md)
+
+Status: FORMAL — proofs/contractivity/tx_perturbation_0.v; zero Admitted
 ```
 
 ### Idempotence
@@ -677,7 +677,7 @@ a new network.
 
 | tx_type | Name | §A8 form | ε_τ | σ_τ | touch fields | Proof status |
 |---------|------|----------|-----|-----|--------------|--------------|
-| 0 | TX-0 No-Op | A | 0 | 0 | `{validators[author].nonce}` | TARGET |
+| 0 | TX-0 No-Op | A | 0 | 0 | `{validators[author].nonce}` | FORMAL |
 
 Future revisions will extend this table as transaction types are ratified.
 
