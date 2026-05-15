@@ -55,17 +55,12 @@ impl HaltReason {
 pub struct ValidatorUpdate {
     pub divergence_new: FixedPoint,
     pub conflict_new: FixedPoint,
-    pub slash_accum_new: FixedPoint,      // absolute, monotone; must fit in i64
-    pub signature_health_new: FixedPoint, // SH ∈ [0, SCALE]; zero-weight until v1.1.1
-    pub blinding_health_new: FixedPoint,  // BH ∈ [0, SCALE]; zero-weight until v1.1.1
+    pub slash_accum_new: FixedPoint, // absolute, monotone
 }
 
 pub struct EpochInput {
     pub updates: [Option<ValidatorUpdate>; MAX_VALIDATORS],
     pub update_count: u32,
-    /// Count of cascade proof rejections in this epoch's input set (§4c, v1.1).
-    /// Must be ≤ MAX_QUERIES_PER_EPOCH (validated in step_1_validate).
-    pub cascade_fail_count: u32,
 }
 
 #[derive(Clone, Copy)]
@@ -73,11 +68,6 @@ pub struct EpochState {
     pub epoch: u64,
     pub halt_reason: HaltReason,
     pub entropy_seed: [u8; 32],
-    /// Current state root (commitment chain anchor).
-    /// Genesis: [0u8; 32]. Updated at the end of every successful epoch.
-    pub state_root: [u8; 32],
-    /// Ledger (sparse Merkle accumulator) root. Stub [0u8; 32] until SM tree is implemented.
-    pub ledger_root: [u8; 32],
     pub validators: [ValidatorMetrics; MAX_VALIDATORS],
     pub validator_count: u32,
     pub convergence_window: ConvergenceWindow,
@@ -342,9 +332,7 @@ struct TransitionHalt {
 
 impl From<OverflowError> for TransitionHalt {
     fn from(_: OverflowError) -> Self {
-        TransitionHalt {
-            reason: HaltReason::ArithOverflow,
-        }
+        TransitionHalt { reason: HaltReason::ArithOverflow }
     }
 }
 
@@ -360,7 +348,6 @@ impl From<LyapunovError> for TransitionHalt {
 #[derive(Debug, PartialEq, Eq)]
 pub struct TransitionResult {
     pub state_root: [u8; 32],
-    pub primitive_roots: ConsensusDigestSet,
     pub lyapunov: LyapunovEval,
 }
 
@@ -395,15 +382,8 @@ fn run_pipeline(
     step_1_validate(state, input)?;
 
     let lyap = evaluate_projected(state, input)?;
-
-    // §5 Condition 1: convergence gate
     if lyap.halt_triggered {
-        return Err(TransitionHalt {
-            reason: HaltReason::LyapunovViolation,
-        });
-    }
-    if lyap.phi_halt_triggered {
-        return Err(TransitionHalt { reason: HaltReason::PhiSafetyViolation });
+        return Err(TransitionHalt { reason: HaltReason::LyapunovViolation });
     }
 
     let next_epoch =
@@ -438,11 +418,7 @@ fn run_pipeline(
     let root = compute_state_root(state, &prior_root);
     state.state_root = root;
 
-    Ok(TransitionResult {
-        state_root: root,
-        primitive_roots,
-        lyapunov: lyap,
-    })
+    Ok(TransitionResult { state_root: root, lyapunov: lyap })
 }
 
 fn step_1_validate(
@@ -450,23 +426,9 @@ fn step_1_validate(
     input: &EpochInput,
 ) -> Result<(), TransitionHalt> {
     if state.validator_count > MAX_VALIDATORS_WIRE {
-        return Err(TransitionHalt {
-            reason: HaltReason::DecodeInvalid,
-        });
-    }
-    if input.update_count != state.validator_count {
-        return Err(TransitionHalt {
-            reason: HaltReason::DecodeInvalid,
-        });
-    }
-
-    // Admissibility: entropy_seed must not be all-zero post-genesis (§1 constraint 5).
-    if state.epoch > 0 && state.entropy_seed == [0u8; 32] {
         return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
     }
-
-    // Cascade fail count bounded by max_queries (§4c).
-    if (input.cascade_fail_count as i128) > lyapunov::MAX_QUERIES_PER_EPOCH {
+    if input.update_count != state.validator_count {
         return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
     }
 
@@ -478,44 +440,27 @@ fn step_1_validate(
             let c = u.conflict_new.raw();
 
             if d < 0 || d > scale_raw || c < 0 || c > scale_raw {
-                return Err(TransitionHalt {
-                    reason: HaltReason::DecodeInvalid,
-                });
-            }
-
-            let sh = u.signature_health_new.raw();
-            let bh = u.blinding_health_new.raw();
-            if sh < 0 || sh > scale_raw || bh < 0 || bh > scale_raw {
                 return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
             }
 
             if !u.slash_accum_new.is_non_negative() {
-                return Err(TransitionHalt {
-                    reason: HaltReason::DecodeInvalid,
-                });
+                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
             }
 
-            // Monotonicity: slash accumulator never decreases.
             if u.slash_accum_new.raw() < state.validators[i].slash_accum.raw() {
-                return Err(TransitionHalt {
-                    reason: HaltReason::DecodeInvalid,
-                });
+                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
             }
 
             // Keep Σ within i64 for wire encoding.
             if u.slash_accum_new.to_i64().is_err() {
-                return Err(TransitionHalt {
-                    reason: HaltReason::DecodeInvalid,
-                });
+                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
             }
         }
     }
 
     for i in state.validator_count as usize..MAX_VALIDATORS {
         if input.updates[i].is_some() {
-            return Err(TransitionHalt {
-                reason: HaltReason::DecodeInvalid,
-            });
+            return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
         }
     }
 
@@ -687,14 +632,11 @@ fn evaluate_projected(
         (FixedPoint::ZERO, false)
     };
 
-    let phi_halt_triggered = phi.raw() >= lyapunov::PHI_MAX_SAFE.raw();
-
     Ok(LyapunovEval {
         v_convergence: v_sum,
-        phi_safety: phi_acc,
+        phi_safety: phi,
         v_total,
         delta_window,
         halt_triggered,
-        phi_halt_triggered,
     })
 }

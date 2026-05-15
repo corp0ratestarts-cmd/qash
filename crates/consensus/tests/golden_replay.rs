@@ -1,6 +1,5 @@
 use sha3::{Digest, Sha3_256};
 
-use qash_consensus::fixed_point::FixedPoint;
 use qash_consensus::hash::DomainTag;
 use qash_consensus::transaction::{TX_VERSION, TX_TYPE_NOOP, TX0_WIRE_BYTES};
 use qash_consensus::params::consensus_params_hash;
@@ -14,10 +13,9 @@ use qash_consensus::fixed_point::{FixedPoint, SCALE};
 
 use proptest::prelude::*;
 
-// v1.1 params hash: weights D=350k, C=300k, S=200k, CH=150k (Appendix J.2 target)
 const EXPECTED_PARAMS_HASH_V0: [u8; 32] = [
-    67, 252, 243, 98, 176, 70, 79, 168, 182, 190, 200, 22, 3, 42, 115, 220, 153, 216, 120, 206,
-    181, 220, 212, 221, 138, 120, 5, 76, 102, 32, 195, 233,
+    56, 29, 201, 142, 216, 6, 210, 169, 115, 237, 60, 131, 127, 134, 88, 115,
+    154, 7, 20, 52, 92, 236, 129, 14, 173, 186, 52, 21, 59, 190, 112, 2,
 ];
 
 fn genesis_state() -> EpochState {
@@ -25,8 +23,6 @@ fn genesis_state() -> EpochState {
         epoch: 0,
         halt_reason: HaltReason::None,
         entropy_seed: [0u8; 32],
-        state_root: [0u8; 32],
-        ledger_root: [0u8; 32],
         validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
         validator_count: 4,
         convergence_window: ConvergenceWindow::new(),
@@ -36,24 +32,10 @@ fn genesis_state() -> EpochState {
     }
 }
 
-fn genesis_state_n(n: u32) -> EpochState {
-    EpochState {
-        epoch: 0,
-        halt_reason: HaltReason::None,
-        entropy_seed: [0u8; 32],
-        state_root: [0u8; 32],
-        ledger_root: [0u8; 32],
-        validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
-        validator_count: n,
-        convergence_window: ConvergenceWindow::new(),
-    }
-}
-
 fn idle_input(n: u32) -> EpochInput {
     EpochInput {
         updates: [None; MAX_VALIDATORS],
         update_count: n,
-        cascade_fail_count: 0,
     }
 }
 
@@ -73,8 +55,6 @@ fn state_fingerprint(state: &EpochState) -> [u8; 32] {
     hasher.update(state.validator_count.to_le_bytes());
     hasher.update([state.halt_reason as u8, 0x00, 0x00, 0x00]);
     hasher.update(state.entropy_seed);
-    hasher.update(state.state_root);
-    hasher.update(state.ledger_root);
 
     for i in 0..state.validator_count as usize {
         let v = &state.validators[i];
@@ -123,21 +103,18 @@ fn halt_freezes_entire_state_except_halt_reason() {
         conflict_new: FixedPoint::ZERO,
         // absolute: monotone
         slash_accum_new: FixedPoint::ZERO,
-        signature_health_new: FixedPoint::ZERO,
-        blinding_health_new: FixedPoint::ZERO,
     });
 
     let res = advance_epoch(&mut state, &spike, &[]);
     assert_eq!(res, Err(HaltReason::LyapunovViolation));
 
-    // Temporarily reset halt_reason to compare all other fields.
+    // Temporarily reset halt_reason to compare all other fields
+    let stored = state.halt_reason;
     state.halt_reason = HaltReason::None;
     let fp_after = state_fingerprint(&state);
+    state.halt_reason = stored;
 
-    assert_eq!(
-        fp_before, fp_after,
-        "state mutated during failed transition"
-    );
+    assert_eq!(fp_before, fp_after, "state mutated during failed transition");
 }
 
 #[test]
@@ -157,8 +134,6 @@ fn golden_halt_reason_preserved() {
         divergence_new: FixedPoint::from_raw(1_000_000),
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
-        signature_health_new: FixedPoint::ZERO,
-        blinding_health_new: FixedPoint::ZERO,
     });
 
     assert_eq!(advance_epoch(&mut state, &spike, &[]), Err(HaltReason::LyapunovViolation));
@@ -193,15 +168,15 @@ fn window_check_precedes_push() {
         divergence_new: FixedPoint::from_raw(1_000_000),
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
-        signature_health_new: FixedPoint::ZERO,
-        blinding_health_new: FixedPoint::ZERO,
     });
 
     assert_eq!(advance_epoch(&mut state, &spike, &[]), Err(HaltReason::LyapunovViolation));
 
-    // Reset halt reason for fingerprint equality comparison.
+    // Reset halt reason for fingerprint equality comparison
+    let stored = state.halt_reason;
     state.halt_reason = HaltReason::None;
     assert_eq!(state_fingerprint(&state), fp_before);
+    state.halt_reason = stored;
 }
 
 #[test]
@@ -216,8 +191,6 @@ fn within_epsilon_does_not_halt() {
                 divergence_new: FixedPoint::from_raw(10_000),
                 conflict_new: FixedPoint::ZERO,
                 slash_accum_new: FixedPoint::ZERO,
-                signature_health_new: FixedPoint::ZERO,
-                blinding_health_new: FixedPoint::ZERO,
             });
         }
         let r = advance_epoch(&mut state, &input, &[]);
@@ -230,8 +203,6 @@ fn within_epsilon_does_not_halt() {
         divergence_new: FixedPoint::from_raw(15_000),
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
-        signature_health_new: FixedPoint::ZERO,
-        blinding_health_new: FixedPoint::ZERO,
     });
 
     let r = advance_epoch(&mut state, &input, &[]);
