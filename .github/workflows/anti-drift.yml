@@ -1,0 +1,77 @@
+name: Anti-Drift Gates
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  schema-parity:
+    name: "1. Schema ↔ struct parity"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify schema matches GENESIS_CONSTANTS.toml
+        run: cargo run --bin generate-schema -- --check
+
+  cascade-golden-vectors:
+    name: "2. Cascade golden KAT vectors"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run cascade KAT (bit-for-bit)
+        run: cargo test --test cascade_vectors -- --nocapture
+
+  cascade-config-determinism:
+    name: "3. Epoch schedule determinism"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify select_cascade_config is pure and matches TOML schedule
+        run: cargo test --test cascade_config_determinism -- --nocapture
+
+  readme-constants:
+    name: "4. README constants match code"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify README numeric constants match GENESIS_CONSTANTS.toml
+        run: ./scripts/verify_readme_constants.sh
+
+  domain-separator-parity:
+    name: "5. Domain-separator parity"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Assert 7 dom-seps equal between cascade.rs and GENESIS_CONSTANTS.toml
+        run: cargo test --test domain_separator_parity -- --nocapture
+
+  migration-keys-consumed:
+    name: "6. Migration config consumed"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify all [migration.compatibility] keys referenced in Rust
+        run: ./scripts/verify_migration_keys_consumed.sh
+
+  strict-proofs-append-only:
+    name: "7. Strict-proof set is append-only"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify STRICT_PROOFS never shrinks across commits
+        run: ./scripts/verify_strict_proofs_non_shrinking.sh

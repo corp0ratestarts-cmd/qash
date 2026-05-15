@@ -1,6 +1,37 @@
 //! Consensus parameter fingerprinting (used by tests/main only).
 //! Nothing in the consensus path should depend on this module.
 
+// Compile-time guards: every numeric genesis constant in Rust must match
+// GENESIS_CONSTANTS.toml exactly. Drift → build break.
+
+const _GENESIS_WEIGHT_D:   i128 = 350_000;
+const _GENESIS_WEIGHT_C:   i128 = 300_000;
+const _GENESIS_WEIGHT_S:   i128 = 200_000;
+const _GENESIS_WEIGHT_CH:  i128 = 150_000;
+const _GENESIS_EPSILON:    i128 = 20_000;
+const _GENESIS_PHI_MAX_SAFE: i128 = 944_473_296_573_929_042_432;
+
+const _: () = {
+    if crate::lyapunov::WEIGHT_D.raw()  != _GENESIS_WEIGHT_D  { panic!("WEIGHT_D mismatch vs GENESIS_CONSTANTS.toml"); }
+    if crate::lyapunov::WEIGHT_C.raw()  != _GENESIS_WEIGHT_C  { panic!("WEIGHT_C mismatch vs GENESIS_CONSTANTS.toml"); }
+    if crate::lyapunov::WEIGHT_S.raw()  != _GENESIS_WEIGHT_S  { panic!("WEIGHT_S mismatch vs GENESIS_CONSTANTS.toml"); }
+    if crate::lyapunov::WEIGHT_CH.raw() != _GENESIS_WEIGHT_CH { panic!("WEIGHT_CH mismatch vs GENESIS_CONSTANTS.toml"); }
+    if crate::lyapunov::EPSILON.raw()   != _GENESIS_EPSILON   { panic!("EPSILON mismatch vs GENESIS_CONSTANTS.toml"); }
+    if crate::lyapunov::PHI_MAX_SAFE    != _GENESIS_PHI_MAX_SAFE { panic!("PHI_MAX_SAFE in lyapunov.rs does not match phi_max_safe pinned in GENESIS_CONSTANTS.toml"); }
+    // TH-GC ordering invariant: honest budget must be strictly below halt threshold.
+    if crate::lyapunov::EPSILON_HONEST.raw() >= crate::lyapunov::EPSILON.raw() {
+        panic!("EPSILON_HONEST must be strictly less than EPSILON (ε_halt) for TH-GC to hold");
+    }
+    // Weight sum invariant: all active + pending weights ≤ 1_000_000 (= SCALE).
+    // WEIGHT_SH and WEIGHT_BH are currently 0 (v1.1.1 rollout not yet active).
+    // When v1.1.1 activates, D/C/S/CH will be reduced to maintain sum = 1_000_000.
+    if _GENESIS_WEIGHT_D + _GENESIS_WEIGHT_C + _GENESIS_WEIGHT_S + _GENESIS_WEIGHT_CH
+        + crate::lyapunov::WEIGHT_SH.raw() + crate::lyapunov::WEIGHT_BH.raw() > 1_000_000
+    {
+        panic!("Lyapunov weights (including v1.1.1 zero-weights) exceed SCALE — invariant violated");
+    }
+};
+
 use crate::{
     encoding, fixed_point,
     hash::{h_domain, DomainTag, HashPrimitive, CONSENSUS_HASH_PRIMITIVE_COUNT},

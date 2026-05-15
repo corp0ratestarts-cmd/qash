@@ -34,7 +34,7 @@ QASH is a post-quantum, zero-governance, deterministic consensus protocol implem
 - **`crates/pal`** (`qash-pal`) — Platform Abstraction Layer. Defines `Time`, `Net`, `Attest`, and `Halt` traits. The `std` feature gates a `hosted::Host` stub implementation. PAL code is Domain B and may use `unsafe` under audit.
 - **`src/`** — Hosted binary (`qash`) plus stub modules (`consensus`, `crypto`, `hardware`, `obfuscation`, `offline`). Most module files are currently empty stubs. `main.rs` is a thin entrypoint that calls `qash_consensus::consensus_hash`.
 - **`GENESIS_CONSTANTS.toml`** — Immutable genesis parameters (fixed-point scale, Lyapunov weights, epoch timing, crypto cascade, hardware attestation modes, clone-protocol settings). Modifying this file defines a new network — treat it as append-only.
-- **`proofs/`** — Coq/formal proofs: `contractivity/lyapunov_stability.v` and `safety/absorbing_halt.v`.
+- **`proofs/`** — Coq/formal proofs: `contractivity/lyapunov_stability.v`, `safety/absorbing_halt.v`, and `cascade/` (TH-9, TH-10, TH-11 targets).
 
 ### Domain A vs Domain B (critical partition)
 

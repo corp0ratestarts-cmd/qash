@@ -93,6 +93,12 @@ admission candidate, not a parallel truth. The canonical ledger never forks.
 
 ## DD-3 — Multi-Hash Cascade: SHA3-256 is Canonical; Others are Audit Commitments
 
+> **SUPERSEDED IN PART by DD-7 (v1.1).** DD-3 governs consensus hashing
+> (state root). DD-7 governs the obfuscation/clone-chunk/cascade-health
+> hash cascade, which now uses an astronomical depth-7 construction over
+> all five primitives. The two domains remain distinct — DD-3 is still
+> canonical for state root; DD-7 defines the cascade path.
+
 **Decision:** SHA3-256 is the **sole canonical consensus hash**. BLAKE3,
 KangarooTwelve, SM3, and Streebog are **parallel audit/jurisdictional
 commitments**, not co-consensus hashes.
@@ -285,16 +291,59 @@ new genesis) is required. Safety over liveness.
 
 ---
 
+## DD-7 — Astronomical Hash Cascade: Depth-7 Recursive Binding (v1.1)
+
+**Decision:** The obfuscation leaf hash, clone-chunk verification, and
+cascade-health commitment use a depth-7 recursive binding cascade over all
+five hash primitives, replacing the former serial chain
+`SHA3-256(BLAKE3(K12(input)))`.
+
+**Construction (normative — see `00_execution_model.md §E4` and
+`07_hash_cascade.md` for full spec):**
+
+```
+L1: five primitives in parallel, each domain-separated: → [u8; 160]
+L2: SHA3-512 binding over L1 concatenation              → [u8; 64]
+L3..L6: recursive SHA3-512 expansion                    → [u8; 64] each
+L7: SHA3-512 finalize                                   → [u8; 64]
+```
+
+**Rationale:**
+- Post-quantum hedge: a depth-7 cascade over five primitives remains
+  collision-resistant as long as any one primitive survives
+- The output is 64 bytes (SHA3-512), providing 256-bit collision security
+  even if individual 32-byte primitives are weakened to birthday attack
+- Recursive binding (L2–L7) ensures full avalanche: every output bit
+  depends on all five L1 results
+- Domain separators prevent cross-layer collisions and allow independent
+  proof of each layer's collision resistance
+- Clone-chunk verification (`cascade_bound` mode) requires L7 inclusion
+  proof in the sparse-Merkle tree, closing the verification gap in v1.0
+
+**Relationship to DD-3:**
+DD-3 governs state root hashing (SHA3-256 canonical, others are audit
+commitments). DD-7 governs the cascade path used for obfuscation,
+clone-chunk, and cascade-health. The two paths never intersect:
+state root uses `H_domain`; cascade uses `H_cascade`. See §E4.
+
+**Theorem obligations:** TH-9 (CH boundedness), TH-10 (cascade collision
+resistance), TH-11 (cascade cross-ISA determinism).
+
+**Captured in:** `docs/spec/07_hash_cascade.md`, `00_execution_model.md §E4`
+
+---
+
 ## Decision Status Summary
 
 | ID | Decision | Status | Captured in |
 |----|----------|--------|-------------|
 | DD-1 | Transition calculus identity | accepted | README.md, 01_consensus.md |
 | DD-2 | Detached state domain | accepted | future 05_clone_protocol.md |
-| DD-3 | SHA3 canonical + audit cascade | accepted | future 07_hash_cascade.md |
+| DD-3 | SHA3 canonical + audit cascade | accepted (superseded in part by DD-7) | future 07_hash_cascade.md |
 | DD-4 | Tiered execution (A native, B CRI) | accepted | future 04_tiered_execution.md (next) |
 | DD-5 | Receipts as consensus state | accepted | future 06_receipts.md |
 | DD-6 | Pre-baked PQC rotation schedule | accepted | future 08_pqc_agility.md |
+| DD-7 | Astronomical depth-7 cascade (v1.1) | accepted | 00_execution_model.md §E4, future 07_hash_cascade.md |
 
 ---
 

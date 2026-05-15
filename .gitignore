@@ -1,4 +1,5 @@
 .aider*
+/target/
 
 # Rust build output
 target/
@@ -10,3 +11,5 @@ target/
 *.glob
 *.aux
 .*.aux
+.lia.cache
+.depend

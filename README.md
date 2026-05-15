@@ -44,6 +44,8 @@ docs/adr/            ← Engineering decisions and PDF-silent gap definitions
 docs/spec/           ← Pre-existing derived engineering specs pending mirror migration
   00_execution_model.md   Deterministic execution substrate
   01_consensus.md         State space, encoding, transition function, stability
+  07_hash_cascade.md      Astronomical depth-7 cascade spec (v1.1)
+  09_migration_v1.0_to_v1.1.md  Migration guide and compatibility window
 
 proofs/             ← Formal theorems (Coq)
   contractivity/

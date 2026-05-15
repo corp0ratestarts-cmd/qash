@@ -33,9 +33,11 @@ pub struct ValidatorMetrics {
 
 impl ValidatorMetrics {
     pub const ZERO: ValidatorMetrics = ValidatorMetrics {
-        divergence: FixedPoint::ZERO,
-        conflict: FixedPoint::ZERO,
-        slash_accum: FixedPoint::ZERO,
+        divergence:       FixedPoint::ZERO,
+        conflict:         FixedPoint::ZERO,
+        slash_accum:      FixedPoint::ZERO,
+        signature_health: FixedPoint::ZERO,
+        blinding_health:  FixedPoint::ZERO,
     };
 
     #[inline]
@@ -98,8 +100,7 @@ impl ConvergenceWindow {
         min
     }
 
-    /// Access raw window internals. Used by golden replay tests.
-    /// Not part of the consensus transition API.
+    /// Access raw window internals. Used by golden replay tests and commitment encoding.
     pub fn raw_parts(&self) -> (u8, &[FixedPoint; WINDOW_SIZE]) {
         (self.filled, &self.values)
     }
@@ -107,7 +108,7 @@ impl ConvergenceWindow {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LyapunovEval {
-    /// V_convergence = Σ(α·D + β·C). Used for δ_window check.
+    /// V_convergence = Σ(α·D + β·C) + χ·CH. Used for δ_window check.
     pub v_convergence: FixedPoint,
     /// Φ_safety = γ·Σ(slash_i). ADR-001/002: sum aggregation.
     pub phi_safety: FixedPoint,
@@ -129,9 +130,21 @@ pub fn compute_delta_window(
     Ok(v_current.checked_sub(min_w)?)
 }
 
+/// Tolerance margin remaining = max(0, EPSILON − δ_window). Domain A, no allocation.
+pub fn compute_tolerance_margin(delta: FixedPoint) -> FixedPoint {
+    if delta.raw() >= EPSILON.raw() {
+        FixedPoint::ZERO
+    } else {
+        FixedPoint::from_raw(EPSILON.raw() - delta.raw())
+    }
+}
+
+/// Standalone evaluate() for unit tests. Main path uses evaluate_projected() in transition.rs.
+/// cascade_fail_count: number of cascade proof failures in this epoch's input set.
 pub fn evaluate(
     validators: &[ValidatorMetrics],
     window: &ConvergenceWindow,
+    cascade_fail_count: u32,
 ) -> Result<LyapunovEval, LyapunovError> {
     let mut v_sum = FixedPoint::ZERO;
     let mut sum_slash = FixedPoint::ZERO;
@@ -140,9 +153,12 @@ pub fn evaluate(
         if !v.metrics_bounded() {
             return Err(LyapunovError::UnboundedMetric);
         }
-        let term_d = WEIGHT_D.checked_mul(v.divergence)?;
-        let term_c = WEIGHT_C.checked_mul(v.conflict)?;
-        let term = term_d.checked_add(term_c)?;
+        let term_d  = WEIGHT_D.checked_mul(v.divergence)?;
+        let term_c  = WEIGHT_C.checked_mul(v.conflict)?;
+        // v1.1.1 terms (zero-weight until blinding rollout; computed now for forward compat)
+        let term_sh = WEIGHT_SH.checked_mul(v.signature_health)?;
+        let term_bh = WEIGHT_BH.checked_mul(v.blinding_health)?;
+        let term = term_d.checked_add(term_c)?.checked_add(term_sh)?.checked_add(term_bh)?;
         v_sum = v_sum.checked_add(term)?;
         sum_slash = sum_slash.checked_add(v.slash_accum)?;
     }
@@ -162,7 +178,7 @@ pub fn evaluate(
 
     Ok(LyapunovEval {
         v_convergence: v_sum,
-        phi_safety: phi,
+        phi_safety: phi_acc,
         v_total,
         delta_window,
         halt_triggered,

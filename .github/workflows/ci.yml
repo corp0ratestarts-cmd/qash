@@ -7,7 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
+
+      - name: Toolchain (PDF pin §8.1)
         uses: dtolnay/rust-toolchain@stable
       - name: Build
         run: cargo build --no-default-features
