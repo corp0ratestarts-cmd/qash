@@ -8,6 +8,7 @@ pub mod hash;
 pub mod fixed_point;
 pub mod encoding;
 pub mod lyapunov;
+pub mod public;
 pub mod transition;
 pub mod params;
 pub mod transaction;
@@ -15,6 +16,7 @@ pub mod transaction;
 // Re-exports (ergonomic public API)
 pub use fixed_point::FixedPoint;
 pub use hash::{h_domain, sha3_256, DomainTag};
+pub use public::PublicTranscript;
 pub use lyapunov::{ValidatorMetrics, LyapunovEval};
 pub use transition::{
     EpochState, EpochInput, ValidatorUpdate, HaltReason,

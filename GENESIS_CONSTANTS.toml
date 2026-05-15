@@ -51,7 +51,6 @@ channels = ["QR_code", "NFC", "BLE"]
 petn_crcs_integration = "BLE_only"
 qr_mode = "chunked_self_authenticated"
 nfc_mode = "direct_apdu"
-max_offline_hops = 7
 max_offline_epochs = 12
 
 [crypto.cascade]
