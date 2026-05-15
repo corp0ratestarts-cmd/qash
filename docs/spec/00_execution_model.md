@@ -1,9 +1,16 @@
 # QASH Execution Model
 ## `docs/spec/00_execution_model.md` — Protocol Version 1.0
 
-> **Status:** Canonical execution law. All implementation is constrained by this document.
-> `01_consensus.md` depends on the semantics defined here.
-> Modifying this document requires a new genesis.
+> **Authority notice:** The QASH v1.0 PDF in `spec/pdf/QASH_Spec_v1.0.pdf`
+> is the normative source of truth once checked in. This file is a pre-existing
+> engineering specification and must be treated as derived/non-normative unless
+> a traceability row, erratum, or ADR explicitly elevates a requirement.
+> See `docs/traceability.md`.
+
+
+> **Status:** Derived engineering specification. It is constrained by the
+> normative PDF, accepted errata, and accepted ADRs.
+> Modifying normative behavior requires traceability review before genesis lock.
 
 ---
 

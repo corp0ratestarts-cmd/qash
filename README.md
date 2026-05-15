@@ -37,7 +37,11 @@ QASH **is**:
 ## Repository Structure
 
 ```
-docs/spec/          ← Protocol law (normative)
+spec/pdf/           ← Normative PDF source of truth (v1.0, checked in before genesis lock)
+docs/traceability.md ← PDF requirement → code → test → proof contract
+docs/errata/         ← Normative corrections/clarifications to the PDF
+docs/adr/            ← Engineering decisions and PDF-silent gap definitions
+docs/spec/           ← Pre-existing derived engineering specs pending mirror migration
   00_execution_model.md   Deterministic execution substrate
   01_consensus.md         State space, encoding, transition function, stability
 
@@ -65,7 +69,10 @@ GENESIS_CONSTANTS.toml   Immutable genesis parameters (not yet locked)
 The relationship between layers:
 
 ```
-docs/spec/    = normative semantic law        (what the protocol IS)
+spec/pdf/     = normative source of truth      (what the protocol INTENDS)
+docs/traceability.md = audit contract          (what is mapped to code/tests/proofs)
+docs/errata/  = explicit PDF corrections       (what changes/clarifies the PDF)
+docs/adr/     = engineering decisions          (how PDF gaps are filled)
 proofs/       = formal guarantees             (what is PROVED about it)
 model/        = canonical executable model    (what it COMPUTES, extracted from proofs)
 crates/       = optimized implementation      (what is DEPLOYED)
@@ -73,6 +80,11 @@ crates/       = optimized implementation      (what is DEPLOYED)
 
 The runtime (`crates/`) must be observationally equivalent to the model
 for all admissible inputs. This equivalence is a future formal proof target.
+
+The prior `docs/spec/` documents remain useful engineering specs, but the
+repository now resolves authority through the PDF-first governance model in
+`docs/traceability.md`: PDF quote → erratum/ADR if needed → code → test/vector
+→ proof.
 
 ---
 

@@ -11,6 +11,7 @@
 
 Require Import Coq.Lists.List.
 Require Import Coq.Arith.Arith.
+Require Import Coq.ZArith.ZArith.
 Require Import Coq.micromega.Lia.
 Import ListNotations.
 
