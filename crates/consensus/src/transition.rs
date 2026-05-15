@@ -467,6 +467,137 @@ fn step_1_validate(
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fixed_point::{FixedPoint, SCALE};
+    use crate::lyapunov::{ConvergenceWindow, ValidatorMetrics};
+
+    fn genesis_state_vc4() -> EpochState {
+        EpochState {
+            epoch: 0,
+            halt_reason: HaltReason::None,
+            entropy_seed: [0u8; 32],
+            validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
+            validator_count: 4,
+            convergence_window: ConvergenceWindow::new(),
+            nonces: [0u64; MAX_VALIDATORS],
+            validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+            state_root: [0u8; 32],
+        }
+    }
+
+    fn idle_input(n: u32) -> EpochInput {
+        EpochInput { updates: [None; MAX_VALIDATORS], update_count: n }
+    }
+
+    /// TV-0: genesis state_root is [0u8;32] before any epoch is advanced.
+    #[test]
+    fn state_root_genesis_is_zero() {
+        let state = genesis_state_vc4();
+        assert_eq!(state.state_root, [0u8; 32]);
+    }
+
+    /// TV-7: entropy_seed advances to a non-zero value after the first epoch.
+    #[test]
+    fn entropy_seed_advances_nonzero() {
+        let mut state = genesis_state_vc4();
+        advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+        assert_ne!(state.entropy_seed, [0u8; 32]);
+    }
+
+    #[test]
+    fn validate_rejects_divergence_out_of_bounds() {
+        let mut state = genesis_state_vc4();
+        let mut input = idle_input(4);
+        input.updates[0] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::from_raw(SCALE + 1),
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::ZERO,
+        });
+        assert_eq!(advance_epoch(&mut state, &input, &[]), Err(HaltReason::DecodeInvalid));
+    }
+
+    #[test]
+    fn validate_rejects_conflict_out_of_bounds() {
+        let mut state = genesis_state_vc4();
+        let mut input = idle_input(4);
+        input.updates[0] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::ZERO,
+            conflict_new: FixedPoint::from_raw(SCALE + 1),
+            slash_accum_new: FixedPoint::ZERO,
+        });
+        assert_eq!(advance_epoch(&mut state, &input, &[]), Err(HaltReason::DecodeInvalid));
+    }
+
+    #[test]
+    fn validate_rejects_slash_decrease() {
+        let mut state = genesis_state_vc4();
+        state.validators[0].slash_accum = FixedPoint::from_raw(1_000);
+        let mut input = idle_input(4);
+        input.updates[0] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::ZERO,
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::from_raw(500), // decrease → invalid
+        });
+        assert_eq!(advance_epoch(&mut state, &input, &[]), Err(HaltReason::DecodeInvalid));
+    }
+
+    #[test]
+    fn validate_rejects_wrong_update_count() {
+        let mut state = genesis_state_vc4(); // validator_count = 4
+        let input = idle_input(3);           // update_count = 3 ≠ 4
+        assert_eq!(advance_epoch(&mut state, &input, &[]), Err(HaltReason::DecodeInvalid));
+    }
+
+    #[test]
+    fn validate_rejects_update_beyond_count() {
+        let mut state = genesis_state_vc4(); // validator_count = 4
+        let mut input = idle_input(4);
+        // Slot 4 is beyond validator_count=4; any Some(...) there is invalid.
+        input.updates[4] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::ZERO,
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::ZERO,
+        });
+        assert_eq!(advance_epoch(&mut state, &input, &[]), Err(HaltReason::DecodeInvalid));
+    }
+
+    /// V_convergence for 4 validators each with D=500_000, C=250_000:
+    ///   per validator: floor(400_000×500_000/1_000_000) + floor(350_000×250_000/1_000_000)
+    ///                = 200_000 + 87_500 = 287_500
+    ///   total: 4 × 287_500 = 1_150_000
+    #[test]
+    fn evaluate_projected_known_values() {
+        let mut state = genesis_state_vc4();
+        let mut input = idle_input(4);
+        for i in 0..4 {
+            input.updates[i] = Some(ValidatorUpdate {
+                divergence_new: FixedPoint::from_raw(500_000),
+                conflict_new:   FixedPoint::from_raw(250_000),
+                slash_accum_new: FixedPoint::ZERO,
+            });
+        }
+        let result = advance_epoch(&mut state, &input, &[]).unwrap();
+        assert_eq!(result.lyapunov.v_convergence.raw(), 1_150_000);
+        assert_eq!(result.lyapunov.phi_safety.raw(), 0);
+    }
+
+    #[test]
+    fn state_root_chains_via_prior_root() {
+        // Two states with distinct initial state_roots produce distinct outputs.
+        let mut state_a = genesis_state_vc4();
+        let mut state_b = genesis_state_vc4();
+        state_b.state_root[0] = 0x01; // differ only in initial root
+
+        advance_epoch(&mut state_a, &idle_input(4), &[]).unwrap();
+        advance_epoch(&mut state_b, &idle_input(4), &[]).unwrap();
+
+        assert_ne!(state_a.state_root, state_b.state_root,
+            "state_root must chain through prior_root");
+    }
+}
+
 fn evaluate_projected(
     state: &EpochState,
     input: &EpochInput,

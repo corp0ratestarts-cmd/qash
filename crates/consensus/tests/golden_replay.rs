@@ -433,6 +433,62 @@ fn full_epoch_with_tx0() {
     assert_ne!(state.state_root, [0u8; 32]);
 }
 
+// ---------------------------------------------------------------------------
+// H4 halt tests (Item 3 — plan PR A)
+// ---------------------------------------------------------------------------
+
+/// TV-5 variant: H4 (DecodeInvalid) via wrong update_count — not H1.
+#[test]
+fn halt_reason_decode_invalid_on_bad_update_count() {
+    let mut state = genesis_state();
+    // validator_count=4, but update_count=3 → DecodeInvalid before Lyapunov check.
+    let bad_input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 3 };
+    let r = advance_epoch(&mut state, &bad_input, &[]);
+    assert_eq!(r, Err(HaltReason::DecodeInvalid));
+    assert_eq!(state.halt_reason, HaltReason::DecodeInvalid);
+}
+
+/// H4 via slash monotonicity violation.
+#[test]
+fn halt_reason_decode_invalid_on_slash_decrease() {
+    let mut state = genesis_state();
+    state.validators[0].slash_accum = FixedPoint::from_raw(1_000);
+    let mut input = idle_input(state.validator_count);
+    input.updates[0] = Some(ValidatorUpdate {
+        divergence_new:  FixedPoint::ZERO,
+        conflict_new:    FixedPoint::ZERO,
+        slash_accum_new: FixedPoint::from_raw(500), // decrease → DecodeInvalid
+    });
+    let r = advance_epoch(&mut state, &input, &[]);
+    assert_eq!(r, Err(HaltReason::DecodeInvalid));
+}
+
+/// Applying TX-0 changes the state_root compared to an identical epoch without TX-0.
+/// This is the end-to-end privacy-relevant check: two branches from genesis diverge
+/// as soon as the nonce state differs.
+#[test]
+fn tx0_changes_state_root_vs_no_tx0_path() {
+    let mut state_no_tx   = genesis_state();
+    let mut state_with_tx = genesis_state();
+    // Give validator 0 a recognisable non-zero id so TX-0 lookup works.
+    for s in [&mut state_no_tx, &mut state_with_tx].iter_mut() {
+        s.validator_ids[0][0] = 0x01;
+    }
+
+    let input = idle_input(state_no_tx.validator_count);
+
+    advance_epoch(&mut state_no_tx, &input, &[]).unwrap();
+
+    let id0 = state_with_tx.validator_ids[0];
+    let tx  = make_tx0_bytes(id0, 0);
+    advance_epoch(&mut state_with_tx, &input, &[tx.as_slice()]).unwrap();
+
+    assert_ne!(
+        state_no_tx.state_root, state_with_tx.state_root,
+        "TX-0 nonce advance must produce a distinct state_root"
+    );
+}
+
 proptest! {
     /// P1: Full-state encoding roundtrip — decode(encode(s)) == s on all relevant fields.
     #[test]
