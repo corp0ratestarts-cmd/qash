@@ -194,13 +194,8 @@ dependencies = [
 name = "qash"
 version = "0.1.0"
 dependencies = [
- "blake3",
  "qash-consensus",
  "qash-pal",
- "sha3",
- "sm3",
- "streebog",
- "tiny-keccak",
 ]
 
 [[package]]
@@ -217,13 +212,6 @@ dependencies = [
 
 [[package]]
 name = "qash-pal"
-version = "0.1.0"
-dependencies = [
- "qash-consensus",
-]
-
-[[package]]
-name = "qash-vector-runner"
 version = "0.1.0"
 dependencies = [
  "qash-consensus",
