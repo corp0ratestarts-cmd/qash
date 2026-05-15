@@ -178,6 +178,27 @@ flagged by CI as non-conforming, regardless of test passage.
 
 ---
 
+## Patent Evidence Pack
+
+The repository now includes a patent-support evidence structure for technical
+review with qualified counsel. These materials are not legal advice; they
+organize implementation-specific evidence around candidate invention families:
+
+- deterministic replay isolation architecture,
+- Lyapunov-based validator stability evaluation,
+- cross-ISA deterministic reproducibility enforcement,
+- prior-art differentiation working notes,
+- claim-support traceability,
+- replay and benchmark artifact templates,
+- nondeterminism threat modeling, and
+- architecture decision records.
+
+Start at `patents/README.md`. Replay evidence should be archived under
+`artifacts/replay_equivalence/`, and technical-effect measurements should be
+archived under `artifacts/benchmarks/`.
+
+---
+
 *QASH is licensed GPL-3.0-or-later.*
 *`GENESIS_CONSTANTS.toml` will be immutable after genesis lock.*
 *Modifying it requires a new network.*
