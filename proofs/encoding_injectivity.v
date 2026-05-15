@@ -312,15 +312,15 @@ Proof.
   apply (app_injective_fixed _ _ _ _ 48
     (vwf_id_len _ Hwf1) (vwf_id_len _ Hwf2)) in Heq as [Hid Heq].
   apply (app_injective_fixed _ _ _ _ 8
-    encode_i64_length encode_i64_length) in Heq as [Hsc Heq].
+    (encode_i64_length _) (encode_i64_length _)) in Heq as [Hsc Heq].
   apply (app_injective_fixed _ _ _ _ 8
-    encode_i64_length encode_i64_length) in Heq as [Hdv Heq].
+    (encode_i64_length _) (encode_i64_length _)) in Heq as [Hdv Heq].
   apply (app_injective_fixed _ _ _ _ 8
-    encode_i64_length encode_i64_length) in Heq as [Hcf Heq].
+    (encode_i64_length _) (encode_i64_length _)) in Heq as [Hcf Heq].
   apply (app_injective_fixed _ _ _ _ 8
-    encode_i64_length encode_i64_length) in Heq as [Hsl Heq].
+    (encode_i64_length _) (encode_i64_length _)) in Heq as [Hsl Heq].
   apply (app_injective_fixed _ _ _ _ 8
-    encode_u64_length encode_u64_length) in Heq as [Hnonce Hac].
+    (encode_u64_length _) (encode_u64_length _)) in Heq as [Hnonce Hac].
   apply (encode_i64_injective _ _ (vwf_score  _ Hwf1) (vwf_score  _ Hwf2)) in Hsc.
   apply (encode_i64_injective _ _ (vwf_div    _ Hwf1) (vwf_div    _ Hwf2)) in Hdv.
   apply (encode_i64_injective _ _ (vwf_conf   _ Hwf1) (vwf_conf   _ Hwf2)) in Hcf.
@@ -347,7 +347,7 @@ Proof.
       by (apply encode_validator_length; apply Hwf1; left; auto).
     assert (Hl2 : length (encode_validator vr2) = 89%nat)
       by (apply encode_validator_length; apply Hwf2; left; auto).
-    apply (app_injective_fixed _ _ _ _ 89 Hl1 Hl2) in Heq as [Hvr Hrest].
+    apply (app_injective_fixed _ _ _ _ 89%nat Hl1 Hl2) in Heq as [Hvr Hrest].
     apply (encode_validator_injective _ _
       (Hwf1 _ (or_introl eq_refl))
       (Hwf2 _ (or_introl eq_refl))) in Hvr.
@@ -403,8 +403,8 @@ Lemma encode_window_length_3 :
     length (encode_window ws) = 24%nat.
 Proof.
   intros ws Hlen Hwf.
-  destruct ws as [| w1 [| w2 [| w3 [|]]]]; simpl in *; try lia.
-  repeat rewrite app_length, encode_i64_length. reflexivity.
+  destruct ws as [| w1 [| w2 [| w3 [|]]]]; simpl in Hlen; try lia.
+  reflexivity.
 Qed.
 
 Lemma encode_window_injective :
@@ -418,19 +418,23 @@ Proof.
   intros ws1 ws2 Hl1 Hl2 Hwf1 Hwf2 Heq.
   destruct ws1 as [| a1 [| b1 [| c1 [|]]]]; simpl in Hl1; try lia.
   destruct ws2 as [| a2 [| b2 [| c2 [|]]]]; simpl in Hl2; try lia.
+  (* Step through the fixpoint one level at a time so each hypothesis
+     is in append form before calling app_injective_fixed. *)
   simpl encode_window in Heq.
   apply (app_injective_fixed _ _ _ _ 8
-    encode_i64_length encode_i64_length) in Heq as [Ha Heq].
+    (encode_i64_length _) (encode_i64_length _)) in Heq as [Ha Heq].
+  simpl encode_window in Heq.
   apply (app_injective_fixed _ _ _ _ 8
-    encode_i64_length encode_i64_length) in Heq as [Hb Hc].
+    (encode_i64_length _) (encode_i64_length _)) in Heq as [Hb Hc].
+  simpl encode_window in Hc.
+  apply (app_injective_fixed _ _ _ _ 8
+    (encode_i64_length _) (encode_i64_length _)) in Hc as [Hc' _].
   apply (encode_i64_injective _ _
     (Hwf1 _ (or_introl eq_refl))
     (Hwf2 _ (or_introl eq_refl))) in Ha.
   apply (encode_i64_injective _ _
     (Hwf1 _ (or_intror (or_introl eq_refl)))
     (Hwf2 _ (or_intror (or_introl eq_refl)))) in Hb.
-  apply (app_injective_fixed _ _ _ _ 8
-    encode_i64_length encode_i64_length) in Hc as [Hc' _].
   apply (encode_i64_injective _ _
     (Hwf1 _ (or_intror (or_intror (or_introl eq_refl))))
     (Hwf2 _ (or_intror (or_intror (or_introl eq_refl))))) in Hc'.
@@ -447,15 +451,15 @@ Lemma encode_u32_injective :
     v1 = v2.
 Proof.
   intros v1 v2 H1 H2 Heq.
-  apply le_encode_injective with (n := 4); try assumption.
-  - rewrite pow_256_4. unfold is_u32 in H1. lia.
-  - rewrite pow_256_4. unfold is_u32 in H2. lia.
+  apply le_encode_injective with (n := 4%nat); try assumption.
+  - rewrite pow_256_4. unfold is_u32, U32_MAX in H1. lia.
+  - rewrite pow_256_4. unfold is_u32, U32_MAX in H2. lia.
 Qed.
 
 Lemma flat_map_validator_length :
   forall vs : list ValidatorRecord,
     (forall vr, In vr vs -> ValidatorWF vr) ->
-    length (flat_map encode_validator vs) = length vs * 89.
+    length (flat_map encode_validator vs) = (length vs * 89)%nat.
 Proof.
   induction vs as [| vr rest IH]; intros Hwf.
   - simpl. reflexivity.
@@ -475,7 +479,7 @@ Proof.
   intros s1 s2 Hwf1 Hwf2 Heq.
   unfold encode_state in Heq.
   apply (app_injective_fixed _ _ _ _ 8
-    encode_u64_length encode_u64_length) in Heq as [Hep Heq].
+    (encode_u64_length _) (encode_u64_length _)) in Heq as [Hep Heq].
   apply (app_injective_fixed _ _ _ _ 32
     (swf_sr_len _ Hwf1) (swf_sr_len _ Hwf2)) in Heq as [Hsr Heq].
   apply (app_injective_fixed _ _ _ _ 32
@@ -483,13 +487,13 @@ Proof.
   apply (app_injective_fixed _ _ _ _ 32
     (swf_es_len _ Hwf1) (swf_es_len _ Hwf2)) in Heq as [Hes Heq].
   apply (app_injective_fixed _ _ _ _ 1
-    encode_bool_length encode_bool_length) in Heq as [Hhf Heq].
+    (encode_bool_length _) (encode_bool_length _)) in Heq as [Hhf Heq].
   apply (app_injective_fixed _ _ _ _ 4
-    encode_u32_length encode_u32_length) in Heq as [Hvc Heq].
+    (encode_u32_length _) (encode_u32_length _)) in Heq as [Hvc Heq].
   apply (encode_u32_injective _ _
     (swf_n_bound _ Hwf1) (swf_n_bound _ Hwf2)) in Hvc as Hlen_z.
   apply Nat2Z.inj in Hlen_z.
-  set (n_bytes := length (ps_validators s1) * 89).
+  set (n_bytes := (length (ps_validators s1) * 89)%nat).
   apply (app_injective_fixed _ _ _ _ n_bytes) in Heq as [Hvals Hwin].
   - apply (encode_validators_injective _ _ Hlen_z
       (swf_val_wf _ Hwf1) (swf_val_wf _ Hwf2)) in Hvals.
@@ -502,7 +506,7 @@ Proof.
     destruct s1, s2; simpl in *; subst; reflexivity.
   - unfold n_bytes.
     apply flat_map_validator_length. apply (swf_val_wf _ Hwf1).
-  - unfold n_bytes. rewrite <- Hlen_z.
+  - unfold n_bytes. rewrite Hlen_z.
     apply flat_map_validator_length. apply (swf_val_wf _ Hwf2).
 Qed.
 (** TH-1 is fully closed. No Admitted markers remain in this file. *)

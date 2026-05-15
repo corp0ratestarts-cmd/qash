@@ -110,17 +110,14 @@ Qed.
 (** Core monotonicity: Σ_i,t never decreases *)
 Lemma sigma_update_monotone :
   forall current increment,
-    0 <= current ->
+    0 <= current <= INT_MAX ->
     0 <= increment ->
     current <= sigma_update current increment.
 Proof.
-  intros c i Hc Hi.
+  intros c i [Hc_lo Hc_hi] Hi.
   unfold sigma_update.
   destruct (INT_MAX <? (c + i)) eqn:H.
-  - (* sum > INT_MAX, result = INT_MAX; need c ≤ INT_MAX.
-       c ≥ 0 and the admissibility invariant is 0 ≤ c ≤ INT_MAX.
-       Since i ≥ 0, c ≤ c + i, so c + i > INT_MAX → c ≤ INT_MAX. *)
-    apply Z.ltb_lt in H. lia.
+  - apply Z.ltb_lt in H. lia.
   - apply Z.ltb_ge in H. lia.
 Qed.
 
@@ -205,11 +202,11 @@ Lemma sv_update_phi_monotone :
     phi_validator sv <= phi_validator (sv_update sv increment).
 Proof.
   intros sv inc Hadm Hinc.
-  unfold phi_validator, sv_update. simpl.
+  unfold phi_validator, sv_update.
   apply Z.mul_le_mono_nonneg_l.
   - unfold gamma. lia.
   - apply sigma_update_monotone.
-    + apply sv_acc_lo. assumption.
+    + split; [apply sv_acc_lo; assumption | apply sv_acc_hi; assumption].
     + assumption.
 Qed.
 
@@ -319,11 +316,14 @@ Proof.
   unfold phi_safety_state, Phi_max.
   apply Z.le_trans with (Z.of_nat (length (ss_validators s)) * (gamma * INT_MAX)).
   - apply phi_safety_bounded. apply ss_val_admissible. assumption.
-  - apply Z.mul_le_mono_nonneg_r.
-    + apply Z.mul_nonneg_nonneg.
-      * unfold gamma. lia.
-      * unfold INT_MAX. lia.
-    + apply ss_n_bound. assumption.
+  - assert (Hlen : Z.of_nat (length (ss_validators s)) <= N_max)
+      by (apply ss_n_bound; assumption).
+    assert (Hgi : 0 <= gamma * INT_MAX)
+      by (apply Z.mul_nonneg_nonneg; [unfold gamma; lia | unfold INT_MAX; lia]).
+    apply Z.le_trans with (N_max * (gamma * INT_MAX)).
+    + apply Z.mul_le_mono_nonneg_r; assumption.
+    + assert (Heq : N_max * (gamma * INT_MAX) = N_max * gamma * INT_MAX) by ring.
+      lia.
 Qed.
 
 (** ** TH-5 corollary: Φ_max_safe is strictly below Φ_max *)
