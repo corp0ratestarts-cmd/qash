@@ -390,6 +390,9 @@ fn run_pipeline(
             reason: HaltReason::LyapunovViolation,
         });
     }
+    if lyap.phi_halt_triggered {
+        return Err(TransitionHalt { reason: HaltReason::PhiSafetyViolation });
+    }
 
     let next_epoch =
         state.epoch.checked_add(1).ok_or(TransitionHalt { reason: HaltReason::EpochOverflow })?;
@@ -655,11 +658,14 @@ fn evaluate_projected(
         (FixedPoint::ZERO, false)
     };
 
+    let phi_halt_triggered = phi.raw() >= lyapunov::PHI_MAX_SAFE.raw();
+
     Ok(LyapunovEval {
         v_convergence: v_sum,
         phi_safety: phi,
         v_total,
         delta_window,
         halt_triggered,
+        phi_halt_triggered,
     })
 }

@@ -1,6 +1,6 @@
 # ADR-002: Φ_safety Aggregation Rule
 
-- **Status:** proposed
+- **Status:** accepted
 - **PDF anchor:** PDF-SILENT, depends on ADR-001
 - **Traceability rows:** P0-1
 
@@ -9,25 +9,30 @@
 The PDF does not define `Φ_safety`, `Φ_max_safe`, or an aggregation rule over
 per-validator slash/evidence accumulators.
 
-## Decision options
+## Decision
 
-1. `max_i(Σ_i)` — tracks the worst individual validator.
-2. `Σ_i Σ_i` — tracks total system-wide accumulated safety evidence.
-3. A bounded or weighted aggregate with explicit cap and proof obligations.
+**Use sum aggregation:** `Φ_safety = W_S · Σ_i(slash_i)`.
 
-## Proposed decision
+This is consistent with ADR-001's decision. A max-only rule undercounts
+distributed safety degradation: 100 validators each with a moderate slash look
+the same as 1 validator with the same slash under max, but represent
+qualitatively different system risk. Sum-based aggregation captures total
+system-wide accumulated safety evidence and is checked arithmetic throughout
+(overflow → H2 ArithOverflow halt).
 
-Use a sum over validators unless further review shows that the PDF intended
-`signature_health` to represent a single global scalar.
+## Rationale for rejecting max
 
-## Rationale
-
-A max-only rule can undercount distributed safety degradation. A sum-based rule
-better represents aggregate risk, but must include checked arithmetic and a
-precise overflow/halt rule.
+- `max_i(slash_i)` tracks only the single worst validator; the protocol has no
+  mechanism to redistribute or clear slash accumulators, so distributed
+  accumulation is the expected failure mode.
+- The PDF's parameter notation (`Σ`) is summation, not maximum.
 
 ## Consequences
 
-The current implementation must not be judged compliant or non-compliant until
-this ADR is accepted. If the sum rule is accepted, tests must include multiple
-validators with nonzero accumulators to distinguish sum from max behavior.
+- The implementation in `lyapunov.rs` and `transition.rs` uses `checked_add`
+  over `slash_accum` fields rather than `max`.
+- Tests exist that distinguish sum from max: two validators each with slash
+  `400_000_000` raw produce `phi_safety = 200_000_000` (sum), which is double
+  what max would produce (`100_000_000`).
+- P0-1 compliance can now be assessed; status advances to ⚠️ (tests pass,
+  proof CI not yet verified).

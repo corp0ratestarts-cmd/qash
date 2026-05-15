@@ -17,6 +17,7 @@ pub fn consensus_params_hash() -> [u8; 32] {
     //   weight_c: i128              =  16
     //   weight_s: i128              =  16
     //   epsilon: i128               =  16
+    //   phi_max_safe: i128          =  16
     //   scale: i128                 =  16
     //   window_size: u32            =   4
     //   max_validators: u32         =   4
