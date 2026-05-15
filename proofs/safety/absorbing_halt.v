@@ -205,7 +205,7 @@ Lemma sv_update_phi_monotone :
     phi_validator sv <= phi_validator (sv_update sv increment).
 Proof.
   intros sv inc Hadm Hinc.
-  unfold phi_validator, sv_update. simpl.
+  unfold phi_validator, sv_update.
   apply Z.mul_le_mono_nonneg_l.
   - unfold gamma. lia.
   - apply sigma_update_monotone.
@@ -319,11 +319,14 @@ Proof.
   unfold phi_safety_state, Phi_max.
   apply Z.le_trans with (Z.of_nat (length (ss_validators s)) * (gamma * INT_MAX)).
   - apply phi_safety_bounded. apply ss_val_admissible. assumption.
-  - apply Z.mul_le_mono_nonneg_r.
-    + apply Z.mul_nonneg_nonneg.
-      * unfold gamma. lia.
-      * unfold INT_MAX. lia.
-    + apply ss_n_bound. assumption.
+  - assert (Hlen : Z.of_nat (length (ss_validators s)) <= N_max)
+      by (apply ss_n_bound; assumption).
+    assert (Hgi : 0 <= gamma * INT_MAX)
+      by (apply Z.mul_nonneg_nonneg; [unfold gamma; lia | unfold INT_MAX; lia]).
+    apply Z.le_trans with (N_max * (gamma * INT_MAX)).
+    + apply Z.mul_le_mono_nonneg_r; assumption.
+    + assert (Heq : N_max * (gamma * INT_MAX) = N_max * gamma * INT_MAX) by ring.
+      lia.
 Qed.
 
 (** ** TH-5 corollary: Φ_max_safe is strictly below Φ_max *)
