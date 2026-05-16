@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Compares CONSENSUS STATE ROOTS (not binary hashes) across ISAs — verifies TH-7.
   # Step 1: compute the canonical state root on the native x86_64 runner.
   # This becomes the reference that all cross-compiled targets must match.
   native-root:

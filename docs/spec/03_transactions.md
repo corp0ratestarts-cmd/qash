@@ -122,7 +122,7 @@ Tx = (
 - Only `payload` is variable-length; everything else is fixed-width
 - `payload` is opaque to the envelope; semantics defined per `tx_type`
 - `signature` covers: `Encode(envelope_without_signature)`
-- Total envelope size = `89 + payload_len + 2420` = `2509 + payload_len` bytes
+- Total envelope size = 2 + 2 + 8 + 48 + 4 + payload_len + 2420 = `2484 + payload_len` bytes
 
 ### Envelope wire format
 

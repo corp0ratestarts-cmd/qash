@@ -58,7 +58,7 @@ Cross-domain contamination (a Domain B value influencing a Domain A computation)
 ### Arithmetic rules for Domain A code
 
 - Only `u8`/`u16`/`u32`/`u64`/`u128`, `i8`/`i16`/`i32`/`i64`/`i128`, `bool` (as `u8 0x00/0x01`)
-- `usize` and `isize` are forbidden (platform-dependent width)
+- `usize`/`isize` are forbidden in: consensus state struct fields, wire-format arithmetic, persisted values, and any value that crosses the Domain A/B boundary. `usize` IS permitted for array/slice indexing, loop iteration bounds, and buffer position tracking that is local to a single pure function. Rationale: Rust requires `usize` for indexing; this is unavoidable. The prohibition targets non-determinism from platform-dependent WIDTH used in ARITHMETIC or STATE.
 - All arithmetic must be checked; overflow triggers `Halt::absorbing_reset()`
 - No floating point anywhere in the consensus path
 - Use `BTreeMap` not `HashMap` for deterministic iteration order

@@ -68,6 +68,13 @@ src/                ← Hosted binary entrypoint
 GENESIS_CONSTANTS.toml   Immutable genesis parameters (not yet locked)
 ```
 
+> **Runtime status: thin scaffold — the hosted binary is a CLI demo only. PAL traits
+> are wired but the Host implementation returns zeroes/no-ops. This is not a
+> deployable node.**
+
+```
+```
+
 The relationship between layers:
 
 ```
@@ -94,19 +101,20 @@ repository now resolves authority through the PDF-first governance model in
 
 | ID | Name | Class | Status |
 |----|------|-------|--------|
-| TH-1 | Encoding injectivity | Formal theorem | 🟡 DRAFT (`_wip/`, not CI-closed) |
-| TH-2 | Encoding totality | Formal theorem | 🟡 DRAFT (`_wip/`, not CI-closed) |
-| TH-3 | Convergence decrease / halt gate | Formal theorem | 🟡 PARTIAL (TH-3a/3b/3c active; composition pending) |
-| TX-0 §A8 | No-op perturbation bound | Formal theorem | ✅ ACTIVE (`TX0_perturbation_bound`) |
-| TH-4 | Φ_safety monotonicity | Formal theorem | 🟡 DRAFT (`_wip/`, not CI-closed) |
-| TH-5 | Φ_safety boundedness | Formal theorem | 🟡 DRAFT (`_wip/`, not CI-closed) |
-| TH-6 | Halt correctness | Formal theorem | 🟡 DRAFT (`_wip/`, not CI-closed) |
-| TH-7 | Replay invariance RT-1 | Verification claim | 🟡 PARTIAL |
-| TH-8 | Succession soundness | Formal theorem | 🟡 PARTIAL/DRAFT (placeholder import pending) |
+| TH-1 | Encoding injectivity | Formal theorem | ✅ FORMAL — `proofs/contractivity/encode_injectivity.v` |
+| TH-2 | Encoding totality | Formal theorem | ✅ FORMAL — `proofs/contractivity/encode_injectivity.v` |
+| TH-3 | Convergence decrease / halt gate | Formal theorem | ✅ FORMAL — `proofs/contractivity/lyapunov_stability.v` |
+| TX-0 §A8 | No-op perturbation bound | Formal theorem | ✅ FORMAL — `proofs/contractivity/tx_perturbation_0.v` |
+| TH-4 | Φ_safety monotonicity | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
+| TH-5 | Φ_safety boundedness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
+| TH-6 | Halt correctness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
+| TH-7 | Replay invariance RT-1 | Verification claim | 🟡 PARTIAL — CI-verified on x86_64; aarch64/riscv64gc cross-ISA run pending |
+| TH-8 | Succession soundness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` + `proofs/integration/th8_composition.v` |
 
-Genesis lock requires active `coqc`-checked proofs for TH-1 through TH-8,
-closed §A8 obligations for every admitted transaction type, and the full TH-7
-replay/test-vector gate. Draft files in `proofs/_wip/` are not lock evidence.
+Genesis lock gate:
+- TH-1 through TH-6, TH-8: **FORMAL** (Coq compiles; no `Admitted` beyond AX-1/AX-2/AX-3)
+- TH-7: CI-verified on x86_64; aarch64 and riscv64gc cross-ISA run pending
+- Archived drafts in `proofs/_wip/` are superseded — not lock evidence
 
 ---
 

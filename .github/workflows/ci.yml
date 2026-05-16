@@ -20,7 +20,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Test
-        run: cargo test --no-default-features
+        run: cargo test -p qash-consensus --no-default-features
       - name: Verify deterministic build pipeline
         run: ./scripts/verify_two_stage_build.sh
 

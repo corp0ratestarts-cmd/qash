@@ -20,6 +20,18 @@ commitment synchronisation mesh, not a transaction gossip network.
 
 ---
 
+## §P0a — What QASH does NOT protect against (normative)
+
+| Threat | Why out of scope | Mitigation (user responsibility) |
+|--------|-----------------|----------------------------------|
+| Endpoint compromise | Cryptographic privacy holds only if keys are not extracted. TEE/OEM halts before responding, but hardware extraction is outside protocol scope. | Hardware-backed keys; attestation monitoring. |
+| Physical coercion | Outside cryptographic scope. | User responsibility. |
+| Exchange/egress correlation | Economic layer, not consensus. When validators exchange external-network assets, that layer may expose graph edges. | Out-of-band disclosure controls. |
+| Global passive adversary (full network view) | QASH's privacy is architectural (no graph broadcast), not transport-layer anonymity. A GPA watching all Domain B channels may correlate sync timing. | Optional Tor routing for clone channels (Domain B feature gate). |
+| Receipt body without disclosure key | By design: requires a genesis-authorized disclosure key. | This is the privacy guarantee, not a limitation. |
+
+---
+
 ## §P1 — Dual-layer network architecture
 
 | Layer | Purpose | Visible Artifacts | Network Behaviour |
