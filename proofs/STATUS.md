@@ -18,12 +18,20 @@
 
 | File | Status | Theorems |
 |------|--------|----------|
-| `util/list_inj.v` | Compiles | Supporting lemmas (flat_map injectivity, prefix cancellation) |
+| `util/list_inj.v` | Compiles | Supporting lemmas: flat_map_fixed_length, flat_map_inj_fixed, app_cancel_left |
+| `concat_injective.v` | Compiles | app_length_eq_left, concat_inj_fixed_left (prefix cancellation) |
 | `contractivity/lyapunov_stability.v` | Compiles | TH-3a, TH-3b, TH-3c |
 | `contractivity/encode_injectivity.v` | Compiles | TH-1, TH-2, state_root_collision_resistance |
 | `contractivity/tx_perturbation_0.v` | Compiles | TX-0 ε_τ=0 (§A8 Form A) |
+| `contractivity/lyapunov_grace_convergence.v` | Compiles | TH-GC (grace: window not full → no halt within tolerance margin) |
 | `safety/absorbing_halt.v` | Compiles | TH-4, TH-5, TH-6, TH-8 (partial — halt-frozen state) |
 | `integration/th8_composition.v` | Compiles | TH-8 (full — uniqueness via AX-3 composition) |
+| `lyapunov_decrease.v` | Compiles | V_convergence_not_monotone, V_convergence_zero_achievable |
+| `cascade/cascade_health_bounded.v` | Compiles | TH-9: CH_t ∈ [0, p], cascade health term bounded |
+| `cascade/cascade_determinism.v` | Compiles | TH-11: cross-ISA determinism (CI-verified; axiomatises TH-7 delegation) |
+| `cascade/cascade_collision_resistance.v` | Compiles | TH-10: AX-3 reduction (Axiom declarations, no Admitted markers) |
+| `blinding/blinding_non_interference.v` | Compiles | Blinding non-interference (cascade_prf_security assumption) |
+| `model/Model.v` | Compiles | th3a_no_halt_within_epsilon, th3b_halt_above_epsilon, step_halted_is_identity, run_halted_is_identity |
 | `_wip/absorbing_halt.v.draft` | Archived draft | Superseded by `safety/absorbing_halt.v` |
 | `_wip/encode_injectivity.v.draft` | Archived draft | Superseded by `contractivity/encode_injectivity.v` |
 

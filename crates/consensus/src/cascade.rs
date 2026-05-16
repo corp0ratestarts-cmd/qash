@@ -9,7 +9,6 @@
 // pure-Rust / safe-Rust.  blake3 uses features=["pure"] to disable assembly.
 
 use sha3::{Digest, Sha3_256, Sha3_512};
-use blake3;
 use tiny_keccak::{Hasher as TinyHasher, KangarooTwelve};
 use sm3::Sm3;
 use streebog::Streebog256;

@@ -21,7 +21,7 @@
 //     Observations(exec(secret₁)) ≈ Observations(exec(secret₂))
 //   i.e. even with full side-channel visibility, outputs are computationally
 //   indistinguishable for different secret inputs.
-// TODO: track Coq proof of this in proofs/blinding/blinding_non_interference.v
+// Non-interference proved: proofs/blinding/blinding_non_interference.v (AX-3 + cascade_prf_security)
 //
 // v1.1.1 Lyapunov rebalancing (activated when WEIGHT_BH goes non-zero):
 //   D: 350_000 → 320_000
