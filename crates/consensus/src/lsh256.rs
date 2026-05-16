@@ -351,4 +351,18 @@ mod tests {
         // And the two-block result must be deterministic.
         assert_eq!(lsh256(&msg_long), lsh256(&msg_long));
     }
+
+    // Official KAT: LSH-256-256("abc") from KISA source code distribution v1.0.2
+    // (seed.kisa.or.kr — Korea Cryptographic Module Validation Programme).
+    // This is the pre-genesis CI gate for LSH-256 correctness.
+    #[test]
+    fn lsh256_official_kat() {
+        let expected = [
+            0x5f, 0xbf, 0x36, 0x5d, 0xae, 0xa5, 0x44, 0x6a,
+            0x70, 0x53, 0xc5, 0x2b, 0x57, 0x40, 0x4d, 0x77,
+            0xa0, 0x7a, 0x5f, 0x48, 0xa1, 0xf7, 0xc1, 0x96,
+            0x3a, 0x08, 0x98, 0xba, 0x1b, 0x71, 0x47, 0x41,
+        ];
+        assert_eq!(lsh256(b"abc"), expected);
+    }
 }
