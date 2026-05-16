@@ -184,3 +184,22 @@ fn gen_coq_vectors() {
 
     println!("{{\n  \"generated_by\": \"gen_vectors.rs\",\n  \"spec\": \"proofs/model/Model.v\",\n  \"coq_theorems\": [\"TH-3a\",\"TH-3b\",\"TH-6\"],\n  \"vectors\": [\n{}\n  ]\n}}", records.join(",\n"));
 }
+
+use qash_consensus::transition::{encode_full_state_into, FULL_STATE_MAX_BYTES};
+
+#[ignore]
+#[test]
+fn gen_replay_snapshots() {
+    fn snap(label: &str, vc: u32, epochs: usize) {
+        let mut s = genesis(vc);
+        for _ in 0..epochs { advance_epoch(&mut s, &idle(vc), &[]).unwrap(); }
+        let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+        let len = encode_full_state_into(&mut s, &mut buf);
+        let root_hex: String = s.state_root.iter().map(|b| format!("{:02x}", b)).collect();
+        let bytes_hex: String = buf[..len].iter().map(|b| format!("{:02x}", b)).collect();
+        println!("SNAP:{}:{}:{}:{}", label, len, root_hex, bytes_hex);
+    }
+    snap("epoch0", 4, 0);
+    snap("epoch1", 4, 1);
+    snap("epoch3", 4, 3);
+}

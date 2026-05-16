@@ -14,6 +14,7 @@ pub mod transition;
 pub mod params;
 pub mod transaction;
 pub mod derive;
+pub mod invariants;
 
 // Re-exports (ergonomic public API)
 pub use fixed_point::FixedPoint;
@@ -27,3 +28,4 @@ pub use transition::{
     MAX_VALIDATORS, FULL_STATE_MAX_BYTES, TransitionResult,
 };
 pub use derive::{derive_leaf_index, verify_leaf_index};
+pub use invariants::{check_state_invariants, InvariantViolation};

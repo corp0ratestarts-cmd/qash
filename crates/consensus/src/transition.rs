@@ -435,6 +435,10 @@ fn step_1_validate(
     let scale_raw = SCALE;
 
     for i in 0..state.validator_count as usize {
+        // §A4 sparse update semantics (normative):
+        // None  = identity — validator metrics are unchanged; NOT an absence or liveness signal.
+        // Some(u) = explicit update — all three fields (D, C, slash_accum) are replaced atomically.
+        // Omission can never affect validator liveness. Future implementations MUST preserve this.
         if let Some(ref u) = input.updates[i] {
             let d = u.divergence_new.raw();
             let c = u.conflict_new.raw();

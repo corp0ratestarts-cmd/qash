@@ -21,7 +21,7 @@ use qash_consensus::transition::{
     advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
 };
 use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
-use qash_consensus::fixed_point::FixedPoint;
+use qash_consensus::fixed_point::{FixedPoint, SCALE};
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -616,4 +616,86 @@ fn adversarial_lyapunov_violation_triggers_halt() {
 
 fn advance_epoch_no_op(state: &mut EpochState) {
     advance_epoch(state, &idle_input(state.validator_count), &[]).unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 boundary tests (Issue #22 — hardening)
+// ---------------------------------------------------------------------------
+
+/// §A4: D > SCALE must be rejected with DecodeInvalid.
+#[test]
+fn adversarial_divergence_exceeds_scale() {
+    let mut state = genesis_state();
+    let mut input = idle_input(4);
+    input.updates[0] = Some(ValidatorUpdate {
+        divergence_new:  FixedPoint::from_raw(SCALE + 1),
+        conflict_new:    FixedPoint::ZERO,
+        slash_accum_new: FixedPoint::ZERO,
+    });
+    assert_eq!(
+        advance_epoch(&mut state, &input, &[]),
+        Err(HaltReason::DecodeInvalid),
+        "D > SCALE must trigger DecodeInvalid"
+    );
+}
+
+/// §A4: C > SCALE must be rejected with DecodeInvalid.
+#[test]
+fn adversarial_conflict_exceeds_scale() {
+    let mut state = genesis_state();
+    let mut input = idle_input(4);
+    input.updates[0] = Some(ValidatorUpdate {
+        divergence_new:  FixedPoint::ZERO,
+        conflict_new:    FixedPoint::from_raw(SCALE + 1),
+        slash_accum_new: FixedPoint::ZERO,
+    });
+    assert_eq!(
+        advance_epoch(&mut state, &input, &[]),
+        Err(HaltReason::DecodeInvalid),
+        "C > SCALE must trigger DecodeInvalid"
+    );
+}
+
+/// §A4: update present at slot index >= validator_count must be rejected.
+/// Lines 461-465 in transition.rs enforce this; this test is the CI gate.
+#[test]
+fn adversarial_update_beyond_validator_count() {
+    let mut state = genesis_state(); // validator_count = 4
+    let mut input = idle_input(4);
+    // Slot 4 is beyond vc=4 (valid slots are 0..3).
+    input.updates[4] = Some(ValidatorUpdate {
+        divergence_new:  FixedPoint::ZERO,
+        conflict_new:    FixedPoint::ZERO,
+        slash_accum_new: FixedPoint::ZERO,
+    });
+    assert_eq!(
+        advance_epoch(&mut state, &input, &[]),
+        Err(HaltReason::DecodeInvalid),
+        "update at slot >= validator_count must trigger DecodeInvalid"
+    );
+}
+
+/// §A4: slash_accum at i64::MAX / 2 is valid; same value on next epoch
+/// (no-op, monotone) is also valid.
+#[test]
+fn adversarial_max_slash_boundary_is_valid() {
+    let large = i64::MAX / 2;
+    let mut state = genesis_state();
+    // Set slash_accum to a large valid value.
+    let mut input = idle_input(4);
+    input.updates[0] = Some(ValidatorUpdate {
+        divergence_new:  FixedPoint::ZERO,
+        conflict_new:    FixedPoint::ZERO,
+        slash_accum_new: FixedPoint::from_raw(large as i128),
+    });
+    assert!(advance_epoch(&mut state, &input, &[]).is_ok(), "large slash must be accepted");
+
+    // Same value again (no-op, satisfies monotonicity) — must still succeed.
+    let mut input2 = idle_input(4);
+    input2.updates[0] = Some(ValidatorUpdate {
+        divergence_new:  FixedPoint::ZERO,
+        conflict_new:    FixedPoint::ZERO,
+        slash_accum_new: FixedPoint::from_raw(large as i128),
+    });
+    assert!(advance_epoch(&mut state, &input2, &[]).is_ok(), "same slash (no-op) must be accepted");
 }
