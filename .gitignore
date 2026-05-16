@@ -1,4 +1,5 @@
 .aider*
+/target/
 
 # Coq build artifacts
 *.vo
