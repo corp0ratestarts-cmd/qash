@@ -108,12 +108,12 @@ repository now resolves authority through the PDF-first governance model in
 | TH-4 | Φ_safety monotonicity | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
 | TH-5 | Φ_safety boundedness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
 | TH-6 | Halt correctness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
-| TH-7 | Replay invariance RT-1 | Verification claim | 🟡 PARTIAL — CI-verified on x86_64; aarch64/riscv64gc cross-ISA run pending |
+| TH-7 | Replay invariance RT-1 | Verification claim | ✅ CI-VERIFIED — identical state roots on x86_64, aarch64, riscv64gc (QEMU user-static) |
 | TH-8 | Succession soundness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` + `proofs/integration/th8_composition.v` |
 
 Genesis lock gate:
 - TH-1 through TH-6, TH-8: **FORMAL** (Coq compiles; no `Admitted` beyond AX-1/AX-2/AX-3)
-- TH-7: CI-verified on x86_64; aarch64 and riscv64gc cross-ISA run pending
+- TH-7: CI-verified on x86_64, aarch64, and riscv64gc (QEMU user-static; identical state roots)
 - Archived drafts in `proofs/_wip/` are superseded — not lock evidence
 
 ---

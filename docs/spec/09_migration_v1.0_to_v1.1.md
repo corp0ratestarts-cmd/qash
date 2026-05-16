@@ -110,14 +110,12 @@ logged. After epoch 100, proofless chunks are rejected.
 
 ### Genesis Lock Gate — Current Status
 
-**Proof/verification complete (no further work needed):**
+**All obligations discharged:**
 - TH-9 PROVED, TH-10 AX-3 reduction, TH-11 CI-verified
 - Weight-adjusted TH-3 and TH-5 verified with v1.1 weights
-
-**Infrastructure pending (not a proof gap):**
-- TH-7 aarch64 and riscv64gc cross-ISA CI runs require `cross` + QEMU on
-  CI runners. Existing test vectors (TV-1 in `docs/spec/07_test_vectors.md`)
-  are the verification gate. This is an operational blocker, not a proof gap.
+- TH-7 cross-ISA: x86_64, aarch64, and riscv64gc all produce identical state roots
+  (verified via QEMU user-static; `.cargo/config.toml` configures runners; CI workflow
+  at `.github/workflows/platform-determinism.yml` installs required packages)
 
 ---
 

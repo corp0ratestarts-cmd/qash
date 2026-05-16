@@ -25,28 +25,33 @@ jobs:
           echo "state_root=${ROOT}" >> "$GITHUB_OUTPUT"
           echo "Native state root: ${ROOT}"
 
-  # Step 2: cross-compile and run tests on each target via cross (Docker + QEMU).
-  # Requires cross to be installed; available in ubuntu-latest via apt or cargo.
+  # Step 2: cross-compile and run via QEMU user-static (no Docker required).
+  # Uses .cargo/config.toml runners: qemu-aarch64-static -L /usr/aarch64-linux-gnu
+  # and qemu-riscv64-static -L /usr/riscv64-linux-gnu.
   cross-verify:
     needs: native-root
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix:
-        target:
-          - aarch64-unknown-linux-gnu
-          - riscv64gc-unknown-linux-gnu
+        include:
+          - target: aarch64-unknown-linux-gnu
+            packages: gcc-aarch64-linux-gnu libc6-arm64-cross
+          - target: riscv64gc-unknown-linux-gnu
+            packages: gcc-riscv64-linux-gnu libc6-riscv64-cross
     steps:
       - uses: actions/checkout@v4
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - name: Install cross
-        run: cargo install cross --quiet
+      - name: Install cross-compile toolchain and QEMU
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --fix-missing qemu-user-static ${{ matrix.packages }}
       - name: Run canonical root test on ${{ matrix.target }}
         run: |
-          ROOT=$(cross test -p qash-consensus --no-default-features \
+          ROOT=$(cargo test -p qash-consensus --no-default-features \
                    --target ${{ matrix.target }} \
                    state_root_canonical_seq_print -- --nocapture 2>/dev/null \
                  | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1)
@@ -61,6 +66,5 @@ jobs:
           echo "OK: roots match"
       - name: Run full test suite on ${{ matrix.target }}
         run: |
-          cross test -p qash-consensus --no-default-features \
-            --target ${{ matrix.target }} \
-            -- state_root_canonical_seq_golden
+          cargo test -p qash-consensus --no-default-features \
+            --target ${{ matrix.target }}
