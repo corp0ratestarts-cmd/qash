@@ -1,0 +1,27 @@
+{
+  "name": "nominal_progression",
+  "validator_count": 2,
+  "steps": [
+    {
+      "updates": [
+        {"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0},
+        {"divergence_raw": 8000, "conflict_raw": 0, "slash_accum_raw": 0}
+      ],
+      "expected_halt_reason": "None"
+    },
+    {
+      "updates": [
+        {"divergence_raw": 12000, "conflict_raw": 500, "slash_accum_raw": 0},
+        {"divergence_raw": 9000, "conflict_raw": 1000, "slash_accum_raw": 0}
+      ],
+      "expected_halt_reason": "None"
+    },
+    {
+      "updates": [
+        {"divergence_raw": 11000, "conflict_raw": 300, "slash_accum_raw": 100},
+        {"divergence_raw": 8500, "conflict_raw": 700, "slash_accum_raw": 100}
+      ],
+      "expected_halt_reason": "None"
+    }
+  ]
+}

@@ -13,6 +13,8 @@ jobs:
         run: cargo build --no-default-features
       - name: Test
         run: cargo test --no-default-features
+      - name: Replay vector regression suite
+        run: cargo test -p qash-consensus --test replay_vectors --no-default-features
       - name: Clippy (consensus)
         run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D warnings
       - name: Clippy (workspace)

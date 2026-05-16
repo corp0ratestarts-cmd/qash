@@ -1,0 +1,17 @@
+{
+  "name": "boundary_epsilon",
+  "validator_count": 1,
+  "steps": [
+    {"updates": [{"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0}], "expected_halt_reason": "None"},
+    {"updates": [{"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0}], "expected_halt_reason": "None"},
+    {"updates": [{"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0}], "expected_halt_reason": "None"},
+    {"updates": [{"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0}], "expected_halt_reason": "None"},
+    {"updates": [{"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0}], "expected_halt_reason": "None"},
+    {"updates": [{"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0}], "expected_halt_reason": "None"},
+    {"updates": [{"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0}], "expected_halt_reason": "None"},
+    {"updates": [{"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0}], "expected_halt_reason": "None"},
+    {"updates": [{"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0}], "expected_halt_reason": "None"},
+    {"updates": [{"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0}], "expected_halt_reason": "None"},
+    {"updates": [{"divergence_raw": 10000, "conflict_raw": 0, "slash_accum_raw": 0}], "expected_halt_reason": "None"}
+  ]
+}
