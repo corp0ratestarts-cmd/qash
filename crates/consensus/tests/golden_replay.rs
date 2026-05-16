@@ -3,6 +3,9 @@ use sha3::{Digest, Sha3_256};
 use qash_consensus::hash::DomainTag;
 use qash_consensus::transaction::{TX_VERSION, TX_TYPE_NOOP, TX0_WIRE_BYTES};
 use qash_consensus::params::consensus_params_hash;
+use qash_consensus::encoding::{
+    encode_state_header, decode_state_header, STATE_HEADER_SIZE, ENCODING_VERSION,
+};
 use qash_consensus::transition::{
     advance_epoch, decode_full_state, encode_full_state_into,
     EpochInput, EpochState, HaltReason, ValidatorUpdate,
@@ -640,4 +643,44 @@ proptest! {
         let (dec_filled, _)  = decoded.convergence_window.raw_parts();
         prop_assert_eq!(orig_filled, dec_filled);
     }
+}
+
+// ---------------------------------------------------------------------------
+// State header encode/decode roundtrip (PR #25 concept, correctly implemented)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn state_header_roundtrip() {
+    let epoch: u64 = 42;
+    let validator_count: u32 = 7;
+    let halt_reason: u8 = 0x01; // LyapunovViolation
+    let entropy_seed = [0xABu8; 32];
+
+    let mut buf = [0u8; STATE_HEADER_SIZE as usize];
+    encode_state_header(epoch, validator_count, halt_reason, &entropy_seed, &mut buf);
+    let (dec_epoch, dec_vc, dec_halt, dec_seed) =
+        decode_state_header(&buf).expect("decode must succeed on valid header");
+
+    assert_eq!(dec_epoch, epoch);
+    assert_eq!(dec_vc, validator_count);
+    assert_eq!(dec_halt, halt_reason);
+    assert_eq!(dec_seed, entropy_seed);
+}
+
+#[test]
+fn state_header_version_mismatch_rejected() {
+    let mut buf = [0u8; STATE_HEADER_SIZE as usize];
+    encode_state_header(1, 4, 0x00, &[0u8; 32], &mut buf);
+    // corrupt the version field
+    buf[0] = (ENCODING_VERSION + 1) as u8;
+    assert!(decode_state_header(&buf).is_err());
+}
+
+#[test]
+fn state_header_nonzero_padding_rejected() {
+    let mut buf = [0u8; STATE_HEADER_SIZE as usize];
+    encode_state_header(1, 4, 0x00, &[0u8; 32], &mut buf);
+    // corrupt one of the three padding bytes
+    buf[17] = 0xFF;
+    assert!(decode_state_header(&buf).is_err());
 }
