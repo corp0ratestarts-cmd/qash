@@ -1,0 +1,19 @@
+{
+  "schema": "qash-consensus-deterministic-v1",
+  "edge_bounds": {
+    "min_validators_root": "3a88642f56c777ceb0f7684d7a25a34d127ec655e271c2e613c952eb1bcb29a2",
+    "max_validators_root": "e54809d21e92a83541fce61e0bc554b76ef1057157dd1f4234b2a6b2281e6df0",
+    "slash_monotonicity_halt": "DecodeInvalid",
+    "empty_window_allows_spike": true,
+    "full_window_spike_halt": "LyapunovViolation"
+  },
+  "halt_path": {
+    "lyapunov_violation": "LyapunovViolation",
+    "arith_overflow": "DecodeInvalid",
+    "decode_invalid": "DecodeInvalid"
+  },
+  "canonical_permutations": {
+    "perm_a_root": "e7152ece4d50600ab380462d3362c93f5d9672c3e6e168339c08ceb7cd2ab92b",
+    "perm_b_root": "e7152ece4d50600ab380462d3362c93f5d9672c3e6e168339c08ceb7cd2ab92b"
+  }
+}
