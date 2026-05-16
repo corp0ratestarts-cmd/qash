@@ -44,7 +44,7 @@ Open Scope Z_scope.
 (** A ValidatorMetrics instance with nonzero D (representing an unhealthy
     validator with divergence = 1 / scale). *)
 Definition nonzero_metrics : ValidatorMetrics.
-  refine (mkVM 1 0 0 _ _ _ _ _ _); unfold scale; lia.
+  refine (mkVM 1 0 _ _ _ _); unfold scale; lia.
 Defined.
 
 (** nonzero_metrics has strictly positive V contribution. *)

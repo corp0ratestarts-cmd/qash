@@ -52,7 +52,7 @@ Open Scope Z_scope.
 Definition INT_MAX    : Z := 2^63 - 1.
 Definition INT_MIN    : Z := -(2^63).
 Definition N_max      : Z := 1024.
-Definition gamma      : Z := 200_000.    (** weight_slash_Sigma — v1.1 (was 250_000 in v1.0) *)
+Definition gamma      : Z := 250_000.    (** weight_slash_Sigma — v1.0 genesis *)
 Definition Phi_max    : Z := N_max * gamma * INT_MAX.
 Definition Phi_max_safe : Z := Phi_max / 2.
 

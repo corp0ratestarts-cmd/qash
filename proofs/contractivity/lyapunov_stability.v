@@ -9,17 +9,20 @@
     TH-3a  δ_window ≤ ε  ⟹  no halt triggered
     TH-3b  Convergence gate: the protocol halts iff
               V_current - min(window) > ε
-    TH-3c  FinalizeEpoch (all-zero update, CH=0) drives V_convergence to 0
+    TH-3c  FinalizeEpoch (all-zero update) drives V_convergence to 0
 
-    Constants (match GENESIS_CONSTANTS.toml and lyapunov.rs — v1.1)
+    Constants (match GENESIS_CONSTANTS.toml and lyapunov.rs — v1.0 genesis)
     ---------------------------------------------------------
-    weight_D  = 350 000    (α)   — v1.1 (was 400 000 in v1.0)
-    weight_C  = 300 000    (β)   — v1.1 (was 350 000 in v1.0)
-    weight_S  = 200 000    (γ)   — v1.1 (was 250 000 in v1.0)
-    weight_CH = 150 000    (χ)   — v1.1 new term (cascade health)
+    weight_D  = 400 000    (α)
+    weight_C  = 350 000    (β)
+    weight_S  = 250 000    (γ)
     epsilon   =  20 000    (ε)
     scale     = 1 000 000  (𝔽_p denominator)
     window    = 3          (W)
+
+    Note on weight_CH: the cascade-health term (χ) is specified in v1.1
+    and activates when WEIGHT_BH > 0. It is not part of the v1.0 genesis
+    Lyapunov function and is therefore not modelled here.
 
     Proof strategy
     --------------
@@ -28,12 +31,11 @@
     3.  Prove min_window is well-defined and ≤ every element.
     4.  Prove TH-3a: if delta ≤ ε then halt_triggered = false.
     5.  Prove TH-3b: halt_triggered ↔ delta > ε (equivalence).
-    6.  Prove TH-3c: finalize_epoch (D=0, C=0, CH=0) yields V_convergence = 0.
+    6.  Prove TH-3c: finalize_epoch (D=0, C=0) yields V_convergence = 0.
 
     Status: All theorems fully proved. No Admitted markers.
-    Weight update: constants updated to v1.1 values; all proofs remain valid
-    because TH-3a/TH-3b do not depend on specific weight magnitudes (only on
-    the delta/epsilon relationship), and TH-3c holds because finalization sets
+    All three theorems are weight-independent: TH-3a/TH-3b depend only on
+    the delta/epsilon relationship; TH-3c holds because finalization sets
     all metric components to 0 regardless of weight values.
 *)
 
@@ -44,22 +46,20 @@ Require Import Coq.micromega.Lia.
 Open Scope Z_scope.
 
 (* ================================================================= *)
-(** ** §0 — Protocol Constants (v1.1)                                 *)
+(** ** §0 — Protocol Constants (v1.0 genesis)                         *)
 (* ================================================================= *)
 
-Definition weight_D  : Z := 350_000.
-Definition weight_C  : Z := 300_000.
-Definition weight_S  : Z := 200_000.
-Definition weight_CH : Z := 150_000.
-Definition epsilon   : Z :=  20_000.
-Definition scale     : Z := 1_000_000.
+Definition weight_D : Z := 400_000.
+Definition weight_C : Z := 350_000.
+Definition weight_S : Z := 250_000.
+Definition epsilon  : Z :=  20_000.
+Definition scale    : Z := 1_000_000.
 
-Lemma weight_D_pos  : 0 < weight_D.  Proof. unfold weight_D.  lia. Qed.
-Lemma weight_C_pos  : 0 < weight_C.  Proof. unfold weight_C.  lia. Qed.
-Lemma weight_S_pos  : 0 < weight_S.  Proof. unfold weight_S.  lia. Qed.
-Lemma weight_CH_pos : 0 < weight_CH. Proof. unfold weight_CH. lia. Qed.
-Lemma epsilon_pos   : 0 < epsilon.   Proof. unfold epsilon.   lia. Qed.
-Lemma scale_pos     : 0 < scale.     Proof. unfold scale.     lia. Qed.
+Lemma weight_D_pos : 0 < weight_D. Proof. unfold weight_D. lia. Qed.
+Lemma weight_C_pos : 0 < weight_C. Proof. unfold weight_C. lia. Qed.
+Lemma weight_S_pos : 0 < weight_S. Proof. unfold weight_S. lia. Qed.
+Lemma epsilon_pos  : 0 < epsilon.  Proof. unfold epsilon.  lia. Qed.
+Lemma scale_pos    : 0 < scale.    Proof. unfold scale.    lia. Qed.
 
 Lemma zero_le_scale : 0 <= scale.
 Proof. apply Z.lt_le_incl. apply scale_pos. Qed.
@@ -68,39 +68,37 @@ Proof. apply Z.lt_le_incl. apply scale_pos. Qed.
 (** ** §1 — Per-Validator Contribution                                *)
 (* ================================================================= *)
 
-(** Well-formed validator metrics: D and C live in [0, scale], CH in [0, scale]. *)
+(** Well-formed validator metrics: D and C live in [0, scale].
+    Note: slash accumulator (S) and cascade health (CH) are tracked separately
+    and do not appear in V_convergence at v1.0 genesis. *)
 Record ValidatorMetrics := mkVM {
-  vm_D  : Z;
-  vm_C  : Z;
-  vm_CH : Z;
-  vm_D_lo  : 0 <= vm_D;
-  vm_D_hi  : vm_D  <= scale;
-  vm_C_lo  : 0 <= vm_C;
-  vm_C_hi  : vm_C  <= scale;
-  vm_CH_lo : 0 <= vm_CH;
-  vm_CH_hi : vm_CH <= scale;
+  vm_D : Z;
+  vm_C : Z;
+  vm_D_lo : 0 <= vm_D;
+  vm_D_hi : vm_D <= scale;
+  vm_C_lo : 0 <= vm_C;
+  vm_C_hi : vm_C <= scale;
 }.
 
-(** V contribution of one validator epoch (v1.1: includes CH term). *)
+(** V contribution of one validator epoch (v1.0: D and C terms only). *)
 Definition v_validator (v : ValidatorMetrics) : Z :=
-  weight_D * vm_D v + weight_C * vm_C v + weight_CH * vm_CH v.
+  weight_D * vm_D v + weight_C * vm_C v.
 
 Lemma v_validator_nonneg : forall v, 0 <= v_validator v.
 Proof.
   intros v.
-  pose proof (vm_D_lo v); pose proof (vm_C_lo v); pose proof (vm_CH_lo v).
-  unfold v_validator, weight_D, weight_C, weight_CH in *.
+  pose proof (vm_D_lo v); pose proof (vm_C_lo v).
+  unfold v_validator, weight_D, weight_C in *.
   lia.
 Qed.
 
 Lemma v_validator_bounded : forall v,
-    v_validator v <= (weight_D + weight_C + weight_CH) * scale.
+    v_validator v <= (weight_D + weight_C) * scale.
 Proof.
   intros v.
   pose proof (vm_D_lo v); pose proof (vm_D_hi v).
   pose proof (vm_C_lo v); pose proof (vm_C_hi v).
-  pose proof (vm_CH_lo v); pose proof (vm_CH_hi v).
-  unfold v_validator, weight_D, weight_C, weight_CH, scale in *.
+  unfold v_validator, weight_D, weight_C, scale in *.
   lia.
 Qed.
 
@@ -241,12 +239,11 @@ Qed.
 (** ** §5 — TH-3c: FinalizeEpoch Resets V_convergence to Zero        *)
 (* ================================================================= *)
 
-(** FinalizeEpoch sets all validator D, C, and CH to zero.
+(** FinalizeEpoch sets all validator D and C to zero.
     The resulting V_convergence contribution per validator is 0. *)
 
 Definition finalize_metrics : ValidatorMetrics :=
-  mkVM 0 0 0
-       (Z.le_refl 0) zero_le_scale
+  mkVM 0 0
        (Z.le_refl 0) zero_le_scale
        (Z.le_refl 0) zero_le_scale.
 
@@ -284,10 +281,10 @@ Qed.
          Weight-independent.
 
   TH-3c: finalize_epoch ⟹  V_convergence = 0
-         Depends on: AX-1 (multiplication by zero); weight_CH added in v1.1.
-         Proof: weight_CH × 0 = 0 regardless of weight_CH value.
+         Depends on: AX-1 (multiplication by zero).
+         Proof: weight_D × 0 + weight_C × 0 = 0.
 
   All three theorems: FORMAL, no Admitted markers, AX-1/AX-2 only.
-  Weight constants updated to v1.1 (D=350k, C=300k, CH=150k).
+  Weight constants: v1.0 genesis (D=400k, C=350k, S=250k).
 *)
 (* ================================================================= *)

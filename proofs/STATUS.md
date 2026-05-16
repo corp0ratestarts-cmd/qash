@@ -6,7 +6,7 @@
 |----|------|-------|------|-------|
 | TH-1 | Encoding injectivity | FORMAL | `contractivity/encode_injectivity.v` | Fully proved. No Admitted. |
 | TH-2 | Encoding totality | FORMAL | `contractivity/encode_injectivity.v` | Trivial totality. No Admitted. |
-| TH-3 | Convergence decrease | FORMAL | `contractivity/lyapunov_stability.v` | TH-3a, TH-3b, TH-3c all proved. No Admitted. |
+| TH-3 | Convergence decrease | FORMAL | `contractivity/lyapunov_stability.v` | TH-3a, TH-3b, TH-3c all proved. No Admitted. v1.0 weights (D=400k, C=350k, S=250k). Weight-independent theorems. |
 | TH-4 | Φ_safety monotonicity | FORMAL | `safety/absorbing_halt.v` | Proved. No Admitted. |
 | TH-5 | Φ_safety boundedness | FORMAL | `safety/absorbing_halt.v` | Proved. No Admitted. |
 | TH-6 | Halt correctness | FORMAL | `safety/absorbing_halt.v` | Proved. No Admitted. |
