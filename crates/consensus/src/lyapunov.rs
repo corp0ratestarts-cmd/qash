@@ -50,6 +50,10 @@ pub struct ConvergenceWindow {
     pub(crate) filled: u8,
 }
 
+impl Default for ConvergenceWindow {
+    fn default() -> Self { Self::new() }
+}
+
 impl ConvergenceWindow {
     pub const fn new() -> Self {
         ConvergenceWindow {

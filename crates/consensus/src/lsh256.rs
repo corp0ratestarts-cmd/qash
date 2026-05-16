@@ -105,10 +105,8 @@ fn compress(cv: [u32; 16], block: &[u32; 32]) -> [u32; 16] {
     // Rolling message buffer: slot j % 3 holds M_j at the start of step j.
     let mut m: [[u32; 16]; 3] = [[0u32; 16]; 3];
     // M_0 = block[0..15], M_1 = block[16..31]  (§4.2.1, eq 4.6 base cases)
-    for i in 0..16usize {
-        m[0][i] = block[i];
-        m[1][i] = block[i + 16];
-    }
+    m[0].copy_from_slice(&block[..16]);
+    m[1].copy_from_slice(&block[16..32]);
 
     let mut t = cv;
     let mut sc = SC0; // advances to SC_j at each step via eq (4.9)
@@ -136,8 +134,8 @@ fn compress(cv: [u32; 16], block: &[u32; 32]) -> [u32; 16] {
         // ── Advance SC_j → SC_{j+1}  (eq 4.9) ────────────────────────────
         // SC_j[l] ← SC_{j-1}[l] ⊞ SC_{j-1}[l] ⋘ 8
         if j + 1 < NS {
-            for l in 0..8usize {
-                sc[l] = sc[l].wrapping_add(sc[l].rotate_left(8));
+            for s in &mut sc {
+                *s = s.wrapping_add(s.rotate_left(8));
             }
         }
 
@@ -231,9 +229,9 @@ pub fn lsh256_parts(prefix: &[u8], suffix: &[u8]) -> [u8; 32] {
 
     while pos + 128 <= total {
         let mut blk = [0u8; 128];
-        for i in 0..128usize {
+        for (i, b) in blk.iter_mut().enumerate() {
             let v = pos + i;
-            blk[i] = if v < prefix.len() { prefix[v] } else { suffix[v - prefix.len()] };
+            *b = if v < prefix.len() { prefix[v] } else { suffix[v - prefix.len()] };
         }
         cv = compress(cv, &parse_block(&blk));
         pos += 128;
@@ -242,9 +240,9 @@ pub fn lsh256_parts(prefix: &[u8], suffix: &[u8]) -> [u8; 32] {
     // Final padded block.
     let mut pad = [0u8; 128];
     let tail = total - pos;
-    for i in 0..tail {
+    for (i, b) in pad.iter_mut().enumerate().take(tail) {
         let v = pos + i;
-        pad[i] = if v < prefix.len() { prefix[v] } else { suffix[v - prefix.len()] };
+        *b = if v < prefix.len() { prefix[v] } else { suffix[v - prefix.len()] };
     }
     pad[tail] = 0x80;
     cv = compress(cv, &parse_block(&pad));
