@@ -27,12 +27,12 @@ Require Import Coq.micromega.Lia.
 Open Scope Z_scope.
 
 (* ================================================================= *)
-(** ** §0 — Protocol Constants (v1.1, matching GENESIS_CONSTANTS.toml) *)
+(** ** §0 — Protocol Constants (v1.0 genesis, matching GENESIS_CONSTANTS.toml) *)
 (* ================================================================= *)
 
-Definition weight_D  : Z := 350_000.
-Definition weight_C  : Z := 300_000.
-Definition weight_S  : Z := 200_000.
+Definition weight_D : Z := 400_000.
+Definition weight_C : Z := 350_000.
+Definition weight_S : Z := 250_000.
 Definition epsilon   : Z :=  20_000.
 Definition scale     : Z := 1_000_000.
 Definition window_sz : nat := 3.

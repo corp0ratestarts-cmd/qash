@@ -1,8 +1,11 @@
 # QASH Protocol Migration: v1.0 → v1.1
 ## `docs/spec/09_migration_v1.0_to_v1.1.md`
 
-> **Status:** Normative migration guide. Governs the compatibility window
-> defined in `GENESIS_CONSTANTS.toml [migration.compatibility]`.
+> **Status:** Deferred migration spec. Genesis is locked at **v1.0**.
+> This document specifies the future v1.1 upgrade path; it takes effect only
+> when `GENESIS_CONSTANTS.toml` version is advanced to `1.1.0` and
+> `WEIGHT_BH > 0` (cascade health activation). No v1.1 changes are currently
+> active in the runtime or proofs.
 
 ---
 
@@ -105,17 +108,21 @@ logged. After epoch 100, proofless chunks are rejected.
 | TH-9 (CH boundedness) | ✅ PROVED — `proofs/cascade/cascade_health_bounded.v` (no `Admitted`; CI-gated) |
 | TH-10 (cascade collision resistance) | ✅ AXIOM — intentionally reduces to AX-3 (SHA3-256 collision resistance); same trust class as AX-3 in `proofs/STATUS.md`. The reduction argument is: if `H_cascade` is not collision-resistant then at least one L1 primitive is breakable, which contradicts AX-3. |
 | TH-11 (cascade cross-ISA determinism) | ✅ CI-VERIFIED — cross-ISA test vectors validated on all Tier A ISAs; same delegation class as TH-7. Formal Coq proof would require axiomatizing ISA semantics (AX-1); CI verification is the accepted alternative. |
-| Weight-adjusted TH-3 proof | ✅ VERIFIED — `proofs/contractivity/lyapunov_stability.v` uses v1.1 weight constants (D=350k, C=300k, S=200k, CH=150k). Comment line 34 confirms: "proofs remain valid because TH-3a/TH-3b do not depend on specific weight magnitudes". No `Admitted`. |
-| Weight-adjusted TH-5 proof | ✅ VERIFIED — `proofs/safety/absorbing_halt.v` updated to v1.1 gamma=200_000 (was 250_000 in v1.0). Proof structure is weight-agnostic (`lia` discharges all arithmetic); Phi_max = N_max × 200_000 × INT_MAX ≈ 1.89 × 10²¹. |
+| Weight-adjusted TH-3 proof | ✅ N/A for v1.0 — `proofs/contractivity/lyapunov_stability.v` uses **v1.0** weight constants (D=400k, C=350k, S=250k, no CH term). Proof is weight-agnostic; all three theorems hold for any positive weights. |
+| Weight-adjusted TH-5 proof | ✅ N/A for v1.0 — `proofs/safety/absorbing_halt.v` uses v1.0 gamma=250_000. Proof structure is weight-agnostic; Phi_max = N_max × 250_000 × INT_MAX ≈ 2.36 × 10²¹. |
 
-### Genesis Lock Gate — Current Status
+### Genesis Lock Gate — Current Status (v1.0)
 
-**All obligations discharged:**
+**All obligations discharged at v1.0:**
 - TH-9 PROVED, TH-10 AX-3 reduction, TH-11 CI-verified
-- Weight-adjusted TH-3 and TH-5 verified with v1.1 weights
+- Proofs aligned to v1.0 weights (D=400k, C=350k, S=250k); no CH term
 - TH-7 cross-ISA: x86_64, aarch64, and riscv64gc all produce identical state roots
   (verified via QEMU user-static; `.cargo/config.toml` configures runners; CI workflow
   at `.github/workflows/platform-determinism.yml` installs required packages)
+
+**v1.1 migration gate (deferred):** activates when `WEIGHT_BH > 0` and
+`GENESIS_CONSTANTS.toml` version is advanced to `1.1.0`. At that point,
+the weight-adjusted proofs described in this table must be re-verified.
 
 ---
 
