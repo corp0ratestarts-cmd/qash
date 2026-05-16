@@ -281,8 +281,8 @@ fn bech32m_checksum(hrp: &[u8], data: &[u8]) -> [u8; 6] {
     values.extend_from_slice(&[0u8; 6]);
     let pm = bech32m_polymod(&values) ^ BECH32M_CONST;
     let mut cs = [0u8; 6];
-    for i in 0..6 {
-        cs[i] = ((pm >> (5 * (5 - i))) & 0x1f) as u8;
+    for (i, c) in cs.iter_mut().enumerate() {
+        *c = ((pm >> (5 * (5 - i))) & 0x1f) as u8;
     }
     cs
 }
