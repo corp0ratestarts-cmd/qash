@@ -1,0 +1,18 @@
+{
+  "generated_by": "crates/consensus/tests/gen_vectors.rs",
+  "spec": "proofs/model/Model.v",
+  "coq_theorems": ["TH-3a","TH-3b","TH-6"],
+  "note": "Vectors computed from the Rust implementation, which is proved correct against the Coq proofs above. Any divergence between advance_epoch() and these vectors signals a regression against the formal model.",
+  "vectors": [
+  {"id":"TV-0","desc":"genesis state, 0 epochs, all-zero root","vc":4,"steps":[],"expect":{"epoch":0,"halt":false,"halt_reason":0,"state_root":"0000000000000000000000000000000000000000000000000000000000000000"}},
+  {"id":"TV-1","desc":"1 idle epoch","vc":4,"steps":[{"kind":"idle","update_count":4}],"expect":{"epoch":1,"halt":false,"halt_reason":0,"state_root":"513e26e067c3857289f0557adc7db9ea43cda6595cda4510cbf11af06196d352"}},
+  {"id":"TV-2","desc":"3 idle epochs, window full","vc":4,"steps":[{"kind":"idle","update_count":4},{"kind":"idle","update_count":4},{"kind":"idle","update_count":4}],"expect":{"epoch":3,"halt":false,"halt_reason":0,"state_root":"8adba4d30a361e2797dfef2abf8d0db579e04ff1044a312c8ae05dc567687ac6"}},
+  {"id":"TV-3","desc":"sub-epsilon spike, window empty, no halt","vc":4,"steps":[{"kind":"spike","update_count":4,"idx":0,"divergence":10000,"conflict":0,"slash_accum":0}],"expect":{"epoch":1,"halt":false,"halt_reason":0,"state_root":"6b7cea72ed836e8e45492b7f576b5ecd8c1d3cde139f4e8874668a8875ecd07b"}},
+  {"id":"TV-4","desc":"window full then spike triggers LyapunovViolation halt","vc":4,"steps":[{"kind":"idle","update_count":4},{"kind":"idle","update_count":4},{"kind":"idle","update_count":4},{"kind":"spike","update_count":4,"idx":0,"divergence":900000,"conflict":900000,"slash_accum":0}],"expect":{"epoch":3,"halt":true,"halt_reason":1,"state_root":"8adba4d30a361e2797dfef2abf8d0db579e04ff1044a312c8ae05dc567687ac6"}},
+  {"id":"TV-5","desc":"halt absorbing — 5 more steps after halt keep state","vc":4,"steps":[],"expect":{"epoch":3,"halt":true,"halt_reason":1,"state_root":"8adba4d30a361e2797dfef2abf8d0db579e04ff1044a312c8ae05dc567687ac6"}},
+  {"id":"TV-6","desc":"DecodeInvalid via wrong update_count","vc":4,"steps":[],"expect":{"epoch":0,"halt":true,"halt_reason":4,"state_root":"0000000000000000000000000000000000000000000000000000000000000000"}},
+  {"id":"TV-7","desc":"DecodeInvalid via slash_accum decrease","vc":4,"steps":[],"expect":{"epoch":0,"halt":true,"halt_reason":4,"state_root":"0000000000000000000000000000000000000000000000000000000000000000"}},
+  {"id":"TV-8","desc":"entropy seed evolves after 3 epochs","vc":4,"steps":[],"expect":{"epoch":3,"halt":false,"halt_reason":0,"state_root":"8adba4d30a361e2797dfef2abf8d0db579e04ff1044a312c8ae05dc567687ac6","entropy_seed":"8163f14ed023e105563316ac3e52de63f80d3346adc78d9ea024774c45b8178f","seed_nonzero":true}},
+  {"id":"TV-9","desc":"single validator, 2 idle epochs","vc":1,"steps":[{"kind":"idle","update_count":1},{"kind":"idle","update_count":1}],"expect":{"epoch":2,"halt":false,"halt_reason":0,"state_root":"c0241459c07b31d27fe1bfe775876b1230a4f66bd0360d90704d8acebe5c31ac"}}
+  ]
+}
