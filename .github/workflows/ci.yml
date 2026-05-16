@@ -20,7 +20,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Test
-        run: cargo test -p qash-consensus --no-default-features
+        run: cargo test --workspace --no-default-features
       - name: Verify deterministic build pipeline
         run: ./scripts/verify_two_stage_build.sh
 
@@ -38,7 +38,7 @@ jobs:
       - name: Clippy (consensus)
         run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D warnings
       - name: Clippy (workspace)
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
   coq-proofs:
     runs-on: ubuntu-latest
     steps:
