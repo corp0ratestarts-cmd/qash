@@ -13,6 +13,7 @@ pub mod public;
 pub mod transition;
 pub mod params;
 pub mod transaction;
+pub mod derive;
 
 // Re-exports (ergonomic public API)
 pub use fixed_point::FixedPoint;
@@ -23,5 +24,6 @@ pub use lyapunov::{ValidatorMetrics, LyapunovEval};
 pub use transition::{
     EpochState, EpochInput, ValidatorUpdate, HaltReason,
     advance_epoch, encode_full_state_into, decode_full_state,
-    MAX_VALIDATORS, FULL_STATE_MAX_BYTES,
+    MAX_VALIDATORS, FULL_STATE_MAX_BYTES, TransitionResult,
 };
+pub use derive::{derive_leaf_index, verify_leaf_index};

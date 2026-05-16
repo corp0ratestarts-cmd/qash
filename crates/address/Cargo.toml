@@ -1,0 +1,10 @@
+[package]
+name = "qash-address"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "QASH validator address encoding: F4Jumble + Bech32m (Domain B utility)"
+
+[dependencies]
+qash-consensus = { path = "../consensus" }
+sha3 = { version = "0.10.8" }

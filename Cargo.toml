@@ -8,11 +8,15 @@ license = "GPL-3.0-or-later"
 members = [
   "crates/consensus",
   "crates/pal",
+  "crates/address",
+  "model",
 ]
 
 [dependencies]
 qash-consensus = { path = "crates/consensus" }
-qash-pal = { path = "crates/pal" }
+qash-pal       = { path = "crates/pal" }
+qash-model     = { path = "model" }
+qash-address   = { path = "crates/address" }
 
 [profile.release]
 opt-level = 3

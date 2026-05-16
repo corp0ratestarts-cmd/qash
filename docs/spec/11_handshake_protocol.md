@@ -65,7 +65,11 @@ response = {
   signature:            PQ_SIG,     // Signs H(nonce ∥ domain ∥ epoch_seed ∥ blinding_hash)
                                     // using Dilithium5 (primary) per GENESIS_CONSTANTS
   attestation_quote:    bytes,      // Fresh TPM/TEE quote chained to genesis_config.attestation_root
-  blinding_health_proof: [u8; 32], // Current blinding integrity hash (Domain B)
+  blinding_health_proof: [u8; 32], // Domain B blinding integrity hash.
+                                    // Computed by PAL::Attest over the current
+                                    // obfuscation-cascade state; never derived
+                                    // from Domain A values. Threshold check is
+                                    // policy-configurable but never zero.
   epoch_seed_binding:   [u8; 32],  // Proves response is epoch-bound via local cascade state
 }
 ```

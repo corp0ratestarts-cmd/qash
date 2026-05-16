@@ -194,8 +194,18 @@ dependencies = [
 name = "qash"
 version = "0.1.0"
 dependencies = [
+ "qash-address",
  "qash-consensus",
+ "qash-model",
  "qash-pal",
+]
+
+[[package]]
+name = "qash-address"
+version = "0.1.0"
+dependencies = [
+ "qash-consensus",
+ "sha3",
 ]
 
 [[package]]
@@ -208,6 +218,13 @@ dependencies = [
  "sm3",
  "streebog",
  "tiny-keccak",
+]
+
+[[package]]
+name = "qash-model"
+version = "0.1.0"
+dependencies = [
+ "qash-consensus",
 ]
 
 [[package]]
