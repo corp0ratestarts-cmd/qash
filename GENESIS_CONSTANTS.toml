@@ -3,7 +3,7 @@ version = "1.0.0"
 lock_algorithm = "SHA3-256"
 deployment_model = "one-shot"
 governance = "zero"
-genesis_hash = "SHA3-256:PLACEHOLDER"
+genesis_hash = "SHA3-256:8e245b6ca135f72b562282e2b240b08ae32b1b1eefd95131c3a2e57d162cf27b"
 
 [fixed_point]
 scale = 1_000_000
@@ -46,13 +46,19 @@ include_in_state_root = false
 
 [clone_protocol]
 enabled = true
-version = "v1.1"
-channels = ["QR_code", "NFC", "BLE"]
+version = "v1.2"
+channels = ["QR_code", "NFC", "BLE", "WiFi_Direct", "LoRa", "Ultrasonic"]
 petn_crcs_integration = "BLE_only"
 qr_mode = "chunked_self_authenticated"
 nfc_mode = "direct_apdu"
-max_offline_hops = 7
+ble_mode = "dual"                     # "dual" = concurrent peripheral + central roles
+ultrasonic_mode = "fsk_24khz"         # FSK at 24 kHz carrier; inaudible to humans
 max_offline_epochs = 12
+store_and_forward = true              # relay nodes buffer chunks for absent peers
+cover_traffic = true                  # constant-rate dummy emissions for timing obfuscation
+packet_compression = "LZ4"           # applied to clone-chunk payloads before signing
+bloom_filter_dedup = true             # Bloom filter prevents redundant chunk relay
+emergency_wipe_signal = true          # validator may broadcast signed wipe command
 
 [crypto.cascade]
 primary_signature = "Dilithium5"

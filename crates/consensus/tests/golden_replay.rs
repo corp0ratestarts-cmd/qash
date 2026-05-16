@@ -1,12 +1,20 @@
 use sha3::{Digest, Sha3_256};
 
 use qash_consensus::hash::DomainTag;
+use qash_consensus::transaction::{TX_VERSION, TX_TYPE_NOOP, TX0_WIRE_BYTES};
 use qash_consensus::params::consensus_params_hash;
+use qash_consensus::encoding::{
+    encode_state_header, decode_state_header, STATE_HEADER_SIZE, ENCODING_VERSION,
+};
 use qash_consensus::transition::{
-    advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
+    advance_epoch, decode_full_state, encode_full_state_into,
+    EpochInput, EpochState, HaltReason, ValidatorUpdate,
+    FULL_STATE_MAX_BYTES, MAX_VALIDATORS,
 };
 use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
-use qash_consensus::fixed_point::FixedPoint;
+use qash_consensus::fixed_point::{FixedPoint, SCALE};
+
+use proptest::prelude::*;
 
 const EXPECTED_PARAMS_HASH_V0: [u8; 32] = [
     56, 29, 201, 142, 216, 6, 210, 169, 115, 237, 60, 131, 127, 134, 88, 115,
@@ -21,6 +29,9 @@ fn genesis_state() -> EpochState {
         validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
         validator_count: 4,
         convergence_window: ConvergenceWindow::new(),
+        nonces: [0u64; MAX_VALIDATORS],
+        validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        state_root: [0u8; 32],
     }
 }
 
@@ -53,9 +64,11 @@ fn state_fingerprint(state: &EpochState) -> [u8; 32] {
         hasher.update(v.divergence.raw().to_le_bytes());
         hasher.update(v.conflict.raw().to_le_bytes());
         hasher.update(v.slash_accum.raw().to_le_bytes());
+        hasher.update(state.nonces[i].to_le_bytes());
     }
 
     hash_window(&mut hasher, &state.convergence_window);
+    hasher.update(state.state_root);
 
     let out = hasher.finalize();
     let mut res = [0u8; 32];
@@ -79,7 +92,7 @@ fn halt_freezes_entire_state_except_halt_reason() {
     // Fill window
     for _ in 0..WINDOW_SIZE {
         let input = idle_input(state.validator_count);
-        let r = advance_epoch(&mut state, &input);
+        let r = advance_epoch(&mut state, &input, &[]);
         assert!(r.is_ok());
     }
 
@@ -95,7 +108,7 @@ fn halt_freezes_entire_state_except_halt_reason() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    let res = advance_epoch(&mut state, &spike);
+    let res = advance_epoch(&mut state, &spike, &[]);
     assert_eq!(res, Err(HaltReason::LyapunovViolation));
 
     // Temporarily reset halt_reason to compare all other fields
@@ -114,7 +127,7 @@ fn golden_halt_reason_preserved() {
     // Fill window
     for _ in 0..WINDOW_SIZE {
         let n = state.validator_count;
-        let r = advance_epoch(&mut state, &idle_input(n));
+        let r = advance_epoch(&mut state, &idle_input(n), &[]);
         assert!(r.is_ok());
     }
 
@@ -126,13 +139,13 @@ fn golden_halt_reason_preserved() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    assert_eq!(advance_epoch(&mut state, &spike), Err(HaltReason::LyapunovViolation));
+    assert_eq!(advance_epoch(&mut state, &spike, &[]), Err(HaltReason::LyapunovViolation));
 
     // Subsequent calls return SAME reason and do not mutate.
     let fp = state_fingerprint(&state);
     for _ in 0..10 {
         let n = state.validator_count;
-        let r = advance_epoch(&mut state, &idle_input(n));
+        let r = advance_epoch(&mut state, &idle_input(n), &[]);
         assert_eq!(r, Err(HaltReason::LyapunovViolation));
         assert_eq!(state_fingerprint(&state), fp);
     }
@@ -145,7 +158,7 @@ fn window_check_precedes_push() {
     // Fill window with idle epochs (V_convergence=0)
     for _ in 0..WINDOW_SIZE {
         let n = state.validator_count;
-        let r = advance_epoch(&mut state, &idle_input(n));
+        let r = advance_epoch(&mut state, &idle_input(n), &[]);
         assert!(r.is_ok());
     }
     assert!(state.convergence_window.is_full());
@@ -160,7 +173,7 @@ fn window_check_precedes_push() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    assert_eq!(advance_epoch(&mut state, &spike), Err(HaltReason::LyapunovViolation));
+    assert_eq!(advance_epoch(&mut state, &spike, &[]), Err(HaltReason::LyapunovViolation));
 
     // Reset halt reason for fingerprint equality comparison
     let stored = state.halt_reason;
@@ -183,7 +196,7 @@ fn within_epsilon_does_not_halt() {
                 slash_accum_new: FixedPoint::ZERO,
             });
         }
-        let r = advance_epoch(&mut state, &input);
+        let r = advance_epoch(&mut state, &input, &[]);
         assert!(r.is_ok());
     }
 
@@ -195,6 +208,479 @@ fn within_epsilon_does_not_halt() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    let r = advance_epoch(&mut state, &input);
+    let r = advance_epoch(&mut state, &input, &[]);
     assert!(r.is_ok());
+}
+
+// ---------------------------------------------------------------------------
+// Full-state encoding roundtrip tests (Item 1)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn roundtrip_full_state_empty_validators() {
+    let mut state = genesis_state();
+    state.validator_count = 0;
+
+    let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+    let len = encode_full_state_into(&mut state, &mut buf);
+
+    let decoded = decode_full_state(&buf[..len]).expect("decode failed");
+
+    assert_eq!(decoded.epoch, state.epoch);
+    assert_eq!(decoded.halt_reason, state.halt_reason);
+    assert_eq!(decoded.entropy_seed, state.entropy_seed);
+    assert_eq!(decoded.validator_count, state.validator_count);
+    assert_eq!(decoded.state_root, state.state_root);
+}
+
+#[test]
+fn roundtrip_full_state_four_validators() {
+    let mut state = genesis_state();
+    state.validators[0] = ValidatorMetrics {
+        divergence:  FixedPoint::from_raw(500_000),
+        conflict:    FixedPoint::from_raw(250_000),
+        slash_accum: FixedPoint::from_raw(1_000),
+    };
+    state.nonces[0] = 42;
+
+    let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+    let len = encode_full_state_into(&mut state, &mut buf);
+
+    let decoded = decode_full_state(&buf[..len]).expect("decode failed");
+
+    assert_eq!(decoded.epoch, state.epoch);
+    assert_eq!(decoded.validator_count, state.validator_count);
+    assert_eq!(
+        decoded.validators[0].divergence.raw(),
+        state.validators[0].divergence.raw()
+    );
+    assert_eq!(
+        decoded.validators[0].conflict.raw(),
+        state.validators[0].conflict.raw()
+    );
+    assert_eq!(
+        decoded.validators[0].slash_accum.raw(),
+        state.validators[0].slash_accum.raw()
+    );
+    assert_eq!(decoded.nonces[0], 42);
+}
+
+#[test]
+fn roundtrip_full_state_with_window() {
+    let mut state = genesis_state();
+
+    // Advance three epochs to fill the window.
+    for _ in 0..WINDOW_SIZE {
+        let n = state.validator_count;
+        advance_epoch(&mut state, &idle_input(n), &[]).unwrap();
+    }
+
+    let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+    let len = encode_full_state_into(&mut state, &mut buf);
+    let decoded = decode_full_state(&buf[..len]).expect("decode failed");
+
+    assert_eq!(decoded.convergence_window.is_full(), state.convergence_window.is_full());
+
+    let (filled_orig, vals_orig) = state.convergence_window.raw_parts();
+    let (filled_dec, vals_dec)   = decoded.convergence_window.raw_parts();
+    assert_eq!(filled_orig, filled_dec);
+    for i in 0..WINDOW_SIZE {
+        assert_eq!(vals_orig[i].raw(), vals_dec[i].raw());
+    }
+}
+
+#[test]
+fn roundtrip_halted_state() {
+    let mut state = genesis_state();
+    state.halt_reason = HaltReason::LyapunovViolation;
+
+    let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+    let len = encode_full_state_into(&mut state, &mut buf);
+
+    let decoded = decode_full_state(&buf[..len]).expect("decode failed");
+    assert_eq!(decoded.halt_reason, HaltReason::LyapunovViolation);
+}
+
+#[test]
+fn state_root_is_deterministic() {
+    // Same input must always produce the same state root.
+    let mut s1 = genesis_state();
+    let mut s2 = genesis_state();
+
+    for _ in 0..WINDOW_SIZE {
+        let n = s1.validator_count;
+        advance_epoch(&mut s1, &idle_input(n), &[]).unwrap();
+        advance_epoch(&mut s2, &idle_input(n), &[]).unwrap();
+    }
+
+    assert_eq!(s1.state_root, s2.state_root, "state root is not deterministic");
+    assert_ne!(s1.state_root, [0u8; 32], "state root must be non-zero after epochs");
+}
+
+#[test]
+fn state_root_changes_each_epoch() {
+    let mut state = genesis_state();
+    let mut prev_root = state.state_root;
+
+    for _ in 0..WINDOW_SIZE {
+        let n = state.validator_count;
+        advance_epoch(&mut state, &idle_input(n), &[]).unwrap();
+        assert_ne!(state.state_root, prev_root, "state root did not change after epoch");
+        prev_root = state.state_root;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Canonical state root golden vector (TH-7 empirical anchor)
+// ---------------------------------------------------------------------------
+//
+// Sequence: genesis (4 validators, all ZERO, seed=[0;32]) → 3 idle epochs.
+// This hard-coded root must be identical across x86_64, aarch64, riscv64gc.
+// If this test fails after a change to the encoding or hash logic, regenerate
+// by running with PRINT_GOLDEN=1 and updating the constant below.
+const EXPECTED_STATE_ROOT_3_EPOCHS: [u8; 32] = [
+    138, 219, 164, 211,  10,  54,  30,  39,
+    151, 223, 239,  42, 191, 141,  13, 181,
+    121, 224,  79, 241,   4,  74,  49,  44,
+    138, 224,  93, 197, 103, 104, 122, 198,
+];
+
+/// Compute the canonical 3-epoch state root for the genesis sequence.
+fn canonical_3epoch_root() -> [u8; 32] {
+    let mut state = genesis_state();
+    for _ in 0..3 {
+        let n = state.validator_count;
+        advance_epoch(&mut state, &idle_input(n), &[]).unwrap();
+    }
+    state.state_root
+}
+
+#[test]
+fn state_root_canonical_seq_print() {
+    // Prints the canonical root when run with --nocapture.
+    // Used to bootstrap EXPECTED_STATE_ROOT_3_EPOCHS.
+    let root = canonical_3epoch_root();
+    println!("CANONICAL_STATE_ROOT_3_EPOCHS = {:?}", root);
+}
+
+/// TH-7 empirical anchor: canonical 3-epoch state root must be identical
+/// across all authorized ISAs (x86_64, aarch64, riscv64gc).
+#[test]
+fn state_root_canonical_seq_golden() {
+    let root = canonical_3epoch_root();
+    assert_eq!(
+        root, EXPECTED_STATE_ROOT_3_EPOCHS,
+        "canonical state root changed — update EXPECTED_STATE_ROOT_3_EPOCHS \
+         only after verifying all three ISA targets produce the new value"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Property-based tests (proptest, Item 4)
+// ---------------------------------------------------------------------------
+
+fn arb_bounded_fp() -> impl Strategy<Value = i128> {
+    0i128..=SCALE
+}
+
+fn arb_nonneg_slash() -> impl Strategy<Value = i128> {
+    0i128..=1_000_000i128
+}
+
+fn arb_entropy_seed() -> impl Strategy<Value = [u8; 32]> {
+    proptest::array::uniform32(any::<u8>())
+}
+
+// ---------------------------------------------------------------------------
+// TX-0 integration test (Item 2)
+// ---------------------------------------------------------------------------
+
+fn make_tx0_bytes(author_id: [u8; 48], nonce: u64) -> [u8; TX0_WIRE_BYTES] {
+    let mut raw = [0u8; TX0_WIRE_BYTES];
+    raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
+    raw[2..4].copy_from_slice(&TX_TYPE_NOOP.to_le_bytes());
+    raw[4..12].copy_from_slice(&nonce.to_le_bytes());
+    raw[12..60].copy_from_slice(&author_id);
+    raw[60..64].copy_from_slice(&0u32.to_le_bytes());
+    raw
+}
+
+#[test]
+fn full_epoch_with_tx0() {
+    let mut state = genesis_state();
+    // Assign distinct author_ids to the 4 genesis validators.
+    for i in 0..4usize {
+        state.validator_ids[i][0] = i as u8 + 1;
+    }
+
+    let id0 = state.validator_ids[0];
+    let id1 = state.validator_ids[1];
+
+    let tx_a = make_tx0_bytes(id0, 0);
+    let tx_b = make_tx0_bytes(id1, 0);
+
+    let txs: &[&[u8]] = &[tx_a.as_slice(), tx_b.as_slice()];
+    let input = idle_input(state.validator_count);
+
+    let result = advance_epoch(&mut state, &input, txs);
+    assert!(result.is_ok(), "advance_epoch with TX-0s must succeed: {:?}", result);
+
+    // Both validators must have nonce 1 after the epoch.
+    assert_eq!(state.nonces[0], 1, "validator 0 nonce must be 1");
+    assert_eq!(state.nonces[1], 1, "validator 1 nonce must be 1");
+    // Uninvolved validators must remain at 0.
+    assert_eq!(state.nonces[2], 0);
+    assert_eq!(state.nonces[3], 0);
+
+    // State root must differ from genesis (state advanced).
+    assert_ne!(state.state_root, [0u8; 32]);
+}
+
+// ---------------------------------------------------------------------------
+// H4 halt tests (Item 3 — plan PR A)
+// ---------------------------------------------------------------------------
+
+/// TV-5 variant: H4 (DecodeInvalid) via wrong update_count — not H1.
+#[test]
+fn halt_reason_decode_invalid_on_bad_update_count() {
+    let mut state = genesis_state();
+    // validator_count=4, but update_count=3 → DecodeInvalid before Lyapunov check.
+    let bad_input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 3 };
+    let r = advance_epoch(&mut state, &bad_input, &[]);
+    assert_eq!(r, Err(HaltReason::DecodeInvalid));
+    assert_eq!(state.halt_reason, HaltReason::DecodeInvalid);
+}
+
+/// H4 via slash monotonicity violation.
+#[test]
+fn halt_reason_decode_invalid_on_slash_decrease() {
+    let mut state = genesis_state();
+    state.validators[0].slash_accum = FixedPoint::from_raw(1_000);
+    let mut input = idle_input(state.validator_count);
+    input.updates[0] = Some(ValidatorUpdate {
+        divergence_new:  FixedPoint::ZERO,
+        conflict_new:    FixedPoint::ZERO,
+        slash_accum_new: FixedPoint::from_raw(500), // decrease → DecodeInvalid
+    });
+    let r = advance_epoch(&mut state, &input, &[]);
+    assert_eq!(r, Err(HaltReason::DecodeInvalid));
+}
+
+/// Applying TX-0 changes the state_root compared to an identical epoch without TX-0.
+/// This is the end-to-end privacy-relevant check: two branches from genesis diverge
+/// as soon as the nonce state differs.
+#[test]
+fn tx0_changes_state_root_vs_no_tx0_path() {
+    let mut state_no_tx   = genesis_state();
+    let mut state_with_tx = genesis_state();
+    // Give validator 0 a recognisable non-zero id so TX-0 lookup works.
+    for s in [&mut state_no_tx, &mut state_with_tx].iter_mut() {
+        s.validator_ids[0][0] = 0x01;
+    }
+
+    let input = idle_input(state_no_tx.validator_count);
+
+    advance_epoch(&mut state_no_tx, &input, &[]).unwrap();
+
+    let id0 = state_with_tx.validator_ids[0];
+    let tx  = make_tx0_bytes(id0, 0);
+    advance_epoch(&mut state_with_tx, &input, &[tx.as_slice()]).unwrap();
+
+    assert_ne!(
+        state_no_tx.state_root, state_with_tx.state_root,
+        "TX-0 nonce advance must produce a distinct state_root"
+    );
+}
+
+proptest! {
+    /// P1: Full-state encoding roundtrip — decode(encode(s)) == s on all relevant fields.
+    #[test]
+    fn prop_encode_decode_roundtrip(
+        vc in 0u32..=4u32,
+        d in arb_bounded_fp(),
+        c in arb_bounded_fp(),
+        s in arb_nonneg_slash(),
+        nonce in 0u64..=1000u64,
+        halt_byte in 0u8..=6u8,
+    ) {
+        let mut state = genesis_state();
+        state.validator_count = vc;
+        let halt_reason = match halt_byte {
+            1 => HaltReason::LyapunovViolation,
+            2 => HaltReason::ArithOverflow,
+            3 => HaltReason::EpochOverflow,
+            4 => HaltReason::DecodeInvalid,
+            5 => HaltReason::RoundtripFailure,
+            6 => HaltReason::HaltFlagSet,
+            _ => HaltReason::None,
+        };
+        state.halt_reason = halt_reason;
+        for i in 0..vc as usize {
+            state.validators[i] = ValidatorMetrics {
+                divergence:  FixedPoint::from_raw(d),
+                conflict:    FixedPoint::from_raw(c),
+                slash_accum: FixedPoint::from_raw(s),
+            };
+            state.nonces[i] = nonce;
+        }
+
+        let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+        let len = encode_full_state_into(&mut state, &mut buf);
+        let decoded = decode_full_state(&buf[..len])
+            .expect("roundtrip decode must succeed on valid state");
+
+        prop_assert_eq!(decoded.epoch, state.epoch);
+        prop_assert_eq!(decoded.validator_count, state.validator_count);
+        prop_assert_eq!(decoded.halt_reason, state.halt_reason);
+        prop_assert_eq!(decoded.entropy_seed, state.entropy_seed);
+        prop_assert_eq!(decoded.state_root, state.state_root);
+
+        for i in 0..vc as usize {
+            prop_assert_eq!(
+                decoded.validators[i].divergence.raw(),
+                state.validators[i].divergence.raw()
+            );
+            prop_assert_eq!(
+                decoded.validators[i].conflict.raw(),
+                state.validators[i].conflict.raw()
+            );
+            prop_assert_eq!(
+                decoded.validators[i].slash_accum.raw(),
+                state.validators[i].slash_accum.raw()
+            );
+            prop_assert_eq!(decoded.nonces[i], nonce);
+        }
+    }
+
+    /// P2: State root is deterministic — identical inputs always produce identical output.
+    #[test]
+    fn prop_state_root_deterministic(seed in arb_entropy_seed()) {
+        let make_state = |seed: [u8; 32]| -> EpochState {
+            let mut s = genesis_state();
+            s.entropy_seed = seed;
+            s
+        };
+
+        let mut s1 = make_state(seed);
+        let mut s2 = make_state(seed);
+
+        for _ in 0..WINDOW_SIZE {
+            let n = s1.validator_count;
+            advance_epoch(&mut s1, &idle_input(n), &[]).unwrap();
+            advance_epoch(&mut s2, &idle_input(n), &[]).unwrap();
+        }
+
+        prop_assert_eq!(s1.state_root, s2.state_root);
+    }
+
+    /// P3: Halt is absorbing — advance_epoch on a halted state never changes halt_reason.
+    #[test]
+    fn prop_halt_is_absorbing(halt_byte in 1u8..=6u8) {
+        let halt_reason = match halt_byte {
+            1 => HaltReason::LyapunovViolation,
+            2 => HaltReason::ArithOverflow,
+            3 => HaltReason::EpochOverflow,
+            4 => HaltReason::DecodeInvalid,
+            5 => HaltReason::RoundtripFailure,
+            _ => HaltReason::HaltFlagSet,
+        };
+        let mut state = genesis_state();
+        state.halt_reason = halt_reason;
+
+        for _ in 0..5 {
+            let n = state.validator_count;
+            let r = advance_epoch(&mut state, &idle_input(n), &[]);
+            prop_assert_eq!(r, Err(halt_reason));
+            prop_assert_eq!(state.halt_reason, halt_reason);
+        }
+    }
+
+    /// P4: FixedPoint checked_add of two non-negative values produces a non-negative result.
+    #[test]
+    fn prop_fixed_point_add_nonneg(a in 0i128..SCALE, b in 0i128..SCALE) {
+        let fa = FixedPoint::from_raw(a);
+        let fb = FixedPoint::from_raw(b);
+        if let Ok(r) = fa.checked_add(fb) {
+            prop_assert!(r.raw() >= 0);
+        }
+    }
+
+    /// P5: Lyapunov V_convergence and Φ_safety are non-negative for bounded metrics.
+    #[test]
+    fn prop_lyapunov_nonneg(d in 0i128..=SCALE, c in 0i128..=SCALE, s in 0i128..=SCALE) {
+        use qash_consensus::lyapunov::{evaluate, ValidatorMetrics as VM};
+        let metrics = VM {
+            divergence:  FixedPoint::from_raw(d),
+            conflict:    FixedPoint::from_raw(c),
+            slash_accum: FixedPoint::from_raw(s),
+        };
+        let eval = evaluate(&[metrics], &ConvergenceWindow::new())
+            .expect("evaluate must succeed on bounded metrics");
+        prop_assert!(eval.v_convergence.raw() >= 0);
+        prop_assert!(eval.phi_safety.raw() >= 0);
+        prop_assert!(eval.v_total.raw() >= 0);
+    }
+
+    /// P6: Encoding roundtrip preserves convergence window fill count.
+    #[test]
+    fn prop_window_roundtrip(
+        v0 in 0i128..=500_000i128,
+        v1 in 0i128..=500_000i128,
+        filled in 0u8..=3u8,
+    ) {
+        let mut state = genesis_state();
+        // Manually push exactly `filled` values into the window.
+        let push_vals = [v0, v1, 0i128];
+        for i in 0..filled as usize {
+            state.convergence_window.push(FixedPoint::from_raw(push_vals[i]));
+        }
+
+        let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+        let len = encode_full_state_into(&mut state, &mut buf);
+        let decoded = decode_full_state(&buf[..len]).expect("decode failed");
+
+        let (orig_filled, _) = state.convergence_window.raw_parts();
+        let (dec_filled, _)  = decoded.convergence_window.raw_parts();
+        prop_assert_eq!(orig_filled, dec_filled);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// State header encode/decode roundtrip (PR #25 concept, correctly implemented)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn state_header_roundtrip() {
+    let epoch: u64 = 42;
+    let validator_count: u32 = 7;
+    let halt_reason: u8 = 0x01; // LyapunovViolation
+    let entropy_seed = [0xABu8; 32];
+
+    let mut buf = [0u8; STATE_HEADER_SIZE as usize];
+    encode_state_header(epoch, validator_count, halt_reason, &entropy_seed, &mut buf);
+    let (dec_epoch, dec_vc, dec_halt, dec_seed) =
+        decode_state_header(&buf).expect("decode must succeed on valid header");
+
+    assert_eq!(dec_epoch, epoch);
+    assert_eq!(dec_vc, validator_count);
+    assert_eq!(dec_halt, halt_reason);
+    assert_eq!(dec_seed, entropy_seed);
+}
+
+#[test]
+fn state_header_version_mismatch_rejected() {
+    let mut buf = [0u8; STATE_HEADER_SIZE as usize];
+    encode_state_header(1, 4, 0x00, &[0u8; 32], &mut buf);
+    // corrupt the version field
+    buf[0] = (ENCODING_VERSION + 1) as u8;
+    assert!(decode_state_header(&buf).is_err());
+}
+
+#[test]
+fn state_header_nonzero_padding_rejected() {
+    let mut buf = [0u8; STATE_HEADER_SIZE as usize];
+    encode_state_header(1, 4, 0x00, &[0u8; 32], &mut buf);
+    // corrupt one of the three padding bytes
+    buf[17] = 0xFF;
+    assert!(decode_state_header(&buf).is_err());
 }

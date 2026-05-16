@@ -1,19 +1,109 @@
 name: QASH CI
+
 on: [push, pull_request]
+
 jobs:
-  build-and-test:
+  build-x86_64:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain (PDF pin §8.1)
+        uses: dtolnay/rust-toolchain@stable
+      - name: Build
+        run: cargo build --no-default-features
+
+  test-determinism:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Test
+        run: cargo test --workspace --no-default-features
+      - name: Verify deterministic build pipeline
+        run: ./scripts/verify_two_stage_build.sh
+
+  clippy-lint:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      SOURCE_DATE_EPOCH: 0
     steps:
       - uses: actions/checkout@v4
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - name: Build
-        run: cargo build --no-default-features
-      - name: Test
-        run: cargo test --no-default-features
       - name: Clippy (consensus)
-        run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D warnings
+        run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::unreachable -D warnings
       - name: Clippy (workspace)
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
+  coq-proofs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Coq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y coq
+      - name: Reject admitted active proofs
+        run: |
+          python - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          def strip_coq_comments(text):
+              out = []
+              depth = 0
+              i = 0
+              while i < len(text):
+                  if text.startswith("(*", i):
+                      depth += 1
+                      i += 2
+                  elif depth and text.startswith("*)", i):
+                      depth -= 1
+                      i += 2
+                  else:
+                      out.append("\n" if depth and text[i] == "\n" else (text[i] if depth == 0 else " "))
+                      i += 1
+              return "".join(out)
+
+          pattern = re.compile(r"\b(Admitted|admit)\b")
+          failures = []
+          for path in pathlib.Path("proofs").rglob("*.v"):
+              if "_wip" in path.parts:
+                  continue
+              text = strip_coq_comments(path.read_text())
+              for line_no, line in enumerate(text.splitlines(), 1):
+                  if pattern.search(line):
+                      failures.append(f"{path}:{line_no}: {line.strip()}")
+
+          if failures:
+              print("Active proof files contain admitted proof markers:")
+              print("\n".join(failures))
+              sys.exit(1)
+          PY
+      - name: Compile active Coq proofs
+        working-directory: proofs
+        run: |
+          # Tier 1: no cross-QASH dependencies — compile first
+          coqc -Q . QASH util/list_inj.v
+          coqc -Q . QASH contractivity/lyapunov_stability.v
+          # Tier 2: depend only on Tier 1 or stdlib only
+          for f in \
+            concat_injective.v \
+            contractivity/encode_injectivity.v \
+            contractivity/tx_perturbation_0.v \
+            contractivity/lyapunov_grace_convergence.v \
+            lyapunov_decrease.v \
+            safety/absorbing_halt.v \
+            integration/th8_composition.v \
+            cascade/cascade_health_bounded.v \
+            cascade/cascade_determinism.v \
+            cascade/cascade_collision_resistance.v \
+            blinding/blinding_non_interference.v \
+            model/Model.v; do
+            coqc -Q . QASH "$f"
+          done

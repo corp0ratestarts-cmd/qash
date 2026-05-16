@@ -1,0 +1,13 @@
+stateDiagram-v2
+    [*] --> ReplayReady
+    ReplayReady --> CandidateInput: Domain B submits signed input
+    CandidateInput --> Rejected: decode/admissibility failure
+    CandidateInput --> ProjectedEvaluation: admissible input
+    ProjectedEvaluation --> AbsorbingHalt: overflow or δ_window > ε
+    ProjectedEvaluation --> Commit: bounded metrics and stable window
+    Commit --> EncodeState: validator updates committed
+    EncodeState --> RootComputed: canonical encoding + domain-tagged hash
+    RootComputed --> ReplayReady: next epoch
+    Rejected --> ReplayReady: no state mutation
+    AbsorbingHalt --> EncodeState: halt reason encoded
+    AbsorbingHalt --> AbsorbingHalt: halt is absorbing

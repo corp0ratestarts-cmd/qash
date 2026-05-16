@@ -1,5 +1,8 @@
 # QASH Canonical Executable Model
 
+> **Status: PLANNED — no files have been added yet. Files are added when the
+> corresponding spec section is formally closed (see criterion on line 95).**
+
 ## Purpose
 
 This directory contains the **canonical executable semantics** of QASH.

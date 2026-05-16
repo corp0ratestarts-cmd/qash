@@ -1,9 +1,16 @@
 # QASH Execution Model
-## `docs/spec/00_execution_model.md` — Protocol Version 1.0
+## `docs/spec/00_execution_model.md` — Protocol Version 1.1
 
-> **Status:** Canonical execution law. All implementation is constrained by this document.
-> `01_consensus.md` depends on the semantics defined here.
-> Modifying this document requires a new genesis.
+> **Authority notice:** The QASH v1.0 PDF in `spec/pdf/QASH_Spec_v1.0.pdf`
+> is the normative source of truth once checked in. This file is a pre-existing
+> engineering specification and must be treated as derived/non-normative unless
+> a traceability row, erratum, or ADR explicitly elevates a requirement.
+> See `docs/traceability.md`.
+
+
+> **Status:** Derived engineering specification. It is constrained by the
+> normative PDF, accepted errata, and accepted ADRs.
+> Modifying normative behavior requires traceability review before genesis lock.
 
 ---
 
@@ -298,13 +305,21 @@ alignment. All reads and writes must be via properly-typed, alignment-safe opera
 All cryptographic hash operations in the deterministic domain use the following
 canonical construction unless explicitly specified otherwise.
 
-### Primary hash: SHA3-256
+### Consensus hash suite
 
-Used for: state root `R_t`, entropy seed advancement, `GENESIS_CONSTANTS.toml` lock hash.
+State roots are not defined by a single primitive. Each active consensus
+primitive hashes the same domain-separated preimage, and the primitive outputs
+are folded into one 32-byte state root. The active v1 suite is:
 
 ```
 SHA3-256(input) → [u8; 32]
+SM3-256(input)  → [u8; 32]
 ```
+
+`SHA3-256` remains the fold/hash used for entropy advancement and
+`GENESIS_CONSTANTS.toml` lock hashing, but state-root security depends on the
+entire active digest set. A primitive that is merely logged outside this
+construction is not consensus-active.
 
 Input must be a single contiguous byte slice. No streaming API is used in the D domain
 (streaming APIs permit platform-divergent buffering behavior).
@@ -316,31 +331,67 @@ Domain tags are 4-byte little-endian u32 values prepended to the input.
 
 ```
 Domain tag assignments:
-  0x00000001  STATE_ROOT       — Encode(S_t) → R_t
+  0x00000001  STATE_ROOT       — Encode(S_t) → primitive sub-roots
   0x00000002  ENTROPY_ADVANCE  — seed_t → seed_{t+1}
   0x00000003  VALIDATOR_ID     — validator_id generation
   0x00000004  LEAF_HASH        — sparse Merkle leaf
   0x00000005  INTERNAL_HASH    — sparse Merkle internal node
+  0x00000006  CONSENSUS_ROOT   — folds active primitive sub-roots
 ```
 
-Canonical form:
+Canonical single-primitive form:
 
 ```
 H_domain(tag: u32, input: &[u8]) → [u8; 32]:
   SHA3-256( tag.to_le_bytes() ∥ input )
 ```
 
-### Hash cascade
-
-For operations requiring the full hash cascade (see `GENESIS_CONSTANTS.toml`):
+Consensus state-root form:
 
 ```
-H_cascade(input: &[u8]) → [u8; 32]:
-  SHA3-256( BLAKE3( KangarooTwelve(input) ) )
+root_SHA3 = SHA3-256(STATE_ROOT.to_le_bytes() ∥ input)
+root_SM3  = SM3-256(STATE_ROOT.to_le_bytes() ∥ input)
+
+H_consensus_domain(STATE_ROOT, input) =
+  SHA3-256(
+    CONSENSUS_ROOT.to_le_bytes()
+    ∥ 2u32.to_le_bytes()
+    ∥ SHA3_PRIMITIVE_ID.to_le_bytes() ∥ root_SHA3
+    ∥ SM3_PRIMITIVE_ID.to_le_bytes()  ∥ root_SM3
+  )
+```
+
+Validators must compute every active primitive. Divergence in any primitive
+changes the folded root and is consensus-visible.
+
+### Hash cascade
+
+For operations requiring the full cascade (obfuscation leaf hashing, clone-chunk
+verification, cascade-health commitment):
+
+```
+H_cascade(input: &[u8]) → [u8; 64]:
+
+  Layer composition (depth = 7, mode = recursive_binding):
+
+  L1: h1_sha3   = SHA3-256(  "QASH:CASCADE:L1:PARALLEL" ∥ input )   // [u8; 32]
+      h1_blake3  = BLAKE3(    "QASH:CASCADE:L1:PARALLEL" ∥ input )   // [u8; 32]
+      h1_k12     = K12(       "QASH:CASCADE:L1:PARALLEL" ∥ input )   // [u8; 32]
+      h1_sm3     = SM3(       "QASH:CASCADE:L1:PARALLEL" ∥ input )   // [u8; 32]
+      h1_streeb  = Streebog(  "QASH:CASCADE:L1:PARALLEL" ∥ input )   // [u8; 32]
+      parallel   = h1_sha3 ∥ h1_blake3 ∥ h1_k12 ∥ h1_sm3 ∥ h1_streeb  // [u8; 160]
+
+  L2: bound = SHA3-512( "QASH:CASCADE:L2:BIND" ∥ parallel )          // [u8; 64]
+
+  L3..L6: (recursive expansion — each layer feeds the next)
+      L_n = SHA3-512( "QASH:CASCADE:L{n}:EXPAND" ∥ L_{n-1} )         // [u8; 64]
+
+  L7: output = SHA3-512( "QASH:CASCADE:L7:FINALIZE" ∥ L6 )           // [u8; 64]
 ```
 
 The cascade is used for: obfuscation layer leaf hashing.
-It is **not** used for state root computation (which uses `H_domain` above).
+It is **not** used for state root computation; state roots use
+`H_consensus_domain` above.
 
 ---
 

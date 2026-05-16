@@ -1,4 +1,8 @@
 .aider*
+/target/
+
+# Rust build output
+target/
 
 # Coq build artifacts
 *.vo
@@ -7,3 +11,5 @@
 *.glob
 *.aux
 .*.aux
+.lia.cache
+.depend

@@ -37,15 +37,25 @@ QASH **is**:
 ## Repository Structure
 
 ```
-docs/spec/          ← Protocol law (normative)
+spec/pdf/           ← Normative PDF source of truth (v1.0, checked in before genesis lock)
+docs/traceability.md ← PDF requirement → code → test → proof contract
+docs/errata/         ← Normative corrections/clarifications to the PDF
+docs/adr/            ← Engineering decisions and PDF-silent gap definitions
+docs/spec/           ← Pre-existing derived engineering specs pending mirror migration
   00_execution_model.md   Deterministic execution substrate
   01_consensus.md         State space, encoding, transition function, stability
+  07_hash_cascade.md      Astronomical depth-7 cascade spec (v1.1)
+  09_migration_v1.0_to_v1.1.md  Migration guide and compatibility window
 
 proofs/             ← Formal theorems (Coq)
   contractivity/
-    encode_injectivity.v  TH-1 (CLOSED), TH-2
-  safety/
-    absorbing_halt.v      TH-4, TH-5, TH-6, TH-8 partial
+    lyapunov_stability.v  TH-3a/TH-3b/TH-3c foundation proofs
+    tx_perturbation_0.v   TX-0 §A8 Form A proof obligation
+  util/
+    list_inj.v            fixed-width list/encoding support lemmas
+  _wip/
+    encode_injectivity.v.draft  TH-1/TH-2 draft, not genesis-lock evidence
+    absorbing_halt.v.draft      TH-4/TH-5/TH-6/TH-8 draft, not CI-gated
 
 model/              ← Canonical executable semantics (extracted from proofs)
   README.md               Model contract and extraction notes
@@ -58,10 +68,20 @@ src/                ← Hosted binary entrypoint
 GENESIS_CONSTANTS.toml   Immutable genesis parameters (not yet locked)
 ```
 
+> **Runtime status: thin scaffold — the hosted binary is a CLI demo only. PAL traits
+> are wired but the Host implementation returns zeroes/no-ops. This is not a
+> deployable node.**
+
+```
+```
+
 The relationship between layers:
 
 ```
-docs/spec/    = normative semantic law        (what the protocol IS)
+spec/pdf/     = normative source of truth      (what the protocol INTENDS)
+docs/traceability.md = audit contract          (what is mapped to code/tests/proofs)
+docs/errata/  = explicit PDF corrections       (what changes/clarifies the PDF)
+docs/adr/     = engineering decisions          (how PDF gaps are filled)
 proofs/       = formal guarantees             (what is PROVED about it)
 model/        = canonical executable model    (what it COMPUTES, extracted from proofs)
 crates/       = optimized implementation      (what is DEPLOYED)
@@ -70,22 +90,31 @@ crates/       = optimized implementation      (what is DEPLOYED)
 The runtime (`crates/`) must be observationally equivalent to the model
 for all admissible inputs. This equivalence is a future formal proof target.
 
+The prior `docs/spec/` documents remain useful engineering specs, but the
+repository now resolves authority through the PDF-first governance model in
+`docs/traceability.md`: PDF quote → erratum/ADR if needed → code → test/vector
+→ proof.
+
 ---
 
 ## Theorem Status
 
 | ID | Name | Class | Status |
 |----|------|-------|--------|
-| TH-1 | Encoding injectivity | Formal theorem | ✅ CLOSED |
-| TH-2 | Encoding totality | Formal theorem | ✅ CLOSED |
-| TH-3 | Convergence decrease δ_window ≤ 0 | Formal theorem | 🔲 PLACEHOLDER |
-| TH-4 | Φ_safety monotonicity | Formal theorem | ✅ CLOSED |
-| TH-5 | Φ_safety boundedness | Formal theorem | ✅ CLOSED |
-| TH-6 | Halt correctness | Formal theorem | ✅ CLOSED |
-| TH-7 | Replay invariance RT-1 | Verification claim | 🟡 PARTIAL |
-| TH-8 | Succession soundness | Formal theorem | 🟡 PARTIAL (TH-1 closed, composition pending) |
+| TH-1 | Encoding injectivity | Formal theorem | ✅ FORMAL — `proofs/contractivity/encode_injectivity.v` |
+| TH-2 | Encoding totality | Formal theorem | ✅ FORMAL — `proofs/contractivity/encode_injectivity.v` |
+| TH-3 | Convergence decrease / halt gate | Formal theorem | ✅ FORMAL — `proofs/contractivity/lyapunov_stability.v` |
+| TX-0 §A8 | No-op perturbation bound | Formal theorem | ✅ FORMAL — `proofs/contractivity/tx_perturbation_0.v` |
+| TH-4 | Φ_safety monotonicity | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
+| TH-5 | Φ_safety boundedness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
+| TH-6 | Halt correctness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
+| TH-7 | Replay invariance RT-1 | Verification claim | ✅ CI-VERIFIED — identical state roots on x86_64, aarch64, riscv64gc (QEMU user-static) |
+| TH-8 | Succession soundness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` + `proofs/integration/th8_composition.v` |
 
-Genesis lock requires TH-1, TH-2 closed (done) and TH-7 full test vector suite.
+Genesis lock gate:
+- TH-1 through TH-6, TH-8: **FORMAL** (Coq compiles; no `Admitted` beyond AX-1/AX-2/AX-3)
+- TH-7: CI-verified on x86_64, aarch64, and riscv64gc (QEMU user-static; identical state roots)
+- Archived drafts in `proofs/_wip/` are superseded — not lock evidence
 
 ---
 
@@ -96,7 +125,7 @@ All guarantees reduce to three axioms. Everything above them is deductively cert
 ```
 AX-1  Authorized ISAs implement two's complement arithmetic correctly
 AX-2  Pinned Rust toolchain produces correct code for authorized ISAs
-AX-3  SHA3-256 is collision-resistant  (cryptographic assumption, not theorem)
+AX-3  Active consensus hash suite is collision-resistant  (cryptographic assumption, not theorem)
 ```
 
 ---
@@ -175,6 +204,27 @@ spec_hash = SHA3-256(00_execution_model.md ∥ 01_consensus.md)
 This hash is recorded in `GENESIS_CONSTANTS.toml` at genesis lock time.
 Any runtime must declare the spec hash it implements. Mismatches are
 flagged by CI as non-conforming, regardless of test passage.
+
+---
+
+## Patent Evidence Pack
+
+The repository now includes a patent-support evidence structure for technical
+review with qualified counsel. These materials are not legal advice; they
+organize implementation-specific evidence around candidate invention families:
+
+- deterministic replay isolation architecture,
+- Lyapunov-based validator stability evaluation,
+- cross-ISA deterministic reproducibility enforcement,
+- prior-art differentiation working notes,
+- claim-support traceability,
+- replay and benchmark artifact templates,
+- nondeterminism threat modeling, and
+- architecture decision records.
+
+Start at `patents/README.md`. Replay evidence should be archived under
+`artifacts/replay_equivalence/`, and technical-effect measurements should be
+archived under `artifacts/benchmarks/`.
 
 ---
 

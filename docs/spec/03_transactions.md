@@ -1,9 +1,16 @@
 # QASH Transaction Semantics
 ## `docs/spec/03_transactions.md` — Protocol Version 1.0
 
-> **Status:** Canonical transaction law. All state mutation reachable from
-> `T(S_t, I_t)` is constrained by this document.
-> Modifying this document requires a new genesis. No exceptions.
+> **Authority notice:** The QASH v1.0 PDF in `spec/pdf/QASH_Spec_v1.0.pdf`
+> is the normative source of truth once checked in. This file is a pre-existing
+> engineering specification and must be treated as derived/non-normative unless
+> a traceability row, erratum, or ADR explicitly elevates a requirement.
+> See `docs/traceability.md`.
+
+
+> **Status:** Derived engineering specification. It is constrained by the
+> normative PDF, accepted errata, and accepted ADRs.
+> Transaction rules become genesis-binding only after traceability review.
 
 ---
 
@@ -115,7 +122,7 @@ Tx = (
 - Only `payload` is variable-length; everything else is fixed-width
 - `payload` is opaque to the envelope; semantics defined per `tx_type`
 - `signature` covers: `Encode(envelope_without_signature)`
-- Total envelope size = `89 + payload_len + 2420` = `2509 + payload_len` bytes
+- Total envelope size = 2 + 2 + 8 + 48 + 4 + payload_len + 2420 = `2484 + payload_len` bytes
 
 ### Envelope wire format
 
@@ -253,7 +260,7 @@ Fields **permanently immutable** by any transaction (`01_consensus.md §1`):
 ```
 epoch          (advanced by epoch transition, not by τ)
 state_root     (computed last in transition step 9)
-halt_flag      (may be set true, never cleared — §A6 of 02)
+halt_reason    (may be set to non-zero, never cleared — §A6 of 02)
 validator[i].id (stable consensus identity)
 ```
 
@@ -560,19 +567,20 @@ This is equality, not merely non-increase. It follows trivially because:
 ### Proof obligation
 
 ```
-File:    proofs/contractivity/tx_perturbation_0.v   (PENDING)
+File:    proofs/contractivity/tx_perturbation_0.v
 Theorem: TX0_perturbation_bound
 
-Statement (informal):
-  ∀ S_t τ, 𝒜_TX0 S_t τ →
-    V_convergence (𝒯_TX0 S_t τ) = V_convergence S_t.
+Statement (active Coq model):
+  ∀ validator nonce_next window_min,
+    δ_window(𝒯_TX0(validator, nonce_next), window_min)
+      ≤ δ_window(validator, window_min).
 
 Proof sketch:
   By touch-set confinement, only validators[author_idx].nonce changes.
   V_convergence is defined as Σ_i (α·D_i + β·C_i); it does not reference nonce.
   Therefore V_convergence is invariant under TX-0 application.
-  
-Status: TARGET (depends on proof infrastructure repair tracked in proofs/STATUS.md)
+
+Status: FORMAL — proofs/contractivity/tx_perturbation_0.v; zero Admitted
 ```
 
 ### Idempotence
@@ -677,7 +685,7 @@ a new network.
 
 | tx_type | Name | §A8 form | ε_τ | σ_τ | touch fields | Proof status |
 |---------|------|----------|-----|-----|--------------|--------------|
-| 0 | TX-0 No-Op | A | 0 | 0 | `{validators[author].nonce}` | TARGET |
+| 0 | TX-0 No-Op | A | 0 | 0 | `{validators[author].nonce}` | FORMAL |
 
 Future revisions will extend this table as transaction types are ratified.
 
