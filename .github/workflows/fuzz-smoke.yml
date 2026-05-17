@@ -19,16 +19,15 @@ jobs:
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --locked
 
+      # cargo fuzz run must be run from the project root so it can locate
+      # ./fuzz/Cargo.toml. Running from inside fuzz/ would look for fuzz/fuzz/.
       - name: Smoke — cascade_fuzz (15 s)
-        working-directory: fuzz
         run: cargo fuzz run cascade_fuzz -- -max_total_time=15
 
       - name: Smoke — decode_fuzz (15 s)
-        working-directory: fuzz
         run: cargo fuzz run decode_fuzz -- -max_total_time=15
 
       - name: Smoke — transition_fuzz (15 s)
-        working-directory: fuzz
         run: cargo fuzz run transition_fuzz -- -max_total_time=15
 
       - name: Upload crash artifacts
