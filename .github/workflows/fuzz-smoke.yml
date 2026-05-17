@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
+      # Override rust-toolchain.toml (which pins stable) so every cargo
+      # invocation in this job uses nightly without needing +nightly flags.
+      RUSTUP_TOOLCHAIN: nightly
     steps:
       - uses: actions/checkout@v4
 
@@ -18,18 +21,16 @@ jobs:
         with:
           components: rust-src, llvm-tools-preview
 
-      - name: Cache cargo registry and build artifacts
-        uses: Swatinem/rust-cache@v2
+      - name: Cache cargo-fuzz binary
+        id: cache-cargo-fuzz
+        uses: actions/cache@v4
         with:
-          workspaces: |
-            . -> target
-            fuzz -> fuzz/target
-
-      - name: Install cargo-binstall (for fast cargo-fuzz install)
-        uses: cargo-bins/cargo-binstall@main
+          path: ~/.cargo/bin/cargo-fuzz
+          key: cargo-fuzz-${{ runner.os }}-nightly
 
       - name: Install cargo-fuzz
-        run: cargo binstall cargo-fuzz --no-confirm
+        if: steps.cache-cargo-fuzz.outputs.cache-hit != 'true'
+        run: cargo install cargo-fuzz
 
       # cargo fuzz run must be run from the project root so it can locate
       # ./fuzz/Cargo.toml. Running from inside fuzz/ would look for fuzz/fuzz/.
