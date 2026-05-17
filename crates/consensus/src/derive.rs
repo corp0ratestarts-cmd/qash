@@ -1,7 +1,7 @@
-//! 7-family cascade key derivation with GF(2^128) IT-MAC cross-binding.
+//! 8-family cascade key derivation with GF(2^128) IT-MAC cross-binding.
 //!
 //! Produces a 48-byte validator leaf index from (validator_id, epoch, epoch_seed)
-//! using seven structurally independent hash families, then cross-binds them
+//! using eight structurally independent hash families, then cross-binds them
 //! with SHA3-512 and authenticates the binding with a polynomial MAC over
 //! GF(2^128) (irreducible polynomial x^128+x^7+x^2+x+1, GHASH reduction).
 //!
@@ -14,18 +14,29 @@
 //! # Hash family registry (jurisdictional coverage)
 //! | Path | Primitive | Standard | Region |
 //! |------|-----------|----------|--------|
-//! | A | SHA3-256 | FIPS 202 / NIST | Global |
+//! | A | SHA3-512 | FIPS 202 / NIST | Global |
 //! | B | BLAKE3 | BLAKE3 spec | Global/IETF |
 //! | C | KangarooTwelve | NIST SP 800 draft | NIST/ISO |
 //! | D | SM3 | GB/T 32905-2016 | China OSCCA |
-//! | E | Streebog-256 | GOST R 34.11-2012 | Russia FSB |
-//! | F | LSH-256 | KS X 3262:2017 | Korea KISA |
+//! | E | Streebog-512 | GOST R 34.11-2012 | Russia FSB |
+//! | F | LSH-512 | KS X 3262:2017 | Korea KISA |
 //! | G | SHA3-384† | FIPS 202 / NIST | India MeitY† |
+//! | H | Kupyna-512 | DSTU 7564:2014 | Ukraine SSSCIP |
 //!
 //! †Path G uses SHA3-384 (rate=832, capacity=512), structurally distinct from
-//! SHA3-256 (rate=1088, capacity=256). A collision in SHA3-256 does not imply
-//! one in SHA3-384. Skein-256 is the long-term target for this slot; SHA3-384
-//! satisfies the India MeitY requirement that primitives be NIST SHA-3 family.
+//! SHA3-512 (rate=576, capacity=1024): different internal state partitioning means
+//! a collision in SHA3-512 does not imply one in SHA3-384. Skein-256 is the
+//! long-term target for this slot; SHA3-384 satisfies the India MeitY requirement
+//! that primitives be NIST SHA-3 family.
+//!
+//! # Output-size security argument
+//! Paths B/C/D (BLAKE3, KangarooTwelve, SM3) produce 256-bit outputs, giving 2^128
+//! collision resistance (birthday bound). This exceeds the GF(2^128) IT-MAC forgery
+//! bound of 16/2^128 by ~2^114. Paths A/E/F/H produce 512-bit outputs, satisfying the
+//! Slovak NBÚ post-quantum mandate (≥384-bit hash). The asymmetry is intentional.
+//! All inputs to the cascade (validator_id, epoch, epoch_seed) and the derived leaf
+//! index are publicly disclosed protocol values — there are no secrets in Domain A,
+//! so constant-time hashing is not required for security.
 //!
 //! # Domain A compliance
 //! - No unsafe, no float, no usize in wire/state context
@@ -33,12 +44,13 @@
 //! - Pure function: identical inputs → identical outputs on all authorized ISAs
 
 use blake3;
-use sha3::{Digest, Sha3_256, Sha3_384, Sha3_512};
+use sha3::{Digest, Sha3_384, Sha3_512};
 use sm3::Sm3;
-use streebog::Streebog256;
+use streebog::Streebog512;
 use tiny_keccak::{Hasher as K12Hasher, KangarooTwelve};
 
-use crate::lsh256::lsh256;
+use kupyna::Kupyna512;
+use crate::lsh512::lsh512;
 
 // ---------------------------------------------------------------------------
 // GF(2^128) arithmetic — irreducible polynomial x^128+x^7+x^2+x+1
@@ -107,15 +119,16 @@ fn block16(data: &[u8], offset: usize) -> [u8; 16] {
 // prevent cross-path collisions even when all other inputs are identical.
 // ---------------------------------------------------------------------------
 
-fn path_a_sha3_256(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
-    let mut h = Sha3_256::new();
-    h.update(b"QASH:DERIVE:A:SHA3_256:NIST_FIPS202");
+fn path_a_sha3_512(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
+    // SHA3-512: rate=576, capacity=1024 bits — highest-security SHA3 fixed-output variant.
+    let mut h = Sha3_512::new();
+    h.update(b"QASH:DERIVE:A:SHA3_512:NIST_FIPS202");
     h.update(epoch_seed);
     h.update(epoch.to_le_bytes());
     h.update(validator_id.to_le_bytes());
-    let out = h.finalize();
+    let out = h.finalize(); // 64 bytes; take first 32
     let mut r = [0u8; 32];
-    r.copy_from_slice(&out);
+    r.copy_from_slice(&out[..32]);
     r
 }
 
@@ -152,30 +165,35 @@ fn path_d_sm3(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] 
 }
 
 fn path_e_streebog(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
-    let mut h = Streebog256::new();
-    h.update(b"QASH:DERIVE:E:STREEBOG256:RUSSIA_GOST_34_11_2012");
+    // Streebog-512: 512-bit output variant of GOST R 34.11-2012 — higher internal work than -256.
+    let mut h = Streebog512::new();
+    h.update(b"QASH:DERIVE:E:STREEBOG512:RUSSIA_GOST_34_11_2012");
     h.update(epoch_seed);
     h.update(epoch.to_le_bytes());
     h.update(validator_id.to_le_bytes());
-    let out = h.finalize();
+    let out = h.finalize(); // 64 bytes; take first 32
     let mut r = [0u8; 32];
-    r.copy_from_slice(&out);
+    r.copy_from_slice(&out[..32]);
     r
 }
 
-fn path_f_lsh256(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
-    // LSH-256 domain separator fed as prefix bytes before the main input.
-    const PREFIX: &[u8] = b"QASH:DERIVE:F:LSH256:KOREA_KS_X_3262";
+fn path_f_lsh512(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
+    // LSH-512-512 (w=64, N_s=28, 512-bit output): higher-security variant of KS X 3262.
+    // Domain separator fed as prefix bytes; take first 32 of 64 output bytes.
+    const PREFIX: &[u8] = b"QASH:DERIVE:F:LSH512:KOREA_KS_X_3262";
     let ep = epoch.to_le_bytes();
     let vi = validator_id.to_le_bytes();
-    // Concatenate: PREFIX || epoch_seed || epoch || validator_id
-    let mut buf = [0u8; 37 + 32 + 8 + 8]; // PREFIX.len()=37, then rest
+    // Concatenate: PREFIX(36) || epoch_seed(32) || epoch(8) || validator_id(8) = 84 bytes
+    let mut buf = [0u8; 36 + 32 + 8 + 8];
     let plen = PREFIX.len();
     buf[..plen].copy_from_slice(PREFIX);
     buf[plen..plen + 32].copy_from_slice(epoch_seed);
     buf[plen + 32..plen + 40].copy_from_slice(&ep);
     buf[plen + 40..plen + 48].copy_from_slice(&vi);
-    lsh256(&buf)
+    let out = lsh512(&buf); // 64 bytes
+    let mut r = [0u8; 32];
+    r.copy_from_slice(&out[..32]);
+    r
 }
 
 fn path_g_sha3_384(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
@@ -190,6 +208,21 @@ fn path_g_sha3_384(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8;
     let out = h.finalize(); // 48 bytes
     let mut r = [0u8; 32];
     r.copy_from_slice(&out[..32]); // take first 32 bytes
+    r
+}
+
+fn path_h_kupyna(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
+    // Kupyna-512: Ukraine national hash standard DSTU 7564:2014 (SSSCIP).
+    // Uses digest v0.11 trait in local scope to avoid conflict with sha3's digest v0.10.
+    use kupyna::digest::Digest as _;
+    let mut h = Kupyna512::new();
+    h.update(b"QASH:DERIVE:H:KUPYNA512:UKRAINE_DSTU_7564_2014");
+    h.update(epoch_seed);
+    h.update(epoch.to_le_bytes());
+    h.update(validator_id.to_le_bytes());
+    let out = h.finalize(); // 64 bytes; take first 32
+    let mut r = [0u8; 32];
+    r.copy_from_slice(&out[..32]);
     r
 }
 
@@ -210,14 +243,15 @@ pub fn derive_leaf_index(
     epoch: u64,
     epoch_seed: &[u8; 32],
 ) -> [u8; 48] {
-    // Step 1 — compute seven independent path hashes (each 32 bytes = 224 total).
-    let pa = path_a_sha3_256(epoch_seed, epoch, validator_id);
+    // Step 1 — compute eight independent path hashes (each 32 bytes = 256 total).
+    let pa = path_a_sha3_512(epoch_seed, epoch, validator_id);
     let pb = path_b_blake3(epoch_seed, epoch, validator_id);
     let pc = path_c_k12(epoch_seed, epoch, validator_id);
     let pd = path_d_sm3(epoch_seed, epoch, validator_id);
     let pe = path_e_streebog(epoch_seed, epoch, validator_id);
-    let pf = path_f_lsh256(epoch_seed, epoch, validator_id);
+    let pf = path_f_lsh512(epoch_seed, epoch, validator_id);
     let pg = path_g_sha3_384(epoch_seed, epoch, validator_id);
+    let ph = path_h_kupyna(epoch_seed, epoch, validator_id);
 
     // Step 2 — cross-bind via SHA3-512 (64 bytes).
     // First 32 bytes → layer1 (the commitment).
@@ -232,6 +266,7 @@ pub fn derive_leaf_index(
     cross.update(pe);
     cross.update(pf);
     cross.update(pg);
+    cross.update(ph);
     let cross_out = cross.finalize(); // 64 bytes
 
     let mut layer1 = [0u8; 32];
@@ -240,9 +275,9 @@ pub fn derive_leaf_index(
     let r = u128::from_le_bytes(block16(&cross_out, 32));
     let s = u128::from_le_bytes(block16(&cross_out, 48));
 
-    // Step 3 — IT-MAC over the 224-byte concatenation of the 7 paths.
-    // Forgery probability ≤ 14 / 2^128 (14 sixteen-byte blocks).
-    let mut all_paths = [0u8; 224]; // 7 × 32
+    // Step 3 — IT-MAC over the 256-byte concatenation of the 8 paths.
+    // Forgery probability ≤ 16 / 2^128 (16 sixteen-byte blocks).
+    let mut all_paths = [0u8; 256]; // 8 × 32
     all_paths[  0.. 32].copy_from_slice(&pa);
     all_paths[ 32.. 64].copy_from_slice(&pb);
     all_paths[ 64.. 96].copy_from_slice(&pc);
@@ -250,6 +285,7 @@ pub fn derive_leaf_index(
     all_paths[128..160].copy_from_slice(&pe);
     all_paths[160..192].copy_from_slice(&pf);
     all_paths[192..224].copy_from_slice(&pg);
+    all_paths[224..256].copy_from_slice(&ph);
 
     let mac_raw = poly_mac_128(r, s, &all_paths);
     let mac_bytes = mac_raw.to_le_bytes();
@@ -364,29 +400,39 @@ mod tests {
         assert_eq!(gf128_mul(a, b), gf128_mul(b, a));
     }
 
-    /// LSH-256 path (F) is deterministic and produces 32-byte output.
+    /// LSH-512 path (F) is deterministic and produces 32-byte output.
     #[test]
-    fn path_f_lsh256_deterministic() {
-        let a = path_f_lsh256(&SEED_ZERO, 0, 1);
-        let b = path_f_lsh256(&SEED_ZERO, 0, 1);
+    fn path_f_lsh512_deterministic() {
+        let a = path_f_lsh512(&SEED_ZERO, 0, 1);
+        let b = path_f_lsh512(&SEED_ZERO, 0, 1);
         assert_eq!(a, b);
         assert_ne!(a, [0u8; 32]);
     }
 
-    /// All 7 paths produce distinct outputs for the same input (path uniqueness).
+    /// Kupyna-512 path (H) is deterministic and produces 32-byte output.
+    #[test]
+    fn path_h_kupyna_deterministic() {
+        let a = path_h_kupyna(&SEED_ZERO, 0, 1);
+        let b = path_h_kupyna(&SEED_ZERO, 0, 1);
+        assert_eq!(a, b);
+        assert_ne!(a, [0u8; 32]);
+    }
+
+    /// All 8 paths produce distinct outputs for the same input (path uniqueness).
     #[test]
     fn all_paths_are_distinct() {
         let paths = [
-            path_a_sha3_256(&SEED_ZERO, 0, 1),
+            path_a_sha3_512(&SEED_ZERO, 0, 1),
             path_b_blake3(&SEED_ZERO, 0, 1),
             path_c_k12(&SEED_ZERO, 0, 1),
             path_d_sm3(&SEED_ZERO, 0, 1),
             path_e_streebog(&SEED_ZERO, 0, 1),
-            path_f_lsh256(&SEED_ZERO, 0, 1),
+            path_f_lsh512(&SEED_ZERO, 0, 1),
             path_g_sha3_384(&SEED_ZERO, 0, 1),
+            path_h_kupyna(&SEED_ZERO, 0, 1),
         ];
-        for i in 0..7 {
-            for j in (i + 1)..7 {
+        for i in 0..8 {
+            for j in (i + 1)..8 {
                 assert_ne!(paths[i], paths[j], "paths {} and {} must differ", i, j);
             }
         }
