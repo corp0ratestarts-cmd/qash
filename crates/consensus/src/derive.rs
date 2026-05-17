@@ -19,7 +19,7 @@
 //! | C | KangarooTwelve | NIST SP 800 draft | NIST/ISO |
 //! | D | SM3 | GB/T 32905-2016 | China OSCCA |
 //! | E | Streebog-512 | GOST R 34.11-2012 | Russia FSB |
-//! | F | LSH-256 | KS X 3262:2017 | Korea KISA |
+//! | F | LSH-512 | KS X 3262:2017 | Korea KISA |
 //! | G | SHA3-384† | FIPS 202 / NIST | India MeitY† |
 //!
 //! †Path G uses SHA3-384 (rate=832, capacity=512), structurally distinct from
@@ -39,7 +39,7 @@ use sm3::Sm3;
 use streebog::Streebog512;
 use tiny_keccak::{Hasher as K12Hasher, KangarooTwelve};
 
-use crate::lsh256::lsh256;
+use crate::lsh512::lsh512;
 
 // ---------------------------------------------------------------------------
 // GF(2^128) arithmetic — irreducible polynomial x^128+x^7+x^2+x+1
@@ -166,19 +166,23 @@ fn path_e_streebog(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8;
     r
 }
 
-fn path_f_lsh256(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
-    // LSH-256 domain separator fed as prefix bytes before the main input.
-    const PREFIX: &[u8] = b"QASH:DERIVE:F:LSH256:KOREA_KS_X_3262";
+fn path_f_lsh512(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
+    // LSH-512-512 (w=64, N_s=28, 512-bit output): higher-security variant of KS X 3262.
+    // Domain separator fed as prefix bytes; take first 32 of 64 output bytes.
+    const PREFIX: &[u8] = b"QASH:DERIVE:F:LSH512:KOREA_KS_X_3262";
     let ep = epoch.to_le_bytes();
     let vi = validator_id.to_le_bytes();
-    // Concatenate: PREFIX || epoch_seed || epoch || validator_id
-    let mut buf = [0u8; 37 + 32 + 8 + 8]; // PREFIX.len()=37, then rest
+    // Concatenate: PREFIX(36) || epoch_seed(32) || epoch(8) || validator_id(8) = 84 bytes
+    let mut buf = [0u8; 36 + 32 + 8 + 8];
     let plen = PREFIX.len();
     buf[..plen].copy_from_slice(PREFIX);
     buf[plen..plen + 32].copy_from_slice(epoch_seed);
     buf[plen + 32..plen + 40].copy_from_slice(&ep);
     buf[plen + 40..plen + 48].copy_from_slice(&vi);
-    lsh256(&buf)
+    let out = lsh512(&buf); // 64 bytes
+    let mut r = [0u8; 32];
+    r.copy_from_slice(&out[..32]);
+    r
 }
 
 fn path_g_sha3_384(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
@@ -219,7 +223,7 @@ pub fn derive_leaf_index(
     let pc = path_c_k12(epoch_seed, epoch, validator_id);
     let pd = path_d_sm3(epoch_seed, epoch, validator_id);
     let pe = path_e_streebog(epoch_seed, epoch, validator_id);
-    let pf = path_f_lsh256(epoch_seed, epoch, validator_id);
+    let pf = path_f_lsh512(epoch_seed, epoch, validator_id);
     let pg = path_g_sha3_384(epoch_seed, epoch, validator_id);
 
     // Step 2 — cross-bind via SHA3-512 (64 bytes).
@@ -367,11 +371,11 @@ mod tests {
         assert_eq!(gf128_mul(a, b), gf128_mul(b, a));
     }
 
-    /// LSH-256 path (F) is deterministic and produces 32-byte output.
+    /// LSH-512 path (F) is deterministic and produces 32-byte output.
     #[test]
-    fn path_f_lsh256_deterministic() {
-        let a = path_f_lsh256(&SEED_ZERO, 0, 1);
-        let b = path_f_lsh256(&SEED_ZERO, 0, 1);
+    fn path_f_lsh512_deterministic() {
+        let a = path_f_lsh512(&SEED_ZERO, 0, 1);
+        let b = path_f_lsh512(&SEED_ZERO, 0, 1);
         assert_eq!(a, b);
         assert_ne!(a, [0u8; 32]);
     }
@@ -385,7 +389,7 @@ mod tests {
             path_c_k12(&SEED_ZERO, 0, 1),
             path_d_sm3(&SEED_ZERO, 0, 1),
             path_e_streebog(&SEED_ZERO, 0, 1),
-            path_f_lsh256(&SEED_ZERO, 0, 1),
+            path_f_lsh512(&SEED_ZERO, 0, 1),
             path_g_sha3_384(&SEED_ZERO, 0, 1),
         ];
         for i in 0..7 {

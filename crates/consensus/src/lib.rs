@@ -6,6 +6,7 @@ extern crate std;
 
 pub mod hash;
 pub mod lsh256;
+pub mod lsh512;
 pub mod fixed_point;
 pub mod encoding;
 pub mod lyapunov;
@@ -26,6 +27,7 @@ pub(crate) mod blinding;
 pub use fixed_point::FixedPoint;
 pub use hash::{h_domain, sha3_256, DomainTag};
 pub use lsh256::{lsh256, lsh256_domain, lsh256_parts};
+pub use lsh512::{lsh512, lsh512_domain, lsh512_parts};
 pub use public::PublicTranscript;
 pub use lyapunov::{ValidatorMetrics, LyapunovEval};
 pub use transition::{
