@@ -13,52 +13,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install nightly so cargo-fuzz can build fuzz targets with -Z sanitizer=address.
-      - name: Setup nightly Rust
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rust-src, llvm-tools-preview
+      # honggfuzz works with stable Rust — no nightly or LLVM/sanitizer needed.
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo-fuzz binary
-        id: cache-cargo-fuzz
+      - name: Install honggfuzz system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential binutils-dev libunwind-dev
+
+      - name: Cache cargo-hfuzz binary
+        id: cache-cargo-hfuzz
         uses: actions/cache@v4
         with:
-          path: ~/.cargo/bin/cargo-fuzz
-          key: cargo-fuzz-${{ runner.os }}-stable-${{ hashFiles('fuzz/Cargo.lock') }}
+          path: ~/.cargo/bin/cargo-hfuzz
+          key: cargo-hfuzz-${{ runner.os }}-${{ hashFiles('fuzz/Cargo.lock') }}
 
-      # cargo-fuzz (the CLI tool) compiles fine on stable Rust.
-      # Only the fuzz targets themselves require nightly (-Z flags).
-      # Installing with stable avoids nightly API churn breaking the tool build.
-      - name: Install cargo-fuzz
-        if: steps.cache-cargo-fuzz.outputs.cache-hit != 'true'
-        run: cargo install cargo-fuzz
-        env:
-          RUSTUP_TOOLCHAIN: stable
+      - name: Install cargo-honggfuzz
+        if: steps.cache-cargo-hfuzz.outputs.cache-hit != 'true'
+        run: cargo install honggfuzz
 
-      # cargo fuzz run must be run from the project root so it can locate
-      # ./fuzz/Cargo.toml. Running from inside fuzz/ would look for fuzz/fuzz/.
-      #
-      # RUSTUP_TOOLCHAIN=nightly overrides the root rust-toolchain.toml (stable)
-      # so that cargo-fuzz's internal cargo +nightly calls resolve correctly.
-      - name: Smoke — cascade_fuzz (15 s)
-        run: cargo fuzz run cascade_fuzz -- -max_total_time=15
+      # cargo hfuzz run must be invoked from the fuzz workspace directory.
+      # -N: stop after N executions (deterministic smoke budget).
+      # --exit_upon_crash: fail fast on first invariant violation.
+      # -n 1: single worker for reproducible CI behaviour.
+      - name: Smoke — cascade_fuzz (10 000 execs)
+        working-directory: fuzz
+        run: cargo hfuzz run cascade_fuzz
         env:
-          RUSTUP_TOOLCHAIN: nightly
+          HFUZZ_RUN_ARGS: "-N 10000 --exit_upon_crash -n 1"
 
-      - name: Smoke — decode_fuzz (15 s)
-        run: cargo fuzz run decode_fuzz -- -max_total_time=15
+      - name: Smoke — decode_fuzz (10 000 execs)
+        working-directory: fuzz
+        run: cargo hfuzz run decode_fuzz
         env:
-          RUSTUP_TOOLCHAIN: nightly
+          HFUZZ_RUN_ARGS: "-N 10000 --exit_upon_crash -n 1"
 
-      - name: Smoke — transition_fuzz (15 s)
-        run: cargo fuzz run transition_fuzz -- -max_total_time=15
+      - name: Smoke — transition_fuzz (10 000 execs)
+        working-directory: fuzz
+        run: cargo hfuzz run transition_fuzz
         env:
-          RUSTUP_TOOLCHAIN: nightly
+          HFUZZ_RUN_ARGS: "-N 10000 --exit_upon_crash -n 1"
 
       - name: Upload crash artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: fuzz-crashes-${{ github.run_id }}
-          path: fuzz/artifacts/
+          path: fuzz/hfuzz_workspace/
           if-no-files-found: ignore

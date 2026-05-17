@@ -4,16 +4,12 @@ version = "0.0.0"
 edition = "2021"
 publish = false
 
-[package.metadata]
-cargo-fuzz = true
-
 # Standalone workspace — excluded from the root workspace.
-# cargo-fuzz requires nightly + LLVM sanitizer flags; keep it isolated
-# so the main workspace stays on stable.
+# honggfuzz works with stable Rust; no nightly or LLVM required.
 [workspace]
 
 [dependencies]
-libfuzzer-sys = "0.4"
+honggfuzz = "0.5"
 arbitrary = { version = "1", features = ["derive"] }
 qash-consensus = { path = "../crates/consensus", default-features = false }
 
