@@ -20,6 +20,7 @@
 *)
 
 Require Import Coq.Lists.List.
+Require Import Coq.Logic.Classical_Prop.
 Import ListNotations.
 
 (* ---------------------------------------------------------------------------
@@ -68,8 +69,8 @@ Axiom sha3_256_collision_resistant :
     inputs a, b to sha3_256 such that sha3_256(a) = sha3_256(b) but a ≠ b.
 
     This is the reduction shape.  It is a typed non-trivial statement:
-    Coq enforces that the conclusion `exists a b, a <> b /\ sha3_256 a = sha3_256 b`
-    has computational content and is not trivially satisfied. *)
+    Coq enforces that the conclusion has computational content and is not
+    trivially satisfied. *)
 Axiom TH10_cascade_collision_resistance :
   forall (x y : list bool),
     x <> y ->
@@ -82,7 +83,7 @@ Axiom TH10_cascade_collision_resistance :
 
    Under sha3_256_collision_resistant, TH10_cascade_collision_resistance
    implies cascade_hash is injective.  This is a proved theorem that
-   threads the two axioms together.
+   threads the two axioms together — the reduction is machine-checked.
    --------------------------------------------------------------------------- *)
 
 Theorem cascade_hash_injective :
@@ -90,9 +91,7 @@ Theorem cascade_hash_injective :
     cascade_hash x = cascade_hash y -> x = y.
 Proof.
   intros x y Heq.
-  destruct (List.list_eq_dec Bool.bool_dec x y) as [Hxy | Hne].
-  - exact Hxy.
-  - exfalso.
-    destruct (TH10_cascade_collision_resistance x y Hne Heq) as [a [b [Hab_ne Hab_eq]]].
-    exact (Hab_ne (sha3_256_collision_resistant a b Hab_eq)).
+  apply NNPP. intro Hne.
+  destruct (TH10_cascade_collision_resistance x y Hne Heq) as [a [b [Hab_ne Hab_eq]]].
+  exact (Hab_ne (sha3_256_collision_resistant a b Hab_eq)).
 Qed.

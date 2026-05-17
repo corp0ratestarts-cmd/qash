@@ -27,7 +27,7 @@ Record Advantage : Type := mkAdvantage {
   adv_den_pos : 0 < adv_den
 }.
 
-(** a ≤ b  iff  a.num × b.den ≤ b.num × a.den  (cross-multiply, sound for q > 0). *)
+(** a <= b  iff  a.num * b.den <= b.num * a.den  (cross-multiply, sound for q > 0). *)
 Definition adv_le (a b : Advantage) : Prop :=
   a.(adv_num) * b.(adv_den) <= b.(adv_num) * a.(adv_den).
 
@@ -47,7 +47,7 @@ Qed.
    Concrete advantage bounds parameterised by query / block count.
    --------------------------------------------------------------------------- *)
 
-(** PRF distinguishing advantage for q oracle queries: q / 2^128. *)
+(** PRF distinguishing advantage bound for q oracle queries: q / 2^128. *)
 Definition PRF_advantage (q : Z) : Advantage :=
   mkAdvantage q two_pow_128 two_pow_128_pos.
 
@@ -61,20 +61,18 @@ Definition AU_MAC_advantage (n : Z) : Advantage :=
 
 Lemma adv_le_refl : forall a, adv_le a a.
 Proof.
-  intros [n d Hd]. unfold adv_le; simpl. lia.
+  intro a.
+  unfold adv_le. lia.
 Qed.
 
 Lemma adv_le_trans : forall a b c,
   adv_le a b -> adv_le b c -> adv_le a c.
 Proof.
-  intros [an ad Had] [bn bd Hbd] [cn cd Hcd].
-  unfold adv_le; simpl.
-  intros Hab Hbc.
-  (* an * bd <= bn * ad  and  bn * cd <= cn * bd *)
-  (* Goal: an * cd <= cn * ad *)
-  (* an * bd * cd <= bn * ad * cd <= cn * bd * ad *)
-  assert (H1 : an * bd * cd <= bn * ad * cd) by (apply Z.mul_le_mono_nonneg_r; lia).
-  assert (H2 : bn * cd * ad <= cn * bd * ad) by (apply Z.mul_le_mono_nonneg_r; lia).
+  intros a b c Hab Hbc.
+  unfold adv_le in *.
+  pose proof (adv_den_pos a) as Ha.
+  pose proof (adv_den_pos b) as Hb.
+  pose proof (adv_den_pos c) as Hc.
   nia.
 Qed.
 
@@ -83,7 +81,9 @@ Lemma au_mac_advantage_mono : forall n m,
 Proof.
   intros n m H.
   unfold adv_le, AU_MAC_advantage; simpl.
-  apply Z.mul_le_mono_nonneg_r; [lia | apply Z.lt_le_incl, two_pow_128_pos].
+  apply Z.mul_le_mono_nonneg_r.
+  - apply Z.lt_le_incl, two_pow_128_pos.
+  - exact H.
 Qed.
 
 Lemma prf_advantage_mono : forall q1 q2,
@@ -91,5 +91,7 @@ Lemma prf_advantage_mono : forall q1 q2,
 Proof.
   intros q1 q2 H.
   unfold adv_le, PRF_advantage; simpl.
-  apply Z.mul_le_mono_nonneg_r; [lia | apply Z.lt_le_incl, two_pow_128_pos].
+  apply Z.mul_le_mono_nonneg_r.
+  - apply Z.lt_le_incl, two_pow_128_pos.
+  - exact H.
 Qed.
