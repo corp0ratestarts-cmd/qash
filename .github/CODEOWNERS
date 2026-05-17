@@ -1,14 +1,14 @@
 # QASH repository ownership gates.
-# Replace @your-username with the canonical maintainer GitHub user or team
-# before enabling the "Require review from Code Owners" ruleset option.
+# All rules require at least one approval from the listed owner(s).
+# Enable "Require review from Code Owners" in the branch ruleset to enforce.
 
 # All files require maintainer approval.
-* @your-username
+* @corp0ratestarts-cmd
 
 # Consensus-critical and repository-control surfaces require explicit scrutiny.
-crates/consensus/src/ @your-username
-crates/consensus/tests/ @your-username
-GENESIS_CONSTANTS.toml @your-username
-proofs/ @your-username
-.github/workflows/ @your-username
-.github/rulesets/ @your-username
+crates/consensus/src/        @corp0ratestarts-cmd
+crates/consensus/tests/      @corp0ratestarts-cmd
+GENESIS_CONSTANTS.toml       @corp0ratestarts-cmd
+proofs/                      @corp0ratestarts-cmd
+.github/workflows/           @corp0ratestarts-cmd
+.github/rulesets/            @corp0ratestarts-cmd
