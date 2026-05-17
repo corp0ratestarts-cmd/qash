@@ -429,8 +429,8 @@ TX-0  NoOp
 TX-1  BoundedValidatorScoreDecrement
       mutation_footprint: {validators[i].score}
       §A8 form: A (score decrease reduces D_i,t, reducing V_convergence)
-      proof obligation: proofs/contractivity/tx1_score_decrement.v (pending)
-      status: PENDING PROOF
+      proof obligation: proofs/contractivity/tx1_score_decrement.v
+      status: FORMAL
 ```
 
 **No other transaction types exist until their §A8 proof obligations are filed
