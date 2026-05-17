@@ -15,7 +15,7 @@
 
 use qash_consensus::transaction::{
     apply_all, is_admissible, parse_tx0,
-    TxError, TX_TYPE_NOOP, TX_VERSION, TX0_WIRE_BYTES, PQ_SIG_BYTES,
+    TxError, TX_TYPE_NOOP, TX_VERSION, TX0_WIRE_BYTES,
 };
 use qash_consensus::transition::{
     advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
@@ -434,12 +434,6 @@ fn adversarial_tx0_state_locality() {
 /// Different epoch counters produce different state roots.
 #[test]
 fn adversarial_encoding_injectivity_epoch() {
-    let mut s0 = genesis_state();
-    let mut s1 = genesis_state();
-    s1.epoch = 1;
-    advance_epoch_no_op(&mut s0);
-    // s0 after one epoch vs s1 with manually bumped epoch: roots must differ
-    // (We compare across two fully-advanced states at epoch 1 vs a mangled one.)
     let mut a = genesis_state();
     let mut b = genesis_state();
     advance_epoch(&mut a, &idle_input(4), &[]).unwrap();
@@ -608,14 +602,6 @@ fn adversarial_lyapunov_violation_triggers_halt() {
     assert_eq!(r, Err(HaltReason::LyapunovViolation),
         "spike above ε must trigger H1 (LyapunovViolation)");
     assert!(state.is_halted());
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-fn advance_epoch_no_op(state: &mut EpochState) {
-    advance_epoch(state, &idle_input(state.validator_count), &[]).unwrap();
 }
 
 // ---------------------------------------------------------------------------

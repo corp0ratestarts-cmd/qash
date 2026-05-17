@@ -30,3 +30,21 @@ name = "transition_fuzz"
 path = "fuzz_targets/transition_fuzz.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fixed_point_fuzz"
+path = "fuzz_targets/fixed_point_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "lyapunov_fuzz"
+path = "fuzz_targets/lyapunov_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "tx_fuzz"
+path = "fuzz_targets/tx_fuzz.rs"
+test = false
+doc = false
