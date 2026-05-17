@@ -13,4 +13,5 @@ integration/th8_composition.v
 cascade/cascade_health_bounded.v
 cascade/cascade_determinism.v
 cascade/cascade_collision_resistance.v
+cascade/it_mac_forgery_bound.v
 blinding/blinding_non_interference.v

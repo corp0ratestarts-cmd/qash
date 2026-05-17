@@ -64,7 +64,7 @@ test(s) that exercise it at runtime.
 | Cascade collision resistance (reduction to L1 primitive) | §4c | **PLACEHOLDER** | `cascade/cascade_collision_resistance.v` — axiomatised pending hash model | `src/cascade.rs` | — |
 | Cascade health CH_t ∈ [0, p]; χ·CH_t no i128 overflow | §4c | **PROVED** | `ch_t_upper_bound`, `ch_term_admissible` in `cascade/cascade_health_bounded.v` | `src/cascade.rs` | — |
 | Blinding non-interference (PRF security of H_cascade_keyed) | §6 | **AXIOM** | `cascade_prf_security` in `blinding/blinding_non_interference.v` | `src/blinding.rs` | `blinding.rs::tests::*` |
-| 8-family cascade IT-MAC forgery ≤ 16/2¹²⁸ | §derive | **AXIOM** | informal — follows from GF(2¹²⁸) IT-MAC security definition | `src/derive.rs` | `derive::tests::gf128_mul_*` |
+| 8-family cascade IT-MAC forgery ≤ 16/2¹²⁸ | §derive | **PLACEHOLDER** | `cascade/it_mac_forgery_bound.v` discharges arithmetic cap; AU security game reduction still axiomatised | `src/derive.rs` | `derive::tests::gf128_mul_*` |
 
 ---
 
@@ -84,8 +84,8 @@ test(s) that exercise it at runtime.
 |--------|-------|
 | **PROVED** | 14 |
 | **CI-VERIFIED** | 5 |
-| **AXIOM** | 4 |
-| **PLACEHOLDER** | 1 |
+| **AXIOM** | 3 |
+| **PLACEHOLDER** | 2 |
 | **MISSING** | 0 |
 | **Total** | 24 |
 
@@ -101,4 +101,4 @@ known proof debt that should be discharged before mainnet.
 | TH-10 | Cascade collision resistance | Requires formalising hash function in Coq (Whirlpool/GHASH model); consider EasyCrypt or CryptHOL |
 | TH-11 | H_cascade cross-ISA determinism | **Discharged** — `tests/cascade_kat.rs` pins 3 KAT vectors; `platform-determinism.yml` cross-verifies on aarch64 and riscv64gc via QEMU |
 | Blinding PRF | H_cascade_keyed is a PRF | Formal proof in CryptHOL or SSProve; current Coq axiom is a sound placeholder |
-| IT-MAC | GF(2¹²⁸) forgery bound 16/2¹²⁸ | Mechanise in Coq using GHASH polynomial MAC security reduction |
+| IT-MAC | GF(2¹²⁸) forgery bound 16/2¹²⁸ | **Partially discharged** in `cascade/it_mac_forgery_bound.v` (numerical cap proved); AU game proof still open |
