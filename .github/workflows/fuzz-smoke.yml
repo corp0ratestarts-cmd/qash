@@ -8,6 +8,8 @@ on:
 jobs:
   fuzz-smoke:
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
 
@@ -16,11 +18,18 @@ jobs:
         with:
           components: rust-src, llvm-tools-preview
 
-      - name: Install system deps for libfuzzer
-        run: sudo apt-get update -qq && sudo apt-get install -y clang lld
+      - name: Cache cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            fuzz -> fuzz/target
+
+      - name: Install cargo-binstall (for fast cargo-fuzz install)
+        uses: cargo-bins/cargo-binstall@main
 
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz
+        run: cargo binstall cargo-fuzz --no-confirm
 
       # cargo fuzz run must be run from the project root so it can locate
       # ./fuzz/Cargo.toml. Running from inside fuzz/ would look for fuzz/fuzz/.
