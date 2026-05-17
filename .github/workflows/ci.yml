@@ -96,10 +96,15 @@ jobs:
               print("\n".join(failures))
               sys.exit(1)
           PY
+      - name: Check axiom coverage map
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/check_axiom_coverage.sh
       - name: Compile active Coq proofs
         working-directory: proofs
         run: |
           # Tier 1: no cross-QASH dependencies — compile first
+          coqc -Q . QASH crypto_game_framework.v
           coqc -Q . QASH util/list_inj.v
           coqc -Q . QASH contractivity/lyapunov_stability.v
           # Tier 2: depend only on Tier 1 or stdlib only
