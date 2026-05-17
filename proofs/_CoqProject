@@ -14,3 +14,4 @@ cascade/cascade_health_bounded.v
 cascade/cascade_determinism.v
 cascade/cascade_collision_resistance.v
 blinding/blinding_non_interference.v
+cascade/it_mac_forgery_bound.v
