@@ -14,18 +14,19 @@
 //! # Hash family registry (jurisdictional coverage)
 //! | Path | Primitive | Standard | Region |
 //! |------|-----------|----------|--------|
-//! | A | SHA3-256 | FIPS 202 / NIST | Global |
+//! | A | SHA3-512 | FIPS 202 / NIST | Global |
 //! | B | BLAKE3 | BLAKE3 spec | Global/IETF |
 //! | C | KangarooTwelve | NIST SP 800 draft | NIST/ISO |
 //! | D | SM3 | GB/T 32905-2016 | China OSCCA |
-//! | E | Streebog-256 | GOST R 34.11-2012 | Russia FSB |
+//! | E | Streebog-512 | GOST R 34.11-2012 | Russia FSB |
 //! | F | LSH-256 | KS X 3262:2017 | Korea KISA |
 //! | G | SHA3-384† | FIPS 202 / NIST | India MeitY† |
 //!
 //! †Path G uses SHA3-384 (rate=832, capacity=512), structurally distinct from
-//! SHA3-256 (rate=1088, capacity=256). A collision in SHA3-256 does not imply
-//! one in SHA3-384. Skein-256 is the long-term target for this slot; SHA3-384
-//! satisfies the India MeitY requirement that primitives be NIST SHA-3 family.
+//! SHA3-512 (rate=576, capacity=1024): different internal state partitioning means
+//! a collision in SHA3-512 does not imply one in SHA3-384. Skein-256 is the
+//! long-term target for this slot; SHA3-384 satisfies the India MeitY requirement
+//! that primitives be NIST SHA-3 family.
 //!
 //! # Domain A compliance
 //! - No unsafe, no float, no usize in wire/state context
@@ -33,9 +34,9 @@
 //! - Pure function: identical inputs → identical outputs on all authorized ISAs
 
 use blake3;
-use sha3::{Digest, Sha3_256, Sha3_384, Sha3_512};
+use sha3::{Digest, Sha3_384, Sha3_512};
 use sm3::Sm3;
-use streebog::Streebog256;
+use streebog::Streebog512;
 use tiny_keccak::{Hasher as K12Hasher, KangarooTwelve};
 
 use crate::lsh256::lsh256;
@@ -107,15 +108,16 @@ fn block16(data: &[u8], offset: usize) -> [u8; 16] {
 // prevent cross-path collisions even when all other inputs are identical.
 // ---------------------------------------------------------------------------
 
-fn path_a_sha3_256(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
-    let mut h = Sha3_256::new();
-    h.update(b"QASH:DERIVE:A:SHA3_256:NIST_FIPS202");
+fn path_a_sha3_512(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
+    // SHA3-512: rate=576, capacity=1024 bits — highest-security SHA3 fixed-output variant.
+    let mut h = Sha3_512::new();
+    h.update(b"QASH:DERIVE:A:SHA3_512:NIST_FIPS202");
     h.update(epoch_seed);
     h.update(epoch.to_le_bytes());
     h.update(validator_id.to_le_bytes());
-    let out = h.finalize();
+    let out = h.finalize(); // 64 bytes; take first 32
     let mut r = [0u8; 32];
-    r.copy_from_slice(&out);
+    r.copy_from_slice(&out[..32]);
     r
 }
 
@@ -152,14 +154,15 @@ fn path_d_sm3(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] 
 }
 
 fn path_e_streebog(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 32] {
-    let mut h = Streebog256::new();
-    h.update(b"QASH:DERIVE:E:STREEBOG256:RUSSIA_GOST_34_11_2012");
+    // Streebog-512: 512-bit output variant of GOST R 34.11-2012 — higher internal work than -256.
+    let mut h = Streebog512::new();
+    h.update(b"QASH:DERIVE:E:STREEBOG512:RUSSIA_GOST_34_11_2012");
     h.update(epoch_seed);
     h.update(epoch.to_le_bytes());
     h.update(validator_id.to_le_bytes());
-    let out = h.finalize();
+    let out = h.finalize(); // 64 bytes; take first 32
     let mut r = [0u8; 32];
-    r.copy_from_slice(&out);
+    r.copy_from_slice(&out[..32]);
     r
 }
 
@@ -211,7 +214,7 @@ pub fn derive_leaf_index(
     epoch_seed: &[u8; 32],
 ) -> [u8; 48] {
     // Step 1 — compute seven independent path hashes (each 32 bytes = 224 total).
-    let pa = path_a_sha3_256(epoch_seed, epoch, validator_id);
+    let pa = path_a_sha3_512(epoch_seed, epoch, validator_id);
     let pb = path_b_blake3(epoch_seed, epoch, validator_id);
     let pc = path_c_k12(epoch_seed, epoch, validator_id);
     let pd = path_d_sm3(epoch_seed, epoch, validator_id);
@@ -377,7 +380,7 @@ mod tests {
     #[test]
     fn all_paths_are_distinct() {
         let paths = [
-            path_a_sha3_256(&SEED_ZERO, 0, 1),
+            path_a_sha3_512(&SEED_ZERO, 0, 1),
             path_b_blake3(&SEED_ZERO, 0, 1),
             path_c_k12(&SEED_ZERO, 0, 1),
             path_d_sm3(&SEED_ZERO, 0, 1),
