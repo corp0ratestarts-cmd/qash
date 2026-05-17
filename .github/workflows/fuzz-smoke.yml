@@ -10,13 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
-      # Override rust-toolchain.toml (which pins stable) so every cargo
-      # invocation in this job uses nightly without needing +nightly flags.
-      RUSTUP_TOOLCHAIN: nightly
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup nightly Rust (required for libfuzzer)
+      # Install nightly so cargo-fuzz can build fuzz targets with -Z sanitizer=address.
+      - name: Setup nightly Rust
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src, llvm-tools-preview
@@ -26,22 +24,36 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cargo-fuzz
-          key: cargo-fuzz-${{ runner.os }}-nightly
+          key: cargo-fuzz-${{ runner.os }}-stable-${{ hashFiles('fuzz/Cargo.lock') }}
 
+      # cargo-fuzz (the CLI tool) compiles fine on stable Rust.
+      # Only the fuzz targets themselves require nightly (-Z flags).
+      # Installing with stable avoids nightly API churn breaking the tool build.
       - name: Install cargo-fuzz
         if: steps.cache-cargo-fuzz.outputs.cache-hit != 'true'
         run: cargo install cargo-fuzz
+        env:
+          RUSTUP_TOOLCHAIN: stable
 
       # cargo fuzz run must be run from the project root so it can locate
       # ./fuzz/Cargo.toml. Running from inside fuzz/ would look for fuzz/fuzz/.
+      #
+      # RUSTUP_TOOLCHAIN=nightly overrides the root rust-toolchain.toml (stable)
+      # so that cargo-fuzz's internal cargo +nightly calls resolve correctly.
       - name: Smoke — cascade_fuzz (15 s)
         run: cargo fuzz run cascade_fuzz -- -max_total_time=15
+        env:
+          RUSTUP_TOOLCHAIN: nightly
 
       - name: Smoke — decode_fuzz (15 s)
         run: cargo fuzz run decode_fuzz -- -max_total_time=15
+        env:
+          RUSTUP_TOOLCHAIN: nightly
 
       - name: Smoke — transition_fuzz (15 s)
         run: cargo fuzz run transition_fuzz -- -max_total_time=15
+        env:
+          RUSTUP_TOOLCHAIN: nightly
 
       - name: Upload crash artifacts
         if: failure()
