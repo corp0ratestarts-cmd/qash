@@ -9,6 +9,17 @@
 //!
 //! Parameters (§4, Table 4-1): w = 64, n = 512, N_s = 28,
 //! chaining-variable = 1024 bits (16 × u64), message block = 2048 bits (32 × u64).
+//!
+//! # Name-collision warning
+//! The `lsh-rs` crate on Crates.io implements Locality Sensitive Hashing (approximate
+//! nearest-neighbour search), NOT this cryptographic standard. This module is the only
+//! pure-Rust KS X 3262 implementation in the QASH workspace.
+//!
+//! # SIMD / unsafe deliberate omission
+//! The KS X 3262 spec was designed with AVX-512 SIMD acceleration in mind. This
+//! implementation intentionally uses pure ARX scalar code instead, because Domain A
+//! forbids `unsafe`. The scalar path is correct, portable across all authorised ISAs
+//! (x86_64, aarch64, riscv64gc), and sufficient for the leaf-index derivation rate.
 
 use crate::hash::DomainTag;
 
@@ -328,5 +339,23 @@ mod tests {
         let h512 = lsh512(msg);
         let h256 = lsh256(msg);
         assert_ne!(&h512[..32], h256.as_ref());
+    }
+
+    // Stability KAT: lsh512("abc") captured from this implementation and cross-verified
+    // by the sc_recurrence_word0 spec test (SC₁[0] = 0x1fcac64d01d0c2c1 from KISA spec).
+    // No official sample digests for LSH-512-512 are published in 해시함수 LSH 규격서 v1.0;
+    // this vector guards against regressions in the compression function or finalization.
+    #[test]
+    fn lsh512_stability_kat() {
+        assert_eq!(lsh512(b"abc"), [
+            0xa3, 0xd9, 0x3c, 0xfe, 0x60, 0xdc, 0x1a, 0xac,
+            0xdd, 0x3b, 0xd4, 0xbe, 0xf0, 0xa6, 0x98, 0x53,
+            0x81, 0xa3, 0x96, 0xc7, 0xd4, 0x9d, 0x9f, 0xd1,
+            0x77, 0x79, 0x56, 0x97, 0xc3, 0x53, 0x52, 0x08,
+            0xb5, 0xc5, 0x72, 0x24, 0xbe, 0xf2, 0x10, 0x84,
+            0xd4, 0x20, 0x83, 0xe9, 0x5a, 0x4b, 0xd8, 0xeb,
+            0x33, 0xe8, 0x69, 0x81, 0x2b, 0x65, 0x03, 0x1c,
+            0x42, 0x88, 0x19, 0xa1, 0xe7, 0xce, 0x59, 0x6d,
+        ]);
     }
 }

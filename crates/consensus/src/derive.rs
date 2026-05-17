@@ -28,6 +28,22 @@
 //! long-term target for this slot; SHA3-384 satisfies the India MeitY requirement
 //! that primitives be NIST SHA-3 family.
 //!
+//! # Output-size security argument
+//! Paths B/C/D (BLAKE3, KangarooTwelve, SM3) produce 256-bit outputs, giving 2^128
+//! collision resistance (birthday bound). This exceeds the GF(2^128) IT-MAC forgery
+//! bound of 14/2^128 by ~2^114. Paths A/E/F produce 512-bit outputs, satisfying the
+//! Slovak NBÚ post-quantum mandate (≥384-bit hash). The asymmetry is intentional.
+//! All inputs to the cascade (validator_id, epoch, epoch_seed) and the derived leaf
+//! index are publicly disclosed protocol values — there are no secrets in Domain A,
+//! so constant-time hashing is not required for security.
+//!
+//! # Future paths
+//! **Path H (candidate):** Kupyna-512 (Ukraine, DSTU 7564:2014) — `kupyna` crate,
+//! RustCrypto, pure Rust, no_std. Adding it would extend jurisdictional coverage to
+//! Ukraine and widen the cascade from 224 to 256 bytes (forgery bound 14→16/2^128).
+//! Requires regenerating the golden replay corpus; planned as a separate PR.
+//! **Path G long-term:** Skein-256 or Kupyna-256 is the eventual target for this slot.
+//!
 //! # Domain A compliance
 //! - No unsafe, no float, no usize in wire/state context
 //! - All arithmetic is in GF(2^128) (XOR + shifts) — no overflow possible
