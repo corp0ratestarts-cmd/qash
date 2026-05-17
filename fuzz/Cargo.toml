@@ -1,0 +1,21 @@
+[package]
+name = "qash-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+qash-consensus = { path = "../crates/consensus" }
+
+# Prevent this from interfering with workspace dependency resolution.
+[workspace]
+
+[[bin]]
+name = "tx_decode"
+path = "fuzz_targets/tx_decode.rs"
+test = false
+doc = false
