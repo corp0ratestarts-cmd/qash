@@ -1,6 +1,13 @@
 //! Domain-separated hashing (consensus-critical).
 //!
 //! H_domain(tag, input) = SHA3-256( tag_u32_le || input )
+//!
+//! SECURITY NOTE: `h_domain` and `sha3_256` are NOT constant-time with respect to
+//! their `input` argument. This is intentional and safe because all callers in
+//! Domain A pass **public consensus data** (state roots, validator IDs, entropy
+//! seeds, transaction bytes). These functions MUST NOT be called on secret material
+//! (private keys, blinding scalars, signing nonces). Such use belongs in Domain B
+//! with an appropriate constant-time wrapper.
 
 use sha3::{Digest, Sha3_256};
 

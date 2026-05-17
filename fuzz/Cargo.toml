@@ -42,3 +42,9 @@ name = "lyapunov_fuzz"
 path = "fuzz_targets/lyapunov_fuzz.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "tx_fuzz"
+path = "fuzz_targets/tx_fuzz.rs"
+test = false
+doc = false

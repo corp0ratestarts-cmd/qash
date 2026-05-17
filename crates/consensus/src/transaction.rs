@@ -128,6 +128,9 @@ pub fn sort_key(entropy_seed: &[u8; 32], tx_id_bytes: &[u8; 32]) -> [u8; 32] {
 // ---------------------------------------------------------------------------
 
 /// Find the validator slot index whose id matches `author_id`. O(N) scan.
+///
+/// Uses `==` on 48-byte arrays (not constant-time). This is safe because
+/// `author_id` and all `validator_ids` are public consensus data.
 fn index_of_validator(state: &EpochState, author_id: &[u8; 48]) -> Option<usize> {
     (0..state.validator_count as usize).find(|&i| &state.validator_ids[i] == author_id)
 }
