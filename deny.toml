@@ -1,0 +1,58 @@
+# cargo-deny configuration for QASH supply-chain security.
+# Run: cargo deny check
+# CI: .github/workflows/ci.yml supply-chain job
+
+[graph]
+all-features = false
+
+# ---------------------------------------------------------------------------
+# License policy
+# ---------------------------------------------------------------------------
+[licenses]
+version = 2
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "ISC",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "Unicode-3.0",
+    "0BSD",
+]
+confidence-threshold = 0.8
+
+# ---------------------------------------------------------------------------
+# Dependency bans
+# ---------------------------------------------------------------------------
+[bans]
+# Warn on multiple versions of the same crate; one intentional duplicate exists:
+# kupyna v0.1.0 pulls digest/block-buffer/crypto-common v0.11 while all other
+# hash crates (sha3, sm3, streebog) use v0.10. Tracked and intentional.
+multiple-versions = "warn"
+wildcards = "deny"
+highlight = "all"
+
+skip = [
+    { name = "digest" },
+    { name = "block-buffer" },
+    { name = "crypto-common" },
+    { name = "hybrid-array" },
+]
+
+# Crates that must never appear in the dependency graph.
+deny = [
+    # lsh-rs is Locality Sensitive Hashing, not KS X 3262.
+    # Confusion with our hand-rolled LSH-512 would be a silent security failure.
+    { name = "lsh-rs" },
+]
+
+# ---------------------------------------------------------------------------
+# Security advisories
+# ---------------------------------------------------------------------------
+[advisories]
+version = 2
+# Deny any crate with an unignored RustSec advisory.
+# Add to `ignore` only after triaging the specific advisory.
+ignore = []

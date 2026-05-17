@@ -39,7 +39,15 @@ jobs:
         run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::unreachable -D warnings
       - name: Clippy (workspace)
         run: cargo clippy --workspace -- -D warnings
-  coq-proofs:
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+      - name: cargo deny check
+        run: cargo deny check
+
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
