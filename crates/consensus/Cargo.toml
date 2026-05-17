@@ -12,6 +12,7 @@ blake3      = { version = "=1.5.5", default-features = false, features = ["pure"
 tiny-keccak = { version = "2",      features = ["k12"] }
 sm3         = { version = "0.4",    default-features = false }
 streebog    = { version = "0.10",   default-features = false }
+kupyna = { version = "0.1.0", default-features = false }
 
 [dev-dependencies]
 sha3 = { version = "0.10.8", default-features = false }
