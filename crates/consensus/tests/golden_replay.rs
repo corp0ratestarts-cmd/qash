@@ -112,11 +112,8 @@ fn halt_freezes_entire_state_except_halt_reason() {
     assert_eq!(res, Err(HaltReason::LyapunovViolation));
 
     // Temporarily reset halt_reason to compare all other fields
-    let stored = state.halt_reason;
     state.halt_reason = HaltReason::None;
     let fp_after = state_fingerprint(&state);
-    state.halt_reason = stored;
-
     assert_eq!(fp_before, fp_after, "state mutated during failed transition");
 }
 
@@ -175,11 +172,8 @@ fn window_check_precedes_push() {
 
     assert_eq!(advance_epoch(&mut state, &spike, &[]), Err(HaltReason::LyapunovViolation));
 
-    // Reset halt reason for fingerprint equality comparison
-    let stored = state.halt_reason;
     state.halt_reason = HaltReason::None;
     assert_eq!(state_fingerprint(&state), fp_before);
-    state.halt_reason = stored;
 }
 
 #[test]
