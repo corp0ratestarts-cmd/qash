@@ -13,10 +13,10 @@ members = [
 ]
 
 [dependencies]
-qash-consensus = { path = "crates/consensus" }
-qash-pal       = { path = "crates/pal" }
-qash-model     = { path = "model" }
-qash-address   = { path = "crates/address" }
+qash-consensus = { path = "crates/consensus", version = "0.1.0" }
+qash-pal       = { path = "crates/pal",       version = "0.1.0" }
+qash-model     = { path = "model",            version = "0.1.0" }
+qash-address   = { path = "crates/address",   version = "0.1.0" }
 
 [profile.release]
 opt-level = 3

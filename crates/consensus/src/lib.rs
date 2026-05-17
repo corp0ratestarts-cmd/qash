@@ -19,7 +19,7 @@ pub mod invariants;
 // Not yet activated in transition.rs (v1.1.1 feature gate — when WEIGHT_BH > 0).
 // Declared here so their unit tests run in CI.
 #[allow(dead_code)]
-pub(crate) mod cascade;
+pub mod cascade;
 #[allow(dead_code)]
 pub(crate) mod blinding;
 

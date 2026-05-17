@@ -16,6 +16,15 @@
 // The remaining ~5% exposure (program flow, non-secret memory addresses) is accepted
 // risk because it reveals metadata only, not key material — see §3.7.5 analysis.
 //
+// Domain B caller obligations (ref: "Hardening QASH Domain B on Consumer Hardware"):
+//   Directive 1 — ML-DSA NTT must use Code-Based Masking (CBM) on linear complementary
+//     codes plus 2-redundant bitsliced NTT on ARM Cortex-M / RISC-V targets.
+//   Directive 2 — ML-DSA must run in hedged mode; the caller must perform self-check
+//     verification (Az - c·t₁·2^d) before broadcasting any signature; on failure the
+//     caller must trigger absorbing halt and zeroize all registers.
+//   Protection of the blinding epoch_key itself (storage, derivation, zeroization) is
+//   the Domain B caller's responsibility; this module only consumes the key.
+//
 // Non-interference theorem (§3.7.5):
 //   For any blinded operation with valid blinding_params:
 //     Observations(exec(secret₁)) ≈ Observations(exec(secret₂))

@@ -62,3 +62,13 @@ Cross-domain contamination (a Domain B value influencing a Domain A computation)
 - All arithmetic must be checked; overflow triggers `Halt::absorbing_reset()`
 - No floating point anywhere in the consensus path
 - Use `BTreeMap` not `HashMap` for deterministic iteration order
+
+## PR Automation Rules
+
+These rules apply to every session, without needing to be asked:
+
+1. **Auto-undraft on green CI**: When a `<github-webhook-activity>` event arrives (or when checking PR status) and ALL CI check runs for a PR are in `completed` state with `conclusion: success`, AND the PR is still a draft, automatically call `mcp__github__update_pull_request` with `{ "draft": false }` to undraft it so auto-merge can trigger. Do not ask for confirmation — this is standing authorization.
+
+2. **Always create draft PRs after pushing**: After every `git push`, create a draft PR for the branch if one does not already exist (already the default from system instructions — listed here for clarity).
+
+3. **Subscribe to PR activity on creation**: After creating a PR, offer to subscribe to it with `mcp__github__subscribe_pr_activity` so CI failures and review comments are auto-fixed.

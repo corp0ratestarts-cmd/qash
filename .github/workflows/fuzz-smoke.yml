@@ -1,0 +1,63 @@
+name: Fuzz Smoke Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  fuzz-smoke:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+
+      # honggfuzz works with stable Rust — no nightly or LLVM/sanitizer needed.
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install honggfuzz system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential binutils-dev libunwind-dev liblzma-dev
+
+      - name: Cache cargo-hfuzz binary
+        id: cache-cargo-hfuzz
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-hfuzz
+          key: cargo-hfuzz-${{ runner.os }}-${{ hashFiles('fuzz/Cargo.lock') }}
+
+      - name: Install cargo-honggfuzz
+        if: steps.cache-cargo-hfuzz.outputs.cache-hit != 'true'
+        run: cargo install honggfuzz
+
+      # cargo hfuzz run must be invoked from the fuzz workspace directory.
+      # -N: stop after N executions (deterministic smoke budget).
+      # --exit_upon_crash: fail fast on first invariant violation.
+      # -n 1: single worker for reproducible CI behaviour.
+      - name: Smoke — cascade_fuzz (10 000 execs)
+        working-directory: fuzz
+        run: cargo hfuzz run cascade_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N 10000 --exit_upon_crash -n 1"
+
+      - name: Smoke — decode_fuzz (10 000 execs)
+        working-directory: fuzz
+        run: cargo hfuzz run decode_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N 10000 --exit_upon_crash -n 1"
+
+      - name: Smoke — transition_fuzz (10 000 execs)
+        working-directory: fuzz
+        run: cargo hfuzz run transition_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N 10000 --exit_upon_crash -n 1"
+
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes-${{ github.run_id }}
+          path: fuzz/hfuzz_workspace/
+          if-no-files-found: ignore

@@ -1,0 +1,32 @@
+[package]
+name = "qash-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Standalone workspace — excluded from the root workspace.
+# honggfuzz works with stable Rust; no nightly or LLVM required.
+[workspace]
+
+[dependencies]
+honggfuzz = "0.5"
+arbitrary = { version = "1", features = ["derive"] }
+qash-consensus = { path = "../crates/consensus", default-features = false }
+
+[[bin]]
+name = "cascade_fuzz"
+path = "fuzz_targets/cascade_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "decode_fuzz"
+path = "fuzz_targets/decode_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "transition_fuzz"
+path = "fuzz_targets/transition_fuzz.rs"
+test = false
+doc = false

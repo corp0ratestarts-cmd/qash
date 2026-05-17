@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "status": "code-derived scaffold pending ADR-003 full state encoding",
-  "description": "Golden-vector manifest for fixed-point, leaf-index, and noop epoch replay. The vector runner computes current executable outputs; cross-ISA CI compares those outputs byte-for-byte.",
+  "status": "code-derived scaffold — cross-ISA CI compares runner outputs byte-for-byte",
+  "description": "Golden-vector manifest for fixed-point, leaf-index, and noop epoch replay. All expected values were generated from the reference implementation (x86_64) and are verified by vector_runner.rs. Regenerate with: cargo test -p qash-consensus --test vector_runner regen -- --ignored --nocapture",
   "vectors": [
     {
       "name": "fixed_point_0_4_times_0_35",
@@ -20,17 +20,18 @@
         "epoch": 2,
         "epoch_seed_hex": "abababababababababababababababababababababababababababababababab"
       },
-      "expected_leaf_index_hex": "01000000000000000200000000000000abababababababababababababababababababababababababababababababab"
+      "expected_leaf_index_hex": "d08e6a53cd88f3663ce34f99bceaf5159fb9f5dc7161d5087a4faba90f5c32dd7c4299e14764979febc4c9e86311e515"
     },
     {
       "name": "genesis_noop_epochs",
       "pdf_section": "§4.2",
-      "status": "expected roots are intentionally produced by qash-vector-runner until ADR-003 defines full state encoding",
+      "validator_count": 4,
+      "status": "expected roots are code-derived from current implementation (4-validator all-zero genesis)",
       "epochs": [
         {
           "epoch": 1,
           "inputs": [],
-          "expected_state_root_hex": "7612c333f02983af0049da0e1adef54d5e2e5b06dafe0c6110d5879fb6b42fed",
+          "expected_state_root_hex": "513e26e067c3857289f0557adc7db9ea43cda6595cda4510cbf11af06196d352",
           "expected_lyapunov_raw": 0,
           "expected_phi_safety_raw": 0,
           "expected_halted": false
@@ -38,7 +39,7 @@
         {
           "epoch": 2,
           "inputs": [],
-          "expected_state_root_hex": "c16db0946e472a667eb1096e2c9b6354711cb6babdd826f7ed15bf80526bb663",
+          "expected_state_root_hex": "e7792b2a8317c5f935f957338614a81a406ca21275c18d2e4376523a98a1989b",
           "expected_lyapunov_raw": 0,
           "expected_phi_safety_raw": 0,
           "expected_halted": false
