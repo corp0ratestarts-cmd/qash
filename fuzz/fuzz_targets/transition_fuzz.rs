@@ -44,8 +44,9 @@ fn main() {
             let scale = 1_000_000i128;
 
             // Clamp all metrics to [0, SCALE] so the input is structurally valid.
-            let d = (fi.divergence_raw.abs() as i128).min(scale);
-            let c = (fi.conflict_raw.abs() as i128).min(scale);
+            // Cast to i128 before abs() — i32::MIN.abs() overflows i32 in debug mode.
+            let d = (fi.divergence_raw as i128).abs().min(scale);
+            let c = (fi.conflict_raw as i128).abs().min(scale);
             let s = (fi.slash_raw as i128).min(scale);
 
             let mut state = EpochState {
