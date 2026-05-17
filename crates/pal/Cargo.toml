@@ -2,9 +2,10 @@
 name = "qash-pal"
 version = "0.1.0"
 edition = "2021"
+license = "GPL-3.0-or-later"
 
 [dependencies]
-qash-consensus = { path = "../consensus" }
+qash-consensus = { path = "../consensus", version = "0.1.0" }
 
 [features]
 default = []

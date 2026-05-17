@@ -20,6 +20,9 @@ allow = [
     "CC0-1.0",
     "Unicode-3.0",
     "0BSD",
+    # First-party QASH crates are GPL-3.0-or-later; allow here so that
+    # cargo-deny does not reject the project's own workspace members.
+    "GPL-3.0-or-later",
 ]
 confidence-threshold = 0.8
 

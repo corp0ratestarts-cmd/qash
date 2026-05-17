@@ -6,4 +6,4 @@ license = "GPL-3.0-or-later"
 description = "Canonical reference execution layer — bridge between Coq proofs and production runtime"
 
 [dependencies]
-qash-consensus = { path = "../crates/consensus" }
+qash-consensus = { path = "../crates/consensus", version = "0.1.0" }
