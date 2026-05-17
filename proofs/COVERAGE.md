@@ -52,7 +52,7 @@ test(s) that exercise it at runtime.
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
 |----------|----------|--------|-------------|-----------|---------|
 | Cross-ISA replay invariance (x86_64, aarch64, riscv64gc) | §1 | **CI-VERIFIED** | TH-7 — enforced by CI golden replay (no Coq model needed) | `src/transition.rs`, `src/encoding.rs` | `tests/replay_corpus.rs`, `tests/golden_replay.rs::state_root_canonical_seq_golden` |
-| H_cascade bitwise-identical across Tier A ISAs | §4c | **PLACEHOLDER** | `cascade/cascade_determinism.v` — claim file; CI test vectors pending | `src/cascade.rs` | pending `tests/golden_replay.rs` extension |
+| H_cascade bitwise-identical across Tier A ISAs | §4c | **CI-VERIFIED** | — enforced by cascade KAT + platform-determinism cross-ISA CI | `src/cascade.rs` | `tests/cascade_kat.rs::cascade_kat_all_vectors`, `platform-determinism.yml` |
 
 ---
 
@@ -83,9 +83,9 @@ test(s) that exercise it at runtime.
 | Status | Count |
 |--------|-------|
 | **PROVED** | 14 |
-| **CI-VERIFIED** | 4 |
+| **CI-VERIFIED** | 5 |
 | **AXIOM** | 4 |
-| **PLACEHOLDER** | 2 |
+| **PLACEHOLDER** | 1 |
 | **MISSING** | 0 |
 | **Total** | 24 |
 
@@ -99,6 +99,6 @@ known proof debt that should be discharged before mainnet.
 | ID | Property | Path to proof |
 |----|----------|---------------|
 | TH-10 | Cascade collision resistance | Requires formalising hash function in Coq (Whirlpool/GHASH model); consider EasyCrypt or CryptHOL |
-| TH-11 | H_cascade cross-ISA determinism | Requires golden-vector CI extension for `cascade.rs` after test vectors are pinned |
+| TH-11 | H_cascade cross-ISA determinism | **Discharged** — `tests/cascade_kat.rs` pins 3 KAT vectors; `platform-determinism.yml` cross-verifies on aarch64 and riscv64gc via QEMU |
 | Blinding PRF | H_cascade_keyed is a PRF | Formal proof in CryptHOL or SSProve; current Coq axiom is a sound placeholder |
 | IT-MAC | GF(2¹²⁸) forgery bound 16/2¹²⁸ | Mechanise in Coq using GHASH polynomial MAC security reduction |

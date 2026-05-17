@@ -1,0 +1,40 @@
+name: Fuzz Smoke Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  fuzz-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup nightly Rust (required for libfuzzer)
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src, llvm-tools-preview
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: Smoke — cascade_fuzz (15 s)
+        working-directory: fuzz
+        run: cargo fuzz run cascade_fuzz -- -max_total_time=15
+
+      - name: Smoke — decode_fuzz (15 s)
+        working-directory: fuzz
+        run: cargo fuzz run decode_fuzz -- -max_total_time=15
+
+      - name: Smoke — transition_fuzz (15 s)
+        working-directory: fuzz
+        run: cargo fuzz run transition_fuzz -- -max_total_time=15
+
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes-${{ github.run_id }}
+          path: fuzz/artifacts/
+          if-no-files-found: ignore
