@@ -101,7 +101,13 @@ pub fn encode_validator_dynamic(
     out[32..48].copy_from_slice(&fixed_point::encode_fixed_point(slash_accum));
 }
 
-/// Decode as 3×i128 LE; enforce D,C bounds in [0, SCALE] (H4 on violation).
+/// Decode as 3×i128 LE; enforce D,C ∈ [0, SCALE] and S ∈ [0, i64::MAX] (H4 on violation).
+///
+/// NOTE: This is the 48-byte i128 commitment encoding, distinct from the 24-byte i64
+/// compact wire format used inside `decode_full_state`. The slash_accum upper bound
+/// mirrors the `to_i64()` invariant enforced by `advance_epoch` (transition line ~459)
+/// so that any decoded state is immediately usable in a transition without triggering
+/// a halt on that check alone.
 pub fn decode_validator_dynamic(
     bytes: &[u8; VALIDATOR_DYNAMIC_SIZE as usize],
 ) -> Result<(FixedPoint, FixedPoint, FixedPoint), EncodeError> {
@@ -118,6 +124,10 @@ pub fn decode_validator_dynamic(
 
     let scale = fixed_point::SCALE;
     if d.raw() < 0 || d.raw() > scale || c.raw() < 0 || c.raw() > scale {
+        return Err(EncodeError::DecodeInvalid);
+    }
+    // slash_accum must be non-negative and fit in i64 (wire and transition invariant).
+    if s.raw() < 0 || s.raw() > i64::MAX as i128 {
         return Err(EncodeError::DecodeInvalid);
     }
 

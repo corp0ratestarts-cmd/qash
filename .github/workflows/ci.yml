@@ -56,6 +56,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y coq
+      - name: Record Coq version
+        run: coqc --version | tee proof-coq-version.txt
       - name: Reject admitted active proofs
         run: |
           python - <<'PY'
@@ -117,3 +119,16 @@ jobs:
             model/Model.v; do
             coqc -Q . QASH "$f"
           done
+      - name: Record proof-object hashes
+        # Produces a reproducibility manifest: auditors can verify .vo files
+        # match a specific Coq version + source commit pair.
+        working-directory: proofs
+        run: find . -name "*.vo" | sort | xargs sha256sum > ../proof-hashes.txt
+      - name: Upload proof artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-objects-${{ github.sha }}
+          path: |
+            proof-coq-version.txt
+            proof-hashes.txt
+          if-no-files-found: error
