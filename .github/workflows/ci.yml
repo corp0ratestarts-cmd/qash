@@ -96,6 +96,9 @@ jobs:
               print("\n".join(failures))
               sys.exit(1)
           PY
+      - name: Fetch base ref for axiom guard
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }} --depth=1
       - name: Check axiom coverage map
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
