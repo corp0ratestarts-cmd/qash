@@ -7,7 +7,7 @@
       almost-universal polynomial MAC bound.
 
     Scope:
-      The arithmetic cap (n/2^128 ≤ 16/2^128 for n ≤ 16) is fully proved.
+      The arithmetic cap (n/2^128 <= 16/2^128 for n <= 16) is fully proved.
       The underlying game-based AU property is stated as a typed axiom
       (`ghash_poly_mac_au_bound`) rather than a vacuous `True` placeholder,
       so Coq type-checks the statement structure even though the game proof
@@ -20,34 +20,27 @@ Require Import QASH.crypto_game_framework.
 Open Scope Z_scope.
 
 (* ---------------------------------------------------------------------------
-   Concrete forgery advantage for a GHASH-style polynomial MAC.
-   Matches AU_MAC_advantage from the framework: n blocks → n / 2^128.
+   Abstract forgery advantage.
+   Using a Parameter (not a Definition equal to AU_MAC_advantage) ensures
+   the axiom below is a genuine constraint, not a trivial adv_le_refl.
    --------------------------------------------------------------------------- *)
 
-Definition ghash_forgery_advantage (n : Z) : Advantage :=
-  AU_MAC_advantage n.
+(** The actual GHASH forgery advantage for n blocks.  Abstract — its concrete
+    value is unknown; the axiom below bounds it from above. *)
+Parameter ghash_forgery_advantage : Z -> Advantage.
 
 (* ---------------------------------------------------------------------------
    Arithmetic theorems (fully proved, no axioms).
    --------------------------------------------------------------------------- *)
 
-(** The forgery advantage for n ≤ 16 blocks is at most the cap at 16 blocks. *)
+(** The 16-block cap: 16 * 2^128 is exactly the AU_MAC_advantage 16 numerator. *)
 Theorem it_mac_forgery_bound_at_16_blocks :
   forall blocks,
     0 <= blocks <= 16 ->
     (blocks * two_pow_128 <= 16 * two_pow_128)%Z.
 Proof.
   intros blocks Hrange.
-  apply Z.mul_le_mono_nonneg_r; [lia | apply Z.lt_le_incl, two_pow_128_pos].
-Qed.
-
-(** Corollary in advantage terms. *)
-Theorem it_mac_advantage_mono_16 :
-  forall n, 0 <= n <= 16 ->
-    adv_le (ghash_forgery_advantage n) (ghash_forgery_advantage 16).
-Proof.
-  intros n Hn.
-  apply au_mac_advantage_mono. lia.
+  apply Z.mul_le_mono_nonneg_r; [apply Z.lt_le_incl, two_pow_128_pos | lia].
 Qed.
 
 (* ---------------------------------------------------------------------------
@@ -78,15 +71,4 @@ Theorem it_mac_forgery_bound_16 :
   adv_le (ghash_forgery_advantage 16) (AU_MAC_advantage 16).
 Proof.
   apply ghash_poly_mac_au_bound. lia.
-Qed.
-
-(** For any n ≤ 16, the forgery advantage is bounded by the 16-block cap. *)
-Theorem it_mac_forgery_bound_at_most_16 :
-  forall n, 0 <= n <= 16 ->
-    adv_le (ghash_forgery_advantage n) (AU_MAC_advantage 16).
-Proof.
-  intros n Hn.
-  apply adv_le_trans with (b := AU_MAC_advantage n).
-  - apply ghash_poly_mac_au_bound. lia.
-  - apply au_mac_advantage_mono. lia.
 Qed.

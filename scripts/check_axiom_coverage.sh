@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # check_axiom_coverage.sh — Fail if new Axiom declarations are introduced
-# without a corresponding update to proofs/COVERAGE.md.
+# without being documented in proofs/COVERAGE.md.
 #
-# In a PR context (GITHUB_BASE_SHA set), compares the Axiom set in the PR
-# against the base commit.  On direct pushes to main (no base SHA), prints a
-# summary of all axioms and exits 0.
+# In a PR context (GITHUB_BASE_SHA set), compares the Axiom set against the
+# base commit.  For each new axiom, verifies its name appears in COVERAGE.md.
+# On direct pushes (no base SHA), prints a summary and exits 0.
 #
 # Exit codes:
-#   0 — No new axioms, or new axioms are documented in COVERAGE.md.
-#   1 — New axioms introduced without updating COVERAGE.md.
+#   0 — No new axioms, or all new axioms are mentioned in COVERAGE.md.
+#   1 — New axioms introduced without documentation in COVERAGE.md.
 
 set -euo pipefail
 
@@ -34,7 +34,7 @@ def collect_axioms_from_worktree():
 
 
 def collect_axioms_from_ref(ref):
-    """Return the set of Axiom names declared in active .v files at git ref."""
+    """Return the set of Axiom names in active .v files at git ref, or None on error."""
     result = set()
     try:
         ls = subprocess.run(
@@ -42,16 +42,19 @@ def collect_axioms_from_ref(ref):
             capture_output=True, text=True, check=True,
         )
     except subprocess.CalledProcessError:
-        return None  # ref not found
+        return None
     for path in ls.stdout.splitlines():
         if not path.startswith("proofs/") or not path.endswith(".v"):
             continue
         if "_wip" in path:
             continue
-        content = subprocess.run(
-            ["git", "show", f"{ref}:{path}"],
-            capture_output=True, text=True,
-        ).stdout
+        try:
+            content = subprocess.run(
+                ["git", "show", f"{ref}:{path}"],
+                capture_output=True, text=True, check=True,
+            ).stdout
+        except subprocess.CalledProcessError:
+            continue
         for line in content.splitlines():
             m = re.match(r"\s*Axiom\s+(\w+)", line)
             if m:
@@ -62,14 +65,13 @@ def collect_axioms_from_ref(ref):
 base_sha = os.environ.get("GITHUB_BASE_SHA", "").strip()
 
 if not base_sha:
-    # Not a PR — summarise all axioms and exit cleanly.
     axioms = collect_axioms_from_worktree()
     print(f"Axiom summary ({len(axioms)} total): {sorted(axioms)}")
     sys.exit(0)
 
 base_axioms = collect_axioms_from_ref(base_sha)
 if base_axioms is None:
-    print(f"Warning: could not resolve base SHA {base_sha!r}; skipping check.")
+    print(f"Warning: could not resolve base ref {base_sha!r}; skipping check.")
     sys.exit(0)
 
 head_axioms = collect_axioms_from_worktree()
@@ -79,20 +81,18 @@ if not new_axioms:
     print(f"No new axioms introduced. ({len(head_axioms)} total) OK.")
     sys.exit(0)
 
-# New axioms found — require COVERAGE.md to have been updated in this PR.
-cov_diff = subprocess.run(
-    ["git", "diff", "--name-only", base_sha, "HEAD", "--", "proofs/COVERAGE.md"],
-    capture_output=True, text=True,
-).stdout.strip()
+# New axioms found — verify each name appears in COVERAGE.md.
+# This avoids git diff (unreliable in shallow clones).
+cov_text = pathlib.Path("proofs/COVERAGE.md").read_text()
+missing = [a for a in sorted(new_axioms) if a not in cov_text]
 
-if not cov_diff:
-    print("ERROR: New Axiom declarations introduced without updating proofs/COVERAGE.md.")
-    print("New axioms:")
-    for a in sorted(new_axioms):
+if missing:
+    print("ERROR: New Axiom declarations not documented in proofs/COVERAGE.md:")
+    for a in missing:
         print(f"  {a}")
     print()
-    print("Document each new axiom in proofs/COVERAGE.md before merging.")
+    print("Add each axiom name to proofs/COVERAGE.md before merging.")
     sys.exit(1)
 
-print(f"New axioms {sorted(new_axioms)} — COVERAGE.md updated. OK.")
+print(f"New axioms {sorted(new_axioms)} — all mentioned in COVERAGE.md. OK.")
 PY

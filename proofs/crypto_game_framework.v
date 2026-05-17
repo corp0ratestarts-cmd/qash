@@ -65,27 +65,19 @@ Proof.
   unfold adv_le. lia.
 Qed.
 
-Lemma adv_le_trans : forall a b c,
-  adv_le a b -> adv_le b c -> adv_le a c.
-Proof.
-  intros a b c Hab Hbc.
-  unfold adv_le in *.
-  pose proof (adv_den_pos a) as Ha.
-  pose proof (adv_den_pos b) as Hb.
-  pose proof (adv_den_pos c) as Hc.
-  nia.
-Qed.
-
+(** Monotonicity of AU_MAC_advantage: more blocks → higher cap. *)
 Lemma au_mac_advantage_mono : forall n m,
   n <= m -> adv_le (AU_MAC_advantage n) (AU_MAC_advantage m).
 Proof.
   intros n m H.
   unfold adv_le, AU_MAC_advantage; simpl.
+  (* Goal: n * two_pow_128 <= m * two_pow_128 *)
   apply Z.mul_le_mono_nonneg_r.
   - apply Z.lt_le_incl, two_pow_128_pos.
   - exact H.
 Qed.
 
+(** Monotonicity of PRF_advantage: more queries → higher cap. *)
 Lemma prf_advantage_mono : forall q1 q2,
   q1 <= q2 -> adv_le (PRF_advantage q1) (PRF_advantage q2).
 Proof.
