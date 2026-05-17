@@ -13,6 +13,7 @@
 | TH-7 | Replay invariance | VERIFIED | CI (golden_replay.rs + cross-ISA) | Verified on x86_64, aarch64, riscv64gc via QEMU user-static. Identical state roots across all three ISAs. Not formally proved (ISA axiomatisation deferred). |
 | TH-8 | Succession soundness | FORMAL | `safety/absorbing_halt.v` + `integration/th8_composition.v` | Fully proved. Halt-frozen state in absorbing_halt.v; uniqueness composed via AX-3 in th8_composition.v. |
 | TX-0 ε_τ=0 | TX-0 zero perturbation | FORMAL | `contractivity/tx_perturbation_0.v` | Fully proved. apply_tx0 leaves V_convergence unchanged (§A8 Form A). |
+| TX-1 non-increase | TX-1 BoundedValidatorScoreDecrement | FORMAL | `contractivity/tx1_score_decrement.v` | Fully proved. apply_tx1 cannot increase V_convergence (§A8 Form A, stronger: non-increasing). |
 
 ## File Map
 

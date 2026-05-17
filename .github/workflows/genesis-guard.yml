@@ -1,0 +1,31 @@
+name: Genesis Guard
+
+on:
+  pull_request:
+    paths:
+      - 'GENESIS_CONSTANTS.toml'
+
+jobs:
+  genesis-change-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require human acknowledgment for genesis constant changes
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if echo "$PR_BODY" | grep -qF '[genesis-change-acknowledged]'; then
+            echo "Genesis change acknowledged. Proceeding."
+          else
+            echo ""
+            echo "ERROR: GENESIS_CONSTANTS.toml was modified but the PR body"
+            echo "does not contain the required acknowledgment token."
+            echo ""
+            echo "Genesis constant changes define a new network and must be"
+            echo "reviewed by a human before merge. Add this exact token to"
+            echo "the PR description to unblock this check:"
+            echo ""
+            echo "    [genesis-change-acknowledged]"
+            echo ""
+            echo "See .github/PULL_REQUEST_TEMPLATE.md for the full checklist."
+            exit 1
+          fi

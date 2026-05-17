@@ -670,11 +670,224 @@ tv_tx0_inactive_author:
 
 ---
 
-## §TX-1 — Validator-Metric Update
+## §TX-1 — BoundedValidatorScoreDecrement
 
-*Specification deferred. TX-1 design captured in repository review notes;
-not yet ratified into the protocol. TX-1 will be added in a separate spec
-revision after TX-0 is CI-validated.*
+### Purpose
+
+TX-1 allows any active validator to submit a bounded downward adjustment to
+a target validator's divergence score (`D_i,t`).  Decreasing `D_i,t` reduces
+`V_convergence`, moving the epoch closer to the stability threshold.  This is
+the mechanism by which the active set signals improving convergence without
+waiting for a full epoch rollover.
+
+The decrement is *bounded* in two senses:
+
+1. `new_D ≥ 0` — divergence cannot go negative.
+2. `new_D ≤ current_D` — the transaction can only decrease divergence, never
+   increase it.  The §A8 proof guarantees `V_convergence` is non-increasing.
+
+### Wire format
+
+```
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| version (1B) | tx_type=0x01  |        nonce (4B, BE)         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                    author_id (48 bytes)                       |
+|                         ...                                   |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|         payload_len = 8       |   target_idx (u32, BE)  ...  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  ... target_idx (cont)  |        delta (u32, BE)        ...  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  ... delta (cont)       |   signature (2420 bytes, Dilith5)   |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+**Payload fields** (`payload_len` MUST equal 8):
+
+| Field | Type | Size | Description |
+|-------|------|------|-------------|
+| `target_idx` | `u32` big-endian | 4 bytes | Index into `S_t.validators[]` |
+| `delta` | `u32` big-endian | 4 bytes | Decrement amount; `new_D = max(0, D_i − delta)` |
+
+### Type-specific decode failures
+
+| Code | Condition |
+|------|-----------|
+| `0x16` | `payload_len ≠ 8` |
+| `0x17` | `target_idx` encodes a value ≥ `N_max` (1024) |
+
+### Admissibility predicate
+
+Let `i = target_idx`, `D_i = S_t.validators[i].divergence`.
+
+```
+admissible_TX1(S_t, τ):
+  ∧ author_id ∈ active_set(S_t)                   (§A6: author active)
+  ∧ τ.nonce = S_t.validators[author_idx].nonce     (§A6: nonce match)
+  ∧ target_idx < |S_t.validators|                  (valid index)
+  ∧ delta ≤ D_i                                    (bounded decrement)
+  ∧ epoch_budget_ok(S_t, ε_TX1)                   (§A8: budget)
+```
+
+Additional admissibility rejection codes:
+
+| Code | Condition |
+|------|-----------|
+| `0x30` | author not in active set |
+| `0x31` | nonce mismatch |
+| `0x33` | `target_idx` out of bounds for current validator set |
+| `0x34` | `delta > D_i` (would underflow; violates bounded decrement) |
+
+### Transition function
+
+```
+𝒯_TX1(S_t, τ):
+  let author_idx = index_of_validator(S_t, τ.author_id)
+  let i          = τ.payload.target_idx
+  let delta      = τ.payload.delta
+  let D_i        = S_t.validators[i].divergence
+  let new_D      = max(0, D_i − delta)     ← checked; delta ≤ D_i guaranteed by admissibility
+  S_{t+1} = S_t with
+    validators[author_idx].nonce ← nonce + 1
+    validators[i].divergence     ← new_D
+```
+
+**Touch-set:** `{ validators[author_idx].nonce, validators[i].divergence }`
+
+### Invariant impact
+
+| Metric | Effect | Explanation |
+|--------|--------|-------------|
+| D_i,t | ↓ bounded | `new_D ≤ D_i`; cannot increase |
+| C_i,t | unchanged | conflict field untouched |
+| Σ_i,t | unchanged | slash_accum untouched |
+| V_convergence | ↓ or unchanged | `weight_D * ΔD ≤ 0`; formally proved |
+
+### §A8 properties
+
+**§A8 form:** Form A (stronger: non-increasing)
+
+**ε_τ:** ≤ 0 (V_convergence cannot increase)
+
+**σ_τ:** 0 (slash_accum unchanged)
+
+**Proof file:** `proofs/contractivity/tx1_score_decrement.v`
+
+**Proof status:** FORMAL — `TX1_score_decrement_nonincreasing` fully proved,
+zero `Admitted` markers.
+
+### §A1 determinism argument
+
+`target_idx` and `delta` are decoded from canonical big-endian fixed-width
+fields.  The `max(0, D_i − delta)` uses checked subtraction and is
+platform-independent.  No entropy or wall-clock ingress.
+
+### §A2 termination bound B_τ
+
+Constant: decode (O(1)) + two field writes (O(1)).  No loops.
+
+### §A4 StateWF preservation
+
+`new_D = max(0, D_i − delta) ∈ [0, D_i] ⊆ [0, scale]`.  All other fields
+unchanged from a WF state; `nonce + 1` is checked (overflow → absorbing halt).
+
+### Rejection taxonomy
+
+| Class | Code | Condition |
+|-------|------|-----------|
+| Decode | 0x10 | malformed envelope |
+| Decode | 0x14 | signature verification failed |
+| Decode | 0x16 | `payload_len ≠ 8` |
+| Decode | 0x17 | `target_idx ≥ N_max` |
+| Admissibility | 0x30 | author not in active set |
+| Admissibility | 0x31 | nonce mismatch |
+| Admissibility | 0x33 | `target_idx` out of bounds |
+| Admissibility | 0x34 | `delta > D_i` |
+
+### Test vectors
+
+```yaml
+tv_tx1_basic:
+  description: Valid TX-1 decrements divergence of validator 1 by 100
+  S_t:
+    validators:
+      - id:        "0xa1b2...[48 bytes]"   # author, idx=0
+        nonce:     5
+        active:    true
+        divergence: 500
+      - id:        "0xc3d4...[48 bytes]"   # target, idx=1
+        active:    true
+        divergence: 800
+  τ:
+    version:     1
+    tx_type:     1
+    nonce:       5
+    author_id:   "0xa1b2...[48 bytes]"
+    payload_len: 8
+    payload:     [0x00, 0x00, 0x00, 0x01,   # target_idx = 1 (BE)
+                  0x00, 0x00, 0x00, 0x64]   # delta = 100 (BE)
+    signature:   "0x...[2420 bytes]"
+  expected:
+    result: success
+    S_prime.validators[0].nonce:      6
+    S_prime.validators[1].divergence: 700
+    all_other_fields_unchanged: true
+
+tv_tx1_delta_equals_divergence:
+  description: delta == D_i reduces divergence to exactly 0
+  S_t:
+    validators:
+      - id: "0xa1b2...[48 bytes]"
+        nonce: 0
+        active: true
+        divergence: 30
+      - id: "0xc3d4...[48 bytes]"
+        active: true
+        divergence: 30
+  τ:
+    tx_type:     1
+    nonce:       0
+    author_id:   "0xa1b2...[48 bytes]"
+    payload:     [0x00, 0x00, 0x00, 0x01,   # target_idx = 1
+                  0x00, 0x00, 0x00, 0x1E]   # delta = 30
+  expected:
+    result: success
+    S_prime.validators[1].divergence: 0
+
+tv_tx1_delta_exceeds:
+  description: delta > D_i is rejected with 0x34
+  S_t:
+    validators:
+      - id: "0xa1b2...[48 bytes]"
+        nonce: 0
+        active: true
+        divergence: 100
+      - id: "0xc3d4...[48 bytes]"
+        active: true
+        divergence: 50
+  τ:
+    tx_type:  1
+    nonce:    0
+    author_id: "0xa1b2...[48 bytes]"
+    payload:  [0x00, 0x00, 0x00, 0x01,   # target_idx = 1
+               0x00, 0x00, 0x00, 0x64]   # delta = 100 > 50
+  expected:
+    result: AdmissibilityResult::Reject(0x34)
+    state_unchanged: true
+
+tv_tx1_bad_payload_len:
+  description: payload_len ≠ 8 is rejected with 0x16
+  τ:
+    tx_type:     1
+    payload_len: 4
+    payload:     [0x00, 0x00, 0x00, 0x01]
+  expected:
+    result: DecodeResult::Invalid(0x16)
+    state_unchanged: true
+```
 
 ---
 
@@ -686,6 +899,7 @@ a new network.
 | tx_type | Name | §A8 form | ε_τ | σ_τ | touch fields | Proof status |
 |---------|------|----------|-----|-----|--------------|--------------|
 | 0 | TX-0 No-Op | A | 0 | 0 | `{validators[author].nonce}` | FORMAL |
+| 1 | TX-1 BoundedValidatorScoreDecrement | A (non-increasing) | ≤ 0 | 0 | `{validators[author].nonce, validators[target].divergence}` | FORMAL |
 
 Future revisions will extend this table as transaction types are ratified.
 
