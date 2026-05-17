@@ -203,3 +203,81 @@ fn gen_replay_snapshots() {
     snap("epoch1", 4, 1);
     snap("epoch3", 4, 3);
 }
+
+#[ignore]
+#[test]
+fn _scratch_check_v1_vectors() {
+    use qash_consensus::transition::{advance_epoch, EpochState, EpochInput, HaltReason, MAX_VALIDATORS};
+    use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
+    use qash_consensus::derive::derive_leaf_index;
+    
+    // Check 4-validator genesis
+    let mut state = EpochState {
+        epoch: 0,
+        halt_reason: HaltReason::None,
+        entropy_seed: [0u8; 32],
+        validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
+        validator_count: 4,
+        convergence_window: ConvergenceWindow::new(),
+        nonces: [0u64; MAX_VALIDATORS],
+        validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        state_root: [0u8; 32],
+    };
+    let input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 4 };
+    advance_epoch(&mut state, &input, &[]).unwrap();
+    eprintln!("4-validator epoch 1 root: {}", hex_encode(&state.state_root));
+    
+    // Check 0-validator genesis
+    let mut state0 = EpochState {
+        epoch: 0,
+        halt_reason: HaltReason::None,
+        entropy_seed: [0u8; 32],
+        validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
+        validator_count: 0,
+        convergence_window: ConvergenceWindow::new(),
+        nonces: [0u64; MAX_VALIDATORS],
+        validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        state_root: [0u8; 32],
+    };
+    let input0 = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 0 };
+    let r0 = advance_epoch(&mut state0, &input0, &[]);
+    eprintln!("0-validator epoch 1 result: {:?}", r0);
+    if r0.is_ok() {
+        eprintln!("0-validator epoch 1 root: {}", hex_encode(&state0.state_root));
+    }
+    
+    // Check derive_leaf_index with 32-byte ab seed
+    let seed = [0xabu8; 32];
+    let leaf = derive_leaf_index(1, 2, &seed);
+    eprintln!("derive_leaf_index(1, 2, [0xab;32]): {}", hex_encode(&leaf));
+}
+
+fn hex_encode(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+#[ignore]
+#[test]
+fn _scratch_epoch2_root() {
+    use qash_consensus::transition::{advance_epoch, EpochState, EpochInput, HaltReason, MAX_VALIDATORS};
+    use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
+    
+    let mut state = EpochState {
+        epoch: 0,
+        halt_reason: HaltReason::None,
+        entropy_seed: [0u8; 32],
+        validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
+        validator_count: 4,
+        convergence_window: ConvergenceWindow::new(),
+        nonces: [0u64; MAX_VALIDATORS],
+        validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        state_root: [0u8; 32],
+    };
+    for epoch in 1..=2u64 {
+        let input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 4 };
+        let r = advance_epoch(&mut state, &input, &[]).unwrap();
+        let bytes: Vec<String> = state.state_root.iter().map(|b| format!("{:02x}", b)).collect();
+        eprintln!("epoch {} root: {}", epoch, bytes.join(""));
+        eprintln!("  lyapunov_raw: {}, phi_safety_raw: {}", r.lyapunov.v_convergence.raw(), r.lyapunov.phi_safety.raw());
+    }
+}
