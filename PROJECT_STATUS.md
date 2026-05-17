@@ -1,218 +1,223 @@
 # QASH — Project Status and Strategic Roadmap
 
-> **Audience:** Technical reviewers, external auditors, prospective contributors, and investors.
-> This document gives an honest current-state assessment, maps known gaps to specific actions,
-> and establishes a prioritized roadmap toward genesis lock and production readiness.
+> **Audience:** External auditors, potential contributors, and technical reviewers.
+> This document gives an honest account of what has been built, what the open gaps
+> are, and what the priority order for closing them is. It is updated as milestones
+> are reached.
 >
-> **Last updated:** May 2026. Reflects the independent audit of the architecture and
-> consensus implementation by an external reviewer.
+> Last updated: 2026-05-17. Based on internal review and an independent external
+> audit of the architecture, workspace, and consensus implementation.
 
 ---
 
 ## What QASH Is (One Paragraph)
 
-QASH is a deterministic replicated transition calculus — a replicated state machine whose
-primary invariant is *identical replay produces identical state* across all authorized ISAs.
-It is post-quantum anchored (8-family hash cascade, ML-DSA/SLH-DSA signing), formally
-machine-verified for its core safety properties (14 proved Coq theorems, zero `Admitted`
-markers), and designed for zero governance: once `GENESIS_CONSTANTS.toml` is locked, no
-protocol upgrade is possible without a new network. The architecture is closer to avionics
-software than to a conventional blockchain node.
+QASH is a deterministic replicated transition calculus — a formally constrained
+state machine whose correctness properties are intended to be machine-checkable
+from explicit axioms. The design goal is the digital equivalent of physical cash:
+offline-operable, jurisdiction-neutral, governance-free, and replay-deterministic
+across all authorized ISAs. The central invariant is: **identical replay produces
+identical state**, with no exceptions in Domain A. This is achieved through strict
+language-level and architectural constraints on the consensus core (`crates/consensus`),
+enforced at the type level and by CI.
+
+For full context see `README.md`, `design_decisions.md`, and `docs/spec/00_execution_model.md`.
 
 ---
 
 ## Honest Current State
 
-### What is solid
-
-| Area | Assessment |
-|------|-----------|
-| Determinism discipline | **Excellent.** Domain A/B partition is rigorously enforced. No `unsafe`, no floats, no nondeterministic collections, no wall-clock access in consensus. |
-| Formal safety proofs | **Strong.** 14 theorems proved in Coq with zero `Admitted`. Covers encoding injectivity, Lyapunov convergence, halt correctness, succession soundness, TX-0/TX-1 perturbation bounds. |
-| Cross-ISA replay verification | **CI-verified.** Identical state roots on x86_64, aarch64, riscv64gc (QEMU) on every PR. |
-| Serialization discipline | **Correct.** Manual little-endian encoding, fixed-width slots, strict decode validation (rejects malformed padding, invalid halt codes, nonzero reserved fields). |
-| Fuzz coverage | **Gate in place.** Three Domain A fuzz targets (cascade, decode, transition) run 10k iterations per PR via honggfuzz on stable Rust. |
-| Proof coverage map | **Complete.** Every stated protocol property has an explicit status in `proofs/COVERAGE.md`. No silent gaps. |
-
-### What is not yet solid
-
-| Gap | Risk level | Detail |
-|-----|-----------|--------|
-| Runtime operational maturity | **High** | PAL Host returns zeroes/no-ops. Network, persistence, crash recovery, and distributed operation are not implemented. This is not a deployable node. |
-| Reproducible build pipeline | **Medium** | No Nix/Docker pinned environment, no byte-identical release attestations, no multi-compiler differential testing. AX-2 (compiler correctness) is trusted without tooling. |
-| Proof CI artifact trail | **Medium** | Coq proofs compile but there are no machine-readable CI proof hashes, no extraction reproducibility docs, no Coq ↔ Rust refinement proofs. External auditors cannot independently verify proof reproducibility without running Coq locally. |
-| Adversarial halt simulation | **Medium-High** | The absorbing-halt architecture is correct by construction, but the attack surface for liveness suppression (malformed inputs triggering halt, economic griefing via validator slot manipulation) has not been adversarially exercised. |
-| Fixed-size array scaling | **Medium** | `MAX_VALIDATORS = 1024` with large fixed arrays creates worst-case stack/memory footprint concerns. No benchmark exists for worst-case epoch transition cost. |
-| Open proof obligations | **Low-Medium** | 1 PLACEHOLDER (TH-10: cascade collision resistance requires hash model in EasyCrypt/CryptHOL), 3 AXIOMs (blinding PRF, IT-MAC forgery bound, SHA3 collision resistance). All are mathematically justified but not mechanised. |
+| Dimension | Status | Notes |
+|-----------|--------|-------|
+| Consensus core correctness | **Strong** | `no_std`, `forbid(unsafe_code)`, determinism constraints fully enforced |
+| Formal proof coverage | **Strong conceptually** | 14 PROVED, 5 CI-VERIFIED, 4 AXIOM, 1 PLACEHOLDER — see `proofs/COVERAGE.md` |
+| Proof CI pipeline | **Incomplete** | Coq compiles locally; no proof-hash artifacts or automated reproducibility attestations yet |
+| Runtime / PAL implementation | **Scaffold only** | PAL Host returns zeroes/no-ops; no network, no persistence, no crash recovery |
+| Fuzzing infrastructure | **Basic** | honggfuzz harness for 3 Domain A targets; fuzz-smoke CI gate passes |
+| Performance benchmarks | **None** | Worst-case epoch transition cost, serialization throughput, stack depth: unmeasured |
+| Reproducible builds | **None** | No Nix/Docker environment, no byte-identical attestation, no pinned build pipeline |
+| Adversarial simulation | **None** | Halt-trigger griefing, liveness suppression, economic griefing: untested |
+| Deep module audits | **Pending** | `fixed_point.rs`, `encoding.rs`, `lyapunov.rs`, `hash.rs` not yet independently audited |
+| Production readiness | **Pre-production** | Intentionally — this is a protocol design and formal proof repository |
 
 ---
 
-## Strategic Priorities
+## What the External Audit Found
 
-### Priority 1 — Proof reproducibility pipeline (before genesis lock)
+An independent architectural review identified the following (ordered by severity):
 
-The audit's highest-confidence finding: proof claims currently exceed the visible audit trail.
+### High — Operational immaturity
+The runtime is a thin scaffold. Network behavior, adversarial I/O, persistence,
+crash recovery, and synchronization have not been exercised. The protocol design
+is rigorous; the operational system is pre-production. This is expected at this
+stage and explicitly documented, but must be resolved before any deployment.
 
-**Actions:**
-- Add Coq proof hash check to `ci.yml` — compute `sha256sum proofs/**/*.v` at compile time and store in `proofs/PROOF_HASHES.txt`, verified on CI.
-- Publish a pinned Coq Docker image (`coq:8.18` + `mathcomp`) so any reviewer can re-verify locally with a single `docker run` command.
-- Document the extraction pipeline: how Coq `Model.v` maps to `model/` Rust, and what invariants are checked at the boundary.
-- Add a `verify-proofs.sh` script at the repo root that re-runs `coqc` on all non-`_wip` files and reports zero failures.
+**Target milestone:** PAL Host implementation with real network, storage, and
+recovery; end-to-end integration test suite.
 
-**Files affected:** `ci.yml`, `proofs/PROOF_HASHES.txt` (new), `scripts/verify-proofs.sh` (new), `proofs/README.md` (new).
+### Potentially High — Halt-trigger fragility
+The absorbing-halt semantic is philosophically correct and formally proved (TH-4
+through TH-8). However, systems with deterministic halt-on-divergence can be
+vulnerable to: malformed edge-case inputs triggering halt, validator liveness
+suppression, and economic griefing through intentional divergence injection.
+The proofs cover correctness of the halt mechanism, not resistance to adversarial
+activation of it.
 
----
+**Target milestone:** Adversarial simulation suite targeting halt-trigger paths;
+formal analysis of minimum input required to trigger halt; grief-cost analysis.
 
-### Priority 2 — Adversarial halt simulation (before genesis lock)
+### Medium — Proof claims exceed visible audit trail
+The theorems compile under `coqc` and are listed in `proofs/STATUS.md`, but
+there are no: machine-checked proof CI artifacts with hashes, proof
+reproducibility pipeline, extraction equivalence documentation, or refinement
+proofs between Coq model and Rust runtime. The claims are likely sound; the
+independently reproducible evidence trail is incomplete.
 
-The absorbing halt design is the right choice for a deterministic system. Its attack surface
-must be adversarially exercised before any network carries real value.
+**Target milestone:** CI job that runs `coqc` on all proof files and records
+output hashes as build artifacts; proof coverage matrix linked to specific
+Coq theorems with commit-pinned hashes; extraction pipeline documentation.
 
-**Actions:**
-- Extend `transition_fuzz` to cover specifically the halt-triggering boundary: values near
-  `ε_halt` (20k), `SLASH_MAX`, `WEIGHT_BH`-triggered cascades, and validator count edge cases.
-- Write a dedicated `halt_grief_sim.rs` test that simulates an economically adversarial validator
-  submitting minimal divergence variations across epochs to find the cheapest halt-trigger path.
-- Verify that the 10× tolerance margin (ε_honest=2k, ε_halt=20k) holds under all `FuzzInput`
-  combinations — not just the current `within_epsilon_does_not_halt` golden test.
+### Medium — Fixed-size structures create scaling and pressure concerns
+`MAX_VALIDATORS = 1024` with large fixed arrays, full-state copies per epoch,
+and stack-heavy structures may create stack exhaustion risks, cache inefficiency,
+serialization amplification, and replay cost spikes — even if all values are
+formally deterministic.
 
-**Files affected:** `fuzz/fuzz_targets/transition_fuzz.rs`, `crates/consensus/tests/halt_grief_sim.rs` (new).
+**Target milestone:** Benchmark suite measuring worst-case epoch transition
+memory footprint, serialization throughput, stack growth under nested transitions,
+and replay latency. Results archived under `artifacts/benchmarks/`.
 
----
+### Medium — Large trusted computing base without attestation
+Correctness reduces to ISA correctness, Rust compiler correctness, and AX-3
+(cryptographic assumption). That is mathematically honest but operationally the
+compiler/toolchain trust boundary is large. There is no reproducible build
+framework, binary transparency mechanism, or multi-compiler validation.
 
-### Priority 3 — Deep audit of four core modules
-
-The external auditor identified four modules requiring close inspection before any genesis lock
-claim can be independently validated.
-
-**`fixed_point.rs`**
-- Verify that all checked arithmetic paths genuinely reach `absorbing_reset()` on overflow — no
-  silent saturation or truncation.
-- Document the rounding invariant (truncating division vs. floor) and test it at boundary values.
-- Add a proptest that generates random `FixedPoint` pairs and verifies `a * b` never silently
-  exceeds `i128::MAX / SCALE`.
-
-**`encoding.rs`**
-- Verify canonicalization: no two distinct `EpochState` values produce the same byte sequence
-  (TH-1 is proved in Coq; this needs an independent Rust-level injectivity test with proptest).
-- Audit all `decode_*` paths for malformed-input rejection completeness.
-- Add a corpus of known-bad byte sequences (truncated, misaligned, wrong version) as regression vectors.
-
-**`lyapunov.rs`**
-- Stress-test monotonicity: `V_convergence` must never increase across an epoch under any valid
-  input. The Coq proof covers the model; the Rust implementation should have a proptest mirroring it.
-- Verify adversarial convergence: a validator set designed to maximize `δ_window` while staying
-  below `ε_halt` should not be able to prevent eventual halt indefinitely.
-
-**`cascade.rs` + `hash.rs`**
-- Verify domain separation: `h_cascade(x)` and `h_cascade_keyed(k, x)` must not collide for
-  any fixed `k ≠ ∅` (probabilistic; fuzz already covers this partially).
-- Audit constant-time behavior: none of the 8 hash primitives must branch on secret inputs.
-  This is a property of the underlying crates (sha3, blake3, etc.) — document the guarantee
-  and add a CI note referencing each crate's constant-time claims.
-
-**Files affected:** `crates/consensus/src/fixed_point.rs`, `crates/consensus/tests/fixed_point_props.rs` (new), `crates/consensus/tests/encoding_props.rs` (new), `crates/consensus/tests/lyapunov_props.rs` (new).
+**Target milestone:** Reproducible build environment (Nix flake or pinned Docker);
+byte-identical release attestations; dual-compiler differential testing (at minimum
+two different LLVM backend configurations).
 
 ---
 
-### Priority 4 — Reproducible builds and binary transparency
+## Strategic Next Steps (Prioritized)
 
-AX-2 (compiler correctness) is a load-bearing axiom. The current repo has no tooling to
-validate it independently.
+### Phase 1 — Pre-genesis lock (current)
 
-**Actions:**
-- Add `rust-toolchain.toml` at the root pinning the exact stable channel + component set
-  (already partially done in some sub-crates; needs to be canonical and enforced).
-- Add a `Dockerfile.build` that produces a byte-identical binary from a clean Ubuntu image.
-- Add a GitHub Actions workflow `reproducible-build.yml` that builds twice in parallel, hashes
-  both binaries, and fails if they differ.
-- Publish a `BUILD_ATTESTATION.md` template for release artifacts: toolchain hash, target triple,
-  build flags, binary SHA3-256.
+These must be completed before `GENESIS_CONSTANTS.toml` is locked. Everything
+here is Domain A correctness work.
 
-**Files affected:** `rust-toolchain.toml` (root), `Dockerfile.build` (new), `.github/workflows/reproducible-build.yml` (new), `docs/BUILD_ATTESTATION.md` (new).
+1. **Discharge open proof obligations** (`proofs/COVERAGE.md`):
+   - TH-10: Cascade collision resistance (`cascade/cascade_collision_resistance.v`)
+     — requires formalising hash function; consider EasyCrypt or CryptHOL
+   - Blinding PRF: `H_cascade_keyed` is a PRF — formal proof in CryptHOL/SSProve
+   - IT-MAC: GF(2¹²⁸) forgery bound — mechanise in Coq via GHASH polynomial MAC reduction
 
----
+2. **Proof CI pipeline**:
+   - Add `coq-check` CI job that runs `coqc` on all files under `proofs/`
+   - Record proof-object hashes as build artifacts
+   - Fail CI on any new `Admitted` marker
 
-### Priority 5 — PAL host implementation (operational maturity)
+3. **Deep audit of core Domain A modules** (target: external cryptographer review):
+   - `fixed_point.rs` — overflow handling, saturation behavior, rounding invariants
+   - `encoding.rs` — injectivity edge cases, malformed input handling, canonicalization
+   - `lyapunov.rs` — monotonicity assumptions, adversarial convergence behavior
+   - `hash.rs` / `cascade.rs` — constant-time concerns, domain separation correctness
+   - `transaction.rs` — nonce handling, validator slot invariants, reordering resistance
 
-The runtime is currently a CLI demo. This is honest and documented, but it means the protocol's
-operational properties — network partitioning behavior, crash recovery, synchronization — are
-entirely untested.
+4. **Fuzz coverage expansion**:
+   - Add `fixed_point_fuzz` target: exercise overflow/saturation boundaries
+   - Add `encoding_fuzz` target: verify decode never panics + encode/decode roundtrip
+   - Add `lyapunov_fuzz` target: verify monotonicity invariant under arbitrary inputs
+   - Extend `transition_fuzz` to cover halt-trigger edge cases explicitly
 
-This is the largest gap between design quality and deployment readiness.
+### Phase 2 — Operational hardening
 
-**Milestone: Testnet-capable node**
+These are prerequisites for any deployment, testnet or otherwise.
 
-Required PAL implementations (in order of dependency):
-1. `Time` trait — monotonic clock, epoch boundary detection
-2. `Net` trait — peer discovery, message broadcast, receive loop
-3. Persistence — canonical `EpochState` write-ahead log
-4. `Attest` trait — hardware attestation stub (TPM or software fallback)
-5. `Halt` trait — clean shutdown + state preservation on absorbing halt
+5. **PAL Host implementation**:
+   - Real network transport (TCP/UDP; P2P gossip)
+   - Persistent state storage (crash-safe WAL or equivalent)
+   - Crash recovery with replay-from-genesis verification
+   - Integration test suite exercising Domain B → Domain A boundary
 
-None of these require Domain A changes. They are Domain B (`crates/pal/`) work with `unsafe`
-permitted under audit.
+6. **Performance characterization**:
+   - Benchmark worst-case epoch transition (1024 validators, max divergence)
+   - Measure serialization throughput and stack depth
+   - Profile replay latency against spec requirements (450 ms control-loop budget)
+   - Archive results under `artifacts/benchmarks/`
 
-**Files affected:** `crates/pal/src/hosted/` (new implementations), `src/main.rs` (wire PAL traits).
+7. **Adversarial simulation**:
+   - Halt-trigger test suite: minimum input cost to trigger absorbing halt
+   - Liveness suppression simulation: can a minority validator coalition freeze progress?
+   - Economic grief analysis: cost/benefit of intentional divergence injection
+   - Reorg/replay attack surface review (even without PoW/PoS, replay vectors exist)
 
----
+### Phase 3 — Assurance hardening
 
-### Priority 6 — Discharge remaining open proof obligations
+These are required for independent auditability and long-term trust.
 
-| Obligation | Path to discharge | Effort |
-|-----------|------------------|--------|
-| TH-10: Cascade collision resistance | Model SHA3/BLAKE3 in EasyCrypt or CryptHOL; reduce to AX-3. Alternatively, axiomatise in Coq with a documented computational assumption (lower effort, lower assurance). | High |
-| Blinding PRF (AX-cascade_prf) | Formal proof in CryptHOL or SSProve that `H_cascade_keyed` is a PRF under AX-3. | High |
-| IT-MAC forgery bound | Mechanise GF(2¹²⁸) GHASH reduction in Coq. | Medium |
+8. **Reproducible builds**:
+   - Nix flake or pinned Docker image for all build/proof tooling
+   - Byte-identical release attestation CI job
+   - `rust-toolchain.toml` pinned to specific nightly hash (for fuzz) and stable (for consensus)
 
-Until TH-10 is discharged, the cascade collision resistance claim rests on AX-3 (SHA3 collision
-resistance) by reduction — mathematically sound but not mechanically verified.
+9. **Proof-to-code refinement**:
+   - Formal refinement proof between `proofs/model/Model.v` and `crates/consensus/`
+   - Coq extraction pipeline producing executable Rust skeleton verified against `crates/`
+   - Document trusted axiom minimization (reduce dependence on AX-2)
 
----
-
-## Constraints That Will Not Change
-
-These are design properties, not limitations. Any proposed change that violates them requires
-a new network, not a protocol upgrade.
-
-1. **No floating point in Domain A** — ever.
-2. **No unsafe in Domain A** — ever.
-3. **`GENESIS_CONSTANTS.toml` is append-only** — modification defines a new network.
-4. **No governance, no upgrade mechanism** — the protocol is one-shot by design.
-5. **Replay invariance is the primary invariant** — all other properties are subordinate to it.
-6. **Overflow → absorbing halt** — never saturation, never silent truncation.
-7. **BTreeMap, not HashMap** — deterministic iteration order is non-negotiable.
-
----
-
-## Milestone Summary
-
-| Milestone | Key deliverables | Target |
-|-----------|-----------------|--------|
-| **M1: Audit-ready** | Proof CI hashes, verify-proofs.sh, adversarial halt simulation, fixed_point/encoding/lyapunov property tests | Pre-genesis lock |
-| **M2: Genesis lock** | All theorems proved (no PLACEHOLDER), GENESIS_CONSTANTS.toml locked, reproducible build attestation | Genesis event |
-| **M3: Testnet** | PAL host implementation (Time, Net, persistence, Halt), single-node operation, basic peer sync | Post-genesis |
-| **M4: Adversarial testnet** | Multi-validator adversarial simulation, economic griefing resistance validated, halt-recovery documented | Pre-mainnet |
-| **M5: Mainnet** | Binary transparency, independent external audit sign-off, deployment documentation | Mainnet launch |
+10. **Multi-compiler differential testing**:
+    - Build consensus crate with two different LLVM configurations
+    - Build with `cranelift` backend as differential oracle
+    - Cross-check state roots from each build on identical input corpus
 
 ---
 
-## What This Repo Is Not Yet
+## What Is Not Changing
 
-To be explicit for any reader evaluating this project:
+These are fixed constraints that no future work will alter:
 
-- **Not a deployable node.** The PAL host returns zeroes/no-ops. No network, no persistence.
-- **Not independently audited.** The proofs are machine-checked by Coq but have not been
-  reviewed by an external formal-methods team.
-- **Not benchmarked.** Worst-case epoch transition cost, serialization throughput, and replay
-  latency are not yet measured.
-- **Not production-hardened.** Crash recovery, adversarial network behavior, and validator
-  slot exhaustion attacks have not been exercised.
-
-The architecture is unusually rigorous for a project at this stage. The gap is execution
-maturity, not conceptual soundness.
+- `GENESIS_CONSTANTS.toml` is append-only until genesis lock; after lock it is immutable.
+  Any change defines a new network.
+- Domain A (`crates/consensus`) forbids: `unsafe`, `f32`/`f64`, `usize`/`isize` in
+  state fields, `HashMap`, wall clock, OS entropy, unchecked arithmetic.
+- All arithmetic overflow in Domain A triggers absorbing halt — not panic, not saturation.
+- Every new transaction type requires a filed proof obligation on its effect on
+  `δ_window` before any implementation is merged.
+- Cross-ISA replay invariance (TH-7) is a non-negotiable CI gate.
 
 ---
 
-*This document is updated alongside significant architectural or milestone changes.*
-*It does not replace the normative spec PDF or `docs/traceability.md`.*
+## Proof Coverage Summary (current)
+
+| Status | Count | Meaning |
+|--------|-------|---------|
+| PROVED | 14 | Coq theorem, compiles, zero `Admitted` |
+| CI-VERIFIED | 5 | Verified by cross-ISA CI or KAT vectors |
+| AXIOM | 4 | Assumed with documented justification; not provable from first principles |
+| PLACEHOLDER | 1 | Coq file exists, body axiomatised; full proof deferred |
+| MISSING | 0 | |
+
+Full matrix: `proofs/COVERAGE.md`
+
+---
+
+## Key Files for Reviewers
+
+| File | Purpose |
+|------|---------|
+| `README.md` | Project identity, theorem table, contributor rules |
+| `design_decisions.md` | Architectural decisions and rationale |
+| `GENESIS_CONSTANTS.toml` | All protocol parameters (immutable after lock) |
+| `docs/spec/00_execution_model.md` | Domain A/B partition, execution constraints |
+| `docs/spec/01_consensus.md` | State space, encoding, transition function |
+| `docs/spec/07_hash_cascade.md` | 8-family cascade spec (v1.1) |
+| `docs/traceability.md` | PDF → code → test → proof audit contract |
+| `proofs/COVERAGE.md` | Full proof obligation matrix |
+| `proofs/STATUS.md` | Per-file Coq compilation status |
+| `crates/consensus/src/transition.rs` | Core state transition function |
+| `crates/consensus/src/encoding.rs` | Canonical serialization |
+| `crates/consensus/src/fixed_point.rs` | Fixed-point arithmetic (audit target) |
+| `crates/consensus/src/lyapunov.rs` | Lyapunov stability evaluation |
+| `fuzz/fuzz_targets/` | Fuzz harnesses for Domain A functions |
+| `.github/workflows/` | CI pipeline definitions |
