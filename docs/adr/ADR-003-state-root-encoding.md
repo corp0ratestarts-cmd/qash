@@ -18,6 +18,8 @@ commits to the full state or a summary.
 
 ## Decision
 
+Superseded by accepted `ADR-003-state-root-and-encoding.md`: v1.0 genesis state roots use `H_domain(STATE_ROOT, Encode_for_commitment(...))` (SHA3-256 over `tag_u32_le || input`). `H_cascade` is not active for v1.0 state roots; any cascade state-root activation is a post-genesis migration item requiring a separate ADR and fresh KAT vectors.
+
 Define a full canonical state encoding before genesis lock. The definition must
 include:
 
