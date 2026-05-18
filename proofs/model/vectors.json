@@ -2,7 +2,7 @@
   "generated_by": "crates/consensus/tests/gen_vectors.rs",
   "spec": "proofs/model/Model.v",
   "coq_theorems": ["TH-3a","TH-3b","TH-6"],
-  "note": "Vectors computed from the Rust implementation, which is proved correct against the Coq proofs above. Any divergence between advance_epoch() and these vectors signals a regression against the formal model.",
+  "note": "Legacy full-state/root vectors computed from the Rust implementation and regression-tested by crates/consensus/tests/coq_vectors.rs. Checked Coq-origin artifacts for the current refinement surface live in encoding_vectors.json and transition_observations.json.",
   "vectors": [
   {"id":"TV-0","desc":"genesis state, 0 epochs, all-zero root","vc":4,"steps":[],"expect":{"epoch":0,"halt":false,"halt_reason":0,"state_root":"0000000000000000000000000000000000000000000000000000000000000000"}},
   {"id":"TV-1","desc":"1 idle epoch","vc":4,"steps":[{"kind":"idle","update_count":4}],"expect":{"epoch":1,"halt":false,"halt_reason":0,"state_root":"513e26e067c3857289f0557adc7db9ea43cda6595cda4510cbf11af06196d352"}},
