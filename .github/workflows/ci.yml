@@ -23,6 +23,8 @@ jobs:
         run: cargo test --workspace --no-default-features
       - name: Verify deterministic build pipeline
         run: ./scripts/verify_two_stage_build.sh
+      - name: Verify genesis artifact-set hash
+        run: ./scripts/verify_genesis_hash.sh
 
   clippy-lint:
     runs-on: ubuntu-latest

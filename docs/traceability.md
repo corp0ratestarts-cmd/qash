@@ -129,11 +129,11 @@
 |-------|-------|
 | **PDF §** | §2.1 (pp. 2–3, provisional), §10.1 (pp. 25–26, provisional), Appendix E (p. 31, provisional) |
 | **PDF quote** | `genesis_hash = "SHA3-256:<computed_hash>"` / `sha3-256sum genesis.toml` |
-| **Code** | `GENESIS_CONSTANTS.toml` has `genesis_hash = "SHA3-256:PLACEHOLDER"`. |
-| **Test / Vector** | — |
+| **Code** | `GENESIS_CONSTANTS.toml` records a recomputable pre-lock artifact-set digest and explicitly marks `genesis_status = "provisional"` with `deployment_authoritative = false`. `scripts/verify_genesis_hash.sh` recomputes the digest from `spec/genesis-artifacts.txt`. |
+| **Test / Vector** | `.github/workflows/ci.yml` and `.github/workflows/genesis-guard.yml` run `./scripts/verify_genesis_hash.sh`. |
 | **Proof** | — |
 | **Status** | ❌ |
-| **Gap** | Terminal gate. The hash cannot be locked until the normative PDF is committed, ERR-001 and relevant ADRs are resolved, full encoding is defined, and cross-ISA vectors pass. |
+| **Gap** | Terminal gate. The current hash is provisional and not deployment-authoritative. It cannot be locked until the normative PDF is committed, every provisional quote/page reference in this file plus `docs/errata/` and `docs/adr/` is verified against that PDF, ERR-001 and relevant ADRs are resolved, full encoding is defined, and cross-ISA vectors pass. |
 
 ---
 

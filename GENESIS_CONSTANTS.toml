@@ -1,9 +1,12 @@
 [meta]
 version = "1.0.0"
 lock_algorithm = "SHA3-256"
+genesis_status = "provisional"
+deployment_authoritative = false
+artifact_manifest = "spec/genesis-artifacts.txt"
 deployment_model = "one-shot"
 governance = "zero"
-genesis_hash = "SHA3-256:8e245b6ca135f72b562282e2b240b08ae32b1b1eefd95131c3a2e57d162cf27b"
+genesis_hash = "SHA3-256:7717c6d299e5df790debb94eba3c2acc64f0c6ec128a8c8d5ab8fb63f2320295"
 
 [fixed_point]
 scale = 1_000_000
