@@ -10,7 +10,9 @@ pub const WINDOW_SIZE: usize = WINDOW_SIZE_WIRE as usize;
 pub const WEIGHT_D: FixedPoint = FixedPoint::from_raw(400_000);
 pub const WEIGHT_C: FixedPoint = FixedPoint::from_raw(350_000);
 pub const WEIGHT_S: FixedPoint = FixedPoint::from_raw(250_000);
-pub const EPSILON:  FixedPoint = FixedPoint::from_raw(20_000);
+pub const EPSILON: FixedPoint = FixedPoint::from_raw(20_000);
+/// Maximum safe Φ_safety value (raw fixed-point units) before H7 halt.
+pub const PHI_MAX_SAFE: FixedPoint = FixedPoint::from_raw(500_000_000);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LyapunovError {
@@ -19,14 +21,16 @@ pub enum LyapunovError {
 }
 
 impl From<OverflowError> for LyapunovError {
-    fn from(_: OverflowError) -> Self { LyapunovError::Overflow }
+    fn from(_: OverflowError) -> Self {
+        LyapunovError::Overflow
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValidatorMetrics {
-    pub divergence: FixedPoint,   // D in [0, SCALE]
-    pub conflict: FixedPoint,     // C in [0, SCALE]
-    pub slash_accum: FixedPoint,  // Σ >= 0 (monotone; not bounded by protocol)
+    pub divergence: FixedPoint,  // D in [0, SCALE]
+    pub conflict: FixedPoint,    // C in [0, SCALE]
+    pub slash_accum: FixedPoint, // Σ >= 0 (monotone; not bounded by protocol)
 }
 
 impl ValidatorMetrics {
@@ -39,8 +43,10 @@ impl ValidatorMetrics {
     #[inline]
     pub fn metrics_bounded(&self) -> bool {
         let s = SCALE;
-        self.divergence.raw() >= 0 && self.divergence.raw() <= s &&
-        self.conflict.raw()  >= 0 && self.conflict.raw()  <= s
+        self.divergence.raw() >= 0
+            && self.divergence.raw() <= s
+            && self.conflict.raw() >= 0
+            && self.conflict.raw() <= s
     }
 }
 
@@ -105,7 +111,7 @@ impl ConvergenceWindow {
 pub struct LyapunovEval {
     /// V_convergence = Σ(α·D + β·C). Used for δ_window check.
     pub v_convergence: FixedPoint,
-    /// Φ_safety = γ·max(slash). Monitoring only — NOT used in halt gate.
+    /// Φ_safety = γ·Σ(slash_i). Used for H7 halt gate.
     pub phi_safety: FixedPoint,
     /// V_total = V_convergence + Φ_safety. Informational.
     pub v_total: FixedPoint,
@@ -113,6 +119,8 @@ pub struct LyapunovEval {
     pub delta_window: FixedPoint,
     /// Whether δ_window > ε (triggers H1 halt).
     pub halt_triggered: bool,
+    /// Whether Φ_safety >= PHI_MAX_SAFE (triggers H7 halt).
+    pub phi_halt_triggered: bool,
 }
 
 pub fn compute_delta_window(
@@ -128,7 +136,7 @@ pub fn evaluate(
     window: &ConvergenceWindow,
 ) -> Result<LyapunovEval, LyapunovError> {
     let mut v_sum = FixedPoint::ZERO;
-    let mut max_slash = FixedPoint::ZERO;
+    let mut sum_slash = FixedPoint::ZERO;
 
     for v in validators {
         if !v.metrics_bounded() {
@@ -138,11 +146,12 @@ pub fn evaluate(
         let term_c = WEIGHT_C.checked_mul(v.conflict)?;
         let term = term_d.checked_add(term_c)?;
         v_sum = v_sum.checked_add(term)?;
-        max_slash = max_slash.max(v.slash_accum);
+        sum_slash = sum_slash.checked_add(v.slash_accum)?;
     }
 
-    let phi = WEIGHT_S.checked_mul(max_slash)?;
+    let phi = WEIGHT_S.checked_mul(sum_slash)?;
     let v_total = v_sum.checked_add(phi)?;
+    let phi_halt_triggered = phi.raw() >= PHI_MAX_SAFE.raw();
 
     // IMPORTANT: δ_window is checked against V_CONVERGENCE (v_sum), NOT V_total.
     let (delta_window, halt_triggered) = if window.is_full() {
@@ -158,12 +167,48 @@ pub fn evaluate(
         v_total,
         delta_window,
         halt_triggered,
+        phi_halt_triggered,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn phi_safety_sums_across_validators() {
+        let validators = [
+            ValidatorMetrics {
+                divergence: FixedPoint::ZERO,
+                conflict: FixedPoint::ZERO,
+                slash_accum: FixedPoint::from_raw(400_000_000),
+            },
+            ValidatorMetrics {
+                divergence: FixedPoint::ZERO,
+                conflict: FixedPoint::ZERO,
+                slash_accum: FixedPoint::from_raw(400_000_000),
+            },
+        ];
+
+        let eval = evaluate(&validators, &ConvergenceWindow::new()).unwrap();
+
+        assert_eq!(eval.phi_safety.raw(), 200_000_000);
+        assert!(!eval.phi_halt_triggered);
+    }
+
+    #[test]
+    fn phi_halt_triggers_at_threshold() {
+        let validators = [ValidatorMetrics {
+            divergence: FixedPoint::ZERO,
+            conflict: FixedPoint::ZERO,
+            slash_accum: FixedPoint::from_raw(2_000_000_000),
+        }];
+
+        let eval = evaluate(&validators, &ConvergenceWindow::new()).unwrap();
+
+        assert_eq!(eval.phi_safety, PHI_MAX_SAFE);
+        assert!(eval.phi_halt_triggered);
+    }
 
     #[test]
     fn push_shifts_correctly() {
