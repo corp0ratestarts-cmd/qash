@@ -6,7 +6,7 @@ deployment_authoritative = false
 artifact_manifest = "spec/genesis-artifacts.txt"
 deployment_model = "one-shot"
 governance = "zero"
-genesis_hash = "SHA3-256:3913573be97357ba4b3c584b7a646f552246a03b9feb38dc19d7b26b3b5044c5"
+genesis_hash = "SHA3-256:ed04a1d7920e016298253b45e011999ac904068d2fda1b29dbd3c9ca77320156"
 
 [fixed_point]
 scale = 1_000_000
