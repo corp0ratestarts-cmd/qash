@@ -11,17 +11,16 @@
 //            slash monotonicity, update-count mismatch
 //   §A3     State locality — TX-0 mutates only nonces[idx]
 //   §A4     Encoding injectivity — distinct state fields → distinct roots
-//   §A6     Halt absorption — all six HaltReason codes remain latched
+//   §A6     Halt absorption — all seven HaltReason codes remain latched
 
+use qash_consensus::fixed_point::{FixedPoint, SCALE};
+use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
 use qash_consensus::transaction::{
-    apply_all, is_admissible, parse_tx0,
-    TxError, TX_TYPE_NOOP, TX_VERSION, TX0_WIRE_BYTES,
+    apply_all, is_admissible, parse_tx0, TxError, TX0_WIRE_BYTES, TX_TYPE_NOOP, TX_VERSION,
 };
 use qash_consensus::transition::{
     advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
 };
-use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
-use qash_consensus::fixed_point::{FixedPoint, SCALE};
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -42,7 +41,10 @@ fn genesis_state() -> EpochState {
 }
 
 fn idle_input(n: u32) -> EpochInput {
-    EpochInput { updates: [None; MAX_VALIDATORS], update_count: n }
+    EpochInput {
+        updates: [None; MAX_VALIDATORS],
+        update_count: n,
+    }
 }
 
 /// Build a well-formed TX-0 envelope with the given author_id and nonce.
@@ -53,7 +55,7 @@ fn make_tx0(author_id: [u8; 48], nonce: u64) -> [u8; TX0_WIRE_BYTES] {
     raw[4..12].copy_from_slice(&nonce.to_le_bytes());
     raw[12..60].copy_from_slice(&author_id);
     raw[60..64].copy_from_slice(&0u32.to_le_bytes()); // payload_len = 0
-    // signature bytes remain zero (opaque in Domain A)
+                                                      // signature bytes remain zero (opaque in Domain A)
     raw
 }
 
@@ -88,8 +90,15 @@ fn adversarial_tx0_replay_rejected() {
     let (parsed, _) = parse_tx0(replay.as_slice()).expect("parse must succeed");
     let err = is_admissible(&state, &parsed).expect_err("replay must be rejected");
     assert!(
-        matches!(err, TxError::NonceMismatch { expected: 1, got: 0 }),
-        "expected NonceMismatch {{expected:1, got:0}}, got: {:?}", err
+        matches!(
+            err,
+            TxError::NonceMismatch {
+                expected: 1,
+                got: 0
+            }
+        ),
+        "expected NonceMismatch {{expected:1, got:0}}, got: {:?}",
+        err
     );
     // Nonce must remain 1; no state mutation from replay attempt.
     assert_eq!(state.nonces[0], 1);
@@ -109,7 +118,10 @@ fn adversarial_duplicate_tx_in_batch_is_idempotent() {
     let txs: &[&[u8]] = &[tx.as_slice(), tx.as_slice()];
     let applied = apply_all(&mut state, txs, 100).expect("apply_all must not error");
     // Exactly one TX should be applied (the second is rejected by nonce check).
-    assert_eq!(applied, 1, "only one of the duplicate pair should be applied");
+    assert_eq!(
+        applied, 1,
+        "only one of the duplicate pair should be applied"
+    );
     assert_eq!(state.nonces[0], 1);
 }
 
@@ -227,8 +239,15 @@ fn adversarial_future_nonce_rejected() {
     let (tx, _) = parse_tx0(&raw).expect("parse must succeed");
     let err = is_admissible(&state, &tx).expect_err("future nonce must be rejected");
     assert!(
-        matches!(err, TxError::NonceMismatch { expected: 0, got: 1 }),
-        "wrong error: {:?}", err
+        matches!(
+            err,
+            TxError::NonceMismatch {
+                expected: 0,
+                got: 1
+            }
+        ),
+        "wrong error: {:?}",
+        err
     );
 }
 
@@ -257,7 +276,10 @@ fn adversarial_non_validator_tx_end_to_end_rejected() {
     let stranger = [0xAB; 48];
     let raw = make_tx0(stranger, 0);
     let r = advance_epoch(&mut state, &idle_input(4), &[raw.as_slice()]);
-    assert!(r.is_ok(), "epoch must still advance (unknown author TX is skipped)");
+    assert!(
+        r.is_ok(),
+        "epoch must still advance (unknown author TX is skipped)"
+    );
     // Nonces must be unchanged.
     assert_eq!(state.nonces, nonces_before, "no nonces must change");
     // State root may differ (epoch entropy advances) but nonces are stable.
@@ -272,7 +294,10 @@ fn adversarial_non_validator_tx_end_to_end_rejected() {
 #[test]
 fn adversarial_update_count_mismatch_halts() {
     let mut state = genesis_state(); // validator_count = 4
-    let bad = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 3 };
+    let bad = EpochInput {
+        updates: [None; MAX_VALIDATORS],
+        update_count: 3,
+    };
     let r = advance_epoch(&mut state, &bad, &[]);
     assert_eq!(r, Err(HaltReason::DecodeInvalid));
     assert_eq!(state.halt_reason, HaltReason::DecodeInvalid);
@@ -285,8 +310,8 @@ fn adversarial_slash_decrease_halts() {
     state.validators[0].slash_accum = FixedPoint::from_raw(1_000);
     let mut input = idle_input(4);
     input.updates[0] = Some(ValidatorUpdate {
-        divergence_new:  FixedPoint::ZERO,
-        conflict_new:    FixedPoint::ZERO,
+        divergence_new: FixedPoint::ZERO,
+        conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::from_raw(500), // decrease → invalid
     });
     let r = advance_epoch(&mut state, &input, &[]);
@@ -299,8 +324,8 @@ fn adversarial_negative_divergence_halts() {
     let mut state = genesis_state();
     let mut input = idle_input(4);
     input.updates[0] = Some(ValidatorUpdate {
-        divergence_new:  FixedPoint::from_raw(-1),
-        conflict_new:    FixedPoint::ZERO,
+        divergence_new: FixedPoint::from_raw(-1),
+        conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
     });
     let r = advance_epoch(&mut state, &input, &[]);
@@ -313,8 +338,8 @@ fn adversarial_negative_conflict_halts() {
     let mut state = genesis_state();
     let mut input = idle_input(4);
     input.updates[0] = Some(ValidatorUpdate {
-        divergence_new:  FixedPoint::ZERO,
-        conflict_new:    FixedPoint::from_raw(-1),
+        divergence_new: FixedPoint::ZERO,
+        conflict_new: FixedPoint::from_raw(-1),
         slash_accum_new: FixedPoint::ZERO,
     });
     let r = advance_epoch(&mut state, &input, &[]);
@@ -322,7 +347,7 @@ fn adversarial_negative_conflict_halts() {
 }
 
 // ---------------------------------------------------------------------------
-// §A6 — Halt absorption: all six HaltReason codes are absorbing
+// §A6 — Halt absorption: all seven HaltReason codes are absorbing
 // ---------------------------------------------------------------------------
 
 /// Once a halt flag is set to any of H1–H6, subsequent advance_epoch calls
@@ -355,6 +380,7 @@ fn adversarial_halt_absorbing_roundtrip_failure() {
 #[test]
 fn adversarial_halt_absorbing_halt_flag_set() {
     check_halt_absorption(HaltReason::HaltFlagSet);
+    check_halt_absorption(HaltReason::PhiSafetyViolation);
 }
 
 fn check_halt_absorption(reason: HaltReason) {
@@ -368,7 +394,12 @@ fn check_halt_absorption(reason: HaltReason) {
 
     // Any advance must return the same halt.
     let r1 = advance_epoch(&mut state, &idle_input(4), &[]);
-    assert_eq!(r1, Err(reason), "first advance must return Err({:?})", reason);
+    assert_eq!(
+        r1,
+        Err(reason),
+        "first advance must return Err({:?})",
+        reason
+    );
     assert_eq!(state.halt_reason, reason);
     assert_eq!(state.epoch, epoch_before, "epoch must not advance");
     assert_eq!(state.nonces, nonces_before, "nonces must not change");
@@ -376,7 +407,12 @@ fn check_halt_absorption(reason: HaltReason) {
 
     // Second advance: still frozen.
     let r2 = advance_epoch(&mut state, &idle_input(4), &[]);
-    assert_eq!(r2, Err(reason), "second advance must also return Err({:?})", reason);
+    assert_eq!(
+        r2,
+        Err(reason),
+        "second advance must also return Err({:?})",
+        reason
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -407,17 +443,23 @@ fn adversarial_tx0_state_locality() {
     // Only nonces[0] may change.
     assert_eq!(state.nonces[0], 1, "nonce 0 must advance");
     for i in 1..4 {
-        assert_eq!(state.nonces[i], nonces_before[i], "nonce {} must not change", i);
+        assert_eq!(
+            state.nonces[i], nonces_before[i],
+            "nonce {} must not change",
+            i
+        );
     }
     // Validator metrics must be untouched by TX-0.
     for i in 0..4 {
         assert_eq!(
             state.validators[i].divergence, metrics_before[i].divergence,
-            "validator {} divergence changed", i
+            "validator {} divergence changed",
+            i
         );
         assert_eq!(
             state.validators[i].slash_accum, metrics_before[i].slash_accum,
-            "validator {} slash_accum changed", i
+            "validator {} slash_accum changed",
+            i
         );
     }
     // Validator IDs must be unchanged.
@@ -438,12 +480,18 @@ fn adversarial_encoding_injectivity_epoch() {
     let mut b = genesis_state();
     advance_epoch(&mut a, &idle_input(4), &[]).unwrap();
     advance_epoch(&mut b, &idle_input(4), &[]).unwrap();
-    assert_eq!(a.state_root, b.state_root, "same inputs must produce same root");
+    assert_eq!(
+        a.state_root, b.state_root,
+        "same inputs must produce same root"
+    );
     // Manually corrupt epoch in b after advance — root must differ when recomputed.
     // (We can't recompute without re-running advance_epoch, so we test a simpler form:
     //  two epochs of advancement vs one — roots must differ.)
     advance_epoch(&mut b, &idle_input(4), &[]).unwrap();
-    assert_ne!(a.state_root, b.state_root, "different epochs must produce different roots");
+    assert_ne!(
+        a.state_root, b.state_root,
+        "different epochs must produce different roots"
+    );
 }
 
 /// Different nonce values produce different state roots.
@@ -599,8 +647,11 @@ fn adversarial_lyapunov_violation_triggers_halt() {
         slash_accum_new: FixedPoint::ZERO,
     });
     let r = advance_epoch(&mut state, &spike, &[]);
-    assert_eq!(r, Err(HaltReason::LyapunovViolation),
-        "spike above ε must trigger H1 (LyapunovViolation)");
+    assert_eq!(
+        r,
+        Err(HaltReason::LyapunovViolation),
+        "spike above ε must trigger H1 (LyapunovViolation)"
+    );
     assert!(state.is_halted());
 }
 
@@ -614,8 +665,8 @@ fn adversarial_divergence_exceeds_scale() {
     let mut state = genesis_state();
     let mut input = idle_input(4);
     input.updates[0] = Some(ValidatorUpdate {
-        divergence_new:  FixedPoint::from_raw(SCALE + 1),
-        conflict_new:    FixedPoint::ZERO,
+        divergence_new: FixedPoint::from_raw(SCALE + 1),
+        conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
     });
     assert_eq!(
@@ -631,8 +682,8 @@ fn adversarial_conflict_exceeds_scale() {
     let mut state = genesis_state();
     let mut input = idle_input(4);
     input.updates[0] = Some(ValidatorUpdate {
-        divergence_new:  FixedPoint::ZERO,
-        conflict_new:    FixedPoint::from_raw(SCALE + 1),
+        divergence_new: FixedPoint::ZERO,
+        conflict_new: FixedPoint::from_raw(SCALE + 1),
         slash_accum_new: FixedPoint::ZERO,
     });
     assert_eq!(
@@ -650,8 +701,8 @@ fn adversarial_update_beyond_validator_count() {
     let mut input = idle_input(4);
     // Slot 4 is beyond vc=4 (valid slots are 0..3).
     input.updates[4] = Some(ValidatorUpdate {
-        divergence_new:  FixedPoint::ZERO,
-        conflict_new:    FixedPoint::ZERO,
+        divergence_new: FixedPoint::ZERO,
+        conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
     });
     assert_eq!(
@@ -661,27 +712,33 @@ fn adversarial_update_beyond_validator_count() {
     );
 }
 
-/// §A4: slash_accum at i64::MAX / 2 is valid; same value on next epoch
-/// (no-op, monotone) is also valid.
+/// §A4/H7: slash_accum immediately below the PHI_MAX_SAFE halt threshold is valid;
+/// the same value on the next epoch (no-op, monotone) is also valid.
 #[test]
-fn adversarial_max_slash_boundary_is_valid() {
-    let large = i64::MAX / 2;
+fn adversarial_slash_below_phi_threshold_is_valid() {
+    let large = 1_999_999_999i64;
     let mut state = genesis_state();
     // Set slash_accum to a large valid value.
     let mut input = idle_input(4);
     input.updates[0] = Some(ValidatorUpdate {
-        divergence_new:  FixedPoint::ZERO,
-        conflict_new:    FixedPoint::ZERO,
+        divergence_new: FixedPoint::ZERO,
+        conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::from_raw(large as i128),
     });
-    assert!(advance_epoch(&mut state, &input, &[]).is_ok(), "large slash must be accepted");
+    assert!(
+        advance_epoch(&mut state, &input, &[]).is_ok(),
+        "sub-threshold slash must be accepted"
+    );
 
     // Same value again (no-op, satisfies monotonicity) — must still succeed.
     let mut input2 = idle_input(4);
     input2.updates[0] = Some(ValidatorUpdate {
-        divergence_new:  FixedPoint::ZERO,
-        conflict_new:    FixedPoint::ZERO,
+        divergence_new: FixedPoint::ZERO,
+        conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::from_raw(large as i128),
     });
-    assert!(advance_epoch(&mut state, &input2, &[]).is_ok(), "same slash (no-op) must be accepted");
+    assert!(
+        advance_epoch(&mut state, &input2, &[]).is_ok(),
+        "same sub-threshold slash (no-op) must be accepted"
+    );
 }

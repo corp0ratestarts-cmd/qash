@@ -16,6 +16,7 @@ weight_divergence_D = 400_000
 weight_conflict_C = 350_000
 weight_slash_Sigma = 250_000
 epsilon_threshold = 20_000
+phi_max_safe = 500_000_000
 evaluation_window = 3
 max_queries_per_epoch = 1_000_000
 

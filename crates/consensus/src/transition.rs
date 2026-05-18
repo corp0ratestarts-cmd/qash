@@ -4,7 +4,7 @@ use crate::encoding::EncodeError;
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
 use crate::hash::{h_domain, DomainTag};
 use crate::lyapunov::{
-    self, ConvergenceWindow, LyapunovEval, LyapunovError, ValidatorMetrics, WINDOW_SIZE,
+    self, ConvergenceWindow, LyapunovError, LyapunovEval, ValidatorMetrics, WINDOW_SIZE,
 };
 
 /// Protocol-facing limit (u32 per Domain A rules). Used in wire validation.
@@ -27,13 +27,14 @@ pub const FULL_STATE_MAX_BYTES: usize = FULL_STATE_FIXED_BYTES
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum HaltReason {
-    None              = 0x00,
-    LyapunovViolation = 0x01, // H1
-    ArithOverflow     = 0x02, // H2
-    EpochOverflow     = 0x03, // H3
-    DecodeInvalid     = 0x04, // H4
-    RoundtripFailure  = 0x05, // H5
-    HaltFlagSet       = 0x06, // H6 (explicit external halt; reserved)
+    None = 0x00,
+    LyapunovViolation = 0x01,  // H1
+    ArithOverflow = 0x02,      // H2
+    EpochOverflow = 0x03,      // H3
+    DecodeInvalid = 0x04,      // H4
+    RoundtripFailure = 0x05,   // H5
+    HaltFlagSet = 0x06,        // H6 (explicit external halt; reserved)
+    PhiSafetyViolation = 0x07, // H7
 }
 
 impl HaltReason {
@@ -46,7 +47,8 @@ impl HaltReason {
             0x04 => Ok(HaltReason::DecodeInvalid),
             0x05 => Ok(HaltReason::RoundtripFailure),
             0x06 => Ok(HaltReason::HaltFlagSet),
-            _    => Err(EncodeError::InvalidHaltCode),
+            0x07 => Ok(HaltReason::PhiSafetyViolation),
+            _ => Err(EncodeError::InvalidHaltCode),
         }
     }
 }
@@ -92,10 +94,7 @@ impl EpochState {
 
 /// Encode the full state into `out`; returns bytes written.
 /// Only `state.validator_count` validator slots are encoded.
-pub fn encode_full_state_into(
-    state: &EpochState,
-    out: &mut [u8; FULL_STATE_MAX_BYTES],
-) -> usize {
+pub fn encode_full_state_into(state: &EpochState, out: &mut [u8; FULL_STATE_MAX_BYTES]) -> usize {
     write_state_bytes(state, &state.state_root, out)
 }
 
@@ -129,7 +128,7 @@ fn write_state_bytes(
     out[pos..pos + 32].copy_from_slice(&state.entropy_seed);
     pos += 32;
 
-    out[pos]     = state.halt_reason as u8;
+    out[pos] = state.halt_reason as u8;
     out[pos + 1] = 0x00;
     out[pos + 2] = 0x00;
     out[pos + 3] = 0x00;
@@ -152,7 +151,7 @@ fn write_state_bytes(
 
     // Window: filled (1) + pad (3) + 3 × i64 (24) = 28 bytes.
     let (filled, values) = state.convergence_window.raw_parts();
-    out[pos]     = filled;
+    out[pos] = filled;
     out[pos + 1] = 0x00;
     out[pos + 2] = 0x00;
     out[pos + 3] = 0x00;
@@ -213,16 +212,15 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
     }
 
     let vc = validator_count as usize;
-    let expected_len = FULL_STATE_FIXED_BYTES
-        + vc * FULL_STATE_PER_VALIDATOR_BYTES
-        + FULL_STATE_WINDOW_BYTES;
+    let expected_len =
+        FULL_STATE_FIXED_BYTES + vc * FULL_STATE_PER_VALIDATOR_BYTES + FULL_STATE_WINDOW_BYTES;
     if bytes.len() != expected_len {
         return Err(EncodeError::DecodeInvalid);
     }
 
     let scale_raw = SCALE;
-    let mut validators    = [ValidatorMetrics::ZERO; MAX_VALIDATORS];
-    let mut nonces        = [0u64; MAX_VALIDATORS];
+    let mut validators = [ValidatorMetrics::ZERO; MAX_VALIDATORS];
+    let mut nonces = [0u64; MAX_VALIDATORS];
     let mut validator_ids = [[0u8; 48]; MAX_VALIDATORS];
 
     for i in 0..vc {
@@ -230,7 +228,7 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
         let mut c_b = [0u8; 8];
         let mut s_b = [0u8; 8];
         let mut n_b = [0u8; 8];
-        let mut id  = [0u8; 48];
+        let mut id = [0u8; 48];
 
         d_b.copy_from_slice(&bytes[pos..pos + 8]);
         c_b.copy_from_slice(&bytes[pos + 8..pos + 16]);
@@ -255,8 +253,8 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
         }
 
         validators[i] = ValidatorMetrics {
-            divergence:  FixedPoint::from_raw(d_raw),
-            conflict:    FixedPoint::from_raw(c_raw),
+            divergence: FixedPoint::from_raw(d_raw),
+            conflict: FixedPoint::from_raw(c_raw),
             slash_accum: FixedPoint::from_raw(s_raw),
         };
         nonces[i] = nonce;
@@ -332,15 +330,21 @@ struct TransitionHalt {
 
 impl From<OverflowError> for TransitionHalt {
     fn from(_: OverflowError) -> Self {
-        TransitionHalt { reason: HaltReason::ArithOverflow }
+        TransitionHalt {
+            reason: HaltReason::ArithOverflow,
+        }
     }
 }
 
 impl From<LyapunovError> for TransitionHalt {
     fn from(e: LyapunovError) -> Self {
         match e {
-            LyapunovError::Overflow       => TransitionHalt { reason: HaltReason::ArithOverflow },
-            LyapunovError::UnboundedMetric => TransitionHalt { reason: HaltReason::DecodeInvalid },
+            LyapunovError::Overflow => TransitionHalt {
+                reason: HaltReason::ArithOverflow,
+            },
+            LyapunovError::UnboundedMetric => TransitionHalt {
+                reason: HaltReason::DecodeInvalid,
+            },
         }
     }
 }
@@ -383,11 +387,19 @@ fn run_pipeline(
 
     let lyap = evaluate_projected(state, input)?;
     if lyap.halt_triggered {
-        return Err(TransitionHalt { reason: HaltReason::LyapunovViolation });
+        return Err(TransitionHalt {
+            reason: HaltReason::LyapunovViolation,
+        });
+    }
+    if lyap.phi_halt_triggered {
+        return Err(TransitionHalt {
+            reason: HaltReason::PhiSafetyViolation,
+        });
     }
 
-    let next_epoch =
-        state.epoch.checked_add(1).ok_or(TransitionHalt { reason: HaltReason::EpochOverflow })?;
+    let next_epoch = state.epoch.checked_add(1).ok_or(TransitionHalt {
+        reason: HaltReason::EpochOverflow,
+    })?;
     let next_entropy = h_domain(DomainTag::EntropyAdvance, &state.entropy_seed);
 
     // Capture prior root before any mutation for chain continuity commitment.
@@ -400,36 +412,42 @@ fn run_pipeline(
 
     for i in 0..state.validator_count as usize {
         if let Some(ref u) = input.updates[i] {
-            state.validators[i].divergence  = u.divergence_new;
-            state.validators[i].conflict    = u.conflict_new;
+            state.validators[i].divergence = u.divergence_new;
+            state.validators[i].conflict = u.conflict_new;
             state.validators[i].slash_accum = u.slash_accum_new;
         }
     }
 
     // TX-0 has ε_τ = 0; apply after metric update, before window/entropy advance.
     if crate::transaction::apply_all(state, raw_txs, state.validator_count).is_err() {
-        return Err(TransitionHalt { reason: HaltReason::ArithOverflow });
+        return Err(TransitionHalt {
+            reason: HaltReason::ArithOverflow,
+        });
     }
 
     state.convergence_window.push(lyap.v_convergence);
     state.entropy_seed = next_entropy;
-    state.epoch        = next_epoch;
+    state.epoch = next_epoch;
 
     let root = compute_state_root(state, &prior_root);
     state.state_root = root;
 
-    Ok(TransitionResult { state_root: root, lyapunov: lyap })
+    Ok(TransitionResult {
+        state_root: root,
+        lyapunov: lyap,
+    })
 }
 
-fn step_1_validate(
-    state: &EpochState,
-    input: &EpochInput,
-) -> Result<(), TransitionHalt> {
+fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), TransitionHalt> {
     if state.validator_count > MAX_VALIDATORS_WIRE {
-        return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+        return Err(TransitionHalt {
+            reason: HaltReason::DecodeInvalid,
+        });
     }
     if input.update_count != state.validator_count {
-        return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+        return Err(TransitionHalt {
+            reason: HaltReason::DecodeInvalid,
+        });
     }
 
     let scale_raw = SCALE;
@@ -444,27 +462,37 @@ fn step_1_validate(
             let c = u.conflict_new.raw();
 
             if d < 0 || d > scale_raw || c < 0 || c > scale_raw {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
 
             if !u.slash_accum_new.is_non_negative() {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
 
             if u.slash_accum_new.raw() < state.validators[i].slash_accum.raw() {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
 
             // Keep Σ within i64 for wire encoding.
             if u.slash_accum_new.to_i64().is_err() {
-                return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+                return Err(TransitionHalt {
+                    reason: HaltReason::DecodeInvalid,
+                });
             }
         }
     }
 
     for i in state.validator_count as usize..MAX_VALIDATORS {
         if input.updates[i].is_some() {
-            return Err(TransitionHalt { reason: HaltReason::DecodeInvalid });
+            return Err(TransitionHalt {
+                reason: HaltReason::DecodeInvalid,
+            });
         }
     }
 
@@ -492,7 +520,10 @@ mod tests {
     }
 
     fn idle_input(n: u32) -> EpochInput {
-        EpochInput { updates: [None; MAX_VALIDATORS], update_count: n }
+        EpochInput {
+            updates: [None; MAX_VALIDATORS],
+            update_count: n,
+        }
     }
 
     /// TV-0: genesis state_root is [0u8;32] before any epoch is advanced.
@@ -519,7 +550,10 @@ mod tests {
             conflict_new: FixedPoint::ZERO,
             slash_accum_new: FixedPoint::ZERO,
         });
-        assert_eq!(advance_epoch(&mut state, &input, &[]), Err(HaltReason::DecodeInvalid));
+        assert_eq!(
+            advance_epoch(&mut state, &input, &[]),
+            Err(HaltReason::DecodeInvalid)
+        );
     }
 
     #[test]
@@ -531,7 +565,10 @@ mod tests {
             conflict_new: FixedPoint::from_raw(SCALE + 1),
             slash_accum_new: FixedPoint::ZERO,
         });
-        assert_eq!(advance_epoch(&mut state, &input, &[]), Err(HaltReason::DecodeInvalid));
+        assert_eq!(
+            advance_epoch(&mut state, &input, &[]),
+            Err(HaltReason::DecodeInvalid)
+        );
     }
 
     #[test]
@@ -544,14 +581,20 @@ mod tests {
             conflict_new: FixedPoint::ZERO,
             slash_accum_new: FixedPoint::from_raw(500), // decrease → invalid
         });
-        assert_eq!(advance_epoch(&mut state, &input, &[]), Err(HaltReason::DecodeInvalid));
+        assert_eq!(
+            advance_epoch(&mut state, &input, &[]),
+            Err(HaltReason::DecodeInvalid)
+        );
     }
 
     #[test]
     fn validate_rejects_wrong_update_count() {
         let mut state = genesis_state_vc4(); // validator_count = 4
-        let input = idle_input(3);           // update_count = 3 ≠ 4
-        assert_eq!(advance_epoch(&mut state, &input, &[]), Err(HaltReason::DecodeInvalid));
+        let input = idle_input(3); // update_count = 3 ≠ 4
+        assert_eq!(
+            advance_epoch(&mut state, &input, &[]),
+            Err(HaltReason::DecodeInvalid)
+        );
     }
 
     #[test]
@@ -564,7 +607,10 @@ mod tests {
             conflict_new: FixedPoint::ZERO,
             slash_accum_new: FixedPoint::ZERO,
         });
-        assert_eq!(advance_epoch(&mut state, &input, &[]), Err(HaltReason::DecodeInvalid));
+        assert_eq!(
+            advance_epoch(&mut state, &input, &[]),
+            Err(HaltReason::DecodeInvalid)
+        );
     }
 
     /// V_convergence for 4 validators each with D=500_000, C=250_000:
@@ -578,13 +624,58 @@ mod tests {
         for i in 0..4 {
             input.updates[i] = Some(ValidatorUpdate {
                 divergence_new: FixedPoint::from_raw(500_000),
-                conflict_new:   FixedPoint::from_raw(250_000),
+                conflict_new: FixedPoint::from_raw(250_000),
                 slash_accum_new: FixedPoint::ZERO,
             });
         }
         let result = advance_epoch(&mut state, &input, &[]).unwrap();
         assert_eq!(result.lyapunov.v_convergence.raw(), 1_150_000);
         assert_eq!(result.lyapunov.phi_safety.raw(), 0);
+    }
+
+    #[test]
+    fn evaluate_projected_phi_safety_sums_across_validators() {
+        let mut state = genesis_state_vc4();
+        let mut input = idle_input(4);
+        input.updates[0] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::ZERO,
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::from_raw(400_000_000),
+        });
+        input.updates[1] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::ZERO,
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::from_raw(400_000_000),
+        });
+
+        let result = advance_epoch(&mut state, &input, &[]).unwrap();
+
+        assert_eq!(result.lyapunov.phi_safety.raw(), 200_000_000);
+        assert!(!result.lyapunov.phi_halt_triggered);
+    }
+
+    #[test]
+    fn phi_safety_halts_at_threshold_before_commit() {
+        let mut state = genesis_state_vc4();
+        let mut input = idle_input(4);
+        input.updates[0] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::ZERO,
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::from_raw(1_000_000_000),
+        });
+        input.updates[1] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::ZERO,
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::from_raw(1_000_000_000),
+        });
+
+        let result = advance_epoch(&mut state, &input, &[]);
+
+        assert_eq!(result, Err(HaltReason::PhiSafetyViolation));
+        assert_eq!(state.halt_reason, HaltReason::PhiSafetyViolation);
+        assert_eq!(state.epoch, 0);
+        assert_eq!(state.validators[0].slash_accum, FixedPoint::ZERO);
+        assert_eq!(state.validators[1].slash_accum, FixedPoint::ZERO);
     }
 
     #[test]
@@ -597,8 +688,10 @@ mod tests {
         advance_epoch(&mut state_a, &idle_input(4), &[]).unwrap();
         advance_epoch(&mut state_b, &idle_input(4), &[]).unwrap();
 
-        assert_ne!(state_a.state_root, state_b.state_root,
-            "state_root must chain through prior_root");
+        assert_ne!(
+            state_a.state_root, state_b.state_root,
+            "state_root must chain through prior_root"
+        );
     }
 }
 
@@ -606,13 +699,13 @@ fn evaluate_projected(
     state: &EpochState,
     input: &EpochInput,
 ) -> Result<LyapunovEval, TransitionHalt> {
-    let mut v_sum    = FixedPoint::ZERO;
-    let mut max_slash = FixedPoint::ZERO;
+    let mut v_sum = FixedPoint::ZERO;
+    let mut sum_slash = FixedPoint::ZERO;
 
     for i in 0..state.validator_count as usize {
         let (d, c, s) = match &input.updates[i] {
             Some(u) => (u.divergence_new, u.conflict_new, u.slash_accum_new),
-            None    => (
+            None => (
                 state.validators[i].divergence,
                 state.validators[i].conflict,
                 state.validators[i].slash_accum,
@@ -621,13 +714,14 @@ fn evaluate_projected(
 
         let term_d = lyapunov::WEIGHT_D.checked_mul(d)?;
         let term_c = lyapunov::WEIGHT_C.checked_mul(c)?;
-        let term   = term_d.checked_add(term_c)?;
-        v_sum      = v_sum.checked_add(term)?;
-        max_slash  = max_slash.max(s);
+        let term = term_d.checked_add(term_c)?;
+        v_sum = v_sum.checked_add(term)?;
+        sum_slash = sum_slash.checked_add(s)?;
     }
 
-    let phi     = lyapunov::WEIGHT_S.checked_mul(max_slash)?;
+    let phi = lyapunov::WEIGHT_S.checked_mul(sum_slash)?;
     let v_total = v_sum.checked_add(phi)?;
+    let phi_halt_triggered = phi.raw() >= lyapunov::PHI_MAX_SAFE.raw();
 
     let (delta_window, halt_triggered) = if state.convergence_window.is_full() {
         let delta = lyapunov::compute_delta_window(v_sum, &state.convergence_window)?;
@@ -642,5 +736,6 @@ fn evaluate_projected(
         v_total,
         delta_window,
         halt_triggered,
+        phi_halt_triggered,
     })
 }

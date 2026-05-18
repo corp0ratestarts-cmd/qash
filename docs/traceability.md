@@ -34,7 +34,7 @@
 | **PDF §** | §4.1 (pp. 9–10, provisional) |
 | **PDF quote** | `pub struct LyapunovState { divergence: FixedPoint, conflict: FixedPoint, signature_health: FixedPoint }` / `L = W_D·D + W_C·C + W_S·Σ` / `∀t: L(t+1) - L(t) ≤ ε_threshold` / `If violated → absorbing halt` |
 | **Code** | `crates/consensus/src/lyapunov.rs` computes `V_convergence = α·D + β·C` and `phi_safety = γ·Σ(slash_i)` (ADR-001/002); `PHI_MAX_SAFE = 500_000_000` pinned; `LyapunovEval.phi_halt_triggered` set when `phi ≥ PHI_MAX_SAFE`. `crates/consensus/src/transition.rs` checks `delta_window > ε` (H1) and `phi_halt_triggered` (H7) before commit. |
-| **Test / Vector** | Unit tests in `lyapunov.rs`: `phi_safety_sums_across_validators` (distinguishes sum from max), `phi_halt_triggers_at_threshold` (H7 boundary). |
+| **Test / Vector** | Unit tests in `lyapunov.rs`: `phi_safety_sums_across_validators` (distinguishes sum from max), `phi_halt_triggers_at_threshold` (H7 boundary). Transition tests mirror the projected calculation and pre-commit H7 gate: `evaluate_projected_phi_safety_sums_across_validators`, `phi_safety_halts_at_threshold_before_commit`. |
 | **Proof** | `proofs/contractivity/lyapunov_stability.v` exists, but is not CI-verified. |
 | **Status** | ⚠️ |
 | **Gap** | ADR-001 and ADR-002 accepted; sum aggregation and H7 gate implemented and tested. Remaining gap: Lyapunov proof (`lyapunov_stability.v`) is not CI-verified. |

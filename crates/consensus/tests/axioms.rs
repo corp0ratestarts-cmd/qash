@@ -4,17 +4,14 @@
 //
 // Each test cites its corresponding spec section.
 
-use qash_consensus::transaction::{
-    apply_all, parse_tx0, TX_VERSION, TX_TYPE_NOOP, TX0_WIRE_BYTES,
-};
-use qash_consensus::transition::{
-    advance_epoch, decode_full_state, encode_full_state_into,
-    EpochInput, EpochState, HaltReason, ValidatorUpdate,
-    FULL_STATE_MAX_BYTES, MAX_VALIDATORS,
-};
-use qash_consensus::lyapunov::{self, ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
 use qash_consensus::fixed_point::{FixedPoint, SCALE};
 use qash_consensus::hash::{h_domain, DomainTag};
+use qash_consensus::lyapunov::{self, ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
+use qash_consensus::transaction::{apply_all, parse_tx0, TX0_WIRE_BYTES, TX_TYPE_NOOP, TX_VERSION};
+use qash_consensus::transition::{
+    advance_epoch, decode_full_state, encode_full_state_into, EpochInput, EpochState, HaltReason,
+    ValidatorUpdate, FULL_STATE_MAX_BYTES, MAX_VALIDATORS,
+};
 
 // ---------------------------------------------------------------------------
 // Shared helpers (mirrors golden_replay.rs to keep tests self-contained)
@@ -35,7 +32,10 @@ fn genesis_state() -> EpochState {
 }
 
 fn idle_input(n: u32) -> EpochInput {
-    EpochInput { updates: [None; MAX_VALIDATORS], update_count: n }
+    EpochInput {
+        updates: [None; MAX_VALIDATORS],
+        update_count: n,
+    }
 }
 
 fn assign_ids(state: &mut EpochState, n: usize) {
@@ -71,7 +71,7 @@ fn axiom_a1_determinism_with_updates() {
         // Apply the same deterministic update to both replicas.
         input.updates[0] = Some(ValidatorUpdate {
             divergence_new: FixedPoint::from_raw(10_000 + epoch as i128 * 1_000),
-            conflict_new:   FixedPoint::from_raw(5_000),
+            conflict_new: FixedPoint::from_raw(5_000),
             slash_accum_new: FixedPoint::ZERO,
         });
         advance_epoch(&mut s1, &input, &[]).unwrap();
@@ -79,7 +79,8 @@ fn axiom_a1_determinism_with_updates() {
 
         assert_eq!(
             s1.state_root, s2.state_root,
-            "§A1: state_roots diverged at epoch {}", epoch
+            "§A1: state_roots diverged at epoch {}",
+            epoch
         );
     }
 }
@@ -127,14 +128,25 @@ fn axiom_a3_tx0_mutation_footprint() {
     apply_all(&mut state, &[tx.as_slice()], 100).expect("apply_all must succeed");
 
     // Exactly nonces[0] changed; everything else is untouched.
-    assert_eq!(state.nonces[0], before_nonces[0] + 1, "nonces[0] must increment");
+    assert_eq!(
+        state.nonces[0],
+        before_nonces[0] + 1,
+        "nonces[0] must increment"
+    );
     for i in 1..4 {
-        assert_eq!(state.nonces[i], before_nonces[i], "nonces[{}] must not change", i);
+        assert_eq!(
+            state.nonces[i], before_nonces[i],
+            "nonces[{}] must not change",
+            i
+        );
     }
     for i in 0..4 {
         assert_eq!(state.validators[i].divergence, before_metrics[i].divergence);
-        assert_eq!(state.validators[i].conflict,   before_metrics[i].conflict);
-        assert_eq!(state.validators[i].slash_accum, before_metrics[i].slash_accum);
+        assert_eq!(state.validators[i].conflict, before_metrics[i].conflict);
+        assert_eq!(
+            state.validators[i].slash_accum,
+            before_metrics[i].slash_accum
+        );
     }
     assert_eq!(state.validator_ids, before_ids);
     assert!(matches!(state.halt_reason, HaltReason::None));
@@ -169,8 +181,11 @@ fn axiom_a4_encoding_preservation_multi_epoch() {
         // Decode.
         let decoded = decode_full_state(&buf[..n]).expect("decode must succeed");
 
-        assert_eq!(decoded.state_root, state.state_root,
-            "§A4: state_root mismatch after roundtrip at epoch {}", epoch);
+        assert_eq!(
+            decoded.state_root, state.state_root,
+            "§A4: state_root mismatch after roundtrip at epoch {}",
+            epoch
+        );
         assert_eq!(decoded.epoch, state.epoch);
         assert_eq!(decoded.halt_reason as u8, state.halt_reason as u8);
     }
@@ -201,7 +216,10 @@ fn axiom_a5_replay_invariance_identical_sequence() {
 
     let run1 = run_sequence();
     let run2 = run_sequence();
-    assert_eq!(run1.state_root, run2.state_root, "§A5: replay must be invariant");
+    assert_eq!(
+        run1.state_root, run2.state_root,
+        "§A5: replay must be invariant"
+    );
     assert_eq!(run1.epoch, run2.epoch);
 }
 
@@ -215,18 +233,27 @@ fn axiom_a6_halt_flag_never_clears() {
     let mut state = genesis_state();
 
     // Force halt via bad update_count.
-    let bad_input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 3 };
+    let bad_input = EpochInput {
+        updates: [None; MAX_VALIDATORS],
+        update_count: 3,
+    };
     let r = advance_epoch(&mut state, &bad_input, &[]);
     assert_eq!(r, Err(HaltReason::DecodeInvalid));
     assert!(state.is_halted(), "§A6: must be halted after first trigger");
 
     for attempt in 0..5 {
         let result = advance_epoch(&mut state, &idle_input(4), &[]);
-        assert!(result.is_err(), "§A6: attempt {} must also be halted", attempt);
+        assert!(
+            result.is_err(),
+            "§A6: attempt {} must also be halted",
+            attempt
+        );
         assert!(state.is_halted(), "§A6: halt_flag must remain set");
         assert_eq!(
-            state.halt_reason as u8, HaltReason::DecodeInvalid as u8,
-            "§A6: halt_reason must be unchanged at attempt {}", attempt
+            state.halt_reason as u8,
+            HaltReason::DecodeInvalid as u8,
+            "§A6: halt_reason must be unchanged at attempt {}",
+            attempt
         );
     }
 }
@@ -277,12 +304,21 @@ fn axiom_a8_form_a_tx0_zero_perturbation() {
 
     // Lyapunov metrics must be unchanged.
     for i in 0..4 {
-        assert_eq!(state.validators[i].divergence, metrics_before[i].divergence,
-            "§A8 Form A: divergence changed for validator {}", i);
-        assert_eq!(state.validators[i].conflict, metrics_before[i].conflict,
-            "§A8 Form A: conflict changed for validator {}", i);
-        assert_eq!(state.validators[i].slash_accum, metrics_before[i].slash_accum,
-            "§A8 Form A: slash_accum changed for validator {}", i);
+        assert_eq!(
+            state.validators[i].divergence, metrics_before[i].divergence,
+            "§A8 Form A: divergence changed for validator {}",
+            i
+        );
+        assert_eq!(
+            state.validators[i].conflict, metrics_before[i].conflict,
+            "§A8 Form A: conflict changed for validator {}",
+            i
+        );
+        assert_eq!(
+            state.validators[i].slash_accum, metrics_before[i].slash_accum,
+            "§A8 Form A: slash_accum changed for validator {}",
+            i
+        );
     }
 }
 
@@ -353,8 +389,14 @@ fn axiom_entropy_seed_binding() {
 
     advance_epoch(&mut a, &idle_input(4), &[]).unwrap();
     advance_epoch(&mut b, &idle_input(4), &[]).unwrap();
-    assert_ne!(a.entropy_seed, b.entropy_seed, "different seeds must produce different chains");
-    assert_ne!(a.state_root, b.state_root, "different seeds must produce different roots");
+    assert_ne!(
+        a.entropy_seed, b.entropy_seed,
+        "different seeds must produce different chains"
+    );
+    assert_ne!(
+        a.state_root, b.state_root,
+        "different seeds must produce different roots"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -388,7 +430,10 @@ fn axiom_delta_window_at_epsilon_does_not_halt() {
     });
     let r = advance_epoch(&mut state, &input, &[]);
     assert!(r.is_ok(), "stable at-epsilon must not halt");
-    assert!(!state.is_halted(), "exact ε with no increase must not trigger halt");
+    assert!(
+        !state.is_halted(),
+        "exact ε with no increase must not trigger halt"
+    );
 }
 
 /// §5: Fill window with zero, then spike above ε → halt (H1).
@@ -408,15 +453,18 @@ fn axiom_delta_window_above_epsilon_halts() {
         slash_accum_new: FixedPoint::ZERO,
     });
     let r = advance_epoch(&mut state, &spike, &[]);
-    assert_eq!(r, Err(HaltReason::LyapunovViolation),
-        "spike from 0 to 1_000_000 must trigger H1");
+    assert_eq!(
+        r,
+        Err(HaltReason::LyapunovViolation),
+        "spike from 0 to 1_000_000 must trigger H1"
+    );
 }
 
 // ---------------------------------------------------------------------------
 // HaltReason encoding — all 6 variants decode correctly
 // ---------------------------------------------------------------------------
 
-/// All six HaltReason codes must survive encode→decode roundtrip.
+/// All seven HaltReason codes must survive encode→decode roundtrip.
 #[test]
 fn axiom_all_halt_reasons_roundtrip() {
     let halt_codes: &[HaltReason] = &[
@@ -426,6 +474,7 @@ fn axiom_all_halt_reasons_roundtrip() {
         HaltReason::DecodeInvalid,
         HaltReason::RoundtripFailure,
         HaltReason::HaltFlagSet,
+        HaltReason::PhiSafetyViolation,
     ];
     for &reason in halt_codes {
         let mut state = genesis_state();
@@ -437,7 +486,8 @@ fn axiom_all_halt_reasons_roundtrip() {
 
         assert_eq!(
             decoded.halt_reason as u8, reason as u8,
-            "HaltReason {:?} did not roundtrip", reason
+            "HaltReason {:?} did not roundtrip",
+            reason
         );
     }
 }
@@ -457,8 +507,13 @@ fn axiom_nonce_sequential_chain() {
         let tx = make_tx0(id, expected_nonce);
         let r = advance_epoch(&mut state, &idle_input(4), &[tx.as_slice()]);
         assert!(r.is_ok(), "epoch {} must succeed", expected_nonce);
-        assert_eq!(state.nonces[0], expected_nonce + 1,
-            "nonce must be {} after epoch {}", expected_nonce + 1, expected_nonce);
+        assert_eq!(
+            state.nonces[0],
+            expected_nonce + 1,
+            "nonce must be {} after epoch {}",
+            expected_nonce + 1,
+            expected_nonce
+        );
     }
 }
 
@@ -475,7 +530,10 @@ fn axiom_tx0_wire_version_byte_is_checked() {
     // Corrupt byte 0 (LSB of version).
     let mut bad = raw;
     bad[0] ^= 0x01;
-    assert!(parse_tx0(&bad).is_err(), "corrupted version byte must be rejected");
+    assert!(
+        parse_tx0(&bad).is_err(),
+        "corrupted version byte must be rejected"
+    );
 }
 
 #[test]
@@ -484,7 +542,10 @@ fn axiom_tx0_wire_type_byte_is_checked() {
     // Corrupt byte 2 (LSB of tx_type).
     let mut bad = raw;
     bad[2] ^= 0x01;
-    assert!(parse_tx0(&bad).is_err(), "corrupted tx_type byte must be rejected");
+    assert!(
+        parse_tx0(&bad).is_err(),
+        "corrupted tx_type byte must be rejected"
+    );
 }
 
 /// Nonce bytes can be read from the envelope accurately.
@@ -625,11 +686,15 @@ fn axiom_model_runtime_parity_nominal() {
         let mo_res = model_apply(&mut model, &input);
 
         assert_eq!(
-            rt_res.is_ok(), mo_res.is_ok(),
+            rt_res.is_ok(),
+            mo_res.is_ok(),
             "nominal: runtime and model must agree on halt outcome"
         );
         assert_eq!(runtime.epoch, model.epoch, "nominal: epochs must match");
-        assert_eq!(runtime.entropy_seed, model.entropy_seed, "nominal: entropy must match");
+        assert_eq!(
+            runtime.entropy_seed, model.entropy_seed,
+            "nominal: entropy must match"
+        );
         assert_eq!(
             runtime.convergence_window.raw_parts(),
             model.convergence_window.raw_parts(),
@@ -656,7 +721,11 @@ fn axiom_model_runtime_parity_boundary_epsilon() {
     for _ in 0..WINDOW_SIZE + 1 {
         let rt_res = advance_epoch(&mut runtime, &input, &[]);
         let mo_res = model_apply(&mut model, &input);
-        assert_eq!(rt_res.is_ok(), mo_res.is_ok(), "epsilon boundary: must agree");
+        assert_eq!(
+            rt_res.is_ok(),
+            mo_res.is_ok(),
+            "epsilon boundary: must agree"
+        );
         assert_eq!(runtime.epoch, model.epoch);
         assert_eq!(runtime.entropy_seed, model.entropy_seed);
     }
@@ -688,8 +757,14 @@ fn axiom_model_runtime_parity_halt_triggering() {
 
     assert!(rt_res.is_err(), "runtime must halt on spike");
     assert!(mo_res.is_err(), "model must halt on spike");
-    assert_eq!(rt_res.unwrap_err(), mo_res.unwrap_err(),
-        "runtime and model must halt with the same reason");
+    assert_eq!(
+        rt_res.unwrap_err(),
+        mo_res.unwrap_err(),
+        "runtime and model must halt with the same reason"
+    );
     assert_eq!(runtime.epoch, model.epoch, "halted epochs must match");
-    assert_eq!(runtime.halt_reason, model.halt_reason, "halt_reason must match");
+    assert_eq!(
+        runtime.halt_reason, model.halt_reason,
+        "halt_reason must match"
+    );
 }

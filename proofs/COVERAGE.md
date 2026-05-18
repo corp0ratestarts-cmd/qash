@@ -20,7 +20,7 @@ test(s) that exercise it at runtime.
 | Encoding injectivity: `Encode(S₁) = Encode(S₂) → S₁ = S₂` | §7 | **PROVED** | `TH1_encode_state_injective` in `contractivity/encode_injectivity.v` | `src/encoding.rs` | `coq_vectors.rs::coq_model_parity` |
 | Encoding totality: Encode defined on all well-formed states | §7 | **PROVED** | `TH2_encode_state_total` in `contractivity/encode_injectivity.v` | `src/encoding.rs` | `golden_replay.rs::roundtrip_*` |
 | Φ_safety monotonicity: slash accumulator never decreases | §4b, §5 | **PROVED** | `TH4_phi_safety_monotone` in `safety/absorbing_halt.v` | `src/transition.rs` | `axioms.rs::axiom_a1_*` |
-| Φ_safety boundedness: slash accumulator ≤ Φ_max | §4b, §5 | **PROVED** | `TH5_phi_safety_bounded` in `safety/absorbing_halt.v` | `src/transition.rs` | `axioms.rs::axiom_a1_*` |
+| Φ_safety sum aggregation and H7 threshold: `Φ_safety = W_S·Σ slash_i`; `Φ_safety ≥ PHI_MAX_SAFE` halts | §4b, §5, ADR-001/002 | **PROVED** | `TH5_phi_safety_bounded` in `safety/absorbing_halt.v` | `src/lyapunov.rs`, `src/transition.rs` | `lyapunov.rs::phi_safety_sums_across_validators`; `lyapunov.rs::phi_halt_triggers_at_threshold`; `transition.rs::evaluate_projected_phi_safety_sums_across_validators`; `transition.rs::phi_safety_halts_at_threshold_before_commit` |
 | Halt is terminal: no transition from halted state | §5 | **PROVED** | `TH6_halt_terminal`, `TH6_halt_irreversible` in `safety/absorbing_halt.v` | `src/transition.rs` | `axioms.rs::axiom_a6_halt_flag_never_clears` |
 | Halted state uniqueness: same root → same state after halt | §7 | **PROVED** | `TH8_full_uniqueness` in `integration/th8_composition.v` | `src/transition.rs`, `src/encoding.rs` | `golden_replay.rs::state_root_is_deterministic` |
 
