@@ -1,0 +1,35 @@
+{
+  "generated_by": "proofs/model/Model.v checked Examples advance_epoch_idle4_observation_checked and advance_epoch_lyapunov_halt_observation_checked",
+  "ci_jobs": ["proofs", "test-determinism"],
+  "scope": "lyapunov-transition-observations",
+  "vectors": [
+    {
+      "id": "LYAP-IDLE-4",
+      "rust": "crates/consensus/src/transition.rs::advance_epoch + crates/consensus/src/lyapunov.rs::evaluate",
+      "coq": "proofs/model/Model.v::advance_epoch_idle4_observation_checked",
+      "initial": "genesis4",
+      "updates": "idle4",
+      "expect": {
+        "epoch": 1,
+        "halt_reason": 0,
+        "v_convergence": 0,
+        "delta_window": 0,
+        "window_values": [0]
+      }
+    },
+    {
+      "id": "LYAP-HALT-4-900K",
+      "rust": "crates/consensus/src/transition.rs::advance_epoch + crates/consensus/src/lyapunov.rs::evaluate",
+      "coq": "proofs/model/Model.v::advance_epoch_lyapunov_halt_observation_checked",
+      "initial": "genesis4 after 3 idle epochs",
+      "updates": "spike4_900k",
+      "expect": {
+        "epoch": 3,
+        "halt_reason": 1,
+        "v_convergence": 2700000,
+        "delta_window": 2700000,
+        "window_values": [0, 0, 0]
+      }
+    }
+  ]
+}

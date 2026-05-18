@@ -5,8 +5,8 @@ the Coq theorem that proves it (if any), the Rust file that implements it, and t
 test(s) that exercise it at runtime.
 
 **Status key:**
-- `PROVED` — theorem compiles under `coqc` with zero `Admitted` markers
-- `CI-VERIFIED` — verified by cross-ISA CI rather than Coq (e.g., determinism replay)
+- `PROVED` — theorem compiles under `coqc` with zero `Admitted` markers; active proof files are compiled by CI
+- `CI-VERIFIED` — verified by non-Coq CI rather than a Coq theorem (e.g., determinism replay)
 - `AXIOM` — assumed; justification documented; full proof deferred
 - `PLACEHOLDER` — Coq file exists but theorem body is axiomatised pending model
 - `MISSING` — no proof or test exists yet
@@ -60,8 +60,8 @@ test(s) that exercise it at runtime.
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
 |----------|----------|--------|-------------|-----------|---------|
-| SHA3-256 collision resistance | §7, AX-3 | **AXIOM** | `AX3_sha3_assumed_injective` in `contractivity/encode_injectivity.v`; `sha3_256_collision_resistant` in `cascade/cascade_collision_resistance.v` | `src/hash.rs` | `hash.rs::tests::sha3_256_known_vector` (KAT) |
-| Cascade collision resistance (reduction to L1 primitive) | §4c | **PLACEHOLDER** | `TH10_cascade_collision_resistance` in `cascade/cascade_collision_resistance.v` — typed reduction axiom (non-vacuous); `cascade_hash_injective` proved from it | `src/cascade.rs` | — |
+| SHA3-256 collision resistance for v1.0 state-root commitments | §7, AX-3 | **AXIOM** | `AX3_sha3_assumed_injective` in `contractivity/encode_injectivity.v`; `sha3_256_collision_resistant` in `cascade/cascade_collision_resistance.v` | `src/hash.rs`, `src/transition.rs` | `hash.rs::tests::sha3_256_known_vector` (KAT); `vector_runner_all` (`state_root_commitment_genesis_epoch1`) |
+| Cascade collision resistance (reduction to L1 primitive; post-genesis migration item, not active for v1.0 Domain A state roots) | §4c | **PLACEHOLDER** | `TH10_cascade_collision_resistance` in `cascade/cascade_collision_resistance.v` — typed reduction axiom (non-vacuous); `cascade_hash_injective` proved from it | `src/cascade.rs` | — |
 | Cascade health CH_t ∈ [0, p]; χ·CH_t no i128 overflow | §4c | **PROVED** | `ch_t_upper_bound`, `ch_term_admissible` in `cascade/cascade_health_bounded.v` | `src/cascade.rs` | — |
 | Blinding non-interference (PRF security of H_cascade_keyed) | §6 | **AXIOM** | `cascade_prf_security` (qualitative) + `cascade_prf_quantitative_bound` (typed adv_le bound) in `blinding/blinding_non_interference.v` | `src/blinding.rs` | `blinding.rs::tests::*` |
 | 8-family cascade IT-MAC forgery ≤ 16/2¹²⁸ | §derive | **PLACEHOLDER** | `cascade/it_mac_forgery_bound.v`: arithmetic cap proved; `ghash_poly_mac_au_bound` typed axiom (adv_le, non-vacuous); `it_mac_forgery_bound_16` proved | `src/derive.rs` | `derive::tests::gf128_mul_*` |
@@ -83,11 +83,11 @@ test(s) that exercise it at runtime.
 | Status | Count |
 |--------|-------|
 | **PROVED** | 14 |
-| **CI-VERIFIED** | 5 |
-| **AXIOM** | 3 |
+| **CI-VERIFIED** | 4 |
+| **AXIOM** | 2 |
 | **PLACEHOLDER** | 2 |
 | **MISSING** | 0 |
-| **Total** | 24 |
+| **Total** | 22 |
 
 ---
 
@@ -98,7 +98,7 @@ known proof debt that should be discharged before mainnet.
 
 | ID | Property | Path to proof |
 |----|----------|---------------|
-| TH-10 | Cascade collision resistance | Reduction shape (`TH10_cascade_collision_resistance`) now typed; `cascade_hash_injective` proved. Completing the proof requires defining `cascade_hash` concretely and applying the SHA3 injectivity chain. |
+| TH-10 | Cascade collision resistance | Post-genesis migration item for cascade-backed commitments/proofs; it is not an active v1.0 Domain A state-root assumption. Reduction shape (`TH10_cascade_collision_resistance`) now typed; `cascade_hash_injective` proved. Completing the proof requires defining `cascade_hash` concretely and applying the SHA3 injectivity chain. |
 | TH-11 | H_cascade cross-ISA determinism | **Discharged** — `tests/cascade_kat.rs` pins 3 KAT vectors; `platform-determinism.yml` cross-verifies on aarch64 and riscv64gc via QEMU |
 | Blinding PRF | H_cascade_keyed is a PRF | Qualitative (`cascade_prf_security`) and quantitative (`cascade_prf_quantitative_bound` with `adv_le`) axioms in place. Full proof in SSProve; current axioms non-vacuous. |
 | IT-MAC | GF(2¹²⁸) forgery bound 16/2¹²⁸ | Arithmetic cap proved; `ghash_poly_mac_au_bound` typed (adv_le), `it_mac_forgery_bound_16` proved. AU game proof still open (SSProve/CryptHOL target). |

@@ -1,9 +1,10 @@
 # QASH Astronomical Hash Cascade
 ## `docs/spec/07_hash_cascade.md` — Protocol Version 1.1
 
-> **Status:** Canonical specification for `H_cascade`. Implements DD-7.
+> **Status:** Canonical specification for `H_cascade` as a post-genesis/v1.1 cascade path. Implements DD-7.
 > All cascade implementations must produce identical output to this spec on all Tier A ISAs.
 > Captured in `00_execution_model.md §E4` (normative reference).
+> **v1.0 state-root note:** Domain A state roots at genesis use `H_domain(STATE_ROOT, ...)` / SHA3-256. They do not use `H_cascade`, a truncation of `H_cascade`, or any cascade commitment rule.
 
 ---
 
@@ -176,8 +177,7 @@ permits platform-divergent buffering). This is the same constraint as `H_domain`
 | `H_domain` | State root, entropy seed, Merkle nodes | `[u8; 32]` | Domain A — consensus |
 | `H_cascade` | Obfuscation leaf, clone chunk, CH | `[u8; 64]` | Domain A — cascade path |
 
-State root computation **never** calls `H_cascade`. Cascade health commitment
-**never** replaces the state root computation. The two functions are orthogonal.
+For v1.0 genesis, state root computation **never** calls `H_cascade`. Cascade health commitment **never** replaces the state root computation. The two functions are orthogonal. Any future cascade-backed state-root migration must define a new commitment/truncation rule, update `compute_state_root`, and replace the genesis KAT vectors in a separate post-genesis ADR.
 
 ---
 

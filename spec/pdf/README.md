@@ -20,3 +20,15 @@ lock.
 4. `docs/adr/` contains engineering decisions and implementation constraints.
 5. Code that cannot be traced through `docs/traceability.md` is not considered
    spec-covered.
+
+## Genesis hash status
+
+The current repository state is **pre-lock** because `QASH_Spec_v1.0.pdf` is
+not committed. `GENESIS_CONSTANTS.toml` therefore marks `genesis_hash` as
+provisional and not deployment-authoritative.
+
+The exact pre-lock artifact set used by `scripts/verify_genesis_hash.sh` is
+documented in `spec/genesis-artifacts.txt`. When the PDF is committed for
+genesis lock, add `spec/pdf/QASH_Spec_v1.0.pdf` to that manifest, re-verify every
+provisional quote and page reference in `docs/traceability.md`, `docs/errata/`,
+and `docs/adr/`, then recompute and update the recorded hash.

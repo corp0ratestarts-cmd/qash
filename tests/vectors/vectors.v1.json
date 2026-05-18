@@ -23,6 +23,19 @@
       "expected_leaf_index_hex": "d08e6a53cd88f3663ce34f99bceaf5159fb9f5dc7161d5087a4faba90f5c32dd7c4299e14764979febc4c9e86311e515"
     },
     {
+      "name": "state_root_commitment_genesis_epoch1",
+      "pdf_section": "§4.2",
+      "status": "genesis KAT for the v1.0 state-root commitment; uses H_domain(STATE_ROOT) over Encode_for_commitment, not H_cascade",
+      "algorithm": "H_domain_SHA3_256",
+      "domain_tag": "STATE_ROOT",
+      "domain_tag_u32_le_hex": "01000000",
+      "validator_count": 4,
+      "prior_root_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "commitment_preimage_len": 460,
+      "commitment_preimage_sha3_256_hex": "a92369cc605eacb076e28fdb2ca7d5f26bae9f566290da09863e7ca5365b4c0e",
+      "expected_state_root_hex": "513e26e067c3857289f0557adc7db9ea43cda6595cda4510cbf11af06196d352"
+    },
+    {
       "name": "genesis_noop_epochs",
       "pdf_section": "§4.2",
       "validator_count": 4,

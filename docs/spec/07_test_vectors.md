@@ -42,6 +42,33 @@ The genesis state carries `state_root=[0u8;32]` before any epoch is advanced.
 
 ---
 
+### TV-0a — Genesis epoch-1 state-root commitment KAT
+
+**Input:** `genesis_state` → `advance_epoch(idle_input(4), [])`
+**Commitment function:** `H_domain(STATE_ROOT, Encode_for_commitment(S_1, [0u8;32]))`
+(SHA3-256 over `0x01000000 || preimage`, not `H_cascade`).
+**Expected preimage length:** `460` bytes
+**Expected preimage SHA3-256:**
+
+```
+a92369cc605eacb076e28fdb2ca7d5f26bae9f566290da09863e7ca5365b4c0e
+```
+
+**Expected state_root:**
+
+```
+513e26e067c3857289f0557adc7db9ea43cda6595cda4510cbf11af06196d352
+```
+
+**Rust test/vector:** `state_root_commitment_genesis_epoch1` in
+`tests/vectors/vectors.v1.json`, verified by `crates/consensus/tests/vector_runner.rs`.
+
+This KAT pins the exact v1.0 genesis state-root commitment function. Cascade
+state-root activation is a post-genesis migration item and would require a new
+commitment rule plus replacement KATs.
+
+---
+
 ### TV-1 — 3-epoch idle root (TH-7 anchor)
 
 **Input:** `genesis_state` → 3 × `advance_epoch(idle_input(4), [])`  

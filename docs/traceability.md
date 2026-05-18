@@ -35,9 +35,9 @@
 | **PDF quote** | `pub struct LyapunovState { divergence: FixedPoint, conflict: FixedPoint, signature_health: FixedPoint }` / `L = W_D·D + W_C·C + W_S·Σ` / `∀t: L(t+1) - L(t) ≤ ε_threshold` / `If violated → absorbing halt` |
 | **Code** | `crates/consensus/src/lyapunov.rs` computes `V_convergence = α·D + β·C` and `phi_safety = γ·Σ(slash_i)` (ADR-001/002); `PHI_MAX_SAFE = 500_000_000` pinned; `LyapunovEval.phi_halt_triggered` set when `phi ≥ PHI_MAX_SAFE`. `crates/consensus/src/transition.rs` checks `delta_window > ε` (H1) and `phi_halt_triggered` (H7) before commit. |
 | **Test / Vector** | Unit tests in `lyapunov.rs`: `phi_safety_sums_across_validators` (distinguishes sum from max), `phi_halt_triggers_at_threshold` (H7 boundary). |
-| **Proof** | `proofs/contractivity/lyapunov_stability.v` exists, but is not CI-verified. |
+| **Proof** | `proofs/contractivity/lyapunov_stability.v` is compiled by the `.github/workflows/ci.yml` `proofs` job, after CI rejects active `Admitted`/`admit` markers and checks axiom coverage. |
 | **Status** | ⚠️ |
-| **Gap** | ADR-001 and ADR-002 accepted; sum aggregation and H7 gate implemented and tested. Remaining gap: Lyapunov proof (`lyapunov_stability.v`) is not CI-verified. |
+| **Gap** | ADR-001 and ADR-002 accepted; sum aggregation, H7 gate, and Coq compilation are CI-covered. Remaining gaps: no proof-to-code refinement from the Coq model to Rust and no extraction-equivalence evidence. |
 
 ### P0-2: State root computation
 
@@ -95,9 +95,9 @@
 | **PDF quote** | `pub fn compute_leaf_index(validator_id: u64, epoch: u64, epoch_seed: [u8; 32]) -> [u8; 48]` / `out[0..8].copy_from_slice(&validator_id.to_le_bytes()); out[8..16].copy_from_slice(&epoch.to_le_bytes()); out[16..48].copy_from_slice(&epoch_seed);` |
 | **Code** | `crates/consensus/src/encoding.rs` implements `compute_leaf_index` with the same signature and byte layout. |
 | **Test / Vector** | `tests/vectors/vectors.v1.json` includes a leaf-index vector run by `tests/vector-runner`. |
-| **Proof** | PDF §9.1 names `concat_injective`; repository proof content is not CI-verified. |
+| **Proof** | PDF §9.1 names `concat_injective`; `proofs/concat_injective.v` is compiled by the `.github/workflows/ci.yml` `proofs` job, with admitted-marker rejection and `.vo` hash recording. |
 | **Status** | ⚠️ |
-| **Gap** | Code appears byte-identical to the PDF pseudocode and now has vector coverage, but proof CI still needs to prove or map the named theorem. |
+| **Gap** | Code appears byte-identical to the PDF pseudocode, has vector coverage, and the supporting Coq file is CI-compiled. Remaining gaps: traceability still needs a precise mapping from the PDF theorem name to the compiled theorem(s), and no proof-to-code refinement or extraction-equivalence evidence exists. |
 
 ### P0-7: Formal verification CI integration
 
@@ -105,23 +105,23 @@
 |-------|-------|
 | **PDF §** | §9.3 (p. 25, provisional) |
 | **PDF quote** | `cd proofs && make all` / `apalache-mc check --length=100 tla/QASHConsensus.tla` / `test -f proofs/concat_injective.vo` / `test -f proofs/vm_correctness.vo` |
-| **Code** | `.github/workflows/ci.yml` has proof and TLA smoke jobs. |
-| **Test / Vector** | — |
-| **Proof** | `proofs/Makefile`, `proofs/_CoqProject`, `proofs/contractivity/lyapunov_stability.v`, `proofs/util/list_inj.v`, and `tla/QASHConsensus.tla` exist. |
+| **Code** | `.github/workflows/ci.yml` has a `proofs` job that installs Coq, records the Coq version, rejects active `Admitted`/`admit` markers, checks new axiom declarations against `proofs/COVERAGE.md`, compiles the active Coq proof set, hashes generated `.vo` files, and uploads `proof-coq-version.txt` plus `proof-hashes.txt` as artifacts. |
+| **Test / Vector** | CI proof artifacts: `proof-coq-version.txt` and `proof-hashes.txt` uploaded as `proof-objects-${{ github.sha }}`. |
+| **Proof** | Active Coq files under `proofs/` are compiled explicitly by `.github/workflows/ci.yml`, including `proofs/crypto_game_framework.v`, `proofs/util/list_inj.v`, `proofs/concat_injective.v`, contractivity, safety, integration, cascade, blinding, and model files. |
 | **Status** | ⚠️ |
-| **Gap** | CI is wired for Coq proof compilation and a TLA+ smoke model, but the local environment did not have Coq/Apalache installed. The TLA+ model is explicitly a stub and must be replaced before genesis lock. |
+| **Gap** | Current CI automates Coq compilation, admitted-marker rejection, axiom coverage checking, proof-object hashing, and artifact upload. It does not yet resolve proof-to-code refinement, extraction equivalence, independent reproducibility of `.vo` hashes outside GitHub Actions, or the PDF-requested TLA+/Apalache gate. |
 
 ### P0-8: Pinned Rust toolchain
 
 | Field | Value |
 |-------|-------|
 | **PDF §** | §8.1 (p. 23, provisional) |
-| **PDF quote** | `Rust 1.75.0 (pinned)` |
-| **Code** | `rust-toolchain.toml` pins `channel = "1.75.0"`; `.github/workflows/ci.yml` and `.github/workflows/platform-determinism.yml` use that pinned toolchain. |
-| **Test / Vector** | Cross-ISA vectors must run under the pinned toolchain. |
+| **PDF quote** | `Rust 1.75.0 (pinned)`; ADR-005 revises the active repository pin to Rust 1.95.0 because Rust 1.75.0 is no longer viable with the current Cargo lockfile format. |
+| **Code** | `rust-toolchain.toml` pins `channel = "1.95.0"`; `.github/workflows/ci.yml`, `.github/workflows/platform-determinism.yml`, and `.github/workflows/fuzz-smoke.yml` install that pinned toolchain and run `scripts/verify_rust_toolchain.sh` to print and check `rustc --version --verbose`. |
+| **Test / Vector** | Local reproducibility verification passed for `cargo +1.95.0 build --workspace --no-default-features --locked --offline`; cross-ISA vectors must still run under the pinned toolchain before genesis lock. |
 | **Proof** | — |
 | **Status** | ⚠️ |
-| **Gap** | The pin exists and ADR-005 is accepted. Local verification used an already-installed newer toolchain because Rust 1.75.0 could not be downloaded from this environment. |
+| **Gap** | Rust 1.95.0 is pinned and locally build-verified. Cross-ISA CI must provide the final multi-target reproducibility evidence before genesis lock. |
 
 ### P0-9: Genesis hash
 
@@ -129,13 +129,26 @@
 |-------|-------|
 | **PDF §** | §2.1 (pp. 2–3, provisional), §10.1 (pp. 25–26, provisional), Appendix E (p. 31, provisional) |
 | **PDF quote** | `genesis_hash = "SHA3-256:<computed_hash>"` / `sha3-256sum genesis.toml` |
-| **Code** | `GENESIS_CONSTANTS.toml` has `genesis_hash = "SHA3-256:PLACEHOLDER"`. |
-| **Test / Vector** | — |
+| **Code** | `GENESIS_CONSTANTS.toml` records a recomputable pre-lock artifact-set digest and explicitly marks `genesis_status = "provisional"` with `deployment_authoritative = false`. `scripts/verify_genesis_hash.sh` recomputes the digest from `spec/genesis-artifacts.txt`. |
+| **Test / Vector** | `.github/workflows/ci.yml` and `.github/workflows/genesis-guard.yml` run `./scripts/verify_genesis_hash.sh`. |
 | **Proof** | — |
 | **Status** | ❌ |
-| **Gap** | Terminal gate. The hash cannot be locked until the normative PDF is committed, ERR-001 and relevant ADRs are resolved, full encoding is defined, and cross-ISA vectors pass. |
+| **Gap** | Terminal gate. The current hash is provisional and not deployment-authoritative. It cannot be locked until the normative PDF is committed, every provisional quote/page reference in this file plus `docs/errata/` and `docs/adr/` is verified against that PDF, ERR-001 and relevant ADRs are resolved, full encoding is defined, and cross-ISA vectors pass. |
 
 ---
+
+### P1-5: Hosted PAL nondeterminism boundary
+
+| Field | Value |
+|-------|-------|
+| **PDF §** | §5 (hosted/platform abstraction, provisional) |
+| **PDF quote** | `PDF-SILENT`: the provisional PDF does not define the hosted crash-recovery log format or Domain B → Domain A ingress allow-list. |
+| **Code** | `crates/pal/src/lib.rs` implements `hosted::Host`, canonical input records, accepted-input persistence, replay from genesis, and Domain-B-only time/network/attestation/reset helpers. |
+| **Test / Vector** | `crates/pal/tests/hosted_replay.rs` replays the same persisted input log from genesis after a simulated crash/restart and checks identical state roots. |
+| **Threat Model** | `docs/threat_model/nondeterminism.md` defines the Domain B → Domain A boundary and the minimal hosted runtime milestone. |
+| **Proof** | — |
+| **Status** | ⚠️ |
+| **Gap** | Hosted PAL replay determinism has integration coverage on the native test target; cross-ISA hosted replay artifacts and corrupt-log fuzzing remain future work. |
 
 ## P1+ — Deferred Work Items
 
@@ -145,7 +158,8 @@
 | P1-2 | §4.3 (p. 10, provisional) | Dual-path verification | Requires cascade verification. |
 | P1-3 | §3.5 (pp. 8–9, provisional) | Crypto agility schedule | Requires cascade selection and vector coverage. |
 | P1-4 | §5 | Hardware abstraction and deployment tiers | PAL implementation phase. |
-| P1-5 | §6 | Obfuscation VM | Later subsystem phase. |
-| P1-6 | §7 | Clone protocol | Later subsystem phase. |
+| P1-5 | §5 | Hosted PAL nondeterminism boundary | Minimal hosted runtime now implemented; cross-ISA replay artifacts deferred. |
+| P1-6 | §6 | Obfuscation VM | Later subsystem phase. |
+| P1-7 | §7 | Clone protocol | Later subsystem phase. |
 | P2-1 | §9.1 (pp. 24–25, provisional) | `vm_correctness` proof | Depends on obfuscation VM. |
 | P2-2 | §9.1 (pp. 24–25, provisional) | `decoy_state_identity` proof | Depends on obfuscation VM. |

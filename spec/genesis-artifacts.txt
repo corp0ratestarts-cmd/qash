@@ -1,0 +1,50 @@
+# QASH genesis hash artifact manifest (provisional pre-lock set)
+#
+# The genesis hash is computed over exactly the files listed below, in this
+# order, with each file framed as:
+#   path UTF-8 bytes, NUL, decimal byte length, NUL, raw file bytes, NUL
+# `GENESIS_CONSTANTS.toml` is canonicalized during hashing by replacing the
+# self-referential `genesis_hash` value with `SHA3-256:<SELF>`.
+#
+# This manifest is intentionally not included in the hash preimage. Changing
+# this manifest changes the artifact set and therefore changes the computed
+# hash.
+#
+# Pre-lock note: `spec/pdf/QASH_Spec_v1.0.pdf` is not committed yet. Until it
+# is added, all PDF quotes/page references remain provisional and the resulting
+# digest is not deployment-authoritative.
+GENESIS_CONSTANTS.toml
+spec/genesis.schema.toml
+spec/pdf/README.md
+docs/traceability.md
+docs/errata/README.md
+docs/errata/ERR-001-lyapunov-definition-and-halt.md
+docs/errata/ERR-001-lyapunov-monotone-term.md
+docs/adr/README.md
+docs/adr/0001-domain-isolation.md
+docs/adr/0002-transition-safe-fixed-point.md
+docs/adr/ADR-001-phi-safety-accumulator.md
+docs/adr/ADR-001-phi-safety-and-threshold.md
+docs/adr/ADR-002-phi-safety-aggregation.md
+docs/adr/ADR-003-state-root-and-encoding.md
+docs/adr/ADR-003-state-root-encoding.md
+docs/adr/ADR-004-absorbing-halt-layering.md
+docs/adr/ADR-004-halt-layering-domain-a-vs-pal.md
+docs/adr/ADR-005-rust-toolchain-version.md
+docs/adr/IC-001-no-heap-cascade.md
+docs/spec/00_execution_model.md
+docs/spec/01_consensus.md
+docs/spec/02_transition_axioms.md
+docs/spec/03_transactions.md
+docs/spec/04_adversarial_model.md
+docs/spec/07_hash_cascade.md
+docs/spec/07_test_vectors.md
+docs/spec/09_migration_v1.0_to_v1.1.md
+docs/spec/09_privacy_model.md
+docs/spec/10_clone_protocol.md
+docs/spec/11_handshake_protocol.md
+docs/spec/11_security_model.md
+tests/vectors/README.md
+tests/vectors/cascade_kat.json
+tests/vectors/vectors.v1.json
+rust-toolchain.toml
