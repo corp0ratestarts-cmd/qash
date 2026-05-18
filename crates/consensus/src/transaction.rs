@@ -4,7 +4,7 @@
 //! Only the nonce is checked and incremented here.
 
 use crate::hash::{h_domain, DomainTag};
-use crate::transition::EpochState;
+use crate::transition::{EpochState, MAX_VALIDATORS};
 
 // ---------------------------------------------------------------------------
 // Wire constants
@@ -114,7 +114,7 @@ pub fn tx_id(raw: &[u8; TX0_WIRE_BYTES]) -> [u8; 32] {
 // Sort key
 // ---------------------------------------------------------------------------
 
-/// Sort key = H_domain(EntropyAdvance, entropy_seed ∥ tx_id_bytes)
+/// Sort key = H_domain(EntropyAdvance, entropy_seed || tx_id_bytes)
 /// Deterministic canonical ordering for an epoch's transaction set.
 pub fn sort_key(entropy_seed: &[u8; 32], tx_id_bytes: &[u8; 32]) -> [u8; 32] {
     let mut input = [0u8; 64];
@@ -131,7 +131,7 @@ pub fn sort_key(entropy_seed: &[u8; 32], tx_id_bytes: &[u8; 32]) -> [u8; 32] {
 ///
 /// Uses `==` on 48-byte arrays (not constant-time). This is safe because
 /// `author_id` and all `validator_ids` are public consensus data.
-fn index_of_validator(state: &EpochState, author_id: &[u8; 48]) -> Option<usize> {
+pub(crate) fn index_of_validator(state: &EpochState, author_id: &[u8; 48]) -> Option<usize> {
     (0..state.validator_count as usize).find(|&i| &state.validator_ids[i] == author_id)
 }
 
@@ -160,7 +160,22 @@ pub fn apply_tx_0(state: &mut EpochState, idx: usize) -> Result<(), TxError> {
 }
 
 // ---------------------------------------------------------------------------
-// apply_all: decode → sort → apply transaction set for an epoch
+// TxPrevalidation: result of stateless prevalidation pass
+// ---------------------------------------------------------------------------
+
+/// Result of transaction prevalidation.
+///
+/// `next_nonces` is the complete nonce array to assign during transition commit.
+/// All parsing, filtering, sorting, admissibility checks, and nonce overflow
+/// checks needed to compute it have already completed before this value exists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TxPrevalidation {
+    pub next_nonces: [u64; MAX_VALIDATORS],
+    pub applied_count: u32,
+}
+
+// ---------------------------------------------------------------------------
+// prevalidate_all: decode -> sort -> validate against projected nonces
 // ---------------------------------------------------------------------------
 
 /// Per-entry for sorting: sort key + index into raw_txs.
@@ -174,20 +189,22 @@ impl SortEntry {
     const ZERO: SortEntry = SortEntry { key: [0u8; 32], raw_idx: 0 };
 }
 
-/// Apply all transactions in `raw_txs` to `state`.
+/// Prevalidate all transactions in `raw_txs` without mutating `state`.
 ///
 /// Steps:
 /// 1. Parse each envelope (skip malformed).
-/// 2. Check admissibility (author_id present, nonce matches).
-/// 3. Compute sort keys and sort by key (insertion sort).
-/// 4. Apply in sorted order; stop at `max_count`.
+/// 2. Compute sort keys and sort by key (insertion sort).
+/// 3. In sorted order, check admissibility against a local nonce projection.
+/// 4. Compute each accepted author's next nonce with `checked_add`; stop at
+///    `max_count`.
 ///
-/// Returns the count of successfully applied transactions.
-pub fn apply_all(
-    state: &mut EpochState,
+/// Malformed or inadmissible transactions are filtered out. A nonce overflow
+/// is returned as an error because the next state cannot represent it.
+pub fn prevalidate_all(
+    state: &EpochState,
     raw_txs: &[&[u8]],
     max_count: u32,
-) -> Result<u32, TxError> {
+) -> Result<TxPrevalidation, TxError> {
     const MAX_TX_PER_EPOCH: usize = 1024;
 
     let n = if raw_txs.len() > MAX_TX_PER_EPOCH {
@@ -207,24 +224,23 @@ pub fn apply_all(
         if consumed != TX0_WIRE_BYTES {
             continue;
         }
-        if is_admissible(state, &tx).is_err() {
+        if index_of_validator(state, &tx.author_id).is_none() {
             continue;
         }
 
-        let key = if raw.len() >= TX0_WIRE_BYTES {
-            let mut arr = [0u8; TX0_WIRE_BYTES];
-            arr.copy_from_slice(&raw[..TX0_WIRE_BYTES]);
-            let id = tx_id(&arr);
-            sort_key(&state.entropy_seed, &id)
-        } else {
+        if raw.len() < TX0_WIRE_BYTES {
             continue;
-        };
+        }
+        let mut arr = [0u8; TX0_WIRE_BYTES];
+        arr.copy_from_slice(&raw[..TX0_WIRE_BYTES]);
+        let id = tx_id(&arr);
+        let key = sort_key(&state.entropy_seed, &id);
 
         entries[valid] = SortEntry { key, raw_idx: raw_idx as u32 };
         valid += 1;
     }
 
-    // Insertion sort by key (lexicographic).
+    // Insertion sort (stable, deterministic, constant-size).
     let mut i: usize = 1;
     while i < valid {
         let mut j = i;
@@ -236,23 +252,47 @@ pub fn apply_all(
     }
 
     let limit = if (max_count as usize) < valid { max_count as usize } else { valid };
+    let mut next_nonces = state.nonces;
     let mut applied: u32 = 0;
 
-    for e in &entries[..limit] {
+    for e in &entries[..valid] {
+        if applied as usize >= limit {
+            break;
+        }
         let raw = raw_txs[e.raw_idx as usize];
         let (tx, _) = match parse_tx0(raw) {
             Ok(v) => v,
             Err(_) => continue,
         };
-        let idx = match is_admissible(state, &tx) {
-            Ok(i) => i,
-            Err(_) => continue,
+        let idx = match index_of_validator(state, &tx.author_id) {
+            Some(i) => i,
+            None => continue,
         };
-        apply_tx_0(state, idx)?;
+        let expected = next_nonces[idx];
+        if tx.nonce != expected {
+            continue;
+        }
+        next_nonces[idx] = next_nonces[idx]
+            .checked_add(1)
+            .ok_or(TxError::MalformedEnvelope)?;
         applied += 1;
     }
 
-    Ok(applied)
+    Ok(TxPrevalidation { next_nonces, applied_count: applied })
+}
+
+/// Apply all transactions in `raw_txs` to `state`.
+///
+/// Delegates all fallible work to `prevalidate_all`, then commits the
+/// already-computed nonce array with a single infallible assignment.
+pub fn apply_all(
+    state: &mut EpochState,
+    raw_txs: &[&[u8]],
+    max_count: u32,
+) -> Result<u32, TxError> {
+    let plan = prevalidate_all(state, raw_txs, max_count)?;
+    state.nonces = plan.next_nonces;
+    Ok(plan.applied_count)
 }
 
 // ---------------------------------------------------------------------------
@@ -267,7 +307,6 @@ mod tests {
 
     fn make_state(vc: u32) -> EpochState {
         let mut validator_ids = [[0u8; 48]; MAX_VALIDATORS];
-        // Give each slot a distinct non-zero id so linear scan works correctly.
         for i in 0..vc as usize {
             validator_ids[i][0] = i as u8 + 1;
         }
@@ -290,8 +329,7 @@ mod tests {
         raw[2..4].copy_from_slice(&TX_TYPE_NOOP.to_le_bytes());
         raw[4..12].copy_from_slice(&nonce.to_le_bytes());
         raw[12..60].copy_from_slice(&author_id);
-        raw[60..64].copy_from_slice(&0u32.to_le_bytes()); // payload_len = 0
-        // signature bytes remain zero (opaque in Domain A)
+        raw[60..64].copy_from_slice(&0u32.to_le_bytes());
         raw
     }
 
@@ -299,6 +337,22 @@ mod tests {
         let mut id = [0u8; 48];
         id[0] = slot + 1;
         id
+    }
+
+    fn sorted_before(a: &[u8; TX0_WIRE_BYTES], b: &[u8; TX0_WIRE_BYTES]) -> bool {
+        sort_key(&[0u8; 32], &tx_id(a)) < sort_key(&[0u8; 32], &tx_id(b))
+    }
+
+    fn ordered_same_author_txs() -> ([u8; TX0_WIRE_BYTES], [u8; TX0_WIRE_BYTES]) {
+        let tx0 = make_tx0_raw(author_id(0), 0);
+        let mut tx1 = make_tx0_raw(author_id(0), 1);
+        for b in 0u16..=u8::MAX as u16 {
+            tx1[TX_HEADER_BYTES] = b as u8;
+            if sorted_before(&tx0, &tx1) {
+                return (tx0, tx1);
+            }
+        }
+        panic!("could not construct ordered same-author transaction pair");
     }
 
     #[test]
@@ -366,5 +420,40 @@ mod tests {
         let mut raw = make_tx0_raw(author_id(0), 0);
         raw[60..64].copy_from_slice(&1u32.to_le_bytes());
         assert_eq!(parse_tx0(&raw).unwrap_err(), TxError::MalformedEnvelope);
+    }
+
+    #[test]
+    fn apply_all_idempotent_with_empty_txs() {
+        let mut s1 = make_state(3);
+        let mut s2 = make_state(3);
+        apply_all(&mut s1, &[], 100).unwrap();
+        apply_all(&mut s2, &[], 100).unwrap();
+        assert_eq!(s1.nonces[0], s2.nonces[0]);
+        assert_eq!(s1.nonces[1], s2.nonces[1]);
+        assert_eq!(s1.nonces[2], s2.nonces[2]);
+    }
+
+    #[test]
+    fn prevalidate_all_accepts_multiple_sorted_txs_from_same_validator() {
+        let state = make_state(2);
+        let (tx0, tx1) = ordered_same_author_txs();
+        let plan = prevalidate_all(&state, &[tx0.as_slice(), tx1.as_slice()], 100).unwrap();
+
+        assert_eq!(plan.applied_count, 2);
+        assert_eq!(plan.next_nonces[0], 2);
+        assert_eq!(state.nonces[0], 0, "prevalidation must not mutate state");
+    }
+
+    #[test]
+    fn prevalidate_all_reports_nonce_overflow_without_mutating_state() {
+        let mut state = make_state(1);
+        state.nonces[0] = u64::MAX;
+        let tx = make_tx0_raw(author_id(0), u64::MAX);
+
+        assert_eq!(
+            prevalidate_all(&state, &[tx.as_slice()], 100).unwrap_err(),
+            TxError::MalformedEnvelope
+        );
+        assert_eq!(state.nonces[0], u64::MAX);
     }
 }
