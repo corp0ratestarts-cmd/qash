@@ -401,11 +401,14 @@ fn run_pipeline(
         })?;
 
     let mut next_validators = state.validators;
-    for i in 0..state.validator_count as usize {
-        if let Some(ref u) = input.updates[i] {
-            next_validators[i].divergence = u.divergence_new;
-            next_validators[i].conflict = u.conflict_new;
-            next_validators[i].slash_accum = u.slash_accum_new;
+    for (next_v, update) in next_validators[..state.validator_count as usize]
+        .iter_mut()
+        .zip(input.updates[..state.validator_count as usize].iter())
+    {
+        if let Some(ref u) = update {
+            next_v.divergence = u.divergence_new;
+            next_v.conflict = u.conflict_new;
+            next_v.slash_accum = u.slash_accum_new;
         }
     }
 
@@ -654,7 +657,7 @@ mod tests {
         input.updates[0] = Some(ValidatorUpdate {
             divergence_new: FixedPoint::ZERO,
             conflict_new: FixedPoint::ZERO,
-            slash_accum_new: FixedPoint::from_raw(500), // decrease → invalid
+            slash_accum_new: FixedPoint::from_raw(500), // decrease -> invalid
         });
         assert_eq!(
             advance_epoch(&mut state, &input, &[]),
@@ -665,7 +668,7 @@ mod tests {
     #[test]
     fn validate_rejects_wrong_update_count() {
         let mut state = genesis_state_vc4(); // validator_count = 4
-        let input = idle_input(3); // update_count = 3 ≠ 4
+        let input = idle_input(3); // update_count = 3 != 4
         assert_eq!(
             advance_epoch(&mut state, &input, &[]),
             Err(HaltReason::DecodeInvalid)
@@ -689,9 +692,9 @@ mod tests {
     }
 
     /// V_convergence for 4 validators each with D=500_000, C=250_000:
-    ///   per validator: floor(400_000×500_000/1_000_000) + floor(350_000×250_000/1_000_000)
+    ///   per validator: floor(400_000x500_000/1_000_000) + floor(350_000x250_000/1_000_000)
     ///                = 200_000 + 87_500 = 287_500
-    ///   total: 4 × 287_500 = 1_150_000
+    ///   total: 4 x 287_500 = 1_150_000
     #[test]
     fn evaluate_projected_known_values() {
         let mut state = genesis_state_vc4();
