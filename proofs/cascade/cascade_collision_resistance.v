@@ -20,7 +20,7 @@
 *)
 
 Require Import Coq.Lists.List.
-Require Import Coq.Logic.Classical_Prop.
+Require Import Coq.Bool.Bool.
 Import ListNotations.
 
 (* ---------------------------------------------------------------------------
@@ -91,7 +91,9 @@ Theorem cascade_hash_injective :
     cascade_hash x = cascade_hash y -> x = y.
 Proof.
   intros x y Heq.
-  apply NNPP. intro Hne.
-  destruct (TH10_cascade_collision_resistance x y Hne Heq) as [a [b [Hab_ne Hab_eq]]].
-  exact (Hab_ne (sha3_256_collision_resistant a b Hab_eq)).
+  destruct (list_eq_dec Bool.bool_dec x y) as [Hxy | Hne].
+  - exact Hxy.
+  - exfalso.
+    destruct (TH10_cascade_collision_resistance x y Hne Heq) as [a [b [Hab_ne Hab_eq]]].
+    exact (Hab_ne (sha3_256_collision_resistant a b Hab_eq)).
 Qed.

@@ -72,3 +72,5 @@ These rules apply to every session, without needing to be asked:
 2. **Always create draft PRs after pushing**: After every `git push`, create a draft PR for the branch if one does not already exist (already the default from system instructions — listed here for clarity).
 
 3. **Subscribe to PR activity on creation**: After creating a PR, offer to subscribe to it with `mcp__github__subscribe_pr_activity` so CI failures and review comments are auto-fixed.
+
+4. **Auto-merge on ready**: Whenever a PR is undrafted (marked ready for review), immediately call `mcp__github__enable_pr_auto_merge` with `mergeMethod: "SQUASH"`. If that fails (e.g. branch protection rules not configured), note it but do not block. Do not ask for confirmation — this is standing authorization.
