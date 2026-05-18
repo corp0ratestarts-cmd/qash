@@ -137,6 +137,19 @@
 
 ---
 
+### P1-5: Hosted PAL nondeterminism boundary
+
+| Field | Value |
+|-------|-------|
+| **PDF §** | §5 (hosted/platform abstraction, provisional) |
+| **PDF quote** | `PDF-SILENT`: the provisional PDF does not define the hosted crash-recovery log format or Domain B → Domain A ingress allow-list. |
+| **Code** | `crates/pal/src/lib.rs` implements `hosted::Host`, canonical input records, accepted-input persistence, replay from genesis, and Domain-B-only time/network/attestation/reset helpers. |
+| **Test / Vector** | `crates/pal/tests/hosted_replay.rs` replays the same persisted input log from genesis after a simulated crash/restart and checks identical state roots. |
+| **Threat Model** | `docs/threat_model/nondeterminism.md` defines the Domain B → Domain A boundary and the minimal hosted runtime milestone. |
+| **Proof** | — |
+| **Status** | ⚠️ |
+| **Gap** | Hosted PAL replay determinism has integration coverage on the native test target; cross-ISA hosted replay artifacts and corrupt-log fuzzing remain future work. |
+
 ## P1+ — Deferred Work Items
 
 | ID | PDF § | Topic | Deferred because |
@@ -145,7 +158,8 @@
 | P1-2 | §4.3 (p. 10, provisional) | Dual-path verification | Requires cascade verification. |
 | P1-3 | §3.5 (pp. 8–9, provisional) | Crypto agility schedule | Requires cascade selection and vector coverage. |
 | P1-4 | §5 | Hardware abstraction and deployment tiers | PAL implementation phase. |
-| P1-5 | §6 | Obfuscation VM | Later subsystem phase. |
-| P1-6 | §7 | Clone protocol | Later subsystem phase. |
+| P1-5 | §5 | Hosted PAL nondeterminism boundary | Minimal hosted runtime now implemented; cross-ISA replay artifacts deferred. |
+| P1-6 | §6 | Obfuscation VM | Later subsystem phase. |
+| P1-7 | §7 | Clone protocol | Later subsystem phase. |
 | P2-1 | §9.1 (pp. 24–25, provisional) | `vm_correctness` proof | Depends on obfuscation VM. |
 | P2-2 | §9.1 (pp. 24–25, provisional) | `decoy_state_identity` proof | Depends on obfuscation VM. |
