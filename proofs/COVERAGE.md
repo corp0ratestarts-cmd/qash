@@ -5,8 +5,8 @@ the Coq theorem that proves it (if any), the Rust file that implements it, and t
 test(s) that exercise it at runtime.
 
 **Status key:**
-- `PROVED` — theorem compiles under `coqc` with zero `Admitted` markers
-- `CI-VERIFIED` — verified by cross-ISA CI rather than Coq (e.g., determinism replay)
+- `PROVED` — theorem compiles under `coqc` with zero `Admitted` markers; active proof files are compiled by CI
+- `CI-VERIFIED` — verified by non-Coq CI rather than a Coq theorem (e.g., determinism replay)
 - `AXIOM` — assumed; justification documented; full proof deferred
 - `PLACEHOLDER` — Coq file exists but theorem body is axiomatised pending model
 - `MISSING` — no proof or test exists yet
@@ -83,11 +83,11 @@ test(s) that exercise it at runtime.
 | Status | Count |
 |--------|-------|
 | **PROVED** | 14 |
-| **CI-VERIFIED** | 5 |
-| **AXIOM** | 3 |
+| **CI-VERIFIED** | 4 |
+| **AXIOM** | 2 |
 | **PLACEHOLDER** | 2 |
 | **MISSING** | 0 |
-| **Total** | 24 |
+| **Total** | 22 |
 
 ---
 

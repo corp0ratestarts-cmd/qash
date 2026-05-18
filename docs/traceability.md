@@ -35,9 +35,9 @@
 | **PDF quote** | `pub struct LyapunovState { divergence: FixedPoint, conflict: FixedPoint, signature_health: FixedPoint }` / `L = W_D·D + W_C·C + W_S·Σ` / `∀t: L(t+1) - L(t) ≤ ε_threshold` / `If violated → absorbing halt` |
 | **Code** | `crates/consensus/src/lyapunov.rs` computes `V_convergence = α·D + β·C` and `phi_safety = γ·Σ(slash_i)` (ADR-001/002); `PHI_MAX_SAFE = 500_000_000` pinned; `LyapunovEval.phi_halt_triggered` set when `phi ≥ PHI_MAX_SAFE`. `crates/consensus/src/transition.rs` checks `delta_window > ε` (H1) and `phi_halt_triggered` (H7) before commit. |
 | **Test / Vector** | Unit tests in `lyapunov.rs`: `phi_safety_sums_across_validators` (distinguishes sum from max), `phi_halt_triggers_at_threshold` (H7 boundary). |
-| **Proof** | `proofs/contractivity/lyapunov_stability.v` exists, but is not CI-verified. |
+| **Proof** | `proofs/contractivity/lyapunov_stability.v` is compiled by the `.github/workflows/ci.yml` `proofs` job, after CI rejects active `Admitted`/`admit` markers and checks axiom coverage. |
 | **Status** | ⚠️ |
-| **Gap** | ADR-001 and ADR-002 accepted; sum aggregation and H7 gate implemented and tested. Remaining gap: Lyapunov proof (`lyapunov_stability.v`) is not CI-verified. |
+| **Gap** | ADR-001 and ADR-002 accepted; sum aggregation, H7 gate, and Coq compilation are CI-covered. Remaining gaps: no proof-to-code refinement from the Coq model to Rust and no extraction-equivalence evidence. |
 
 ### P0-2: State root computation
 
@@ -95,9 +95,9 @@
 | **PDF quote** | `pub fn compute_leaf_index(validator_id: u64, epoch: u64, epoch_seed: [u8; 32]) -> [u8; 48]` / `out[0..8].copy_from_slice(&validator_id.to_le_bytes()); out[8..16].copy_from_slice(&epoch.to_le_bytes()); out[16..48].copy_from_slice(&epoch_seed);` |
 | **Code** | `crates/consensus/src/encoding.rs` implements `compute_leaf_index` with the same signature and byte layout. |
 | **Test / Vector** | `tests/vectors/vectors.v1.json` includes a leaf-index vector run by `tests/vector-runner`. |
-| **Proof** | PDF §9.1 names `concat_injective`; repository proof content is not CI-verified. |
+| **Proof** | PDF §9.1 names `concat_injective`; `proofs/concat_injective.v` is compiled by the `.github/workflows/ci.yml` `proofs` job, with admitted-marker rejection and `.vo` hash recording. |
 | **Status** | ⚠️ |
-| **Gap** | Code appears byte-identical to the PDF pseudocode and now has vector coverage, but proof CI still needs to prove or map the named theorem. |
+| **Gap** | Code appears byte-identical to the PDF pseudocode, has vector coverage, and the supporting Coq file is CI-compiled. Remaining gaps: traceability still needs a precise mapping from the PDF theorem name to the compiled theorem(s), and no proof-to-code refinement or extraction-equivalence evidence exists. |
 
 ### P0-7: Formal verification CI integration
 
@@ -105,11 +105,11 @@
 |-------|-------|
 | **PDF §** | §9.3 (p. 25, provisional) |
 | **PDF quote** | `cd proofs && make all` / `apalache-mc check --length=100 tla/QASHConsensus.tla` / `test -f proofs/concat_injective.vo` / `test -f proofs/vm_correctness.vo` |
-| **Code** | `.github/workflows/ci.yml` has proof and TLA smoke jobs. |
-| **Test / Vector** | — |
-| **Proof** | `proofs/Makefile`, `proofs/_CoqProject`, `proofs/contractivity/lyapunov_stability.v`, `proofs/util/list_inj.v`, and `tla/QASHConsensus.tla` exist. |
+| **Code** | `.github/workflows/ci.yml` has a `proofs` job that installs Coq, records the Coq version, rejects active `Admitted`/`admit` markers, checks new axiom declarations against `proofs/COVERAGE.md`, compiles the active Coq proof set, hashes generated `.vo` files, and uploads `proof-coq-version.txt` plus `proof-hashes.txt` as artifacts. |
+| **Test / Vector** | CI proof artifacts: `proof-coq-version.txt` and `proof-hashes.txt` uploaded as `proof-objects-${{ github.sha }}`. |
+| **Proof** | Active Coq files under `proofs/` are compiled explicitly by `.github/workflows/ci.yml`, including `proofs/crypto_game_framework.v`, `proofs/util/list_inj.v`, `proofs/concat_injective.v`, contractivity, safety, integration, cascade, blinding, and model files. |
 | **Status** | ⚠️ |
-| **Gap** | CI is wired for Coq proof compilation and a TLA+ smoke model, but the local environment did not have Coq/Apalache installed. The TLA+ model is explicitly a stub and must be replaced before genesis lock. |
+| **Gap** | Current CI automates Coq compilation, admitted-marker rejection, axiom coverage checking, proof-object hashing, and artifact upload. It does not yet resolve proof-to-code refinement, extraction equivalence, independent reproducibility of `.vo` hashes outside GitHub Actions, or the PDF-requested TLA+/Apalache gate. |
 
 ### P0-8: Pinned Rust toolchain
 
