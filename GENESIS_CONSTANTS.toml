@@ -6,7 +6,7 @@ deployment_authoritative = false
 artifact_manifest = "spec/genesis-artifacts.txt"
 deployment_model = "one-shot"
 governance = "zero"
-genesis_hash = "SHA3-256:913388de680d622283bd3b32ce2561333d7a87b383853d9e7ca0ade87e90eeee"
+genesis_hash = "SHA3-256:ef33de2015032a7933fa4fb43148d80f54d121ecb8ac0c2aeba0f0df4765fb41"
 
 [fixed_point]
 scale = 1_000_000
@@ -19,6 +19,7 @@ weight_divergence_D = 400_000
 weight_conflict_C = 350_000
 weight_slash_Sigma = 250_000
 epsilon_threshold = 20_000
+phi_max_safe = 500_000_000
 evaluation_window = 3
 max_queries_per_epoch = 1_000_000
 

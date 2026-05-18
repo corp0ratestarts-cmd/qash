@@ -7,9 +7,7 @@
 
 use proptest::prelude::*;
 use qash_consensus::fixed_point::{FixedPoint, SCALE};
-use qash_consensus::lyapunov::{
-    self, ConvergenceWindow, ValidatorMetrics, WEIGHT_S, WINDOW_SIZE,
-};
+use qash_consensus::lyapunov::{self, ConvergenceWindow, ValidatorMetrics, WEIGHT_S, WINDOW_SIZE};
 use qash_consensus::transaction::{TX0_WIRE_BYTES, TX_TYPE_NOOP, TX_VERSION};
 use qash_consensus::transition::{
     advance_epoch, decode_full_state, encode_full_state_into, EpochInput, EpochState, HaltReason,
@@ -39,7 +37,10 @@ fn genesis_state_n(n: u32) -> EpochState {
 }
 
 fn idle_input_n(n: u32) -> EpochInput {
-    EpochInput { updates: [None; MAX_VALIDATORS], update_count: n }
+    EpochInput {
+        updates: [None; MAX_VALIDATORS],
+        update_count: n,
+    }
 }
 
 fn uniform_input(n: u32, d: i128, c: i128, slash: i128) -> EpochInput {
@@ -251,6 +252,7 @@ fn arb_halt_reason() -> impl Strategy<Value = HaltReason> {
         Just(HaltReason::DecodeInvalid),
         Just(HaltReason::RoundtripFailure),
         Just(HaltReason::HaltFlagSet),
+        Just(HaltReason::PhiSafetyViolation),
     ]
 }
 

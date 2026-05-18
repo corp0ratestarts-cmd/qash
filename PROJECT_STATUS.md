@@ -198,7 +198,7 @@ These are fixed constraints that no future work will alter:
 ## Proof Coverage Summary (current)
 
 | Status | Count | Meaning |
-|--------|-------|---------|
+|--------|-------|----------|
 | PROVED | 14 | Coq theorem, compiles, zero `Admitted` |
 | CI-VERIFIED | 4 | Verified by cross-ISA CI or KAT vectors |
 | AXIOM | 2 | Assumed property rows with documented justification; not provable from first principles |
@@ -212,7 +212,7 @@ Full matrix: `proofs/COVERAGE.md`
 ## Key Files for Reviewers
 
 | File | Purpose |
-|------|---------|
+|------|----------|
 | `README.md` | Project identity, theorem table, contributor rules |
 | `design_decisions.md` | Architectural decisions and rationale |
 | `GENESIS_CONSTANTS.toml` | All protocol parameters (immutable after lock) |

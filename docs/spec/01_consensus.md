@@ -122,7 +122,7 @@ S_t = (
   lyapunov_window: [i64; W], // ring buffer of V_convergence(S_k) for k in [t-W, t-1]
                              // stores the W PRECEDING values only — excludes current epoch
                              // initialized to 0 for all k < 0 (pre-genesis padding)
-  halt_reason:   u8,         // 0x00=None (running); 0x01–0x06=halt codes; once non-zero, all transitions produce ⊥
+  halt_reason:   u8,         // 0x00=None (running); 0x01–0x07=halt codes; once non-zero, all transitions produce ⊥
 )
 ```
 
@@ -289,14 +289,15 @@ Encode(S_t):                                             — 112 fixed bytes, th
   state_root:      [u8;32] → 32 bytes, verbatim
   ledger_root:     [u8;32] → 32 bytes, verbatim
   entropy_seed:    [u8;32] → 32 bytes, verbatim
-  halt_reason:     u8      →  1 byte  (valid values: 0x00–0x06; any other value is malformed)
-                               0x00  None              (running)
-                               0x01  LyapunovViolation (H1)
-                               0x02  ArithOverflow     (H2)
-                               0x03  EpochOverflow     (H3)
-                               0x04  DecodeInvalid     (H4)
-                               0x05  RoundtripFailure  (H5)
-                               0x06  HaltFlagSet       (H6, reserved)
+  halt_reason:     u8      →  1 byte  (valid values: 0x00–0x07; any other value is malformed)
+                               0x00  None               (running)
+                               0x01  LyapunovViolation  (H1)
+                               0x02  ArithOverflow      (H2)
+                               0x03  EpochOverflow      (H3)
+                               0x04  DecodeInvalid      (H4)
+                               0x05  RoundtripFailure   (H5)
+                               0x06  HaltFlagSet        (H6, reserved)
+                               0x07  PhiSafetyViolation (H7)
   pad:             [u8; 3] →  3 bytes, must be 0x00 0x00 0x00; non-zero is malformed
   validator_count: u32     →  4 bytes, little-endian, must equal N from genesis
                            — subtotal: 8+32+32+32+1+3+4 = 112 bytes
@@ -484,7 +485,7 @@ where the first sum is over all active validators and `CH_t` is the epoch-level
 cascade health factor (see §4c).
 
 | Symbol | Genesis constant | Value | Semantic meaning |
-|--------|-----------------|-------|-----------------|
+|--------|-----------------|-------|------------------|
 | `α` | `weight_divergence_D` | `350_000` | Weight on per-validator state divergence |
 | `β` | `weight_conflict_C` | `300_000` | Weight on per-validator conflict density |
 | `χ` | `weight_cascade_health_CH` | `150_000` | Weight on cascade verification health |
@@ -586,7 +587,7 @@ upper bound that, when crossed, makes continuation inadmissible.
 ```
 
 | Symbol | Genesis constant | Value | Semantic meaning |
-|--------|-----------------|-------|-----------------|
+|--------|-----------------|-------|------------------|
 | `γ` | `weight_slash_Sigma` | `200_000` | Weight on per-validator slash accumulation |
 
 `Σ_i,t` — **Slash accumulator**: monotone non-decreasing running sum of slash events
@@ -919,11 +920,11 @@ AX-2 ──┼──────────────────────
         │         │         │                  │          │
         │         └────┬────┘                  │          ▼
         ▼              ▼                        ▼        TH-3
-      TH-3           TH-7                    TH-8          ▲
-        ▲              ▲                       ▲         TH-11
+      TH-3           TH-7                    TH-8          ↑
+        ↑              ↑                       ↑         TH-11
         │              └────────────TH-11──────┘
-        └────────────────────────────────────────
-AX-3 ───────────────────────────────────────────► TH-8, TH-10
+        └──────────────────────────────────────────
+AX-3 ─────────────────────────────────────────────► TH-8, TH-10
 ```
 
 ### Genesis lock gate
@@ -942,7 +943,7 @@ to its formal definition in this specification. Fields marked **derived** are no
 genesis parameters — their values follow necessarily from the listed sources.
 
 | TOML field / constant | § | Formal role | Proof dependency |
-|----------------------|---|-------------|-----------------|
+|----------------------|---|-------------|------------------|
 | `fixed_point.scale` | §0, §4a | `p = 1_000_000`; denominator of `𝔽_p` | TH-1 |
 | `fixed_point.intermediate_width` | E1 | Mandates `i128` for all intermediates | TH-1, TH-3 |
 | `fixed_point.rounding_mode` | E1 | `floor_div` toward −∞ | TH-3 |

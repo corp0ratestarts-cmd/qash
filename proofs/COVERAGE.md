@@ -16,11 +16,11 @@ test(s) that exercise it at runtime.
 ## Safety Properties
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
-|----------|----------|--------|-------------|-----------|---------|
+|----------|----------|--------|-------------|-----------|----------|
 | Encoding injectivity: `Encode(S₁) = Encode(S₂) → S₁ = S₂` | §7 | **PROVED** | `TH1_encode_state_injective` in `contractivity/encode_injectivity.v` | `src/encoding.rs` | `coq_vectors.rs::coq_model_parity` |
 | Encoding totality: Encode defined on all well-formed states | §7 | **PROVED** | `TH2_encode_state_total` in `contractivity/encode_injectivity.v` | `src/encoding.rs` | `golden_replay.rs::roundtrip_*` |
 | Φ_safety monotonicity: slash accumulator never decreases | §4b, §5 | **PROVED** | `TH4_phi_safety_monotone` in `safety/absorbing_halt.v` | `src/transition.rs` | `axioms.rs::axiom_a1_*` |
-| Φ_safety boundedness: slash accumulator ≤ Φ_max | §4b, §5 | **PROVED** | `TH5_phi_safety_bounded` in `safety/absorbing_halt.v` | `src/transition.rs` | `axioms.rs::axiom_a1_*` |
+| Φ_safety sum aggregation and H7 threshold: `Φ_safety = W_S·Σ slash_i`; `Φ_safety ≥ PHI_MAX_SAFE` halts | §4b, §5, ADR-001/002 | **PROVED** | `TH5_phi_safety_bounded` in `safety/absorbing_halt.v` | `src/lyapunov.rs`, `src/transition.rs` | `lyapunov.rs::phi_safety_sums_across_validators`; `lyapunov.rs::phi_halt_triggers_at_threshold`; `transition.rs::evaluate_projected_phi_safety_sums_across_validators`; `transition.rs::phi_safety_halts_at_threshold_before_commit` |
 | Halt is terminal: no transition from halted state | §5 | **PROVED** | `TH6_halt_terminal`, `TH6_halt_irreversible` in `safety/absorbing_halt.v` | `src/transition.rs` | `axioms.rs::axiom_a6_halt_flag_never_clears` |
 | Halted state uniqueness: same root → same state after halt | §7 | **PROVED** | `TH8_full_uniqueness` in `integration/th8_composition.v` | `src/transition.rs`, `src/encoding.rs` | `golden_replay.rs::state_root_is_deterministic` |
 
@@ -29,7 +29,7 @@ test(s) that exercise it at runtime.
 ## Liveness / Convergence Properties
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
-|----------|----------|--------|-------------|-----------|---------|
+|----------|----------|--------|-------------|-----------|----------|
 | No halt when δ_window ≤ ε | §4a | **PROVED** | `TH3a_no_halt_within_epsilon` in `contractivity/lyapunov_stability.v` | `src/lyapunov.rs` | `golden_replay.rs::within_epsilon_does_not_halt` |
 | Halt iff δ_window > ε (equivalence) | §4a, §4b | **PROVED** | `TH3b_halt_iff_delta_exceeds_epsilon` in `contractivity/lyapunov_stability.v` | `src/lyapunov.rs` | `golden_replay.rs::axiom_delta_window_*` |
 | FinalizeEpoch drives V_convergence → 0 | §4b, §4c | **PROVED** | `TH3c_finalize_zero` in `contractivity/lyapunov_stability.v` | `src/lyapunov.rs` | `golden_replay.rs::prop_lyapunov_nonneg` |
@@ -41,7 +41,7 @@ test(s) that exercise it at runtime.
 ## Transaction Properties
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
-|----------|----------|--------|-------------|-----------|---------|
+|----------|----------|--------|-------------|-----------|----------|
 | TX-0 (NoOp): V_convergence unchanged | §A8 Form A | **PROVED** | `TX0_perturbation_zero` in `contractivity/tx_perturbation_0.v` | `src/transaction.rs` | `axioms.rs::axiom_a8_form_a_tx0_zero_perturbation` |
 | TX-1 (score decrement): V_convergence non-increasing | §A8 Form A | **PROVED** | `TX1_score_decrement_nonincreasing` in `contractivity/tx1_score_decrement.v` | `src/transaction.rs` | `golden_replay.rs::full_epoch_with_tx0` |
 
@@ -50,7 +50,7 @@ test(s) that exercise it at runtime.
 ## Determinism Properties
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
-|----------|----------|--------|-------------|-----------|---------|
+|----------|----------|--------|-------------|-----------|----------|
 | Cross-ISA replay invariance (x86_64, aarch64, riscv64gc) | §1 | **CI-VERIFIED** | TH-7 — enforced by CI golden replay (no Coq model needed) | `src/transition.rs`, `src/encoding.rs` | `tests/replay_corpus.rs`, `tests/golden_replay.rs::state_root_canonical_seq_golden` |
 | H_cascade bitwise-identical across Tier A ISAs | §4c | **CI-VERIFIED** | — enforced by cascade KAT + platform-determinism cross-ISA CI | `src/cascade.rs` | `tests/cascade_kat.rs::cascade_kat_all_vectors`, `platform-determinism.yml` |
 
@@ -59,7 +59,7 @@ test(s) that exercise it at runtime.
 ## Cryptographic Properties
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
-|----------|----------|--------|-------------|-----------|---------|
+|----------|----------|--------|-------------|-----------|----------|
 | SHA3-256 collision resistance for v1.0 state-root commitments | §7, AX-3 | **AXIOM** | `AX3_sha3_assumed_injective` in `contractivity/encode_injectivity.v`; `sha3_256_collision_resistant` in `cascade/cascade_collision_resistance.v` | `src/hash.rs`, `src/transition.rs` | `hash.rs::tests::sha3_256_known_vector` (KAT); `vector_runner_all` (`state_root_commitment_genesis_epoch1`) |
 | Cascade collision resistance (reduction to L1 primitive; post-genesis migration item, not active for v1.0 Domain A state roots) | §4c | **PLACEHOLDER** | `TH10_cascade_collision_resistance` in `cascade/cascade_collision_resistance.v` — typed reduction axiom (non-vacuous); `cascade_hash_injective` proved from it | `src/cascade.rs` | — |
 | Cascade health CH_t ∈ [0, p]; χ·CH_t no i128 overflow | §4c | **PROVED** | `ch_t_upper_bound`, `ch_term_admissible` in `cascade/cascade_health_bounded.v` | `src/cascade.rs` | — |
@@ -71,7 +71,7 @@ test(s) that exercise it at runtime.
 ## Encoding / Serialization Properties
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
-|----------|----------|--------|-------------|-----------|---------|
+|----------|----------|--------|-------------|-----------|----------|
 | Encode/decode roundtrip | §7 | **PROVED** (via TH-1) | `TH1_encode_state_injective` | `src/encoding.rs` | `golden_replay.rs::prop_encode_decode_roundtrip` |
 | State root chains via prior root (epoch linkage) | §7 | **CI-VERIFIED** | — | `src/transition.rs` | `golden_replay.rs::state_root_chains_via_prior_root` |
 | State root changes each epoch | §7 | **CI-VERIFIED** | — | `src/transition.rs` | `golden_replay.rs::state_root_changes_each_epoch` |
