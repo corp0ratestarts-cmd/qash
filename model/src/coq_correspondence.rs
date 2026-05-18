@@ -2,8 +2,8 @@
 //!
 //! This module contains no executable code. It is a maintained cross-reference
 //! between every public Coq definition in `proofs/` and its Rust counterpart
-//! in `model/` or `crates/consensus/`. Keep this table in sync when either
-//! side changes.
+//! in `model/` or `crates/consensus/`. Rows that claim executable correspondence
+//! link to checked artifacts and the CI jobs that exercise them.
 //!
 //! # How to read the table
 //!
@@ -21,23 +21,39 @@
 //!
 //! ---
 //!
+//! ## Model.v executable refinement surface — encoding first
+//!
+//! | Coq checked artifact | Rust identifier | CI job | Scope |
+//! |----------------------|-----------------|--------|-------|
+//! | `encode_state_header_tv0_checked` in `proofs/model/Model.v` and `proofs/model/encoding_vectors.json` | `encoding::encode_state_header` | `proofs`, `test-determinism` | canonical header bytes |
+//! | `compute_leaf_index_tv0_checked` in `proofs/model/Model.v` and `proofs/model/encoding_vectors.json` | `encoding::compute_leaf_index` | `proofs`, `test-determinism` | leaf-index byte layout |
+//! | `encode_validator_dynamic_tv0_checked` in `proofs/model/Model.v` and `proofs/model/encoding_vectors.json` | `encoding::encode_validator_dynamic` | `proofs`, `test-determinism` | 3×i128 validator dynamic bytes |
+//! | `advance_epoch_idle4_observation_checked` / `advance_epoch_lyapunov_halt_observation_checked` and `proofs/model/transition_observations.json` | `transition::advance_epoch`, `lyapunov::evaluate` | `proofs`, `test-determinism` | Lyapunov transition observations (epoch, halt reason, V, δ, window) |
+//!
+//! Incremental refinement order: encoding first, Lyapunov transition observations
+//! second, transaction nonce semantics third, and full state-root correspondence last.
+//!
+//! ---
+//!
 //! ## lyapunov_stability.v — TH-3a, TH-3b, TH-6
 //!
 //! | Coq | Rust | Notes |
 //! |-----|------|-------|
 //! | `state` (record) | `EpochState` (transition.rs) | Field-for-field correspondence |
 //! | `input` (record) | `EpochInput` (transition.rs) | `update_count` ↔ `n_updates` |
-//! | `v_validator` (def) | `lyapunov::evaluate` (lyapunov.rs) | Σ (α·D + β·C) over validators |
-//! | `v_total` (def) | `LyapunovEval::v_total` | v_convergence + phi_safety |
-//! | `delta_window` (def) | `LyapunovEval::delta_window` | v_now − min(window) |
-//! | `epsilon` (const) | `lyapunov::EPSILON` = 20_000 | Fixed-point, scale=1_000_000 |
-//! | `step` (def) | `model::step` | One epoch transition |
-//! | `run` (def) | `model::run` | Iterated `step` |
-//! | `TH-3a` (lemma) | `tests::idle_trace_has_zero_v_convergence` | δ=0 ≤ ε → no halt |
-//! | `TH-3b` (lemma) | `tests::near_halt_scenario_triggers_lyapunov_halt` | δ > ε → halt |
-//! | `TH-6` (lemma) | `tests::run_stops_at_halt` | Halted state is terminal |
+//! | `v_validator` / `evaluate` (Model.v) | `lyapunov::evaluate` (lyapunov.rs) | Checked by `proofs/model/transition_observations.json`; CI jobs: `proofs`, `test-determinism` |
+//! | `compute_delta_window` (Model.v) | `lyapunov::compute_delta_window` | Checked by `advance_epoch_*_observation_checked`; CI jobs: `proofs`, `test-determinism` |
+//! | `epsilon` / `EPSILON` (Model.v) | `lyapunov::EPSILON` = 20_000 | Fixed-point, scale=1_000_000; CI job: `proofs` |
+//! | `advance_epoch` / `step` (Model.v) | `transition::advance_epoch` | Lyapunov observation subset checked by `crates/consensus/tests/coq_refinement_vectors.rs`; CI job: `test-determinism` |
+//! | `run` (Model.v) | repeated `transition::advance_epoch` | Halt-window setup checked by `LYAP-HALT-4-900K`; CI jobs: `proofs`, `test-determinism` |
+//! | `TH-3a` (lemma) | `coq_lyapunov_transition_observations_match_advance_epoch` | δ=0 ≤ ε → no halt; artifact: `proofs/model/transition_observations.json` |
+//! | `TH-3b` (lemma) | `coq_lyapunov_transition_observations_match_advance_epoch` | δ > ε → halt; artifact: `proofs/model/transition_observations.json` |
+//! | `TH-6` (lemma) | `coq_model_parity` / halt-absorbing vectors | Halted state is terminal; artifact: `proofs/model/vectors.json` |
 //!
-//! Proof status: TH-3a PROVED, TH-3b PROVED, TH-6 PROVED (lyapunov_stability.v)
+//! Proof status: TH-3a PROVED, TH-3b PROVED, TH-6 PROVED. Executable subset
+//! status: ENCODING FIRST (`proofs/model/encoding_vectors.json`), LYAPUNOV SECOND
+//! (`proofs/model/transition_observations.json`), TRANSACTION NONCE SEMANTICS THIRD
+//! (planned), FULL STATE ROOT LAST (planned).
 //!
 //! ---
 //!
