@@ -4,12 +4,24 @@ on:
   pull_request:
     paths:
       - 'GENESIS_CONSTANTS.toml'
+      - 'spec/genesis-artifacts.txt'
+      - 'spec/pdf/**'
+      - 'docs/traceability.md'
+      - 'docs/errata/**'
+      - 'docs/adr/**'
+      - 'docs/spec/**'
+      - 'tests/vectors/**'
+      - 'rust-toolchain.toml'
+      - 'scripts/verify_genesis_hash.sh'
 
 jobs:
   genesis-change-guard:
     runs-on: ubuntu-latest
     steps:
-      - name: Require human acknowledgment for genesis constant changes
+      - uses: actions/checkout@v4
+      - name: Verify genesis artifact-set hash
+        run: ./scripts/verify_genesis_hash.sh
+      - name: Require human acknowledgment for genesis artifact changes
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
@@ -17,10 +29,10 @@ jobs:
             echo "Genesis change acknowledged. Proceeding."
           else
             echo ""
-            echo "ERROR: GENESIS_CONSTANTS.toml was modified but the PR body"
+            echo "ERROR: the genesis artifact set was modified but the PR body"
             echo "does not contain the required acknowledgment token."
             echo ""
-            echo "Genesis constant changes define a new network and must be"
+            echo "Genesis artifact changes may define a new network and must be"
             echo "reviewed by a human before merge. Add this exact token to"
             echo "the PR description to unblock this check:"
             echo ""
