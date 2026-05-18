@@ -42,7 +42,7 @@ authorized_platforms = [
   "itron_renesas_rx", "itron_renesas_rl78", "itron_arm_cortex_m",
   "esp32_s3", "snapdragon_arm64", "apple_silicon_arm64"
 ]
-attestaton_modes = ["tpm_2_0", "trustzone", "secure_enclave", "software_hash_merkle"]
+attestation_modes = ["tpm_2_0", "trustzone", "secure_enclave", "software_hash_merkle"]
 require_hardware_tee = false
 
 [consensus.receipts]
