@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
 # fix_workflows.sh
-# Replaces deprecated actions-rs/toolchain@v1 with dtolnay/rust-toolchain@stable
-# in all workflow files. Run from the root of the qash repo.
-
 set -euo pipefail
 
-# ---------------------------------------------------------------------------
-# 0. Auth check
-# ---------------------------------------------------------------------------
 echo "==> Checking gh authentication..."
 if ! gh auth status > /dev/null 2>&1; then
   echo "ERROR: Not logged in. Run: gh auth login --git-protocol https --web"
@@ -19,73 +13,64 @@ echo "  [OK] authenticated"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
-# ---------------------------------------------------------------------------
-# 1. Fix ci.yml
-# ---------------------------------------------------------------------------
-sed -i \
-  's|uses: actions-rs/toolchain@v1\n.*toolchain: stable|uses: dtolnay/rust-toolchain@stable|g' \
-  .github/workflows/ci.yml
+replace_in_file() {
+  local file="$1"
+  local from="$2"
+  local to="$3"
+  python3 - "$file" "$from" "$to" <<'PYEOF'
+import pathlib, sys
+path = pathlib.Path(sys.argv[1])
+from_s = sys.argv[2]
+to_s = sys.argv[3]
+text = path.read_text(encoding="utf-8")
+new = text.replace(from_s, to_s)
+if new != text:
+    path.write_text(new, encoding="utf-8")
+    print(f"  [OK] updated {path}")
+else:
+    print(f"  [OK] no replacement needed in {path}")
+PYEOF
+}
 
-# sed handles it line by line so do it in two passes
-sed -i 's|uses: actions-rs/toolchain@v1|uses: dtolnay/rust-toolchain@stable|g' \
-  .github/workflows/ci.yml
-
-# Remove the now-orphaned "with:" + "toolchain: stable" block left behind
-python3 - << 'PYEOF'
+python_cleanup() {
+python3 - <<'PYEOF'
 import re, pathlib
-
-for wf in pathlib.Path(".github/workflows").glob("*.yml"):
-    text = wf.read_text()
-    # Remove:
-    #       uses: dtolnay/rust-toolchain@stable   (already replaced)
-    #       with:
-    #         toolchain: stable
+for wf in pathlib.Path('.github/workflows').glob('*.yml'):
+    text = wf.read_text(encoding='utf-8')
     cleaned = re.sub(
         r'(uses: dtolnay/rust-toolchain@stable)\s*\n\s*with:\s*\n\s*toolchain:\s*stable\s*\n',
         r'\1\n',
-        text
+        text,
     )
     if cleaned != text:
-        wf.write_text(cleaned)
-        print(f"  [OK] cleaned orphaned 'with:/toolchain:' block in {wf}")
-    else:
-        print(f"  [OK] no orphaned block found in {wf} (already clean)")
+        wf.write_text(cleaned, encoding='utf-8')
+        print(f"  [OK] cleaned orphaned with/toolchain block in {wf}")
 PYEOF
+}
 
-# ---------------------------------------------------------------------------
-# 2. Fix platform-determinism.yml if it has the same issue
-# ---------------------------------------------------------------------------
-if grep -q "actions-rs/toolchain" .github/workflows/platform-determinism.yml 2>/dev/null; then
-  sed -i 's|uses: actions-rs/toolchain@v1|uses: dtolnay/rust-toolchain@stable|g' \
-    .github/workflows/platform-determinism.yml
-  echo "  [OK] platform-determinism.yml updated"
+if [[ -f .github/workflows/ci.yml ]]; then
+  replace_in_file .github/workflows/ci.yml "uses: actions-rs/toolchain@v1" "uses: dtolnay/rust-toolchain@stable"
 else
-  echo "  [OK] platform-determinism.yml already clean"
+  echo "  [WARN] .github/workflows/ci.yml missing; skipping"
 fi
 
-# ---------------------------------------------------------------------------
-# 3. Show the result so you can verify before committing
-# ---------------------------------------------------------------------------
-echo ""
-echo "==> Result — ci.yml Setup Rust step:"
-grep -A2 "Setup Rust" .github/workflows/ci.yml
+if [[ -f .github/workflows/platform-determinism.yml ]]; then
+  replace_in_file .github/workflows/platform-determinism.yml "uses: actions-rs/toolchain@v1" "uses: dtolnay/rust-toolchain@stable"
+else
+  echo "  [WARN] .github/workflows/platform-determinism.yml missing; skipping"
+fi
 
-echo ""
-echo "==> Result — platform-determinism.yml Setup Rust step:"
-grep -A2 "Setup Rust" .github/workflows/platform-determinism.yml 2>/dev/null || echo "  (step not found)"
+python_cleanup
 
-# ---------------------------------------------------------------------------
-# 4. Commit and push
-# ---------------------------------------------------------------------------
 echo ""
 echo "==> Committing..."
-git add .github/workflows/ci.yml .github/workflows/platform-determinism.yml
-git commit -m "ci: replace deprecated actions-rs/toolchain with dtolnay/rust-toolchain
-
-actions-rs/toolchain@v1 runs on Node.js 20 which is deprecated on GitHub
-Actions from June 2026. dtolnay/rust-toolchain is the maintained replacement
-and also eliminates the set-output deprecation warnings."
-
+mapfile -t wf_files < <(git diff --name-only -- .github/workflows/*.yml 2>/dev/null || true)
+if [[ ${#wf_files[@]} -eq 0 ]]; then
+  echo "No workflow changes detected; nothing to commit."
+  exit 0
+fi
+git add "${wf_files[@]}"
+git commit -m "ci: replace deprecated actions-rs/toolchain with dtolnay/rust-toolchain"
 git push
 
 echo ""

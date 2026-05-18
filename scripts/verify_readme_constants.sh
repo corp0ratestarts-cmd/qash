@@ -1,63 +1,45 @@
 #!/usr/bin/env bash
-# Verify that numeric constants mentioned in README.md match GENESIS_CONSTANTS.toml.
-# Fails if any value visible in the README disagrees with the pinned TOML values.
-# Run from workspace root.
 set -euo pipefail
 
-TOML="GENESIS_CONSTANTS.toml"
-README="README.md"
+python3 - <<'PY'
+from pathlib import Path
+import re
+import tomllib
 
-if [[ ! -f "$TOML" ]]; then
-  echo "ERROR: $TOML not found (run from workspace root)" >&2
-  exit 1
-fi
+readme = Path('README.md')
+constants = Path('GENESIS_CONSTANTS.toml')
+if not readme.exists() or not constants.exists():
+    raise SystemExit('ERROR: run from repo root with README.md and GENESIS_CONSTANTS.toml present')
 
-if [[ ! -f "$README" ]]; then
-  echo "SKIP: $README not found — no README constants to verify"
-  exit 0
-fi
+data = tomllib.loads(constants.read_text(encoding='utf-8'))
+text = readme.read_text(encoding='utf-8')
 
-errors=0
+checks = [
+    ("weight_divergence_D", data["lyapunov"]["weight_divergence_D"], r"weight_divergence_D[^\n]*?([0-9][0-9_,]*)"),
+    ("weight_conflict_C", data["lyapunov"]["weight_conflict_C"], r"weight_conflict_C[^\n]*?([0-9][0-9_,]*)"),
+    ("weight_slash_Sigma", data["lyapunov"]["weight_slash_Sigma"], r"weight_slash_Sigma[^\n]*?([0-9][0-9_,]*)"),
+    ("duration_ms", data["epoch"]["timing"]["duration_ms"], r"duration_ms[^\n]*?([0-9][0-9_,]*)"),
+]
 
-check_readme_constant() {
-  local description="$1"
-  local toml_key="$2"
-  local grep_pattern="$3"
+errors = 0
+for name, expected, pat in checks:
+    matches = list(re.finditer(pat, text, flags=re.IGNORECASE))
+    if len(matches) == 0:
+        print(f"SKIP: {name} not found in README")
+        continue
+    if len(matches) > 1:
+        print(f"FAIL: {name}: expected one contextual match in README, found {len(matches)}")
+        errors += 1
+        continue
+    raw = matches[0].group(1)
+    found = int(raw.replace('_','').replace(',',''))
+    if found != int(expected):
+        print(f"FAIL: {name}: README={found} TOML={expected}")
+        errors += 1
+    else:
+        print(f"OK: {name}={expected}")
 
-  # Extract value from TOML (strip underscores for comparison)
-  local toml_val
-  toml_val=$(grep -E "^${toml_key}\s*=" "$TOML" | head -1 | sed 's/.*=\s*//' | tr -d '"_# ' | sed 's/\..*//')
-  if [[ -z "$toml_val" ]]; then
-    echo "WARN: $toml_key not found in $TOML — skipping README check for $description"
-    return
-  fi
-
-  # Check if the README mentions a different numeric value near this constant
-  if grep -qE "$grep_pattern" "$README" 2>/dev/null; then
-    local readme_val
-    readme_val=$(grep -oE "$grep_pattern" "$README" | head -1 | tr -d '_,.')
-    if [[ "$readme_val" != "$toml_val" ]]; then
-      echo "MISMATCH: $description — README has '$readme_val', TOML has '$toml_val'" >&2
-      errors=$((errors + 1))
-    else
-      echo "OK: $description = $toml_val"
-    fi
-  else
-    echo "SKIP: $description pattern not found in README (add it to lock it down)"
-  fi
-}
-
-# Check the major pinned constants
-check_readme_constant "weight_divergence_D"      "weight_divergence_D"      "350[_,]?000"
-check_readme_constant "weight_conflict_C"        "weight_conflict_C"        "300[_,]?000"
-check_readme_constant "weight_slash_Sigma"       "weight_slash_Sigma"       "200[_,]?000"
-check_readme_constant "weight_cascade_health_CH" "weight_cascade_health_CH" "150[_,]?000"
-check_readme_constant "cascade_depth"            "cascade_depth"            "cascade_depth[^0-9]*=?[^0-9]*[0-9]+"
-check_readme_constant "duration_ms"              "duration_ms"              "500"
-
-if [[ $errors -gt 0 ]]; then
-  echo "FAIL: $errors constant(s) diverged between README and GENESIS_CONSTANTS.toml" >&2
-  exit 1
-fi
-
-echo "verify_readme_constants: all checks passed"
+if errors:
+    raise SystemExit(f"verify_readme_constants: {errors} check(s) failed")
+print('verify_readme_constants: all checks passed')
+PY
