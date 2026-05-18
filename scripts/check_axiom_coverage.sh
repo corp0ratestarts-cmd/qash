@@ -20,6 +20,22 @@ import sys
 import os
 
 
+COQ_IDENT = r"[A-Za-z_][A-Za-z0-9_']*"
+COQ_IDENT_CHARS = r"[A-Za-z0-9_']"
+AXIOM_DECL = re.compile(rf"\s*Axiom\s+({COQ_IDENT})")
+
+
+def axiom_in_coverage(name, cov_text):
+    """Return True when COVERAGE.md mentions the exact Coq axiom name.
+
+    Coq identifiers may contain apostrophes, which Python's \b word-boundary
+    does not treat as word characters.  Use Coq-identifier-aware boundaries so
+    names like foo' match exactly while foo does not match foo_bar.
+    """
+    pattern = rf"(?<!{COQ_IDENT_CHARS}){re.escape(name)}(?!{COQ_IDENT_CHARS})"
+    return re.search(pattern, cov_text) is not None
+
+
 def collect_axioms_from_worktree():
     """Return the set of Axiom names declared in active .v files."""
     result = set()
@@ -27,7 +43,7 @@ def collect_axioms_from_worktree():
         if "_wip" in f.parts:
             continue
         for line in f.read_text().splitlines():
-            m = re.match(r"\s*Axiom\s+(\w+)", line)
+            m = AXIOM_DECL.match(line)
             if m:
                 result.add(m.group(1))
     return result
@@ -56,7 +72,7 @@ def collect_axioms_from_ref(ref):
         except subprocess.CalledProcessError:
             continue
         for line in content.splitlines():
-            m = re.match(r"\s*Axiom\s+(\w+)", line)
+            m = AXIOM_DECL.match(line)
             if m:
                 result.add(m.group(1))
     return result
@@ -84,7 +100,7 @@ if not new_axioms:
 # New axioms found — verify each name appears in COVERAGE.md.
 # This avoids git diff (unreliable in shallow clones).
 cov_text = pathlib.Path("proofs/COVERAGE.md").read_text()
-missing = [a for a in sorted(new_axioms) if a not in cov_text]
+missing = [a for a in sorted(new_axioms) if not axiom_in_coverage(a, cov_text)]
 
 if missing:
     print("ERROR: New Axiom declarations not documented in proofs/COVERAGE.md:")
