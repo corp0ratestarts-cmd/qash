@@ -108,7 +108,7 @@ here is Domain A correctness work.
 
 1. **Discharge open proof obligations** (`proofs/COVERAGE.md`):
    - TH-10: Cascade collision resistance (`cascade/cascade_collision_resistance.v`)
-     — requires formalising hash function; consider EasyCrypt or CryptHOL
+     — post-genesis migration item; v1.0 Domain A state roots remain `H_domain` / SHA3-256. Full activation requires formalising hash function; consider EasyCrypt or CryptHOL
    - Blinding PRF: `H_cascade_keyed` is a PRF — formal proof in CryptHOL/SSProve
    - IT-MAC: GF(2¹²⁸) forgery bound — mechanise in Coq via GHASH polynomial MAC reduction
 
@@ -211,7 +211,7 @@ Full matrix: `proofs/COVERAGE.md`
 | `GENESIS_CONSTANTS.toml` | All protocol parameters (immutable after lock) |
 | `docs/spec/00_execution_model.md` | Domain A/B partition, execution constraints |
 | `docs/spec/01_consensus.md` | State space, encoding, transition function |
-| `docs/spec/07_hash_cascade.md` | 8-family cascade spec (v1.1) |
+| `docs/spec/07_hash_cascade.md` | 8-family cascade spec (post-genesis/v1.1); not the v1.0 state-root commitment |
 | `docs/traceability.md` | PDF → code → test → proof audit contract |
 | `proofs/COVERAGE.md` | Full proof obligation matrix |
 | `proofs/STATUS.md` | Per-file Coq compilation status |

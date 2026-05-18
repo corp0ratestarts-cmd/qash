@@ -13,9 +13,11 @@
 
 use qash_consensus::derive::derive_leaf_index;
 use qash_consensus::fixed_point::{FixedPoint, SCALE};
+use qash_consensus::hash::{h_domain, sha3_256, DomainTag};
 use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
 use qash_consensus::transition::{
-    advance_epoch, EpochInput, EpochState, HaltReason, MAX_VALIDATORS,
+    advance_epoch, encode_full_state_into, EpochInput, EpochState, HaltReason,
+    FULL_STATE_MAX_BYTES, MAX_VALIDATORS,
 };
 
 const VECTORS_V1_JSON: &str = include_str!("../../../tests/vectors/vectors.v1.json");
@@ -55,7 +57,10 @@ fn genesis_state(validator_count: u32) -> EpochState {
 }
 
 fn idle_input(n: u32) -> EpochInput {
-    EpochInput { updates: [None; MAX_VALIDATORS], update_count: n }
+    EpochInput {
+        updates: [None; MAX_VALIDATORS],
+        update_count: n,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +72,9 @@ fn vector_runner_all() {
     let root: serde_json::Value =
         serde_json::from_str(VECTORS_V1_JSON).expect("vectors.v1.json must be valid JSON");
 
-    let vectors = root["vectors"].as_array().expect("root.vectors must be an array");
+    let vectors = root["vectors"]
+        .as_array()
+        .expect("root.vectors must be an array");
     assert!(!vectors.is_empty(), "no vectors found");
 
     let mut ran = 0usize;
@@ -81,12 +88,18 @@ fn vector_runner_all() {
         } else if name.starts_with("leaf_index") {
             run_leaf_index(name, v);
             ran += 1;
+        } else if name.starts_with("state_root_commitment") {
+            run_state_root_commitment(name, v);
+            ran += 1;
         } else if name.starts_with("genesis_noop_epochs") {
             run_genesis_noop_epochs(name, v);
             ran += 1;
         } else {
             // Unknown vector kind — fail loudly so stale entries are caught.
-            panic!("vector_runner: unknown vector kind '{}' — add a dispatcher case", name);
+            panic!(
+                "vector_runner: unknown vector kind '{}' — add a dispatcher case",
+                name
+            );
         }
     }
 
@@ -111,9 +124,12 @@ fn run_fixed_point(name: &str, v: &serde_json::Value) {
     let left = FixedPoint::from_raw(left_raw);
     let right = FixedPoint::from_raw(right_raw);
 
-    let got = left
-        .checked_mul(right)
-        .unwrap_or_else(|e| panic!("[{}] checked_mul({}, {}) overflowed: {:?}", name, left_raw, right_raw, e));
+    let got = left.checked_mul(right).unwrap_or_else(|e| {
+        panic!(
+            "[{}] checked_mul({}, {}) overflowed: {:?}",
+            name, left_raw, right_raw, e
+        )
+    });
 
     assert_eq!(
         got.raw(),
@@ -192,16 +208,107 @@ fn run_leaf_index(name: &str, v: &serde_json::Value) {
 }
 
 // ---------------------------------------------------------------------------
+// state_root_commitment: verify the exact v1.0 genesis commitment function
+// ---------------------------------------------------------------------------
+
+fn run_state_root_commitment(name: &str, v: &serde_json::Value) {
+    assert_eq!(
+        v["algorithm"].as_str().expect("algorithm must be a string"),
+        "H_domain_SHA3_256",
+        "[{}] v1.0 genesis state roots use H_domain/SHA3-256, not H_cascade",
+        name
+    );
+    assert_eq!(
+        v["domain_tag"]
+            .as_str()
+            .expect("domain_tag must be a string"),
+        "STATE_ROOT",
+        "[{}] unexpected state-root domain tag",
+        name
+    );
+    assert_eq!(
+        v["domain_tag_u32_le_hex"]
+            .as_str()
+            .expect("domain tag hex must be a string"),
+        "01000000",
+        "[{}] STATE_ROOT domain tag must be 0x00000001 encoded little-endian",
+        name
+    );
+
+    let validator_count = v["validator_count"]
+        .as_u64()
+        .expect("validator_count must be u64") as u32;
+    let prior_root_hex = v["prior_root_hex"]
+        .as_str()
+        .expect("prior_root_hex must be a string");
+    let prior_root = hex_decode(prior_root_hex);
+    assert_eq!(
+        prior_root.len(),
+        32,
+        "[{}] prior_root_hex must be 32 bytes",
+        name
+    );
+
+    let mut state = genesis_state(validator_count);
+    let result = advance_epoch(&mut state, &idle_input(validator_count), &[])
+        .unwrap_or_else(|h| panic!("[{}] advance_epoch failed: {:?}", name, h));
+
+    // Reconstruct Encode_for_commitment(S_1, prior_root) exactly: the wire encoder
+    // is applied to S_1 with its state_root field substituted by the prior root.
+    let mut commitment_state = state;
+    commitment_state.state_root.copy_from_slice(&prior_root);
+    let mut preimage = [0u8; FULL_STATE_MAX_BYTES];
+    let preimage_len = encode_full_state_into(&commitment_state, &mut preimage);
+
+    let expected_len = v["commitment_preimage_len"]
+        .as_u64()
+        .expect("commitment_preimage_len must be u64") as usize;
+    assert_eq!(
+        preimage_len, expected_len,
+        "[{}] commitment preimage length mismatch",
+        name
+    );
+
+    let expected_preimage_sha = v["commitment_preimage_sha3_256_hex"]
+        .as_str()
+        .expect("commitment_preimage_sha3_256_hex must be a string");
+    assert_eq!(
+        hex_encode(&sha3_256(&preimage[..preimage_len])),
+        expected_preimage_sha,
+        "[{}] commitment preimage SHA3-256 KAT mismatch",
+        name
+    );
+
+    let expected_root_hex = v["expected_state_root_hex"]
+        .as_str()
+        .expect("expected_state_root_hex must be a string");
+    let recomputed_root = h_domain(DomainTag::StateRoot, &preimage[..preimage_len]);
+    assert_eq!(
+        hex_encode(&recomputed_root),
+        expected_root_hex,
+        "[{}] H_domain(STATE_ROOT, Encode_for_commitment(...)) KAT mismatch",
+        name
+    );
+    assert_eq!(
+        result.state_root, recomputed_root,
+        "[{}] advance_epoch must commit the same v1.0 state root",
+        name
+    );
+}
+
+// ---------------------------------------------------------------------------
 // genesis_noop_epochs: replay noop epochs from all-zero genesis and verify roots
 // ---------------------------------------------------------------------------
 
 fn run_genesis_noop_epochs(name: &str, v: &serde_json::Value) {
-    let validator_count = v["validator_count"]
-        .as_u64()
-        .unwrap_or(4) as u32;
+    let validator_count = v["validator_count"].as_u64().unwrap_or(4) as u32;
 
     let epochs = v["epochs"].as_array().expect("epochs must be an array");
-    assert!(!epochs.is_empty(), "[{}] epochs array must not be empty", name);
+    assert!(
+        !epochs.is_empty(),
+        "[{}] epochs array must not be empty",
+        name
+    );
 
     // Epochs must be contiguous starting at 1.
     for (i, ep) in epochs.iter().enumerate() {
