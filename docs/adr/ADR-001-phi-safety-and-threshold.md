@@ -18,13 +18,12 @@ Implementation note:
 - Implemented as sum in `lyapunov.rs` (evaluate) and `transition.rs` (evaluate_projected).
 
 ### D2 — Threshold parameter
-Derived constant (not in TOML; computed from genesis constants):
+Pinned consensus parameter in `GENESIS_CONSTANTS.toml`:
+```toml
+[lyapunov]
+phi_max_safe = 500_000_000
 ```
-PHI_MAX_SAFE = N_max × floor(γ_raw × i64::MAX / p) / 2
-             = 1024 × floor(200_000 × 9_223_372_036_854_775_807 / 1_000_000) / 2
-             ≈ 9.44 × 10^20
-```
-Implemented in `lyapunov.rs` as `PHI_MAX_SAFE: i128`.
+Implemented in `lyapunov.rs` as `PHI_MAX_SAFE: FixedPoint = FixedPoint::from_raw(500_000_000)` and included in `consensus_params_hash()`. With `W_S = 250_000` and `SCALE = 1_000_000`, the boundary is reached when aggregate slash energy is `Σ_i slash_i = 2_000_000_000` raw units.
 
 ### D3 — Halt gate
 If `Φ_safety(t) >= phi_max_safe` then absorbing halt with a distinct reason.
@@ -32,8 +31,8 @@ If `Φ_safety(t) >= phi_max_safe` then absorbing halt with a distinct reason.
 ## Acceptance criteria (becomes CI gate once Accepted)
 - Code:
   - `crates/consensus/src/lyapunov.rs` computes Φ as SUM (not max)
-  - `crates/consensus/src/transition.rs` applies H2 deterministically
+  - `crates/consensus/src/transition.rs` applies H7 (`PhiSafetyViolation = 0x07`) deterministically before the commit point
 - Vectors:
-  - At least 2 vectors where two validators have nonzero slashes and Φ reflects the sum
+  - Regression tests include two validators with nonzero slashes and Φ reflecting the sum, plus the `φ == PHI_MAX_SAFE` boundary
 - Cross-ISA:
   - Same vectors pass bitwise-identical on x86_64 + aarch64 + riscv64 (via script)
