@@ -14,8 +14,10 @@ jobs:
       state_root: ${{ steps.capture.outputs.state_root }}
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
       - name: Run canonical root test
         id: capture
         run: |
@@ -41,10 +43,12 @@ jobs:
             packages: gcc-riscv64-linux-gnu libc6-riscv64-cross
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
       - name: Install cross-compile toolchain and QEMU
         run: |
           sudo apt-get update -qq

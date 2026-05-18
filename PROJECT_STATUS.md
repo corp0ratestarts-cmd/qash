@@ -5,7 +5,7 @@
 > are, and what the priority order for closing them is. It is updated as milestones
 > are reached.
 >
-> Last updated: 2026-05-17. Based on internal review and an independent external
+> Last updated: 2026-05-18. Based on internal review and an independent external
 > audit of the architecture, workspace, and consensus implementation.
 
 ---
@@ -35,7 +35,7 @@ For full context see `README.md`, `design_decisions.md`, and `docs/spec/00_execu
 | Runtime / PAL implementation | **Scaffold only** | PAL Host returns zeroes/no-ops; no network, no persistence, no crash recovery |
 | Fuzzing infrastructure | **Basic** | honggfuzz harness for 3 Domain A targets; fuzz-smoke CI gate passes |
 | Performance benchmarks | **None** | Worst-case epoch transition cost, serialization throughput, stack depth: unmeasured |
-| Reproducible builds | **None** | No Nix/Docker environment, no byte-identical attestation, no pinned build pipeline |
+| Reproducible builds | **Partial** | Rust is pinned to 1.95.0 with CI version verification and local locked/offline build verification; no Nix/Docker environment or byte-identical release attestation yet |
 | Adversarial simulation | **None** | Halt-trigger griefing, liveness suppression, economic griefing: untested |
 | Deep module audits | **Pending** | `fixed_point.rs`, `encoding.rs`, `lyapunov.rs`, `hash.rs` not yet independently audited |
 | Production readiness | **Pre-production** | Intentionally — this is a protocol design and formal proof repository |
@@ -159,7 +159,7 @@ These are required for independent auditability and long-term trust.
 8. **Reproducible builds**:
    - Nix flake or pinned Docker image for all build/proof tooling
    - Byte-identical release attestation CI job
-   - `rust-toolchain.toml` pinned to specific nightly hash (for fuzz) and stable (for consensus)
+   - `rust-toolchain.toml` pins Rust 1.95.0 for consensus, fuzz smoke, CI build/test/lint jobs, with `rustc --version --verbose` verification
 
 9. **Proof-to-code refinement**:
    - Formal refinement proof between `proofs/model/Model.v` and `crates/consensus/`

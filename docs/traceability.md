@@ -116,12 +116,12 @@
 | Field | Value |
 |-------|-------|
 | **PDF §** | §8.1 (p. 23, provisional) |
-| **PDF quote** | `Rust 1.75.0 (pinned)` |
-| **Code** | `rust-toolchain.toml` pins `channel = "1.75.0"`; `.github/workflows/ci.yml` and `.github/workflows/platform-determinism.yml` use that pinned toolchain. |
-| **Test / Vector** | Cross-ISA vectors must run under the pinned toolchain. |
+| **PDF quote** | `Rust 1.75.0 (pinned)`; ADR-005 revises the active repository pin to Rust 1.95.0 because Rust 1.75.0 is no longer viable with the current Cargo lockfile format. |
+| **Code** | `rust-toolchain.toml` pins `channel = "1.95.0"`; `.github/workflows/ci.yml`, `.github/workflows/platform-determinism.yml`, and `.github/workflows/fuzz-smoke.yml` install that pinned toolchain and run `scripts/verify_rust_toolchain.sh` to print and check `rustc --version --verbose`. |
+| **Test / Vector** | Local reproducibility verification passed for `cargo +1.95.0 build --workspace --no-default-features --locked --offline`; cross-ISA vectors must still run under the pinned toolchain before genesis lock. |
 | **Proof** | — |
 | **Status** | ⚠️ |
-| **Gap** | The pin exists and ADR-005 is accepted. Local verification used an already-installed newer toolchain because Rust 1.75.0 could not be downloaded from this environment. |
+| **Gap** | Rust 1.95.0 is pinned and locally build-verified. Cross-ISA CI must provide the final multi-target reproducibility evidence before genesis lock. |
 
 ### P0-9: Genesis hash
 

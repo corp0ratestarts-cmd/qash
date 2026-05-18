@@ -13,8 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # honggfuzz works with stable Rust — no nightly or LLVM/sanitizer needed.
-      - uses: dtolnay/rust-toolchain@stable
+      # honggfuzz works with the pinned stable Rust toolchain — no nightly or LLVM/sanitizer needed.
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
 
       - name: Install honggfuzz system dependencies
         run: |
