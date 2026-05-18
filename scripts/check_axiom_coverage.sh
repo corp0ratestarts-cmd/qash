@@ -89,9 +89,19 @@ def collect_axioms_from_ref(ref):
     return result
 
 
+COQ_IDENT_CHARS = r"[A-Za-z0-9_']"
+
+
 def axiom_in_coverage(name, cov_text):
-    """Return True if `name` appears as a whole identifier in cov_text."""
-    return bool(re.search(r'\b' + re.escape(name) + r'\b', cov_text))
+    """Return True if `name` appears as a whole Coq identifier in cov_text.
+
+    Uses COQ_IDENT_CHARS lookarounds instead of \\b because Python's word
+    boundary treats apostrophe as a non-word character, so \\bfoo'\\b would
+    not match 'foo'' in text.  The lookaround approach handles primed names
+    (e.g. step', H') correctly.
+    """
+    pattern = rf"(?<!{COQ_IDENT_CHARS}){re.escape(name)}(?!{COQ_IDENT_CHARS})"
+    return re.search(pattern, cov_text) is not None
 
 
 base_sha = os.environ.get("GITHUB_BASE_SHA", "").strip()
