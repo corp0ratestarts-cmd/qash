@@ -14,8 +14,8 @@ pub const MAX_VALIDATORS: usize = MAX_VALIDATORS_WIRE as usize;
 
 // Full-state wire format (canonical, deterministic):
 // [epoch:8][state_root:32][ledger_root:32][entropy_seed:32][halt:1][pad:3][vc:4]
-// [N × (div:8 + conf:8 + slash:8 + nonce:8 + id:48)]
-// [window_filled:1][pad:3][window_vals:3×8]
+// [N x (div:8 + conf:8 + slash:8 + nonce:8 + id:48)]
+// [window_filled:1][pad:3][window_vals:3x8]
 pub const FULL_STATE_FIXED_BYTES: usize = 112;
 pub const FULL_STATE_PER_VALIDATOR_BYTES: usize = 80;
 pub const FULL_STATE_WINDOW_BYTES: usize = 28;
@@ -149,7 +149,7 @@ fn write_state_bytes(
         pos += 80;
     }
 
-    // Window: filled (1) + pad (3) + 3 × i64 (24) = 28 bytes.
+    // Window: filled (1) + pad (3) + 3 x i64 (24) = 28 bytes.
     let (filled, values) = state.convergence_window.raw_parts();
     out[pos] = filled;
     out[pos + 1] = 0x00;
@@ -261,7 +261,7 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
         validator_ids[i] = id;
     }
 
-    // Window: filled (1) + pad (3) + WINDOW_SIZE × i64.
+    // Window: filled (1) + pad (3) + WINDOW_SIZE x i64.
     if bytes[pos + 1] != 0x00 || bytes[pos + 2] != 0x00 || bytes[pos + 3] != 0x00 {
         return Err(EncodeError::DecodeInvalid);
     }
@@ -306,7 +306,7 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
 
 /// Cast FixedPoint to i64 for wire encoding.
 /// All consensus-path values are validated to fit i64 before reaching the commit phase:
-/// D, C ≤ SCALE = 1_000_000; Σ validated ≤ i64::MAX; V_convergence ≤ 768_000_000.
+/// D, C <= SCALE = 1_000_000; Sigma validated <= i64::MAX; V_convergence <= 768_000_000.
 #[inline]
 fn fp_to_i64_wire(fp: FixedPoint) -> i64 {
     debug_assert!(fp.raw() >= i64::MIN as i128 && fp.raw() <= i64::MAX as i128);
@@ -378,10 +378,10 @@ fn run_pipeline(
     input: &EpochInput,
     raw_txs: &[&[u8]],
 ) -> Result<TransitionResult, TransitionHalt> {
-    // ┌──────────────────────────────────────────────────┐
-    // │ PRE-COMMIT PHASE: state is READ-ONLY             │
-    // │ Any error returns without mutation.              │
-    // └──────────────────────────────────────────────────┘
+    // +--------------------------------------------------+
+    // | PRE-COMMIT PHASE: state is READ-ONLY             |
+    // | Any error returns without mutation.              |
+    // +--------------------------------------------------+
 
     step_1_validate(state, input)?;
 
@@ -402,34 +402,47 @@ fn run_pipeline(
     })?;
     let next_entropy = h_domain(DomainTag::EntropyAdvance, &state.entropy_seed);
 
-    // Capture prior root before any mutation for chain continuity commitment.
-    let prior_root = state.state_root;
+    let tx_plan = crate::transaction::prevalidate_all(state, raw_txs, state.validator_count)
+        .map_err(|_| TransitionHalt {
+            reason: HaltReason::ArithOverflow,
+        })?;
 
-    // ╔══════════════════════════════════════════════════╗
-    // ║ COMMIT POINT                                    ║
-    // ║ Below: assignments only. No `?`. No checked ops. ║
-    // ╚══════════════════════════════════════════════════╝
-
-    for i in 0..state.validator_count as usize {
-        if let Some(ref u) = input.updates[i] {
-            state.validators[i].divergence = u.divergence_new;
-            state.validators[i].conflict = u.conflict_new;
-            state.validators[i].slash_accum = u.slash_accum_new;
+    let mut next_validators = state.validators;
+    for (next_v, update) in next_validators[..state.validator_count as usize]
+        .iter_mut()
+        .zip(input.updates[..state.validator_count as usize].iter())
+    {
+        if let Some(ref u) = update {
+            next_v.divergence = u.divergence_new;
+            next_v.conflict = u.conflict_new;
+            next_v.slash_accum = u.slash_accum_new;
         }
     }
 
-    // TX-0 has ε_τ = 0; apply after metric update, before window/entropy advance.
-    if crate::transaction::apply_all(state, raw_txs, state.validator_count).is_err() {
-        return Err(TransitionHalt {
-            reason: HaltReason::ArithOverflow,
-        });
-    }
+    let mut next_window = state.convergence_window;
+    next_window.push(lyap.v_convergence);
 
-    state.convergence_window.push(lyap.v_convergence);
+    // Capture prior root before any mutation for chain continuity commitment.
+    let prior_root = state.state_root;
+
+    let mut projected = *state;
+    projected.validators = next_validators;
+    projected.nonces = tx_plan.next_nonces;
+    projected.convergence_window = next_window;
+    projected.entropy_seed = next_entropy;
+    projected.epoch = next_epoch;
+    let root = compute_state_root(&projected, &prior_root);
+
+    // +==================================================+
+    // | COMMIT POINT                                     |
+    // | Below: assignments only. No `?`. No checked ops. |
+    // +==================================================+
+
+    state.validators = next_validators;
+    state.nonces = tx_plan.next_nonces;
+    state.convergence_window = next_window;
     state.entropy_seed = next_entropy;
     state.epoch = next_epoch;
-
-    let root = compute_state_root(state, &prior_root);
     state.state_root = root;
 
     Ok(TransitionResult {
@@ -479,7 +492,7 @@ fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), Transit
                 });
             }
 
-            // Keep Σ within i64 for wire encoding.
+            // Keep Sigma within i64 for wire encoding.
             if u.slash_accum_new.to_i64().is_err() {
                 return Err(TransitionHalt {
                     reason: HaltReason::DecodeInvalid,
@@ -524,6 +537,78 @@ mod tests {
             updates: [None; MAX_VALIDATORS],
             update_count: n,
         }
+    }
+
+    fn set_distinct_validator_ids(state: &mut EpochState) {
+        for i in 0..state.validator_count as usize {
+            state.validator_ids[i][0] = i as u8 + 1;
+        }
+    }
+
+    fn make_tx0_raw(author_id: [u8; 48], nonce: u64) -> [u8; crate::transaction::TX0_WIRE_BYTES] {
+        let mut raw = [0u8; crate::transaction::TX0_WIRE_BYTES];
+        raw[0..2].copy_from_slice(&crate::transaction::TX_VERSION.to_le_bytes());
+        raw[2..4].copy_from_slice(&crate::transaction::TX_TYPE_NOOP.to_le_bytes());
+        raw[4..12].copy_from_slice(&nonce.to_le_bytes());
+        raw[12..60].copy_from_slice(&author_id);
+        raw[60..64].copy_from_slice(&0u32.to_le_bytes());
+        raw
+    }
+
+    fn author_id(slot: u8) -> [u8; 48] {
+        let mut id = [0u8; 48];
+        id[0] = slot + 1;
+        id
+    }
+
+    fn sort_key_for(raw: &[u8; crate::transaction::TX0_WIRE_BYTES]) -> [u8; 32] {
+        crate::transaction::sort_key(&[0u8; 32], &crate::transaction::tx_id(raw))
+    }
+
+    fn ordered_two_validator_txs() -> (
+        [u8; crate::transaction::TX0_WIRE_BYTES],
+        [u8; crate::transaction::TX0_WIRE_BYTES],
+    ) {
+        let tx0 = make_tx0_raw(author_id(0), 0);
+        let mut overflow_tx = make_tx0_raw(author_id(1), u64::MAX);
+        for b in 0u16..=u8::MAX as u16 {
+            overflow_tx[crate::transaction::TX_HEADER_BYTES] = b as u8;
+            if sort_key_for(&tx0) < sort_key_for(&overflow_tx) {
+                return (tx0, overflow_tx);
+            }
+        }
+        panic!("could not construct ordered transaction pair");
+    }
+
+    fn ordered_same_author_txs() -> (
+        [u8; crate::transaction::TX0_WIRE_BYTES],
+        [u8; crate::transaction::TX0_WIRE_BYTES],
+    ) {
+        let tx0 = make_tx0_raw(author_id(0), 0);
+        let mut tx1 = make_tx0_raw(author_id(0), 1);
+        for b in 0u16..=u8::MAX as u16 {
+            tx1[crate::transaction::TX_HEADER_BYTES] = b as u8;
+            if sort_key_for(&tx0) < sort_key_for(&tx1) {
+                return (tx0, tx1);
+            }
+        }
+        panic!("could not construct ordered same-author transaction pair");
+    }
+
+    fn assert_state_unchanged_except_halt(
+        before: &EpochState,
+        after: &EpochState,
+        halt: HaltReason,
+    ) {
+        assert_eq!(after.halt_reason, halt);
+        assert_eq!(after.epoch, before.epoch);
+        assert_eq!(after.entropy_seed, before.entropy_seed);
+        assert_eq!(after.validators, before.validators);
+        assert_eq!(after.validator_count, before.validator_count);
+        assert_eq!(after.convergence_window, before.convergence_window);
+        assert_eq!(after.nonces, before.nonces);
+        assert_eq!(after.validator_ids, before.validator_ids);
+        assert_eq!(after.state_root, before.state_root);
     }
 
     /// TV-0: genesis state_root is [0u8;32] before any epoch is advanced.
@@ -579,7 +664,7 @@ mod tests {
         input.updates[0] = Some(ValidatorUpdate {
             divergence_new: FixedPoint::ZERO,
             conflict_new: FixedPoint::ZERO,
-            slash_accum_new: FixedPoint::from_raw(500), // decrease → invalid
+            slash_accum_new: FixedPoint::from_raw(500), // decrease -> invalid
         });
         assert_eq!(
             advance_epoch(&mut state, &input, &[]),
@@ -590,7 +675,7 @@ mod tests {
     #[test]
     fn validate_rejects_wrong_update_count() {
         let mut state = genesis_state_vc4(); // validator_count = 4
-        let input = idle_input(3); // update_count = 3 ≠ 4
+        let input = idle_input(3); // update_count = 3 != 4
         assert_eq!(
             advance_epoch(&mut state, &input, &[]),
             Err(HaltReason::DecodeInvalid)
@@ -614,9 +699,9 @@ mod tests {
     }
 
     /// V_convergence for 4 validators each with D=500_000, C=250_000:
-    ///   per validator: floor(400_000×500_000/1_000_000) + floor(350_000×250_000/1_000_000)
+    ///   per validator: floor(400_000x500_000/1_000_000) + floor(350_000x250_000/1_000_000)
     ///                = 200_000 + 87_500 = 287_500
-    ///   total: 4 × 287_500 = 1_150_000
+    ///   total: 4 x 287_500 = 1_150_000
     #[test]
     fn evaluate_projected_known_values() {
         let mut state = genesis_state_vc4();
@@ -676,6 +761,57 @@ mod tests {
         assert_eq!(state.epoch, 0);
         assert_eq!(state.validators[0].slash_accum, FixedPoint::ZERO);
         assert_eq!(state.validators[1].slash_accum, FixedPoint::ZERO);
+    }
+
+    #[test]
+    fn tx_nonce_overflow_halts_without_partial_commit() {
+        let mut state = genesis_state_vc4();
+        set_distinct_validator_ids(&mut state);
+        state.nonces[0] = u64::MAX;
+        let before = state;
+        let tx = make_tx0_raw(author_id(0), u64::MAX);
+
+        assert_eq!(
+            advance_epoch(&mut state, &idle_input(4), &[tx.as_slice()]),
+            Err(HaltReason::ArithOverflow)
+        );
+        assert_state_unchanged_except_halt(&before, &state, HaltReason::ArithOverflow);
+    }
+
+    #[test]
+    fn multiple_transactions_from_same_validator_commit_precomputed_nonce() {
+        let mut state = genesis_state_vc4();
+        set_distinct_validator_ids(&mut state);
+        let (tx0, tx1) = ordered_same_author_txs();
+
+        advance_epoch(
+            &mut state,
+            &idle_input(4),
+            &[tx0.as_slice(), tx1.as_slice()],
+        )
+        .unwrap();
+
+        assert_eq!(state.nonces[0], 2);
+        assert_eq!(state.nonces[1], 0);
+    }
+
+    #[test]
+    fn failure_after_first_transaction_halts_without_partial_commit() {
+        let mut state = genesis_state_vc4();
+        set_distinct_validator_ids(&mut state);
+        state.nonces[1] = u64::MAX;
+        let before = state;
+        let (tx0, overflow_tx) = ordered_two_validator_txs();
+
+        assert_eq!(
+            advance_epoch(
+                &mut state,
+                &idle_input(4),
+                &[tx0.as_slice(), overflow_tx.as_slice()]
+            ),
+            Err(HaltReason::ArithOverflow)
+        );
+        assert_state_unchanged_except_halt(&before, &state, HaltReason::ArithOverflow);
     }
 
     #[test]
