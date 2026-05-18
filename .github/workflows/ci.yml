@@ -11,7 +11,7 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install
       - name: Verify pinned Rust toolchain
-        run: ./scripts/verify_rust_toolchain.sh
+        run: bash scripts/verify_rust_toolchain.sh
       - name: Build
         run: cargo build --no-default-features
 
@@ -22,13 +22,13 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install
       - name: Verify pinned Rust toolchain
-        run: ./scripts/verify_rust_toolchain.sh
+        run: bash scripts/verify_rust_toolchain.sh
       - name: Test
         run: cargo test --workspace --no-default-features
       - name: Verify deterministic build pipeline
-        run: ./scripts/verify_two_stage_build.sh
+        run: bash scripts/verify_two_stage_build.sh
       - name: Verify genesis artifact-set hash
-        run: ./scripts/verify_genesis_hash.sh
+        run: bash scripts/verify_genesis_hash.sh
 
   clippy-lint:
     runs-on: ubuntu-latest
@@ -40,7 +40,7 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install
       - name: Verify pinned Rust toolchain
-        run: ./scripts/verify_rust_toolchain.sh
+        run: bash scripts/verify_rust_toolchain.sh
       - name: Clippy (consensus)
         run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::unreachable -D warnings
       - name: Clippy (workspace)
@@ -52,7 +52,7 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install
       - name: Verify pinned Rust toolchain
-        run: ./scripts/verify_rust_toolchain.sh
+        run: bash scripts/verify_rust_toolchain.sh
       - name: Install cargo-deny
         run: cargo install cargo-deny --locked
       - name: cargo deny check
