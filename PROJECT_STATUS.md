@@ -5,8 +5,9 @@
 > are, and what the priority order for closing them is. It is updated as milestones
 > are reached.
 >
-> Last updated: 2026-05-17. Based on internal review and an independent external
-> audit of the architecture, workspace, and consensus implementation.
+> Last updated: 2026-05-18. Based on internal review, the current CI workflow,
+> and an independent external audit of the architecture, workspace, and consensus
+> implementation.
 
 ---
 
@@ -30,12 +31,12 @@ For full context see `README.md`, `design_decisions.md`, and `docs/spec/00_execu
 | Dimension | Status | Notes |
 |-----------|--------|-------|
 | Consensus core correctness | **Strong** | `no_std`, `forbid(unsafe_code)`, determinism constraints fully enforced |
-| Formal proof coverage | **Strong conceptually** | 14 PROVED, 5 CI-VERIFIED, 4 AXIOM, 1 PLACEHOLDER — see `proofs/COVERAGE.md` |
-| Proof CI pipeline | **Incomplete** | Coq compiles locally; no proof-hash artifacts or automated reproducibility attestations yet |
+| Formal proof coverage | **Strong conceptually** | 14 PROVED, 4 CI-VERIFIED, 2 AXIOM, 2 PLACEHOLDER — see `proofs/COVERAGE.md` |
+| Proof CI pipeline | **Automated for active Coq proofs** | `.github/workflows/ci.yml` installs Coq, rejects active `Admitted`/`admit` markers, checks new axioms against `proofs/COVERAGE.md`, compiles active `.v` files, records `.vo` SHA-256 hashes, and uploads version/hash artifacts |
 | Runtime / PAL implementation | **Scaffold only** | PAL Host returns zeroes/no-ops; no network, no persistence, no crash recovery |
 | Fuzzing infrastructure | **Basic** | honggfuzz harness for 3 Domain A targets; fuzz-smoke CI gate passes |
 | Performance benchmarks | **None** | Worst-case epoch transition cost, serialization throughput, stack depth: unmeasured |
-| Reproducible builds | **None** | No Nix/Docker environment, no byte-identical attestation, no pinned build pipeline |
+| Reproducible builds | **Partial** | Rust is pinned to 1.95.0 with CI version verification and local locked/offline build verification; no Nix/Docker environment or byte-identical release attestation yet |
 | Adversarial simulation | **None** | Halt-trigger griefing, liveness suppression, economic griefing: untested |
 | Deep module audits | **Pending** | `fixed_point.rs`, `encoding.rs`, `lyapunov.rs`, `hash.rs` not yet independently audited |
 | Production readiness | **Pre-production** | Intentionally — this is a protocol design and formal proof repository |
@@ -67,15 +68,17 @@ activation of it.
 formal analysis of minimum input required to trigger halt; grief-cost analysis.
 
 ### Medium — Proof claims exceed visible audit trail
-The theorems compile under `coqc` and are listed in `proofs/STATUS.md`, but
-there are no: machine-checked proof CI artifacts with hashes, proof
-reproducibility pipeline, extraction equivalence documentation, or refinement
-proofs between Coq model and Rust runtime. The claims are likely sound; the
-independently reproducible evidence trail is incomplete.
+The Coq evidence trail is now partially automated: the CI `proofs` job installs
+Coq, records the Coq version, rejects active `Admitted`/`admit` markers, checks
+new axiom declarations against `proofs/COVERAGE.md`, compiles the active Coq
+proof set with `coqc`, records `.vo` SHA-256 hashes, and uploads the version and
+hash manifests as artifacts. The remaining visible-audit gaps are proof-to-code
+refinement, extraction equivalence documentation, and a reproducible build
+environment that lets independent auditors recreate the same proof objects.
 
-**Target milestone:** CI job that runs `coqc` on all proof files and records
-output hashes as build artifacts; proof coverage matrix linked to specific
-Coq theorems with commit-pinned hashes; extraction pipeline documentation.
+**Target milestone:** proof coverage matrix linked to specific Coq theorems with
+commit-pinned CI artifact hashes; extraction pipeline documentation; formal
+refinement proof between the Coq model and Rust runtime.
 
 ### Medium — Fixed-size structures create scaling and pressure concerns
 `MAX_VALIDATORS = 1024` with large fixed arrays, full-state copies per epoch,
@@ -108,14 +111,18 @@ here is Domain A correctness work.
 
 1. **Discharge open proof obligations** (`proofs/COVERAGE.md`):
    - TH-10: Cascade collision resistance (`cascade/cascade_collision_resistance.v`)
-     — requires formalising hash function; consider EasyCrypt or CryptHOL
+     — post-genesis migration item; v1.0 Domain A state roots remain `H_domain` / SHA3-256. Full activation requires formalising hash function; consider EasyCrypt or CryptHOL
    - Blinding PRF: `H_cascade_keyed` is a PRF — formal proof in CryptHOL/SSProve
    - IT-MAC: GF(2¹²⁸) forgery bound — mechanise in Coq via GHASH polynomial MAC reduction
 
 2. **Proof CI pipeline**:
-   - Add `coq-check` CI job that runs `coqc` on all files under `proofs/`
-   - Record proof-object hashes as build artifacts
-   - Fail CI on any new `Admitted` marker
+   - Keep the existing `.github/workflows/ci.yml` `proofs` job green: Coq install,
+     version capture, admitted-marker rejection, axiom coverage checking, active
+     Coq compilation, proof-object hashing, and artifact upload.
+   - Extend the artifact trail with commit-pinned retention/indexing so auditors
+     can reproduce and compare proof-object hashes outside GitHub Actions.
+   - Decide whether `_wip/` drafts and future proof trees need separate non-gating
+     CI coverage.
 
 3. **Deep audit of core Domain A modules** (target: external cryptographer review):
    - `fixed_point.rs` — overflow handling, saturation behavior, rounding invariants
@@ -159,7 +166,7 @@ These are required for independent auditability and long-term trust.
 8. **Reproducible builds**:
    - Nix flake or pinned Docker image for all build/proof tooling
    - Byte-identical release attestation CI job
-   - `rust-toolchain.toml` pinned to specific nightly hash (for fuzz) and stable (for consensus)
+   - `rust-toolchain.toml` pins Rust 1.95.0 for consensus, fuzz smoke, CI build/test/lint jobs, with `rustc --version --verbose` verification
 
 9. **Proof-to-code refinement**:
    - Formal refinement proof between `proofs/model/Model.v` and `crates/consensus/`
@@ -193,9 +200,9 @@ These are fixed constraints that no future work will alter:
 | Status | Count | Meaning |
 |--------|-------|---------|
 | PROVED | 14 | Coq theorem, compiles, zero `Admitted` |
-| CI-VERIFIED | 5 | Verified by cross-ISA CI or KAT vectors |
-| AXIOM | 4 | Assumed with documented justification; not provable from first principles |
-| PLACEHOLDER | 1 | Coq file exists, body axiomatised; full proof deferred |
+| CI-VERIFIED | 4 | Verified by cross-ISA CI or KAT vectors |
+| AXIOM | 2 | Assumed property rows with documented justification; not provable from first principles |
+| PLACEHOLDER | 2 | Coq file exists, body axiomatised or reduction target deferred; full proof deferred |
 | MISSING | 0 | |
 
 Full matrix: `proofs/COVERAGE.md`
@@ -205,13 +212,13 @@ Full matrix: `proofs/COVERAGE.md`
 ## Key Files for Reviewers
 
 | File | Purpose |
-|------|---------|
+|------|----------|
 | `README.md` | Project identity, theorem table, contributor rules |
 | `design_decisions.md` | Architectural decisions and rationale |
 | `GENESIS_CONSTANTS.toml` | All protocol parameters (immutable after lock) |
 | `docs/spec/00_execution_model.md` | Domain A/B partition, execution constraints |
 | `docs/spec/01_consensus.md` | State space, encoding, transition function |
-| `docs/spec/07_hash_cascade.md` | 8-family cascade spec (v1.1) |
+| `docs/spec/07_hash_cascade.md` | 8-family cascade spec (post-genesis/v1.1); not the v1.0 state-root commitment |
 | `docs/traceability.md` | PDF → code → test → proof audit contract |
 | `proofs/COVERAGE.md` | Full proof obligation matrix |
 | `proofs/STATUS.md` | Per-file Coq compilation status |

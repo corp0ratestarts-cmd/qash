@@ -34,7 +34,7 @@
 | **PDF §** | §4.1 (pp. 9–10, provisional) |
 | **PDF quote** | `pub struct LyapunovState { divergence: FixedPoint, conflict: FixedPoint, signature_health: FixedPoint }` / `L = W_D·D + W_C·C + W_S·Σ` / `∀t: L(t+1) - L(t) ≤ ε_threshold` / `If violated → absorbing halt` |
 | **Code** | `crates/consensus/src/lyapunov.rs` computes `V_convergence = α·D + β·C` and `phi_safety = γ·Σ(slash_i)` (ADR-001/002); `PHI_MAX_SAFE = 500_000_000` pinned; `LyapunovEval.phi_halt_triggered` set when `phi ≥ PHI_MAX_SAFE`. `crates/consensus/src/transition.rs` checks `delta_window > ε` (H1) and `phi_halt_triggered` (H7) before commit. |
-| **Test / Vector** | Unit tests in `lyapunov.rs`: `phi_safety_sums_across_validators` (distinguishes sum from max), `phi_halt_triggers_at_threshold` (H7 boundary). Transition tests mirror the projected calculation and pre-commit H7 gate: `evaluate_projected_phi_safety_sums_across_validators`, `phi_safety_halts_at_threshold_before_commit`. |
+| **Test / Vector** | Unit tests in `lyapunov.rs`: `phi_safety_sums_across_validators` (distinguishes sum from max), `phi_halt_triggers_at_threshold` (H7 boundary). |
 | **Proof** | `proofs/contractivity/lyapunov_stability.v` is compiled by the `.github/workflows/ci.yml` `proofs` job, after CI rejects active `Admitted`/`admit` markers and checks axiom coverage. |
 | **Status** | ⚠️ |
 | **Gap** | ADR-001 and ADR-002 accepted; sum aggregation, H7 gate, and Coq compilation are CI-covered. Remaining gaps: no proof-to-code refinement from the Coq model to Rust and no extraction-equivalence evidence. |
@@ -129,11 +129,11 @@
 |-------|-------|
 | **PDF §** | §2.1 (pp. 2–3, provisional), §10.1 (pp. 25–26, provisional), Appendix E (p. 31, provisional) |
 | **PDF quote** | `genesis_hash = "SHA3-256:<computed_hash>"` / `sha3-256sum genesis.toml` |
-| **Code** | `GENESIS_CONSTANTS.toml` has `genesis_hash = "SHA3-256:PLACEHOLDER"`. |
-| **Test / Vector** | — |
+| **Code** | `GENESIS_CONSTANTS.toml` records a recomputable pre-lock artifact-set digest and explicitly marks `genesis_status = "provisional"` with `deployment_authoritative = false`. `scripts/verify_genesis_hash.sh` recomputes the digest from `spec/genesis-artifacts.txt`. |
+| **Test / Vector** | `.github/workflows/ci.yml` and `.github/workflows/genesis-guard.yml` run `./scripts/verify_genesis_hash.sh`. |
 | **Proof** | — |
 | **Status** | ❌ |
-| **Gap** | Terminal gate. The hash cannot be locked until the normative PDF is committed, ERR-001 and relevant ADRs are resolved, full encoding is defined, and cross-ISA vectors pass. |
+| **Gap** | Terminal gate. The current hash is provisional and not deployment-authoritative. It cannot be locked until the normative PDF is committed, every provisional quote/page reference in this file plus `docs/errata/` and `docs/adr/` is verified against that PDF, ERR-001 and relevant ADRs are resolved, full encoding is defined, and cross-ISA vectors pass. |
 
 ---
 

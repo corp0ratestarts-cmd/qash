@@ -23,6 +23,7 @@
 Require Import Coq.ZArith.ZArith.
 Require Import Coq.Bool.Bool.
 Require Import Coq.Lists.List.
+Import ListNotations.
 Require Import Coq.micromega.Lia.
 Open Scope Z_scope.
 
@@ -51,8 +52,13 @@ Record ValidatorMetrics := mkVM {
 Definition zero_vm : ValidatorMetrics := mkVM 0 0 0.
 
 (** V(v) = α·D + β·C per validator. Matches lyapunov.rs evaluate(). *)
+Definition fixed_mul (a b : Z) : Z :=
+  (a * b) / scale.
+
+(** V(v) = floor(α·D/scale) + floor(β·C/scale) per validator.
+    Matches FixedPoint::checked_mul and lyapunov.rs evaluate(). *)
 Definition v_validator (v : ValidatorMetrics) : Z :=
-  weight_D * vm_D v + weight_C * vm_C v.
+  fixed_mul weight_D (vm_D v) + fixed_mul weight_C (vm_C v).
 
 (** Sum V over a list of validators. *)
 Fixpoint v_sum (vs : list ValidatorMetrics) : Z :=
@@ -182,6 +188,113 @@ Fixpoint run (s : ModelState) (inputs : list (list ValidatorUpdate))
     else run s' rest
   end.
 
+
+
+(* ================================================================= *)
+(** ** §1a — Rust-identifier aliases and encoding subset              *)
+(* ================================================================= *)
+
+(** The following definitions intentionally use names that mirror Rust
+    identifiers in crates/consensus/src/{lyapunov,transition,encoding}.rs.
+    They are a small, executable refinement surface: encoding first, then the
+    Lyapunov transition observation subset. *)
+
+Definition SCALE : Z := scale.
+Definition WEIGHT_D : Z := weight_D.
+Definition WEIGHT_C : Z := weight_C.
+Definition WEIGHT_S : Z := weight_S.
+Definition EPSILON : Z := epsilon.
+Definition WINDOW_SIZE_WIRE : Z := Z.of_nat window_sz.
+Definition WINDOW_SIZE : nat := window_sz.
+
+Definition ValidatorMetrics_ZERO : ValidatorMetrics := zero_vm.
+Definition ConvergenceWindow := ConvWindow.
+Definition ConvergenceWindow_new : ConvergenceWindow := empty_window.
+Definition ConvergenceWindow_push := cw_push.
+Definition ConvergenceWindow_is_full := cw_is_full.
+Definition ConvergenceWindow_min_value := cw_min.
+Definition compute_delta_window (v_current : Z) (window : ConvergenceWindow) : Z :=
+  delta_window window v_current.
+
+Record LyapunovEval := mkLyapunovEval {
+  lyapunov_v_convergence : Z;
+  lyapunov_phi_safety : Z;
+  lyapunov_v_total : Z;
+  lyapunov_delta_window : Z;
+  lyapunov_halt_triggered : bool;
+}.
+
+Fixpoint max_slash (vs : list ValidatorMetrics) : Z :=
+  match vs with
+  | [] => 0
+  | v :: rest => Z.max (vm_S v) (max_slash rest)
+  end.
+
+Definition evaluate (validators : list ValidatorMetrics) (window : ConvergenceWindow)
+    : LyapunovEval :=
+  let v_conv := v_sum validators in
+  let phi := fixed_mul WEIGHT_S (max_slash validators) in
+  let total := v_conv + phi in
+  let delta := compute_delta_window v_conv window in
+  mkLyapunovEval v_conv phi total delta (Z.ltb EPSILON delta).
+
+Definition EpochState := ModelState.
+Definition EpochInput := list ValidatorUpdate.
+Definition advance_epoch := step.
+
+Definition ENCODING_VERSION : Z := 0.
+Definition STATE_HEADER_SIZE : Z := 52.
+Definition VALIDATOR_DYNAMIC_SIZE : Z := 48.
+
+Fixpoint le_bytes (n : Z) (len : nat) : list Z :=
+  match len with
+  | O => []
+  | S len' => Z.modulo n 256 :: le_bytes (Z.div n 256) len'
+  end.
+
+Definition encode_u32 (n : Z) : list Z := le_bytes n 4.
+Definition encode_u64 (n : Z) : list Z := le_bytes n 8.
+Definition encode_i128 (n : Z) : list Z := le_bytes n 16.
+
+Definition encode_state_header
+    (epoch : Z) (validator_count : Z) (halt_reason : Z) (entropy_seed : list Z)
+    : list Z :=
+  encode_u32 ENCODING_VERSION ++
+  encode_u64 epoch ++
+  encode_u32 validator_count ++
+  [halt_reason; 0; 0; 0] ++
+  entropy_seed.
+
+Definition compute_leaf_index (validator_id epoch : Z) (epoch_seed : list Z) : list Z :=
+  encode_u64 validator_id ++ encode_u64 epoch ++ epoch_seed.
+
+Definition encode_validator_dynamic (v : ValidatorMetrics) : list Z :=
+  encode_i128 (vm_D v) ++ encode_i128 (vm_C v) ++ encode_i128 (vm_S v).
+
+Record AdvanceEpochObservation := mkAdvanceEpochObservation {
+  obs_epoch : Z;
+  obs_halt_reason : HaltReason;
+  obs_v_convergence : Z;
+  obs_delta_window : Z;
+  obs_window_values : list Z;
+}.
+
+Definition advance_epoch_observation (s : EpochState) (updates : list ValidatorUpdate)
+    : AdvanceEpochObservation :=
+  let projected :=
+    match apply_updates (ms_validators s) updates with
+    | Some vs => vs
+    | None => ms_validators s
+    end in
+  let lyap := evaluate projected (ms_window s) in
+  let s' := advance_epoch s updates in
+  mkAdvanceEpochObservation
+    (ms_epoch s')
+    (ms_halt s')
+    (lyapunov_v_convergence lyap)
+    (lyapunov_delta_window lyap)
+    (cw_values (ms_window s')).
+
 (* ================================================================= *)
 (** ** §2 — Lemmas: Halt Is Absorbing (TH-6 analogue)                *)
 (* ================================================================= *)
@@ -267,3 +380,52 @@ Proof.
   { apply Z.ltb_lt. lia. }
   rewrite Hlt. reflexivity.
 Qed.
+
+
+(* ================================================================= *)
+(** ** §6 — Checked correspondence vectors for the initial subset     *)
+(* ================================================================= *)
+
+Definition zero_seed_32 : list Z := repeat 0 32.
+Definition rust_header_tv0 : list Z :=
+  encode_state_header 1 4 0 zero_seed_32.
+
+Example encode_state_header_tv0_checked :
+  rust_header_tv0 =
+    [0;0;0;0; 1;0;0;0;0;0;0;0; 4;0;0;0; 0;0;0;0] ++ repeat 0 32.
+Proof. reflexivity. Qed.
+
+Example compute_leaf_index_tv0_checked :
+  compute_leaf_index 7 1 zero_seed_32 =
+    [7;0;0;0;0;0;0;0; 1;0;0;0;0;0;0;0] ++ repeat 0 32.
+Proof. reflexivity. Qed.
+
+Example encode_validator_dynamic_tv0_checked :
+  encode_validator_dynamic (mkVM 500_000 250_000 1_000) =
+    [32;161;7;0;0;0;0;0;0;0;0;0;0;0;0;0] ++
+    [144;208;3;0;0;0;0;0;0;0;0;0;0;0;0;0] ++
+    [232;3;0;0;0;0;0;0;0;0;0;0;0;0;0;0].
+Proof. reflexivity. Qed.
+
+Definition genesis4 : EpochState :=
+  mkMS 0 HR_None [zero_vm; zero_vm; zero_vm; zero_vm] empty_window.
+
+Definition idle4 : list ValidatorUpdate := [VU_Idle; VU_Idle; VU_Idle; VU_Idle].
+
+Example advance_epoch_idle4_observation_checked :
+  advance_epoch_observation genesis4 idle4 =
+    mkAdvanceEpochObservation 1 HR_None 0 0 [0].
+Proof. reflexivity. Qed.
+
+Definition spike4_900k : list ValidatorUpdate :=
+  [VU_Update 900_000 900_000 0;
+   VU_Update 900_000 900_000 0;
+   VU_Update 900_000 900_000 0;
+   VU_Update 900_000 900_000 0].
+
+Definition filled_zero_window_state : EpochState := run genesis4 [idle4; idle4; idle4].
+
+Example advance_epoch_lyapunov_halt_observation_checked :
+  advance_epoch_observation filled_zero_window_state spike4_900k =
+    mkAdvanceEpochObservation 3 HR_LyapunovViolation 2_700_000 2_700_000 [0;0;0].
+Proof. reflexivity. Qed.
