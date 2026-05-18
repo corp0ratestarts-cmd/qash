@@ -661,27 +661,50 @@ fn adversarial_update_beyond_validator_count() {
     );
 }
 
-/// §A4: slash_accum at i64::MAX / 2 is valid; same value on next epoch
+/// §A4: slash_accum below the Φ_safety threshold is valid; same value on next epoch
 /// (no-op, monotone) is also valid.
+/// PHI_MAX_SAFE = 500_000_000 raw; WEIGHT_S = 0.25; threshold per validator = 2_000_000_000.
 #[test]
 fn adversarial_max_slash_boundary_is_valid() {
-    let large = i64::MAX / 2;
+    // 1_900_000_000 < 2_000_000_000 (phi halt threshold for one validator).
+    let large: i128 = 1_900_000_000;
     let mut state = genesis_state();
-    // Set slash_accum to a large valid value.
+    // Set slash_accum to a large valid value below the Φ_safety halt gate.
     let mut input = idle_input(4);
     input.updates[0] = Some(ValidatorUpdate {
         divergence_new:  FixedPoint::ZERO,
         conflict_new:    FixedPoint::ZERO,
-        slash_accum_new: FixedPoint::from_raw(large as i128),
+        slash_accum_new: FixedPoint::from_raw(large),
     });
-    assert!(advance_epoch(&mut state, &input, &[]).is_ok(), "large slash must be accepted");
+    assert!(advance_epoch(&mut state, &input, &[]).is_ok(), "large slash below phi threshold must be accepted");
 
     // Same value again (no-op, satisfies monotonicity) — must still succeed.
     let mut input2 = idle_input(4);
     input2.updates[0] = Some(ValidatorUpdate {
         divergence_new:  FixedPoint::ZERO,
         conflict_new:    FixedPoint::ZERO,
-        slash_accum_new: FixedPoint::from_raw(large as i128),
+        slash_accum_new: FixedPoint::from_raw(large),
     });
     assert!(advance_epoch(&mut state, &input2, &[]).is_ok(), "same slash (no-op) must be accepted");
+}
+
+/// H7: slash_accum at or above the Φ_safety threshold triggers PhiSafetyViolation halt.
+/// PHI_MAX_SAFE = 500_000_000 raw; WEIGHT_S = 0.25; per-validator threshold = 2_000_000_000.
+#[test]
+fn adversarial_phi_safety_halt_triggers_at_threshold() {
+    // 2_000_000_000 raw slash for one validator → phi = 500_000_000 = PHI_MAX_SAFE → halt.
+    let at_threshold: i128 = 2_000_000_000;
+    let mut state = genesis_state();
+    let mut input = idle_input(4);
+    input.updates[0] = Some(ValidatorUpdate {
+        divergence_new:  FixedPoint::ZERO,
+        conflict_new:    FixedPoint::ZERO,
+        slash_accum_new: FixedPoint::from_raw(at_threshold),
+    });
+    assert_eq!(
+        advance_epoch(&mut state, &input, &[]),
+        Err(HaltReason::PhiSafetyViolation),
+        "slash at phi threshold must trigger PhiSafetyViolation"
+    );
+    assert_eq!(state.halt_reason, HaltReason::PhiSafetyViolation);
 }
