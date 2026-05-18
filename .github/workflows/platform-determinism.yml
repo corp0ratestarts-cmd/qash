@@ -17,7 +17,7 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install
       - name: Verify pinned Rust toolchain
-        run: ./scripts/verify_rust_toolchain.sh
+        run: bash scripts/verify_rust_toolchain.sh
       - name: Run canonical root test
         id: capture
         run: |
@@ -46,7 +46,7 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install
       - name: Verify pinned Rust toolchain
-        run: ./scripts/verify_rust_toolchain.sh
+        run: bash scripts/verify_rust_toolchain.sh
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
       - name: Install cross-compile toolchain and QEMU

@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verify genesis artifact-set hash
-        run: ./scripts/verify_genesis_hash.sh
+        run: bash scripts/verify_genesis_hash.sh
       - name: Require human acknowledgment for genesis artifact changes
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
