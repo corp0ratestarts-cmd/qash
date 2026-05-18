@@ -1,0 +1,35 @@
+{
+  "generated_by": "proofs/model/Model.v checked Examples encode_state_header_tv0_checked, compute_leaf_index_tv0_checked, encode_validator_dynamic_tv0_checked",
+  "ci_jobs": ["proofs", "test-determinism"],
+  "scope_order": ["encoding", "lyapunov-transition-observations", "transaction-nonce-semantics", "full-state-root"],
+  "vectors": [
+    {
+      "id": "ENC-HEADER-0",
+      "rust": "crates/consensus/src/encoding.rs::encode_state_header",
+      "coq": "proofs/model/Model.v::encode_state_header_tv0_checked",
+      "epoch": 1,
+      "validator_count": 4,
+      "halt_reason": 0,
+      "entropy_seed": "0000000000000000000000000000000000000000000000000000000000000000",
+      "encoded_hex": "00000000010000000000000004000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "id": "ENC-LEAF-0",
+      "rust": "crates/consensus/src/encoding.rs::compute_leaf_index",
+      "coq": "proofs/model/Model.v::compute_leaf_index_tv0_checked",
+      "validator_id": 7,
+      "epoch": 1,
+      "epoch_seed": "0000000000000000000000000000000000000000000000000000000000000000",
+      "encoded_hex": "070000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "id": "ENC-VALIDATOR-DYNAMIC-0",
+      "rust": "crates/consensus/src/encoding.rs::encode_validator_dynamic",
+      "coq": "proofs/model/Model.v::encode_validator_dynamic_tv0_checked",
+      "divergence": 500000,
+      "conflict": 250000,
+      "slash_accum": 1000,
+      "encoded_hex": "20a1070000000000000000000000000090d00300000000000000000000000000e8030000000000000000000000000000"
+    }
+  ]
+}
