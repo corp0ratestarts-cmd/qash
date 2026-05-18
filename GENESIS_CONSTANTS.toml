@@ -20,7 +20,6 @@ weight_conflict_C = 350_000
 weight_slash_Sigma = 250_000
 epsilon_threshold = 20_000
 phi_max_safe = 500_000_000
-phi_max_safe_raw = 500_000_000
 evaluation_window = 3
 max_queries_per_epoch = 1_000_000
 
@@ -43,7 +42,7 @@ authorized_platforms = [
   "itron_renesas_rx", "itron_renesas_rl78", "itron_arm_cortex_m",
   "esp32_s3", "snapdragon_arm64", "apple_silicon_arm64"
 ]
-attestion_modes = ["tpm_2_0", "trustzone", "secure_enclave", "software_hash_merkle"]
+attestaton_modes = ["tpm_2_0", "trustzone", "secure_enclave", "software_hash_merkle"]
 require_hardware_tee = false
 
 [consensus.receipts]
