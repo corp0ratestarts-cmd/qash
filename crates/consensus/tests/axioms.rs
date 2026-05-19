@@ -476,6 +476,7 @@ fn axiom_all_halt_reasons_roundtrip() {
         HaltReason::RoundtripFailure,
         HaltReason::HaltFlagSet,
         HaltReason::PhiSafetyViolation,
+        HaltReason::IncompatibleVersion,
     ];
     for &reason in halt_codes {
         let mut state = genesis_state();

@@ -54,3 +54,10 @@ name = "tx_fuzz"
 path = "fuzz_targets/tx_fuzz.rs"
 test = false
 doc = false
+
+
+[[bin]]
+name = "halt_reason_fuzz"
+path = "fuzz_targets/halt_reason_fuzz.rs"
+test = false
+doc = false

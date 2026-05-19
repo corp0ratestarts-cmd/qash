@@ -1,0 +1,15 @@
+{
+  "commit": "0413503d9f20f630824cd6e20cf1f40cf066f065",
+  "generated_at_utc": "2026-05-19T21:42:02Z",
+  "halt_reasons": [
+    {"code": "0x00", "name": "None", "halted": false},
+    {"code": "0x01", "name": "LyapunovViolation", "halted": true},
+    {"code": "0x02", "name": "ArithOverflow", "halted": true},
+    {"code": "0x03", "name": "EpochOverflow", "halted": true},
+    {"code": "0x04", "name": "DecodeInvalid", "halted": true},
+    {"code": "0x05", "name": "RoundtripFailure", "halted": true},
+    {"code": "0x06", "name": "HaltFlagSet", "halted": true},
+    {"code": "0x07", "name": "PhiSafetyViolation", "halted": true},
+    {"code": "0x08", "name": "IncompatibleVersion", "halted": true}
+  ]
+}

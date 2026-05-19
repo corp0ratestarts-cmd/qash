@@ -113,6 +113,10 @@ jobs:
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: bash scripts/check_axiom_coverage.sh
+      - name: HaltReason taxonomy/vector gate
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/check_halt_reason_gate.sh
       - name: Compile active Coq proofs
         working-directory: proofs
         run: |
