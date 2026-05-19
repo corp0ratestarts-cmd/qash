@@ -5,7 +5,7 @@
 > are, and what the priority order for closing them is. It is updated as milestones
 > are reached.
 >
-> Last updated: 2026-05-18. Based on internal review, the current CI workflow,
+> Last updated: 2026-05-19. Based on internal review, the current CI workflow,
 > and an independent external audit of the architecture, workspace, and consensus
 > implementation.
 
@@ -34,7 +34,7 @@ For full context see `README.md`, `design_decisions.md`, and `docs/spec/00_execu
 | Formal proof coverage | **Strong conceptually** | 14 PROVED, 4 CI-VERIFIED, 2 AXIOM, 2 PLACEHOLDER — see `proofs/COVERAGE.md` |
 | Proof CI pipeline | **Automated for active Coq proofs** | `.github/workflows/ci.yml` installs Coq, rejects active `Admitted`/`admit` markers, checks new axioms against `proofs/COVERAGE.md`, compiles active `.v` files, records `.vo` SHA-256 hashes, and uploads version/hash artifacts |
 | Runtime / PAL implementation | **Scaffold only** | PAL Host returns zeroes/no-ops; no network, no persistence, no crash recovery |
-| Fuzzing infrastructure | **Basic** | honggfuzz harness for 3 Domain A targets; fuzz-smoke CI gate passes |
+| Fuzzing infrastructure | **Expanded** | honggfuzz harness covers encoding, decode, transition, fixed-point, lyapunov, cascade, and tx targets; fuzz-smoke CI gate runs all targets |
 | Performance benchmarks | **None** | Worst-case epoch transition cost, serialization throughput, stack depth: unmeasured |
 | Reproducible builds | **Done** | `rust-toolchain.toml` pins 1.95.0; `docker/Dockerfile.build` pins full build+proof environment; `release-attestation.yml` CI job verifies byte-identical two-stage builds and records SHA-256 manifests under `artifacts/attestations/` with 365-day retention |
 | Adversarial simulation | **Done** | 23-test suite across 10 scenarios: halt-trigger boundary, liveness suppression, coordinated spike, nonce replay, max-field saturation, slash monotonicity, halt irreversibility, grace period |
@@ -131,11 +131,11 @@ here is Domain A correctness work.
    - `hash.rs` / `cascade.rs` — constant-time concerns, domain separation correctness
    - `transaction.rs` — nonce handling, validator slot invariants, reordering resistance
 
-4. **Fuzz coverage expansion**:
-   - Add `fixed_point_fuzz` target: exercise overflow/saturation boundaries
-   - Add `encoding_fuzz` target: verify decode never panics + encode/decode roundtrip
-   - Add `lyapunov_fuzz` target: verify monotonicity invariant under arbitrary inputs
-   - Extend `transition_fuzz` to cover halt-trigger edge cases explicitly
+4. **Fuzz coverage expansion** ✓ COMPLETE:
+   - `fixed_point_fuzz` added: exercises overflow/saturation boundaries
+   - `encoding_fuzz` added: validates decode robustness + encode/decode roundtrip invariants
+   - `lyapunov_fuzz` added: stresses monotonicity-related invariants under arbitrary inputs
+   - `transition_fuzz` retained in CI smoke suite for halt-trigger-path pressure testing
 
 ### Phase 2 — Operational hardening
 
