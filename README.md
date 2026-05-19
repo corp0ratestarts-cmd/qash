@@ -238,3 +238,211 @@ archived under `artifacts/benchmarks/`.
 *QASH is licensed GPL-3.0-or-later.*
 *`GENESIS_CONSTANTS.toml` will be immutable after genesis lock.*
 *Modifying it requires a new network.*
+
+---
+
+## Certification-Grade Delivery Path (Phase-by-Phase)
+
+This section defines a certification-oriented execution path intended for high-assurance review contexts (formal methods, safety/security evaluation, and independent reproducibility audits).
+
+### Assurance Objectives
+
+QASH should be advanced under explicit assurance goals:
+
+1. **Deterministic Safety Objective**: identical admissible replay yields identical state roots across authorized ISAs.
+2. **Semantic Correctness Objective**: Rust consensus behavior is observationally equivalent to canonical model semantics for the declared refinement surface.
+3. **Cryptographic Boundary Objective**: every cryptographic claim is either formally proved, reduced to an explicit axiom, or marked as deferred with bounded blast radius.
+4. **Build Integrity Objective**: reproducible, attestable, byte-identical builds from pinned environments.
+5. **Operational Robustness Objective**: PAL/runtime faults cannot silently perturb Domain A state transitions.
+
+### Evidence Taxonomy (what counts as certification evidence)
+
+- **Normative requirements**: `spec/pdf/`, `docs/errata/`, `docs/adr/`.
+- **Traceability contract**: `docs/traceability.md` mapping requirement → code → test/vector → proof.
+- **Formal evidence**: `proofs/` (compiled Coq objects + hash manifests).
+- **Executable semantic evidence**: `model/` extracted/checked observations.
+- **Implementation evidence**: `crates/consensus`, `crates/pal`.
+- **Dynamic verification evidence**: unit/property tests, cross-ISA replay runs, fuzz campaigns, adversarial scenarios.
+- **Supply-chain evidence**: toolchain pinning, container pinning, release attestations, checksums.
+
+### Type and Determinism Control Surface
+
+Certification posture requires explicit type-discipline controls:
+
+- Domain A integer widths are explicit fixed-size types only (`u32/u64/i64/i128`) and never platform-dependent widths.
+- No floating point in Domain A.
+- No nondeterministic containers or iteration semantics in Domain A.
+- Overflow behavior is protocol-defined and must route to absorbing-halt semantics.
+- Canonical encoding is protocol identity and must remain unique and deterministic.
+
+All new code paths in consensus should be reviewed for determinism hazards at PR time against these controls.
+
+---
+
+## Detailed Forward Plan
+
+### Phase 1 — Pre-Genesis Assurance Closure (blocking for lock)
+
+#### P1.1 Formal obligation closure
+
+- Complete deferred proof tracks listed in `proofs/COVERAGE.md` (including clearly deferred cryptographic reductions).
+- Keep explicit separation between:
+  - proved theorem rows,
+  - CI-verified behavioral claims,
+  - axiom rows with justification,
+  - placeholders/deferred reductions.
+- For each closure, add/update:
+  1. theorem statement location,
+  2. implementation binding path,
+  3. test/vector witness,
+  4. CI artifact hash provenance.
+
+#### P1.2 Domain A deep audits (module hardening)
+
+Audit targets:
+- `crates/consensus/src/fixed_point.rs`
+- `crates/consensus/src/encoding.rs`
+- `crates/consensus/src/lyapunov.rs`
+- `crates/consensus/src/hash.rs` and cascade interfaces
+- `crates/consensus/src/transaction.rs`
+
+Audit method:
+- static invariant checklist,
+- malformed/adversarial boundary enumeration,
+- panic-path elimination confirmation,
+- deterministic error-semantic verification,
+- test/proof traceability deltas filed in `docs/traceability.md`.
+
+#### P1.3 Fuzz and adversarial closure
+
+Maintain and continuously run fuzz targets from `fuzz/fuzz_targets/`:
+- encoding/decode robustness,
+- transition invariants,
+- fixed-point boundary arithmetic,
+- lyapunov threshold behavior,
+- transaction admissibility,
+- cascade/hash input structure.
+
+For certification-grade use, archive campaign metadata:
+- corpus seed ID,
+- execution budget,
+- crash reproducer status,
+- toolchain/container digest,
+- commit hash,
+- result summary.
+
+#### P1.4 Genesis lock readiness gate
+
+Before lock, require all of:
+- normative PDF committed under `spec/pdf/`,
+- traceability links reconciled,
+- unresolved errata/ADR blockers resolved or explicitly accepted,
+- cross-ISA replay vectors green,
+- proof matrix state frozen with artifact hashes.
+
+---
+
+### Phase 2 — Operational Hardening (deployment precondition)
+
+#### P2.1 PAL host implementation controls
+
+Implement real runtime components while preserving Domain A isolation:
+- transport subsystem (deterministic framing at Domain A boundary),
+- persistent storage with crash-safe WAL semantics,
+- replay-from-genesis recovery checks,
+- explicit failure-mode handling (network partitions, partial writes, process restarts).
+
+#### P2.2 Integration and fault-injection testing
+
+Add end-to-end suites that validate Domain B does not perturb Domain A semantics:
+- replay equivalence under restart and crash-recovery paths,
+- network delay/reorder/drop adversarial scenarios,
+- deterministic convergence checks under node churn,
+- durable state/root consistency across restarts.
+
+#### P2.3 Performance characterization with safety margins
+
+Measure and archive:
+- worst-case epoch transition time,
+- peak stack/heap footprints by path,
+- serialization throughput and latency distribution,
+- replay throughput under high-divergence workloads.
+
+Include acceptance envelopes and regression thresholds in CI gates.
+
+---
+
+### Phase 3 — Assurance Hardening (independent auditability)
+
+#### P3.1 Proof-to-code refinement
+
+Strengthen formal linkage between `proofs/model/Model.v` and `crates/consensus`:
+- declare refinement surface explicitly,
+- prove observational equivalence for scoped transitions/encodings,
+- version and pin proof/object outputs.
+
+#### P3.2 Multi-compiler and backend differential verification
+
+Execute deterministic replay corpus across multiple compiler/backend configurations (e.g., LLVM variants and additional backend oracle where practical), and fail on root divergence.
+
+#### P3.3 Trusted computing base minimization
+
+Track and reduce trust assumptions via:
+- documented axiom minimization,
+- explicit assumption ledger updates,
+- independent reproduction of build/proof artifacts.
+
+---
+
+## CI/CD Architecture for High-Assurance Operation
+
+### Required CI lanes
+
+1. **Style and lint lane**
+   - formatting and static lint checks for all Rust/Coq/docs pipelines.
+2. **Consensus correctness lane**
+   - `cargo test --no-default-features` and deterministic invariants.
+3. **Cross-ISA replay lane**
+   - replay corpus execution on x86_64/aarch64/riscv64gc (QEMU where required).
+4. **Proof lane**
+   - Coq compile, admitted-marker rejection, axiom-coverage check, proof-object hashing.
+5. **Fuzz smoke lane**
+   - bounded deterministic-budget campaign on all registered fuzz targets.
+6. **Adversarial scenario lane**
+   - curated halt-trigger/liveness/replay attack simulations.
+7. **Reproducible build + attestation lane**
+   - two-stage byte-identical build comparison, artifact checksum publication.
+
+### CI gating policy
+
+- Any consensus-affecting PR must pass correctness + replay + proof lanes.
+- Any encoding/state-root-affecting PR must additionally pass vector parity and cross-ISA replay lanes.
+- Any cryptographic surface PR must include KAT updates and assumption/proof impact notes.
+
+---
+
+## Certification/Accreditation Readiness Package (deliverables)
+
+For external certification-grade review, maintain a release bundle with:
+
+1. **Requirements baseline** (normative PDF hash + errata/ADR set).
+2. **Traceability matrix snapshot** (`docs/traceability.md` frozen with commit hash).
+3. **Proof object manifest** (Coq version + `.vo` hash index + build environment digest).
+4. **Cross-ISA replay evidence** (vector corpus ID, outputs, platform manifests).
+5. **Fuzz/adversarial evidence** (campaign metadata + reproducible rerun commands).
+6. **Reproducible build attestation** (byte-equality proofs and signed checksums).
+7. **Risk register** (open assumptions, deferred obligations, compensating controls).
+
+A release should not be marked certification-ready unless all seven are present and mutually consistent at the same commit boundary.
+
+---
+
+## Immediate Execution Plan (next implementation sequence)
+
+1. Finish Phase 1 deep module audits and convert all findings into traceable issues/PRs.
+2. Close or explicitly defer remaining proof obligations with documented acceptance criteria.
+3. Freeze genesis-lock evidence set and run full cross-ISA + proof + fuzz + adversarial CI matrix.
+4. Build Phase 2 PAL host with strict Domain A boundary tests and crash-recovery equivalence checks.
+5. Advance Phase 3 refinement and multi-compiler differential evidence for independent assurance.
+
+This sequence is intentionally conservative: no deployment claims should be made before Phase 2 closure, and no high-assurance certification claim should be made before substantive Phase 3 evidence is complete.
