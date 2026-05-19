@@ -1,7 +1,15 @@
 {
   "generated_by": "proofs/model/Model.v checked Examples encode_state_header_tv0_checked, compute_leaf_index_tv0_checked, encode_validator_dynamic_tv0_checked",
-  "ci_jobs": ["proofs", "test-determinism"],
-  "scope_order": ["encoding", "lyapunov-transition-observations", "transaction-nonce-semantics", "full-state-root"],
+  "ci_jobs": [
+    "proofs",
+    "test-determinism"
+  ],
+  "scope_order": [
+    "encoding",
+    "lyapunov-transition-observations",
+    "transaction-nonce-semantics",
+    "full-state-root"
+  ],
   "vectors": [
     {
       "id": "ENC-HEADER-0",
@@ -30,6 +38,26 @@
       "conflict": 250000,
       "slash_accum": 1000,
       "encoded_hex": "20a1070000000000000000000000000090d00300000000000000000000000000e8030000000000000000000000000000"
+    }
+  ],
+  "rejection_vectors": [
+    {
+      "id": "ENC-HEADER-PAD-NONZERO",
+      "target": "crates/consensus/src/encoding.rs::decode_state_header",
+      "mutation": "set header pad byte [17] from 0x00 to 0xFF",
+      "expected": "Err(DecodeInvalid)"
+    },
+    {
+      "id": "ENC-FULL-STATE-TRUNCATED-1",
+      "target": "crates/consensus/src/transition.rs::decode_full_state",
+      "mutation": "drop final byte from canonical encoding",
+      "expected": "Err(DecodeInvalid)"
+    },
+    {
+      "id": "ENC-FULL-STATE-DIVERGENCE-NEGATIVE",
+      "target": "crates/consensus/src/transition.rs::decode_full_state",
+      "mutation": "set first validator divergence i64 field to -1",
+      "expected": "Err(DecodeInvalid)"
     }
   ]
 }
