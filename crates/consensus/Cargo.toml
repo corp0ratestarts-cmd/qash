@@ -19,6 +19,11 @@ kupyna = { version = "0.1.0", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
 proptest = { version = "1", default-features = false, features = ["std"] }
 serde_json = { version = "1", default-features = false, features = ["std"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "epoch_transition"
+harness = false
 
 [features]
 default = []
