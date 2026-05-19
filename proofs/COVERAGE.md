@@ -78,16 +78,32 @@ test(s) that exercise it at runtime.
 
 ---
 
+## Refinement Properties
+
+Formal correspondence between the Coq executable model (`proofs/model/Model.v`) and the
+Rust implementation (`crates/consensus/src/transition.rs`). See `docs/refinement.md` for
+the full three-layer correspondence chain and extraction pipeline.
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|----------|
+| RT-1: Successful step advances epoch and clears halt flag | §4a, §5 | **PROVED** | `RT1_successful_step` in `model/RefinementStatement.v` | `src/transition.rs` | `coq_vectors.rs::coq_model_parity` (TV-1, TV-2, TV-3, TV-9) |
+| RT-2: Over-epsilon step sets halt flag | §4a, §5 | **PROVED** | `RT2_halt_step` in `model/RefinementStatement.v` | `src/transition.rs` | `coq_vectors.rs::coq_model_parity` (TV-4) |
+| RT-3: Halted step preserves epoch (absorbing) | §5 | **PROVED** | `RT3_halt_absorbing_epoch` in `model/RefinementStatement.v` | `src/transition.rs` | `coq_vectors.rs::coq_model_parity` (TV-5) |
+| RT-4: Halted step preserves halt flag (absorbing) | §5 | **PROVED** | `RT4_halt_absorbing_flag` in `model/RefinementStatement.v` | `src/transition.rs` | `coq_vectors.rs::coq_model_parity` (TV-5) |
+| Coq ↔ Rust observational equivalence (AX-2 refinement) | §1 | **AXIOM** | `AX2_rust_refinement` in `model/RefinementStatement.v` | `src/transition.rs` | `coq_vectors.rs::coq_model_parity` (10 vectors); `release-attestation.yml` |
+
+---
+
 ## Coverage Summary
 
 | Status | Count |
 |--------|-------|
-| **PROVED** | 14 |
+| **PROVED** | 18 |
 | **CI-VERIFIED** | 4 |
-| **AXIOM** | 2 |
+| **AXIOM** | 3 |
 | **PLACEHOLDER** | 2 |
 | **MISSING** | 0 |
-| **Total** | 22 |
+| **Total** | 27 |
 
 ---
 
@@ -102,3 +118,4 @@ known proof debt that should be discharged before mainnet.
 | TH-11 | H_cascade cross-ISA determinism | **Discharged** — `tests/cascade_kat.rs` pins 3 KAT vectors; `platform-determinism.yml` cross-verifies on aarch64 and riscv64gc via QEMU |
 | Blinding PRF | H_cascade_keyed is a PRF | Qualitative (`cascade_prf_security`) and quantitative (`cascade_prf_quantitative_bound` with `adv_le`) axioms in place. Full proof in SSProve; current axioms non-vacuous. |
 | IT-MAC | GF(2¹²⁸) forgery bound 16/2¹²⁸ | Arithmetic cap proved; `ghash_poly_mac_au_bound` typed (adv_le), `it_mac_forgery_bound_16` proved. AU game proof still open (SSProve/CryptHOL target). |
+| AX2-refinement | Coq ↔ Rust observational equivalence | Axiom `AX2_rust_refinement` in `model/RefinementStatement.v`; supported by 10 CI test vectors. Strengthen by adding more vectors to `vectors.json`/`coq_vectors.rs`, or by embedding Rust semantics in Coq (RustBelt / K-Rust, post-v1.1). |
