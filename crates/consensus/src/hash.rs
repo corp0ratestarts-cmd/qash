@@ -3,11 +3,15 @@
 //! H_domain(tag, input) = SHA3-256( tag_u32_le || input )
 //!
 //! SECURITY NOTE: `h_domain` and `sha3_256` are NOT constant-time with respect to
-//! their `input` argument. This is intentional and safe because all callers in
+//! their `input` argument. This is intentional and safe because all current callers in
 //! Domain A pass **public consensus data** (state roots, validator IDs, entropy
 //! seeds, transaction bytes). These functions MUST NOT be called on secret material
 //! (private keys, blinding scalars, signing nonces). Such use belongs in Domain B
 //! with an appropriate constant-time wrapper.
+//!
+//! Threat-model boundary: collision/injectivity guarantees used by Coq proofs are
+//! modeled as AX-3 cryptographic assumptions (see `proofs/contractivity/encode_injectivity.v`),
+//! not as implementation-level side-channel proofs.
 
 use sha3::{Digest, Sha3_256};
 
@@ -75,6 +79,19 @@ mod tests {
         let a = h_domain(DomainTag::StateRoot, b"input_a");
         let b = h_domain(DomainTag::StateRoot, b"input_b");
         assert_ne!(a, b);
+    }
+
+
+    #[test]
+    fn h_domain_state_root_hello_known_vector() {
+        // sha3_256([01 00 00 00] || "hello")
+        let expected: [u8; 32] = [
+            0x73, 0xde, 0x9c, 0xe1, 0xb7, 0x47, 0xa5, 0xff,
+            0xf1, 0xaa, 0x27, 0x0e, 0xa5, 0xc6, 0x75, 0xc1,
+            0xb3, 0x84, 0xb5, 0xe9, 0xf9, 0xc1, 0x3f, 0x84,
+            0x9f, 0x47, 0xb2, 0xde, 0xf6, 0xe5, 0x55, 0xca,
+        ];
+        assert_eq!(h_domain(DomainTag::StateRoot, b"hello"), expected);
     }
 
     #[test]
