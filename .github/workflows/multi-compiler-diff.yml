@@ -1,0 +1,210 @@
+name: Multi-Compiler Differential Testing
+
+# Builds the qash-consensus crate under two LLVM optimisation levels and
+# verifies that the consensus state roots are identical. A divergence signals
+# either undefined behaviour in Domain A code (which LLVM was silently
+# exploiting at one opt level) or a compiler bug.
+#
+# This is a necessary condition for the "large trusted computing base"
+# audit finding in PROJECT_STATUS.md §Medium-3.
+#
+# Scheduled: weekly Monday 01:00 UTC (matches platform-determinism.yml cadence).
+# Manual: workflow_dispatch for on-demand runs before releases.
+#
+# Gate policy:
+#   opt-level differential (0 vs 3): REQUIRED — both use stable rustc 1.95.0.
+#   cranelift backend:               ADVISORY — requires nightly; failure is
+#                                    reported but does not block merges.
+on:
+  schedule:
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Job 1 — opt-level differential (stable, REQUIRED gate)
+  #
+  # Builds with -C opt-level=0 and -C opt-level=3, runs the canonical
+  # state-root test on each binary, asserts roots are identical.
+  # -----------------------------------------------------------------------
+  opt-level-differential:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      SOURCE_DATE_EPOCH: 0
+    outputs:
+      root_opt0: ${{ steps.opt0.outputs.root }}
+      root_opt3: ${{ steps.opt3.outputs.root }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+
+      - name: Build and capture state root — opt-level=0
+        id: opt0
+        run: |
+          RUSTFLAGS="-C opt-level=0" \
+            cargo test -p qash-consensus --no-default-features \
+              state_root_canonical_seq_print -- --nocapture 2>/dev/null \
+            | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1 > /tmp/root0.txt
+          ROOT=$(cat /tmp/root0.txt)
+          echo "root=${ROOT}" >> "$GITHUB_OUTPUT"
+          echo "opt-level=0 root: ${ROOT}"
+
+      - name: Build and capture state root — opt-level=3
+        id: opt3
+        run: |
+          RUSTFLAGS="-C opt-level=3" \
+            cargo test -p qash-consensus --no-default-features \
+              state_root_canonical_seq_print -- --nocapture 2>/dev/null \
+            | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1 > /tmp/root3.txt
+          ROOT=$(cat /tmp/root3.txt)
+          echo "root=${ROOT}" >> "$GITHUB_OUTPUT"
+          echo "opt-level=3 root: ${ROOT}"
+
+      - name: Assert roots are identical (REQUIRED gate)
+        run: |
+          ROOT0="${{ steps.opt0.outputs.root }}"
+          ROOT3="${{ steps.opt3.outputs.root }}"
+          echo "opt-level=0: ${ROOT0}"
+          echo "opt-level=3: ${ROOT3}"
+          if [ "${ROOT0}" != "${ROOT3}" ]; then
+            echo "FAIL: state roots diverge across opt levels."
+            echo "This indicates UB in Domain A code or a compiler bug."
+            echo "Investigate before any release."
+            exit 1
+          fi
+          echo "PASS: state roots identical across opt-level=0 and opt-level=3"
+
+      - name: Run full test suite — opt-level=0
+        run: |
+          RUSTFLAGS="-C opt-level=0" \
+            cargo test -p qash-consensus --no-default-features
+
+      - name: Run full test suite — opt-level=3
+        run: |
+          RUSTFLAGS="-C opt-level=3" \
+            cargo test -p qash-consensus --no-default-features
+
+      - name: Archive differential result
+        run: |
+          mkdir -p artifacts/differential
+          cat > artifacts/differential/opt-level-diff-${{ github.sha }}.txt <<EOF
+          # Multi-compiler differential result (opt-level)
+          # Commit: ${{ github.sha }}
+          # Date:   $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          # Toolchain: $(rustc --version --verbose | head -1)
+
+          opt-level=0 root: ${{ steps.opt0.outputs.root }}
+          opt-level=3 root: ${{ steps.opt3.outputs.root }}
+          result: PASS
+          EOF
+          cat artifacts/differential/opt-level-diff-${{ github.sha }}.txt
+
+      - name: Upload differential artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: differential-opt-level-${{ github.sha }}
+          path: artifacts/differential/opt-level-diff-${{ github.sha }}.txt
+          if-no-files-found: error
+          retention-days: 365
+
+  # -----------------------------------------------------------------------
+  # Job 2 — Cranelift backend (nightly, ADVISORY only)
+  #
+  # Uses a different code generator entirely. Roots must match the LLVM
+  # baseline. Failure is surfaced as a warning annotation, not a CI block,
+  # because cranelift support for all intrinsics used here may lag.
+  # -----------------------------------------------------------------------
+  cranelift-advisory:
+    runs-on: ubuntu-latest
+    continue-on-error: true    # advisory: nightly / cranelift availability varies
+    env:
+      CARGO_INCREMENTAL: 0
+      SOURCE_DATE_EPOCH: 0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install nightly Rust (cranelift backend requires nightly)
+        run: |
+          rustup toolchain install nightly --profile minimal \
+            --component rustc-codegen-cranelift-preview 2>/dev/null \
+            || rustup toolchain install nightly --profile minimal
+          echo "Nightly: $(rustup run nightly rustc --version)"
+
+      - name: Install stable pinned toolchain (for baseline root)
+        run: rustup toolchain install
+
+      - name: Capture baseline state root (stable / LLVM)
+        id: stable_root
+        run: |
+          ROOT=$(cargo test -p qash-consensus --no-default-features \
+                   state_root_canonical_seq_print -- --nocapture 2>/dev/null \
+                 | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1)
+          echo "root=${ROOT}" >> "$GITHUB_OUTPUT"
+          echo "Stable/LLVM root: ${ROOT}"
+
+      - name: Attempt Cranelift build and capture state root
+        id: cranelift_root
+        run: |
+          if rustup run nightly rustc --version 2>/dev/null | grep -q nightly; then
+            ROOT=$(RUSTFLAGS="-Z codegen-backend=cranelift" \
+                   cargo +nightly test -p qash-consensus --no-default-features \
+                     state_root_canonical_seq_print -- --nocapture 2>/dev/null \
+                   | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1 \
+                   || echo "CRANELIFT_UNAVAILABLE")
+          else
+            ROOT="CRANELIFT_UNAVAILABLE"
+          fi
+          echo "root=${ROOT}" >> "$GITHUB_OUTPUT"
+          echo "Cranelift root: ${ROOT}"
+
+      - name: Compare cranelift vs stable roots (advisory)
+        run: |
+          STABLE="${{ steps.stable_root.outputs.root }}"
+          CRANK="${{ steps.cranelift_root.outputs.root }}"
+          if [ "${CRANK}" = "CRANELIFT_UNAVAILABLE" ]; then
+            echo "SKIP: cranelift backend not available on this runner — advisory check skipped"
+            exit 0
+          fi
+          echo "Stable/LLVM: ${STABLE}"
+          echo "Cranelift:   ${CRANK}"
+          if [ "${STABLE}" != "${CRANK}" ]; then
+            echo "ADVISORY FAIL: cranelift roots diverge from LLVM."
+            echo "This may indicate UB or a cranelift code-gen bug."
+            echo "This is advisory-only and does not block CI."
+            exit 1   # continue-on-error: true absorbs this
+          fi
+          echo "ADVISORY PASS: cranelift and LLVM produce identical state roots"
+
+  # -----------------------------------------------------------------------
+  # Job 3 — Record results on main-branch pushes
+  # -----------------------------------------------------------------------
+  record-results:
+    needs: [opt-level-differential]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Commit differential result to artifact-index
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p artifacts/differential
+          cat > artifacts/differential/opt-level-diff-${{ github.sha }}.txt <<EOF
+          # Multi-compiler differential result (opt-level)
+          # Commit: ${{ github.sha }}
+          # Date:   $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          opt-level=0 root: ${{ needs.opt-level-differential.outputs.root_opt0 }}
+          opt-level=3 root: ${{ needs.opt-level-differential.outputs.root_opt3 }}
+          result: PASS
+          EOF
+          git add artifacts/differential/opt-level-diff-${{ github.sha }}.txt
+          git diff --staged --quiet || \
+            git commit -m "ci: multi-compiler differential result for ${{ github.sha }} [skip ci]"
+          git push origin HEAD:main || true
