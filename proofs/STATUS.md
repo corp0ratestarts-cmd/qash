@@ -33,6 +33,8 @@
 | `cascade/cascade_collision_resistance.v` | Compiles | TH-10: AX-3 reduction (Axiom declarations, no Admitted markers) |
 | `blinding/blinding_non_interference.v` | Compiles | Blinding non-interference (cascade_prf_security assumption) |
 | `model/Model.v` | Compiles | th3a_no_halt_within_epsilon, th3b_halt_above_epsilon, step_halted_is_identity, run_halted_is_identity |
+| `model/RefinementStatement.v` | Compiles | RT1_successful_step, RT2_halt_step, RT3_halt_absorbing_epoch, RT4_halt_absorbing_flag, rust_RT1 … rust_RT4 (via AX2_rust_refinement); see docs/refinement.md |
+| `model/Extract.v` | Manual only (not CI) | Extraction pipeline to OCaml; run coqc manually to produce model_extracted.ml |
 | `_wip/absorbing_halt.v.draft` | Archived draft | Superseded by `safety/absorbing_halt.v` |
 | `_wip/encode_injectivity.v.draft` | Archived draft | Superseded by `contractivity/encode_injectivity.v` |
 

@@ -135,7 +135,8 @@ jobs:
             cascade/cascade_collision_resistance.v \
             cascade/it_mac_forgery_bound.v \
             blinding/blinding_non_interference.v \
-            model/Model.v; do
+            model/Model.v \
+            model/RefinementStatement.v; do
             coqc -Q . QASH "$f"
           done
       - name: Record proof-object hashes
