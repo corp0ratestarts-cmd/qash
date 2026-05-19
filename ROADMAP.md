@@ -116,6 +116,136 @@ All v1.1 work is on feature branches that PR into `main`. Each PR must include:
 
 ---
 
+## Roadmap hardening overlay (delivery-maximizing, philosophy-preserving)
+
+This section upgrades execution discipline without altering protocol philosophy.
+It is intentionally **process-rigid and feature-conservative**: maximize delivery
+confidence while preventing governance creep, nondeterminism creep, or Domain A
+surface expansion.
+
+### A. Non-regression constitution (applies to every roadmap item)
+
+Every future item must pass all five constitutional checks before implementation begins:
+
+1. **Determinism invariant:** does not add nondeterministic sources to Domain A
+   (time, entropy, heap shape, undefined ordering, host-dependent parsing).
+2. **Boundary integrity invariant:** any new B→A influence is capability-gated,
+   typed, and replay-testable with deterministic corpus fixtures.
+3. **Governance-minimization invariant:** no runtime parameter that needs social
+   process to tune post-genesis; if uncertain, freeze in genesis and document why.
+4. **Proof-carrying invariant:** each semantic rule change creates explicit proof
+   obligations (PROVED/CI-VERIFIED/AXIOM) before merge, never after release.
+5. **Offline-cash invariant:** no feature may force continuous online coordination
+   for safety, state validity, or transaction interpretability.
+
+Any item failing one check is blocked with label `constitutional-fail` until revised.
+
+### B. Delivery lanes and acceptance contracts
+
+To reduce merge risk and keep critical-path throughput high, each roadmap item must
+declare one lane and satisfy its acceptance contract:
+
+- **Lane A (Domain A semantic changes):**
+  - Required: spec diff, theorem impact list, vector additions, replay corpus delta,
+    cross-ISA determinism check, adversarial test delta.
+  - Merge only when: all required artifacts are present and CI green on all gates.
+- **Lane B (Domain B operational/security changes):**
+  - Required: threat model delta, deterministic boundary statement, fallback behavior
+    under PAL failure, redaction/privacy review where relevant.
+  - Merge only when: no Domain A leakage paths are introduced.
+- **Lane P (Proof/assurance-only work):**
+  - Required: theorem statement, assumptions ledger update, reproducibility notes.
+  - Merge only when: no new `Admitted` obligations enter protected branches.
+- **Lane D (Docs/process hardening):**
+  - Required: traceability links to code/proofs/tests and explicit non-normative tags
+    where text is explanatory instead of binding.
+
+### C. Merge packet template (mandatory per roadmap PR)
+
+Each roadmap PR should include a compact “merge packet” section in the PR body:
+
+```text
+[Lane] A|B|P|D
+[Depends] <item IDs>
+[Constitution] pass/pass/pass/pass/pass
+[Spec delta] <file paths>
+[Proof delta] <files + COVERAGE rows>
+[Vectors delta] <new/changed vectors>
+[Replay delta] <corpus/tests>
+[Genesis delta] yes/no (+ token if yes)
+[Risk] low/med/high + rollback behavior
+```
+
+This eliminates ambiguous reviews and shortens audit time.
+
+### D. Quantitative readiness gates (v1.1 and beyond)
+
+Roadmap progress should be tracked against measurable readiness, not narrative status:
+
+- **Semantic readiness:** 100% of changed transition paths have deterministic test
+  vectors and negative-path tests (decode invalid, overflow, version mismatch).
+- **Proof readiness:** zero untracked assumptions; all new assumptions registered in
+  `proofs/COVERAGE.md` and `proofs/STATUS.md` with owner + retirement plan.
+- **Replay readiness:** cross-ISA replay identity proven for every changed pathway,
+  not only full-epoch happy paths.
+- **Operational readiness:** two-stage build attestation and supply-chain checks are
+  green for every release-candidate commit.
+- **Migration readiness:** explicit v1.0↔v1.1 compatibility tests around boundary
+  epochs (`W-1`, `W`, `W+1`) for each version-gated behavior.
+
+### E. Prioritized execution order refinement (post 2-B)
+
+To maximize successful delivery while minimizing rework:
+
+1. **2-C Epoch Skew Validation** (small, high-signal invariant, low coupling)
+2. **2-F Version Gating** (depends on 2-C semantics for boundary correctness)
+3. **2-D Cascade Health Tracking** (higher coupling; benefits from prior version guard)
+4. **2-E Lineage Compression** (structural change, best after transition semantics stabilize)
+5. **2-I Formal Proofs for stabilized interfaces** (avoid theorem churn)
+6. **2-G and 2-H Domain B tracks in parallel** (independent of Domain A semantics)
+
+This preserves the listed dependencies while reducing invalidated proof work.
+
+### F. “No silent drift” policy for roadmap state
+
+Roadmap status updates must include:
+
+- exact date (`YYYY-MM-DD`),
+- merged PR number(s),
+- CI gate changes (added/removed/required),
+- and any constitution check that became stricter or looser.
+
+If an item is “in review” for >14 days, add a blocker note with concrete unblock action.
+
+### G. Risk register (protocol-specific)
+
+Top delivery risks and mandatory mitigations:
+
+1. **Risk:** semantic changes land before proof hooks.  
+   **Mitigation:** fail CI if `docs/spec/*` or `transition.rs` changes without
+   corresponding `proofs/COVERAGE.md` diff.
+2. **Risk:** Domain B crypto work accidentally influences Domain A determinism.  
+   **Mitigation:** compile-time feature fencing + boundary tests asserting identical
+   Domain A outputs with pqc feature on/off.
+3. **Risk:** compatibility-window edge bugs (`W`, `W+1`) cause replay splits.  
+   **Mitigation:** required triplet tests for each gated branch and corpus fixtures.
+4. **Risk:** lineage compression introduces ancestry false positives/negatives.  
+   **Mitigation:** exhaustive skip-depth property tests at powers of two boundaries.
+5. **Risk:** roadmap text diverges from implemented behavior.  
+   **Mitigation:** release checklist requires traceability links for every changed item.
+
+### H. Definition of done for v1.1
+
+v1.1 is complete only when all are true:
+
+- Items 2-B through 2-I are merged with dependency integrity.
+- `proofs/COVERAGE.md` contains no undocumented obligations for v1.1 features.
+- Cross-ISA determinism gates are required and green on RC commit.
+- Migration and compatibility docs reflect final constants and boundary behavior.
+- `PROJECT_STATUS.md` and this roadmap reference the same milestone state and date.
+
+---
+
 ### 2-A: CI Toolchain Stabilization ✓ MERGED (PR #75)
 
 **Branch:** `claude/v1.1-ci-toolchain` → merged  
