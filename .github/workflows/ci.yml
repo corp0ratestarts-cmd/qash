@@ -142,7 +142,24 @@ jobs:
         # Produces a reproducibility manifest: auditors can verify .vo files
         # match a specific Coq version + source commit pair.
         working-directory: proofs
-        run: find . -name "*.vo" | sort | xargs sha256sum > ../proof-hashes.txt
+        run: |
+          COQ_VER="$(coqc --version 2>&1 | head -1)"
+          { echo "# coq-version: $COQ_VER"; find . -name "*.vo" | sort | xargs sha256sum; } \
+            > ../proof-hashes.txt
+      - name: Commit proof-hash manifest to artifact-index (main only)
+        # Permanently records proof-object hashes in the git history so auditors
+        # can verify proofs for any commit long after CI artifacts expire.
+        # [skip ci] prevents the commit from triggering another CI run.
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          MANIFEST="proofs/artifact-index/proof-hashes-${{ github.sha }}.txt"
+          cp proof-hashes.txt "$MANIFEST"
+          git add "$MANIFEST"
+          git diff --staged --quiet || \
+            git commit -m "ci: record proof hashes for ${{ github.sha }} [skip ci]"
+          git push origin HEAD:main || true
       - name: Upload proof artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -151,3 +168,4 @@ jobs:
             proof-coq-version.txt
             proof-hashes.txt
           if-no-files-found: error
+          retention-days: 365

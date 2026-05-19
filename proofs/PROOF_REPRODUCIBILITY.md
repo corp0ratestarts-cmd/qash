@@ -1,54 +1,64 @@
 # Proof Reproducibility
 
-Every CI run of the `proofs` job uploads two artifacts under the name
-`proof-objects-<commit-sha>`:
+## Audit trail — two layers
 
-| File | Contents |
-|------|----------|
-| `proof-coq-version.txt` | Output of `coqc --version` — the exact Coq build that compiled the proofs |
-| `proof-hashes.txt` | SHA-256 of each `.vo` proof-object file, sorted by path |
+| Layer | Location | Lifespan |
+|-------|----------|----------|
+| **Committed manifest** | `proofs/artifact-index/proof-hashes-<sha>.txt` | Permanent (git history) |
+| **CI artifact** | `proof-objects-<sha>` on GitHub Actions | 365 days |
 
-These artifacts allow an independent party to verify that:
-1. The proofs compile under a specific Coq version
-2. The compiled proof objects match the expected hashes for a given source commit
+On every push to `main` the `proofs` CI job:
+1. Compiles all active Coq proofs with the pinned system Coq version.
+2. Records a hash manifest (`# coq-version:` header + SHA-256 of each `.vo`).
+3. **Commits the manifest** to `proofs/artifact-index/proof-hashes-<sha>.txt`
+   — permanently captured in git history at the source commit it corresponds to.
+4. Uploads the same manifest as a GitHub Actions artifact (365-day retention).
+
+This means auditors can verify proof objects for any `main` commit long after
+the CI artifact expires: the committed manifest stays in git forever.
 
 ---
 
-## Reproducing locally
-
-Install the same Coq version shown in `proof-coq-version.txt`, then:
+## Verifying proofs for a specific commit
 
 ```sh
-# From the repository root
-cd proofs
+# 1. Find the commit SHA (e.g. for a release tag):
+SHA=$(git rev-parse v1.0-reference)
 
-# Tier 1
-coqc -Q . QASH util/list_inj.v
-coqc -Q . QASH contractivity/lyapunov_stability.v
+# 2. Read the committed manifest:
+cat proofs/artifact-index/proof-hashes-${SHA}.txt
+# First line:  # coq-version: Coq <version>
+# Remaining:   <sha256>  ./<path/to/file.vo>
 
-# Tier 2
-for f in \
-  concat_injective.v \
-  contractivity/encode_injectivity.v \
-  contractivity/tx_perturbation_0.v \
-  contractivity/tx1_score_decrement.v \
-  contractivity/lyapunov_grace_convergence.v \
-  lyapunov_decrease.v \
-  safety/absorbing_halt.v \
-  integration/th8_composition.v \
-  cascade/cascade_health_bounded.v \
-  cascade/cascade_determinism.v \
-  cascade/cascade_collision_resistance.v \
-  blinding/blinding_non_interference.v \
-  model/Model.v; do
-  coqc -Q . QASH "$f"
-done
+# 3. Install the exact Coq version shown in the header.
+#    Via opam:
+opam install coq=<version>
 
-# Generate your own hash manifest
-find . -name "*.vo" | sort | xargs sha256sum
+# 4. Compile and compare locally:
+./scripts/capture_proof_hashes.sh
 ```
 
-Compare the output against `proof-hashes.txt` from the CI artifact for the same commit.
+The local output should match the committed manifest line-for-line.
+Hashes differ **only if** the Coq version differs — they are not reproducible
+across Coq versions because `.vo` files embed version metadata.
+
+---
+
+## `scripts/capture_proof_hashes.sh`
+
+A standalone shell script that replicates the CI compilation sequence locally:
+
+```sh
+# Print manifest to stdout:
+./scripts/capture_proof_hashes.sh
+
+# Capture for current HEAD (e.g. at a release tag):
+./scripts/capture_proof_hashes.sh \
+  | tee proofs/artifact-index/proof-hashes-$(git rev-parse HEAD).txt
+```
+
+The script compiles proofs in the same tier order used by CI and exits non-zero
+if any proof fails to compile.
 
 ---
 
@@ -56,7 +66,7 @@ Compare the output against `proof-hashes.txt` from the CI artifact for the same 
 
 Coq `.vo` files are **not** byte-for-byte identical across Coq versions — the
 binary format includes version metadata. Hashes will only match if you use the
-exact same Coq version recorded in `proof-coq-version.txt`.
+exact same Coq version recorded in the `# coq-version:` header.
 
 The CI currently installs Coq via `apt-get` on Ubuntu latest. To pin to an
 exact version, install from `opam` with a version constraint:
