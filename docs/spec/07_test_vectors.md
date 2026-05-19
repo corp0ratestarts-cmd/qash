@@ -106,7 +106,7 @@ then `advance_epoch(idle_input(4), [TX0(validator_ids[0], 0), TX0(validator_ids[
 
 **Expected:** `nonces[0]` unchanged at `1` after epoch 2 (duplicate TX ignored, not halted).
 
-**Rust test:** `tx0_replay_rejected` (`crates/consensus/src/transaction.rs`)
+**Rust test:** `adversarial_tx0_replay_rejected` (`crates/consensus/tests/adversarial.rs`)
 
 ---
 
@@ -117,7 +117,7 @@ then `advance_epoch(idle_input(4), [TX0(validator_ids[0], 0), TX0(validator_ids[
 
 **Expected:** `nonces` unchanged; epoch advances normally (TX ignored).
 
-**Rust test:** `tx0_unknown_author_ignored` (`crates/consensus/src/transaction.rs`)
+**Rust test:** `tx0_unknown_author_rejected` (`crates/consensus/src/transaction.rs`)
 
 ---
 
