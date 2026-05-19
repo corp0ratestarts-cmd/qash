@@ -175,10 +175,12 @@ These are required for independent auditability and long-term trust.
    - `docs/refinement.md`: three-layer correspondence chain, Coq-to-Rust definition mapping, extraction usage, axiom stack, and strengthening roadmap
    - Coverage: 18 PROVED, 4 CI-VERIFIED, 3 AXIOM, 2 PLACEHOLDER (see `proofs/COVERAGE.md`)
 
-10. **Multi-compiler differential testing**:
-    - Build consensus crate with two different LLVM configurations
-    - Build with `cranelift` backend as differential oracle
-    - Cross-check state roots from each build on identical input corpus
+10. **Multi-compiler differential testing** ✓ COMPLETE:
+    - `.github/workflows/multi-compiler-diff.yml`: scheduled weekly CI job with two gates:
+      (a) REQUIRED — `opt-level=0` vs `opt-level=3` on stable rustc 1.95.0, state roots must be identical;
+      (b) ADVISORY — cranelift nightly backend vs LLVM baseline (`continue-on-error: true`)
+    - `scripts/run_differential_corpus.sh`: local differential check script
+    - Divergence between opt levels = UB in Domain A code — investigation required before any release
 
 ---
 
