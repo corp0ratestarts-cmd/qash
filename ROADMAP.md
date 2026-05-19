@@ -5,7 +5,7 @@ v1.1 in maximum technical detail. It is the authoritative reference for any
 developer picking up this codebase.
 
 **Last updated:** 2026-05-19  
-**Current state:** Phase 3 in progress (item 10 remaining before v1.0 tag)
+**Current state:** All pre-v1.0 work complete — `v1.0-reference` tag is the immediate next step before v1.1 work begins
 
 ---
 
@@ -37,7 +37,7 @@ no OS entropy, all arithmetic checked (overflow → `Halt::absorbing_reset()`).
 |---|------|----|-----------|
 | 1 | Discharge open proof obligations | #52, #58 | `proofs/cascade/cascade_collision_resistance.v`, `proofs/cascade/it_mac_forgery_bound.v`, `proofs/blinding/blinding_non_interference.v`, `proofs/COVERAGE.md` |
 | 2 | Proof CI pipeline (Coq install, admit-marker rejection, axiom guard, `.vo` hash recording) | #57 | `.github/workflows/ci.yml`, `scripts/check_axiom_coverage.sh`, `proofs/artifact-index/` |
-| 3 | Deep Domain A module audit | earlier PRs | `crates/consensus/src/fixed_point.rs`, `encoding.rs`, `lyapunov.rs`, `hash.rs`, `transaction.rs` |
+| 3 | Deep Domain A module audit + hash KAT | #69, #71 | `crates/consensus/src/fixed_point.rs`, `encoding.rs`, `lyapunov.rs`, `hash.rs`, `transaction.rs` — boundary/adversarial tests, domain KAT, `apply_tx_0` bounds check |
 | 4 | Fuzz coverage expansion | #56 | `fuzz/fuzz_targets/encoding_fuzz.rs`, `transition_fuzz.rs` (halt-trigger mode), 6 total targets |
 
 ### Phase 2 — Operational hardening
@@ -58,54 +58,14 @@ triggers the safety halt. Documented in the test file with exact threshold deriv
 | # | Item | PR | Key files |
 |---|------|----|-----------|
 | 8 | Reproducible builds (Docker + attestation CI) | #62 | `docker/Dockerfile.build`, `scripts/attest_release.sh`, `.github/workflows/release-attestation.yml` |
-| 9 | Proof-to-code refinement | #63 (open) | `proofs/model/RefinementStatement.v`, `proofs/model/Extract.v`, `docs/refinement.md` |
-
----
-
-## Remaining work before v1.0 reference tag
-
-### Phase 3 item 10 — Multi-compiler differential testing
-
-**Goal:** Build the consensus crate under two independent compiler configurations,
-run identical input corpus through both, assert state roots match. Confirms that
-the byte-identical build invariant extends to alternative code-generation paths
-and eliminates compiler-specific UB as a source of non-determinism.
-
-**Deliverables:**
-
-1. `.github/workflows/multi-compiler-diff.yml` — scheduled CI workflow (weekly,
-   like `platform-determinism.yml`) with two jobs:
-
-   - **job `rustc-llvm`**: standard `cargo build --release` with `CARGO_INCREMENTAL=0`
-   - **job `rustc-cranelift`**: builds with `rustc -Z codegen-backend=cranelift`
-     (nightly required; gated on toolchain availability)
-   - Alternative if cranelift is unavailable on stable: use two LLVM optimization
-     configurations (`-C opt-level=0` vs `-C opt-level=3`) and assert state roots match
-
-2. `scripts/run_differential_corpus.sh` — runs the canonical test vector suite against
-   both builds and diffs the state-root outputs. Inputs: `proofs/model/vectors.json`
-   (10 vectors). Pass: all 10 roots match across both compiler configurations.
-
-3. `artifacts/differential/` — archival directory for diff results (parallel to
-   `artifacts/attestations/`), recorded on each main-branch merge.
-
-**Critical constraint:** Both builds must use the same `rust-toolchain.toml`-pinned
-Rust version. The cranelift path uses nightly and is therefore advisory
-(non-blocking CI), not a required gate. The opt-level differential uses stable
-and IS a required gate.
-
-**Implementation notes:**
-- `RUSTFLAGS="-C opt-level=0"` vs `RUSTFLAGS="-C opt-level=3"` are both on stable
-- State roots must be identical regardless of opt level (determinism property)
-- If they differ: that is a compiler bug or UB in Domain A code — halt and investigate
-- The `cranelift` path exercises a completely different code generator; if roots
-  differ that signals UB in the MIR (undefined behaviour the LLVM backend was hiding)
+| 9 | Proof-to-code refinement | #63 | `proofs/model/RefinementStatement.v`, `proofs/model/Extract.v`, `docs/refinement.md` |
+| 10 | Multi-compiler differential testing | #65 | `.github/workflows/multi-compiler-diff.yml`, `scripts/run_differential_corpus.sh`, `artifacts/differential/` |
 
 ---
 
 ## Phase milestone: v1.0 reference tag
 
-Once Phase 3 item 10 is merged to `main` and all CI gates are green:
+All pre-v1.0 work is complete. Run:
 
 ```bash
 git tag v1.0-reference main
