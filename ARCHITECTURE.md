@@ -129,3 +129,72 @@ Maintain two companion documents:
 2. **Architecture Roadmap** (this file, assurance-facing): kernel closure, compliance, certification, and evidence pipeline.
 
 This prevents audience confusion while preserving high-assurance direction.
+
+---
+
+## Gap Analysis: Current State vs Upgraded Design Spec
+
+**Short answer:** current migration content is necessary, but insufficient for the target kernel-reduced, proof-carrying substrate.
+
+### What is already represented (feature migration backbone)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Deterministic causal ordering via `causal_sort_key` | ✅ | Total deterministic ordering surface |
+| Epoch timing model with skew bounds | ✅ | Logical-time gating and rejection behavior |
+| Cascade construction + health tracking | ✅ | Deterministic convergence support |
+| ML-KEM-768 integration track | ✅ | Post-quantum KEM migration path |
+| Compatibility window + conversion path | ✅ | Controlled transition surface |
+| Weight revisions for Lyapunov alignment | ✅ | Stability/threshold calibration |
+| Cross-ISA replay CI | ✅ | Replay invariance evidence |
+| Coq proof CI baseline | ✅ | Active proof compilation + evidence artifacts |
+| Minimal public transcript orientation | ✅ | Public artifact minimization |
+
+### Architectural gaps that must be closed
+
+#### Semantic-kernel closure (frontier risks)
+- [ ] Effect-capability token architecture for Domain B→A effect admission
+- [ ] Causal fingerprint coinduction in equivalence/safety relations
+- [ ] Lyapunov confluence proof target for admissible DAG reductions
+- [ ] Verified interpreter conformance lane (formal model ↔ runtime differential testing)
+
+#### Compile-time domain enforcement
+- [ ] Domain A compile profile hardening (`no_std`, unsafe-deny, deterministic-only patterns)
+- [ ] Type-level purity boundaries (marker traits/capability boundaries)
+- [ ] Admission invariant checker hooks on envelope acceptance
+- [ ] CI policy checks that reject non-compliant Domain A surfaces
+
+#### Domain B hardware/crypto hardening profile
+- [ ] Optional hardened cryptographic execution profiles for fault/SCA resistance
+- [ ] Deployment guidance for memory-fault mitigations on commodity hardware
+- [ ] Anti-relay controls for proximity channels where PAL uses NFC/BLE-style transports
+- [ ] Attestable build provenance extensions and external transparency logging
+- [ ] Threshold-signing operational profile for high-assurance validator sets
+
+#### Privacy/compliance normalization
+- [ ] Promote privacy model into explicit release gating rows in `docs/traceability.md`
+- [ ] Formal/typed `PublicTranscript` enforcement at API boundaries
+- [ ] Receipt encryption and selective disclosure operational compliance model
+
+#### Certification artifact pathway
+- [ ] Security Target package scoping TOE to Domain A kernel
+- [ ] DPIA mapping package for data-minimization and disclosure controls
+- [ ] Cryptographic validation artifact workflow (vector/CAVP-style integration plan)
+- [ ] Independent reproducible-build verification protocol for third-party auditors
+
+#### Tokenomics/economic module hardening (post-genesis)
+- [ ] Fixed-supply invariant evidence package
+- [ ] Receipt-based transfer privacy hardening
+- [ ] Blinded fee-selection / anti-front-running analysis
+- [ ] Epoch-bound key-rotation profile and forward secrecy operations
+
+---
+
+## Immediate Closure Actions (Roadmap Alignment)
+
+1. Add semantic-kernel closure tasks as explicit gated deliverables in Phase 1.
+2. Add compile-time Domain A enforcement tasks in Phase 0 with CI failure semantics.
+3. Add Domain B hardening profile in Phase 2 with deployment-class profiles.
+4. Add privacy/compliance deliverables in Phase 3 tied to traceability gates.
+5. Add certification artifact release bundle requirements before genesis-lock tagging.
+6. Keep Track A release notes concise and separate from assurance architecture closure.
