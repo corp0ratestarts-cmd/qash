@@ -211,6 +211,58 @@ mod tests {
     }
 
     #[test]
+    fn delta_window_equal_epsilon_does_not_halt() {
+        let validators = [ValidatorMetrics {
+            divergence: FixedPoint::from_raw(50_000),
+            conflict: FixedPoint::ZERO,
+            slash_accum: FixedPoint::ZERO,
+        }];
+        let mut window = ConvergenceWindow::new();
+        window.push(FixedPoint::from_raw(0));
+        window.push(FixedPoint::from_raw(0));
+        window.push(FixedPoint::ZERO);
+
+        let eval = evaluate(&validators, &window).unwrap();
+
+        assert_eq!(eval.v_convergence.raw(), 20_000);
+        assert_eq!(eval.delta_window, EPSILON);
+        assert!(!eval.halt_triggered);
+    }
+
+    #[test]
+    fn delta_window_epsilon_plus_one_halts() {
+        let validators = [ValidatorMetrics {
+            divergence: FixedPoint::from_raw(50_003),
+            conflict: FixedPoint::ZERO,
+            slash_accum: FixedPoint::ZERO,
+        }];
+        let mut window = ConvergenceWindow::new();
+        window.push(FixedPoint::from_raw(0));
+        window.push(FixedPoint::from_raw(0));
+        window.push(FixedPoint::ZERO);
+
+        let eval = evaluate(&validators, &window).unwrap();
+
+        assert_eq!(eval.v_convergence.raw(), 20_001);
+        assert_eq!(eval.delta_window.raw(), EPSILON.raw() + 1);
+        assert!(eval.halt_triggered);
+    }
+
+    #[test]
+    fn phi_halt_triggers_one_over_threshold() {
+        let validators = [ValidatorMetrics {
+            divergence: FixedPoint::ZERO,
+            conflict: FixedPoint::ZERO,
+            slash_accum: FixedPoint::from_raw(2_000_000_004),
+        }];
+
+        let eval = evaluate(&validators, &ConvergenceWindow::new()).unwrap();
+
+        assert_eq!(eval.phi_safety.raw(), PHI_MAX_SAFE.raw() + 1);
+        assert!(eval.phi_halt_triggered);
+    }
+
+    #[test]
     fn push_shifts_correctly() {
         let mut w = ConvergenceWindow::new();
 
