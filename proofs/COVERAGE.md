@@ -42,8 +42,8 @@ test(s) that exercise it at runtime.
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
 |----------|----------|--------|-------------|-----------|----------|
-| TX-0 (NoOp): V_convergence unchanged | §A8 Form A | **PROVED** | `TX0_perturbation_zero` in `contractivity/tx_perturbation_0.v` | `src/transaction.rs` | `axioms.rs::axiom_a8_form_a_tx0_zero_perturbation` |
-| TX-1 (score decrement): V_convergence non-increasing | §A8 Form A | **PROVED** | `TX1_score_decrement_nonincreasing` in `contractivity/tx1_score_decrement.v` | `src/transaction.rs` | `golden_replay.rs::full_epoch_with_tx0` |
+| TX-0 (NoOp): V_convergence unchanged | §A8 Form A | **PROVED** | `TX0_perturbation_zero` in `contractivity/tx_perturbation_0.v` | `src/transaction.rs` | `axioms.rs::axiom_a8_form_a_tx0_zero_perturbation`; `differential.rs::diff_tx0_v_convergence_unchanged` |
+| TX-1 (score decrement): V_convergence non-increasing | §A8 Form A | **PROVED** | `TX1_score_decrement_nonincreasing` in `contractivity/tx1_score_decrement.v` | `src/transaction.rs` | `differential.rs::diff_tx1_score_decrement_nonincreasing` |
 
 ---
 
@@ -60,7 +60,7 @@ test(s) that exercise it at runtime.
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
 |----------|----------|--------|-------------|-----------|----------|
-| SHA3-256 collision resistance for v1.0 state-root commitments (public-input only; no impl-level side-channel proof) | §7, AX-3 | **AXIOM** | `AX3_sha3_assumed_injective` in `contractivity/encode_injectivity.v`; `sha3_256_collision_resistant` in `cascade/cascade_collision_resistance.v` | `src/hash.rs`, `src/transition.rs` | `hash.rs::tests::sha3_256_known_vector`; `hash.rs::tests::h_domain_state_root_hello_known_vector`; `vector_runner_all` (`state_root_commitment_genesis_epoch1` preimage len/SHA3 + final root KAT) |
+| SHA3-256 collision resistance for v1.0 state-root commitments | §7, AX-3 | **AXIOM** | `AX3_sha3_assumed_injective` in `contractivity/encode_injectivity.v`; `sha3_256_collision_resistant` in `cascade/cascade_collision_resistance.v` | `src/hash.rs`, `src/transition.rs` | `hash.rs::tests::sha3_256_known_vector` (KAT); `vector_runner_all` (`state_root_commitment_genesis_epoch1`) |
 | Cascade collision resistance (reduction to L1 primitive; post-genesis migration item, not active for v1.0 Domain A state roots) | §4c | **PLACEHOLDER** | `cascade_collision_implies_sha3_collision` (axiom) + `TH10_cascade_collision_resistance` (proved wrapper) in `cascade/cascade_collision_resistance.v` — typed reduction axiom (non-vacuous); `cascade_hash_injective` proved from it | `src/cascade.rs` | — |
 | Cascade health CH_t ∈ [0, p]; χ·CH_t no i128 overflow | §4c | **PROVED** | `ch_t_upper_bound`, `ch_term_admissible` in `cascade/cascade_health_bounded.v` | `src/cascade.rs` | — |
 | Blinding non-interference (PRF security of H_cascade_keyed) | §6 | **AXIOM** | `cascade_prf_security` (qualitative) + `cascade_prf_quantitative_bound` (typed adv_le bound) in `blinding/blinding_non_interference.v` | `src/blinding.rs` | `blinding.rs::tests::*` |
@@ -119,10 +119,3 @@ known proof debt that should be discharged before mainnet.
 | Blinding PRF | H_cascade_keyed is a PRF | Qualitative (`cascade_prf_security`) and quantitative (`cascade_prf_quantitative_bound` with `adv_le`) axioms in place. Full proof in SSProve; current axioms non-vacuous. |
 | IT-MAC | GF(2¹²⁸) forgery bound 16/2¹²⁸ | Arithmetic cap proved; `ghash_poly_mac_au_bound` typed (adv_le), `it_mac_forgery_bound_16` proved. AU game proof still open (SSProve/CryptHOL target). |
 | AX2-refinement | Coq ↔ Rust observational equivalence | Axiom `AX2_rust_refinement` in `model/RefinementStatement.v`; supported by 10 CI test vectors. Strengthen by adding more vectors to `vectors.json`/`coq_vectors.rs`, or by embedding Rust semantics in Coq (RustBelt / K-Rust, post-v1.1). |
-
-
-### Residual side-channel and assumption notes
-
-- Domain A commitment hashing (`h_domain`, `sha3_256`) is intentionally not constant-time and is only approved for public consensus preimages.
-- Security arguments that “same state root implies same state” still rely on AX-3 (collision/injectivity assumption), not on an implementation-level leakage proof.
-- `state_root_commitment_genesis_epoch1` in `vector_runner.rs` cross-checks deterministic preimage layout (fixed-width LE fields via `encode_full_state_into`), preimage SHA3-256, and final `H_domain(STATE_ROOT, preimage)` commitment against pinned vectors/spec intent.
