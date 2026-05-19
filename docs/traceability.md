@@ -58,10 +58,10 @@
 | **PDF §** | §2.4 (pp. 4–5, provisional) |
 | **PDF quote** | `pub struct FixedPoint { value: i128 }` / `const SCALE: i128 = 1_000_000` / `self.value.checked_mul(other.value).ok_or(OverflowError)?` / `product.checked_div(SCALE).ok_or(OverflowError)?` |
 | **Code** | `crates/consensus/src/fixed_point.rs` defines `FixedPoint(i128)`, `SCALE = 1_000_000`, checked operations, and deterministic division semantics. |
-| **Test / Vector** | Module-level tests exist in `crates/consensus/src/fixed_point.rs`; `tests/vectors/vectors.v1.json` includes a fixed-point case run by `tests/vector-runner`. |
+| **Test / Vector** | Module-level tests in `crates/consensus/src/fixed_point.rs` cover signed floor-division examples, add/sub/mul/div overflow boundaries (`i128::MIN`/`i128::MAX`), divide-by-zero, and `to_i64` conversion limits; `tests/vectors/vectors.v1.json` includes a fixed-point case run by `tests/vector-runner`. |
 | **Proof** | — |
 | **Status** | ⚠️ |
-| **Gap** | Arithmetic is now represented in the vector scaffold, but it remains code-derived until the PDF is committed and the vector values are independently verified. |
+| **Gap** | Overflow and floor-division edge behavior is now unit-tested for deterministic `Err(OverflowError)` outcomes; remaining gap is external validation against the committed normative PDF plus independently sourced vector values. |
 
 ### P0-4: Cross-ISA determinism
 
