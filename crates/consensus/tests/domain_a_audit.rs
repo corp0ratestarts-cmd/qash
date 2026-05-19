@@ -134,6 +134,7 @@ mod encoding_audit {
             convergence_window: ConvergenceWindow::new(),
             nonces: [0u64; MAX_VALIDATORS],
             validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+            cascade_health: 0,
             state_root: [0u8; 32],
         }
     }
@@ -287,14 +288,14 @@ mod encoding_audit {
         bad_header_pad[105] = 0x01;
         assert!(matches!(decode_full_state(&bad_header_pad[..len]), Err(EncodeError::DecodeInvalid)));
 
-        // window pad byte at offset 193 must be zero for vc=1.
+        // window pad byte at offset 201 must be zero for vc=1 (120 fixed + 80 per-validator + 1).
         let mut bad_window_pad = buf;
-        bad_window_pad[193] = 0x01;
+        bad_window_pad[201] = 0x01;
         assert!(matches!(decode_full_state(&bad_window_pad[..len]), Err(EncodeError::DecodeInvalid)));
 
-        // divergence i64 field at offset 112 must be in [0, SCALE].
+        // divergence i64 field at offset 120 must be in [0, SCALE] (120-byte fixed header).
         let mut bad_divergence = buf;
-        bad_divergence[112..120].copy_from_slice(&(-1i64).to_le_bytes());
+        bad_divergence[120..128].copy_from_slice(&(-1i64).to_le_bytes());
         assert!(matches!(decode_full_state(&bad_divergence[..len]), Err(EncodeError::DecodeInvalid)));
     }
 }
@@ -552,6 +553,7 @@ mod transaction_audit {
             convergence_window: ConvergenceWindow::new(),
             nonces: nonce_arr,
             validator_ids,
+            cascade_health: 0,
             state_root: [0u8; 32],
         }
     }

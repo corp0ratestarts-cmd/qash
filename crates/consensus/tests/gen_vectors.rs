@@ -10,6 +10,7 @@ fn genesis(vc: u32) -> EpochState {
         validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
         validator_count: vc, convergence_window: ConvergenceWindow::new(),
         nonces: [0u64; MAX_VALIDATORS], validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        cascade_health: 0,
         state_root: [0u8; 32],
     }
 }
@@ -221,6 +222,7 @@ fn _scratch_check_v1_vectors() {
         convergence_window: ConvergenceWindow::new(),
         nonces: [0u64; MAX_VALIDATORS],
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        cascade_health: 0,
         state_root: [0u8; 32],
     };
     let input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 4 };
@@ -237,6 +239,7 @@ fn _scratch_check_v1_vectors() {
         convergence_window: ConvergenceWindow::new(),
         nonces: [0u64; MAX_VALIDATORS],
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        cascade_health: 0,
         state_root: [0u8; 32],
     };
     let input0 = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 0 };
@@ -271,6 +274,7 @@ fn _scratch_epoch2_root() {
         convergence_window: ConvergenceWindow::new(),
         nonces: [0u64; MAX_VALIDATORS],
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        cascade_health: 0,
         state_root: [0u8; 32],
     };
     for epoch in 1..=2u64 {

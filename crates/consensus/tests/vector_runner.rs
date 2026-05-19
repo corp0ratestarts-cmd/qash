@@ -52,6 +52,7 @@ fn genesis_state(validator_count: u32) -> EpochState {
         convergence_window: ConvergenceWindow::new(),
         nonces: [0u64; MAX_VALIDATORS],
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        cascade_health: 0,
         state_root: [0u8; 32],
     }
 }
@@ -399,6 +400,9 @@ fn run_genesis_noop_epochs(name: &str, v: &serde_json::Value) {
 
 /// Print current code-derived outputs so vectors.v1.json can be updated after
 /// deliberate spec changes. Verify on ALL three authorized ISAs before committing.
+///
+/// v1.1 wire format: FULL_STATE_FIXED_BYTES=120 (cascade_health:u32 + 4-byte pad added
+/// after validator_count). All state-root KAT values changed from v1.0 baseline.
 #[ignore]
 #[test]
 fn regen() {
@@ -425,4 +429,16 @@ fn regen() {
             r.lyapunov.phi_safety.raw()
         );
     }
+
+    // state_root_commitment: preimage SHA3-256 for 4-validator genesis after epoch 1
+    let mut sc_state = genesis_state(4);
+    advance_epoch(&mut sc_state, &idle_input(4), &[]).unwrap();
+    let prior_root = [0u8; 32];
+    let mut commitment_state = sc_state;
+    commitment_state.state_root.copy_from_slice(&prior_root);
+    let mut preimage = [0u8; FULL_STATE_MAX_BYTES];
+    let preimage_len = encode_full_state_into(&commitment_state, &mut preimage);
+    let preimage_sha = sha3_256(&preimage[..preimage_len]);
+    println!("state_root_commitment preimage_len = {}", preimage_len);
+    println!("state_root_commitment preimage_sha3_256 = {}", hex_encode(&preimage_sha));
 }

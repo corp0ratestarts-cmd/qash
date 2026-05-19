@@ -6,7 +6,7 @@ deployment_authoritative = false
 artifact_manifest = "spec/genesis-artifacts.txt"
 deployment_model = "one-shot"
 governance = "zero"
-genesis_hash = "SHA3-256:ef33de2015032a7933fa4fb43148d80f54d121ecb8ac0c2aeba0f0df4765fb41"
+genesis_hash = "SHA3-256:cd588cf5821d400f93bbbf27899e952e10b37a83a8ede9e6c16e202da40def64"
 
 [fixed_point]
 scale = 1_000_000
@@ -76,3 +76,28 @@ interval_precision_digits = 12
 gershgorin_precheck = true
 symmetry_enforcement = "strict"
 cross_isa_determinism_required = true
+
+# ---------------------------------------------------------------------------
+# v1.1 additions (append-only; modifying existing fields defines a new network)
+# ---------------------------------------------------------------------------
+
+[cascade.health]
+# CASCADE_DEPTH: max consecutive fully-idle epochs before cascade_health saturates.
+# Wire format: cascade_health:u32 committed in FULL_STATE_FIXED_BYTES (v1.1 = 120).
+depth = 8
+health_threshold = 8
+# Epochs before v1.0 envelopes are rejected by version gating (item 2-F).
+compatibility_window = 100
+# cascade_health_factor: weight in Lyapunov extension (reserved; not yet active in v1.1.0).
+cascade_health_factor = 50_000
+
+[epoch.skew]
+# SKEW_BOUND: max future epochs an envelope may claim (validate_envelope_epoch).
+epoch_skew_bound = 1
+
+[protocol.versioning]
+# Wire protocol version constants.
+version_v1_0 = 0x1000
+version_v1_1 = 0x1100
+# Floor version below which envelopes are rejected after compatibility_window expires.
+compat_version_floor = 0x1000

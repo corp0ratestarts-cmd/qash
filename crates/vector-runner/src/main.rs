@@ -132,6 +132,7 @@ fn main() {
             epoch: 0,
             halt_reason: HaltReason::None,
             entropy_seed: [0u8; 32],
+            cascade_health: 0,
             state_root: [0u8; 32],
             ledger_root: [0u8; 32],
             validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
