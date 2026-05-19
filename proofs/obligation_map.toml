@@ -1,0 +1,17 @@
+# code path -> theorem family -> required status
+# status allowlist: PROVED | CI-VERIFIED | AXIOM
+
+[[obligation]]
+code_path = "crates/consensus/src/transition.rs"
+theorem_family = "TH5/TH6/RT* (Domain A transition + halt semantics)"
+required_status = "PROVED"
+
+[[obligation]]
+code_path = "crates/consensus/src/lyapunov.rs"
+theorem_family = "TH3* + TH_GC (Domain A convergence semantics)"
+required_status = "PROVED"
+
+[[obligation]]
+code_path = "crates/consensus/src/causal_order.rs"
+theorem_family = "CAUSAL_ORDER (deterministic causal sequencing)"
+required_status = "CI-VERIFIED"

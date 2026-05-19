@@ -113,6 +113,10 @@ jobs:
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: bash scripts/check_axiom_coverage.sh
+      - name: Compile proof obligations and coverage snapshot
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/compile_proof_obligations.py --emit-json
       - name: Compile active Coq proofs
         working-directory: proofs
         run: |
