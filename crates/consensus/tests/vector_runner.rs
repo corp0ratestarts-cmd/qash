@@ -400,6 +400,9 @@ fn run_genesis_noop_epochs(name: &str, v: &serde_json::Value) {
 
 /// Print current code-derived outputs so vectors.v1.json can be updated after
 /// deliberate spec changes. Verify on ALL three authorized ISAs before committing.
+///
+/// v1.1 wire format: FULL_STATE_FIXED_BYTES=120 (cascade_health:u32 + 4-byte pad added
+/// after validator_count). All state-root KAT values changed from v1.0 baseline.
 #[ignore]
 #[test]
 fn regen() {
