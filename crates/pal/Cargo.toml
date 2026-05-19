@@ -10,3 +10,4 @@ qash-consensus = { path = "../consensus", version = "0.1.0" }
 [features]
 default = []
 std = []
+pqc = []

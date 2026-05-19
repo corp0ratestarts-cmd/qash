@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "generated_utc": "2026-05-19T00:00:00Z",
+  "scope": "crypto-conformance",
+  "note": "Source-tagged skeleton vector set for upcoming PAL conformance harness.",
+  "files": [
+    {
+      "path": "ml_kem_kat.json",
+      "algorithm": "ML-KEM",
+      "source": "NIST FIPS 203 (source-tag placeholder)",
+      "source_tag": "fips203-placeholder"
+    },
+    {
+      "path": "x_wing_combiner_vectors.json",
+      "algorithm": "X-Wing combiner",
+      "source": "Project internal draft vectors (source-tag placeholder)",
+      "source_tag": "xwing-draft-placeholder"
+    },
+    {
+      "path": "hmac_drbg_kat.json",
+      "algorithm": "HMAC-DRBG",
+      "source": "NIST SP 800-90A Rev.1 (source-tag placeholder)",
+      "source_tag": "sp800-90a-placeholder"
+    }
+  ]
+}

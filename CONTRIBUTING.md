@@ -111,3 +111,8 @@ The 8-family cascade in `crates/consensus/src/derive.rs` follows a strict patter
 - One logical change per commit
 - Present tense, imperative: `add`, `fix`, `update`, not `added`, `fixed`
 - Reference the spec section if the change implements a protocol property: `lyapunov: implement TH-3a halt gate (§4a)`
+
+
+## Crypto dependency bump gate
+
+Any crypto dependency bump requires a refreshed conformance artifact from the `crypto-conformance` CI job. See `docs/compliance/crypto_dependency_policy.md`.

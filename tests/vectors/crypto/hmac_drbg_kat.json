@@ -1,0 +1,12 @@
+[
+  {
+    "id": "hmac-drbg-placeholder-001",
+    "source_tag": "sp800-90a-placeholder",
+    "hash": "SHA-256",
+    "entropy_input_hex": "",
+    "nonce_hex": "",
+    "personalization_string_hex": "",
+    "requested_bytes": 32,
+    "expected_output_hex": ""
+  }
+]

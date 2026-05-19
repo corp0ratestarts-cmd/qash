@@ -1,0 +1,11 @@
+[
+  {
+    "id": "ml-kem-placeholder-001",
+    "source_tag": "fips203-placeholder",
+    "parameter_set": "ML-KEM-768",
+    "seed_hex": "00",
+    "pk_hex": "",
+    "ct_hex": "",
+    "ss_hex": ""
+  }
+]

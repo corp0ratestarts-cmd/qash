@@ -170,3 +170,29 @@ jobs:
             proof-hashes.txt
           if-no-files-found: error
           retention-days: 365
+
+  crypto-conformance:
+    name: crypto-conformance (Domain B lane)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+      - name: Verify strict crypto vector checksums
+        run: ./scripts/verify_crypto_vector_checksums.sh
+      - name: Crypto conformance skeleton lane
+        run: cargo test -p qash-pal --features std --test crypto_conformance
+      - name: Domain boundary non-interference (pqc off)
+        run: cargo test -p qash-pal --features std --test pqc_boundary_parity -- --exact pqc_feature_toggle_produces_identical_domain_a_outputs --nocapture | tee /tmp/pqc-off.log
+      - name: Domain boundary non-interference (pqc on)
+        run: cargo test -p qash-pal --features "std,pqc" --test pqc_boundary_parity -- --exact pqc_feature_toggle_produces_identical_domain_a_outputs --nocapture | tee /tmp/pqc-on.log
+      - name: Assert identical Domain A outputs with pqc on/off
+        run: |
+          OFF_ROOT="$(grep -Eo 'FINAL_ROOT=[0-9a-f]+' /tmp/pqc-off.log | tail -n1)"
+          ON_ROOT="$(grep -Eo 'FINAL_ROOT=[0-9a-f]+' /tmp/pqc-on.log | tail -n1)"
+          test -n "$OFF_ROOT"
+          test -n "$ON_ROOT"
+          test "$OFF_ROOT" = "$ON_ROOT"
+
