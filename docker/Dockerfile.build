@@ -1,0 +1,58 @@
+# QASH reproducible build environment
+#
+# Pins all build and proof tooling to specific versions so independent auditors
+# can reproduce binary and proof-object hashes outside of GitHub Actions.
+#
+# Usage (build + test):
+#   docker build -t qash-build -f docker/Dockerfile.build .
+#   docker run --rm -v "$PWD":/workspace qash-build \
+#     cargo test --workspace --no-default-features
+#
+# Usage (attestation manifest):
+#   docker run --rm -v "$PWD":/workspace qash-build \
+#     bash scripts/attest_release.sh
+#
+# Toolchain versions must match rust-toolchain.toml and ci.yml.
+# To update: bump all three files atomically and re-verify CI.
+
+FROM debian:bookworm-20250407-slim
+
+LABEL org.opencontainers.image.title="qash-build" \
+      org.opencontainers.image.description="Reproducible build environment for QASH consensus" \
+      org.opencontainers.image.source="https://github.com/corp0ratestarts-cmd/qash" \
+      qash.rust-version="1.95.0" \
+      qash.coq-source="apt/bookworm"
+
+# System packages (build deps + Coq)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        build-essential \
+        pkg-config \
+        git \
+        coq \
+    && rm -rf /var/lib/apt/lists/* \
+    && coqc --version
+
+# Rustup + Rust 1.95.0 (matches rust-toolchain.toml)
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH \
+    RUSTUP_TOOLCHAIN=1.95.0
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y \
+            --default-toolchain 1.95.0 \
+            --profile minimal \
+            --component clippy,rustfmt \
+            --no-modify-path \
+    && rustc --version --verbose \
+    && cargo --version
+
+# cargo-deny for supply-chain checks (locked = version from upstream Cargo.lock)
+RUN cargo install cargo-deny --locked
+
+WORKDIR /workspace
+
+# Default: run the full test suite
+CMD ["cargo", "test", "--workspace", "--no-default-features"]

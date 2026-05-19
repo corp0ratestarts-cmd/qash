@@ -1,0 +1,86 @@
+name: Release Attestation
+
+# Produces a byte-identical-build attestation on every push to main and on
+# manual dispatch. The attestation manifest records: Rust toolchain version,
+# binary SHA-256 (verified across two independent builds), Cargo.lock hash,
+# consensus source hash, and GENESIS_CONSTANTS.toml hash.
+#
+# Auditors can independently reproduce by:
+#   1. Checking out the tagged commit.
+#   2. Building docker/Dockerfile.build.
+#   3. Running scripts/attest_release.sh inside that container.
+#   4. Comparing the sha256 lines against the uploaded artifact.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    env:
+      # Disable incremental compilation and date-stamped metadata so builds
+      # are byte-identical. SOURCE_DATE_EPOCH=0 pins embedded timestamps.
+      CARGO_INCREMENTAL: 0
+      SOURCE_DATE_EPOCH: 0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+
+      - name: Stage 1 — release build
+        run: |
+          cargo build --release --no-default-features
+          HASH1=$(sha256sum target/release/qash | awk '{print $1}')
+          echo "STAGE1_HASH=$HASH1" >> "$GITHUB_ENV"
+          echo "Stage 1: $HASH1"
+
+      - name: Stage 2 — clean consensus crate and rebuild
+        run: |
+          cargo clean -p qash
+          cargo build --release --no-default-features
+          HASH2=$(sha256sum target/release/qash | awk '{print $1}')
+          echo "STAGE2_HASH=$HASH2" >> "$GITHUB_ENV"
+          echo "Stage 2: $HASH2"
+
+      - name: Verify byte-identical builds
+        run: |
+          if [ "$STAGE1_HASH" != "$STAGE2_HASH" ]; then
+            echo "FAIL: builds are not byte-identical"
+            echo "  Stage 1: $STAGE1_HASH"
+            echo "  Stage 2: $STAGE2_HASH"
+            exit 1
+          fi
+          echo "PASS: byte-identical builds verified ($STAGE1_HASH)"
+
+      - name: Generate attestation manifest
+        run: |
+          bash scripts/attest_release.sh > attestation-${{ github.sha }}.txt
+          echo ""
+          echo "=== Manifest preview ==="
+          cat attestation-${{ github.sha }}.txt
+
+      - name: Record attestation in artifact-index (main only)
+        if: github.event_name == 'push'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          DEST="artifacts/attestations/release-attestation-${{ github.sha }}.txt"
+          mkdir -p artifacts/attestations
+          cp attestation-${{ github.sha }}.txt "$DEST"
+          git add "$DEST"
+          git diff --staged --quiet || \
+            git commit -m "ci: release attestation for ${{ github.sha }} [skip ci]"
+          git push origin HEAD:main || true
+
+      - name: Upload attestation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-attestation-${{ github.sha }}
+          path: attestation-${{ github.sha }}.txt
+          if-no-files-found: error
+          retention-days: 365
