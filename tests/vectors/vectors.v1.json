@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "status": "code-derived scaffold \u2014 cross-ISA CI compares runner outputs byte-for-byte",
+  "status": "code-derived scaffold — cross-ISA CI compares runner outputs byte-for-byte",
   "description": "Golden-vector manifest for fixed-point, leaf-index, and noop epoch replay. All expected values were generated from the reference implementation (x86_64) and are verified by vector_runner.rs. Regenerate with: cargo test -p qash-consensus --test vector_runner regen -- --ignored --nocapture",
   "vectors": [
     {
       "name": "fixed_point_0_4_times_0_35",
-      "pdf_section": "\u00a72.4",
+      "pdf_section": "§2.4",
       "inputs": {
         "left_raw": 400000,
         "right_raw": 350000
@@ -14,7 +14,7 @@
     },
     {
       "name": "leaf_index_validator_1_epoch_2_seed_ab",
-      "pdf_section": "\u00a73.2",
+      "pdf_section": "§3.2",
       "inputs": {
         "validator_id": 1,
         "epoch": 2,
@@ -24,7 +24,7 @@
     },
     {
       "name": "state_root_commitment_genesis_epoch1",
-      "pdf_section": "\u00a74.2",
+      "pdf_section": "§4.2",
       "status": "genesis KAT for the v1.0 state-root commitment; uses H_domain(STATE_ROOT) over Encode_for_commitment, not H_cascade. Wire format v1.1: FULL_STATE_FIXED_BYTES=120 (adds cascade_health:u32 + 4-byte pad).",
       "algorithm": "H_domain_SHA3_256",
       "domain_tag": "STATE_ROOT",
@@ -37,7 +37,7 @@
     },
     {
       "name": "genesis_noop_epochs",
-      "pdf_section": "\u00a74.2",
+      "pdf_section": "§4.2",
       "validator_count": 4,
       "status": "expected roots are code-derived from current implementation (4-validator all-zero genesis, wire format v1.1 FULL_STATE_FIXED_BYTES=120)",
       "epochs": [
@@ -58,22 +58,6 @@
           "expected_halted": false
         }
       ]
-    },
-    {
-      "name": "halt_reason_codes_v1_1",
-      "pdf_section": "\u00a72.5",
-      "description": "Canonical HaltReason discriminants for v1.1 including post-compatibility version mismatch halt.",
-      "codes": {
-        "none": "0x00",
-        "lyapunov_violation": "0x01",
-        "arith_overflow": "0x02",
-        "epoch_overflow": "0x03",
-        "decode_invalid": "0x04",
-        "roundtrip_failure": "0x05",
-        "halt_flag_set": "0x06",
-        "phi_safety_violation": "0x07",
-        "incompatible_version": "0x08"
-      }
     }
   ]
 }

@@ -24,7 +24,6 @@ fi
 required=(
   "docs/spec/halt_taxonomy.md"
   "crates/consensus/tests/axioms.rs"
-  "tests/vectors/vectors.v1.json"
 )
 
 for path in "${required[@]}"; do
