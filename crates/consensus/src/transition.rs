@@ -12,29 +12,36 @@ pub const MAX_VALIDATORS_WIRE: u32 = 1024;
 /// Array-sizing alias (usize is required by Rust array syntax; not stored in state).
 pub const MAX_VALIDATORS: usize = MAX_VALIDATORS_WIRE as usize;
 
-// Full-state wire format (canonical, deterministic):
+/// v1.1 cascade depth: number of consecutive healthy epochs required for finality.
+pub const CASCADE_DEPTH: u32 = 8;
+/// Epochs before v1.0 envelopes are rejected and cascade health is required.
+pub const COMPATIBILITY_WINDOW: u64 = 100;
+
+// Full-state wire format v1.1 (canonical, deterministic):
 // [epoch:8][state_root:32][ledger_root:32][entropy_seed:32][halt:1][pad:3][vc:4]
+// [cascade_health:4][pad:4]                                ← v1.1 addition (8 bytes)
 // [N x (div:8 + conf:8 + slash:8 + nonce:8 + id:48)]
 // [window_filled:1][pad:3][window_vals:3x8]
-pub const FULL_STATE_FIXED_BYTES: usize = 112;
+pub const FULL_STATE_FIXED_BYTES: usize = 120;
 pub const FULL_STATE_PER_VALIDATOR_BYTES: usize = 80;
 pub const FULL_STATE_WINDOW_BYTES: usize = 28;
 pub const FULL_STATE_MAX_BYTES: usize = FULL_STATE_FIXED_BYTES
     + MAX_VALIDATORS * FULL_STATE_PER_VALIDATOR_BYTES
     + FULL_STATE_WINDOW_BYTES;
-// = 112 + 81920 + 28 = 82,060
+// = 120 + 81920 + 28 = 82,068
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum HaltReason {
     None = 0x00,
-    LyapunovViolation = 0x01,  // H1
-    ArithOverflow = 0x02,      // H2
-    EpochOverflow = 0x03,      // H3
-    DecodeInvalid = 0x04,      // H4
-    RoundtripFailure = 0x05,   // H5
-    HaltFlagSet = 0x06,        // H6 (explicit external halt; reserved)
-    PhiSafetyViolation = 0x07, // H7
+    LyapunovViolation   = 0x01, // H1
+    ArithOverflow       = 0x02, // H2
+    EpochOverflow       = 0x03, // H3
+    DecodeInvalid       = 0x04, // H4
+    RoundtripFailure    = 0x05, // H5
+    HaltFlagSet         = 0x06, // H6 (explicit external halt; reserved)
+    PhiSafetyViolation  = 0x07, // H7
+    IncompatibleVersion = 0x08, // H8: v1.0 envelope rejected after compatibility window
 }
 
 impl HaltReason {
@@ -48,6 +55,7 @@ impl HaltReason {
             0x05 => Ok(HaltReason::RoundtripFailure),
             0x06 => Ok(HaltReason::HaltFlagSet),
             0x07 => Ok(HaltReason::PhiSafetyViolation),
+            0x08 => Ok(HaltReason::IncompatibleVersion),
             _ => Err(EncodeError::InvalidHaltCode),
         }
     }
@@ -77,6 +85,8 @@ pub struct EpochState {
     pub nonces: [u64; MAX_VALIDATORS],
     /// Stable 48-byte consensus identity for each validator slot (fixed at genesis).
     pub validator_ids: [[u8; 48]; MAX_VALIDATORS],
+    /// v1.1 cascade health counter: increments each clean epoch, resets on gap, saturates at CASCADE_DEPTH.
+    pub cascade_health: u32,
     /// This epoch's committed state root; used as prior_root for the next epoch.
     pub state_root: [u8; 32],
 }
@@ -137,7 +147,15 @@ fn write_state_bytes(
     out[pos..pos + 4].copy_from_slice(&state.validator_count.to_le_bytes());
     pos += 4;
 
-    // 112 fixed-header bytes consumed.
+    // v1.1: cascade_health (u32 LE) + 4 bytes pad = 8 bytes
+    out[pos..pos + 4].copy_from_slice(&state.cascade_health.to_le_bytes());
+    out[pos + 4] = 0x00;
+    out[pos + 5] = 0x00;
+    out[pos + 6] = 0x00;
+    out[pos + 7] = 0x00;
+    pos += 8;
+
+    // 120 fixed-header bytes consumed.
 
     for i in 0..state.validator_count as usize {
         let v = &state.validators[i];
@@ -208,6 +226,20 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
     pos += 4;
 
     if validator_count > MAX_VALIDATORS_WIRE {
+        return Err(EncodeError::DecodeInvalid);
+    }
+
+    // v1.1: cascade_health (u32 LE) + 4 bytes pad
+    let mut ch_bytes = [0u8; 4];
+    ch_bytes.copy_from_slice(&bytes[pos..pos + 4]);
+    let cascade_health = u32::from_le_bytes(ch_bytes);
+    if bytes[pos + 4] != 0x00 || bytes[pos + 5] != 0x00
+        || bytes[pos + 6] != 0x00 || bytes[pos + 7] != 0x00 {
+        return Err(EncodeError::DecodeInvalid);
+    }
+    pos += 8;
+
+    if cascade_health > CASCADE_DEPTH {
         return Err(EncodeError::DecodeInvalid);
     }
 
@@ -300,6 +332,7 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
         convergence_window: window,
         nonces,
         validator_ids,
+        cascade_health,
         state_root,
     })
 }
@@ -425,12 +458,29 @@ fn run_pipeline(
     // Capture prior root before any mutation for chain continuity commitment.
     let prior_root = state.state_root;
 
+    // v1.1: advance cascade health counter.
+    // Condition: all active validators are fully idle (D == 0 AND C == 0) after updates.
+    // Even a single unit of divergence or conflict resets cascade health to 0.
+    let cascade_ok = (0..state.validator_count as usize).all(|i| {
+        let (d, c) = match &input.updates[i] {
+            Some(u) => (u.divergence_new, u.conflict_new),
+            None => (state.validators[i].divergence, state.validators[i].conflict),
+        };
+        d == FixedPoint::ZERO && c == FixedPoint::ZERO
+    });
+    let new_cascade_health = if cascade_ok {
+        state.cascade_health.saturating_add(1).min(CASCADE_DEPTH)
+    } else {
+        0
+    };
+
     let mut projected = *state;
     projected.validators = next_validators;
     projected.nonces = tx_plan.next_nonces;
     projected.convergence_window = next_window;
     projected.entropy_seed = next_entropy;
     projected.epoch = next_epoch;
+    projected.cascade_health = new_cascade_health;
     let root = compute_state_root(&projected, &prior_root);
 
     // +==================================================+
@@ -443,12 +493,39 @@ fn run_pipeline(
     state.convergence_window = next_window;
     state.entropy_seed = next_entropy;
     state.epoch = next_epoch;
+    state.cascade_health = new_cascade_health;
     state.state_root = root;
 
     Ok(TransitionResult {
         state_root: root,
         lyapunov: lyap,
     })
+}
+
+/// Validate that an envelope's epoch is within the accepted window.
+///
+/// Returns `Err(HaltReason::DecodeInvalid)` for pre-genesis epochs,
+/// `Err(HaltReason::EpochOverflow)` on checked_add overflow,
+/// and `Ok(())` when the epoch is within `[genesis_epoch, current_epoch + skew_bound]`.
+///
+/// Called in Domain B before forwarding an envelope to Domain A. Not called inside
+/// `advance_epoch` itself because the epoch check belongs at the admission boundary.
+pub fn validate_envelope_epoch(
+    envelope_epoch: u64,
+    genesis_epoch: u64,
+    current_epoch: u64,
+    skew_bound: u64,
+) -> Result<(), HaltReason> {
+    if envelope_epoch < genesis_epoch {
+        return Err(HaltReason::DecodeInvalid);
+    }
+    let max_future = current_epoch
+        .checked_add(skew_bound)
+        .ok_or(HaltReason::EpochOverflow)?;
+    if envelope_epoch > max_future {
+        return Err(HaltReason::DecodeInvalid);
+    }
+    Ok(())
 }
 
 fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), TransitionHalt> {
@@ -528,6 +605,7 @@ mod tests {
             convergence_window: ConvergenceWindow::new(),
             nonces: [0u64; MAX_VALIDATORS],
             validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+            cascade_health: 0,
             state_root: [0u8; 32],
         }
     }
@@ -883,6 +961,121 @@ mod tests {
             state_a.state_root, state_b.state_root,
             "state_root must chain through prior_root"
         );
+    }
+
+    // ------------------------------------------------------------------
+    // 2-C: validate_envelope_epoch
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn validate_epoch_accepts_within_window() {
+        assert_eq!(validate_envelope_epoch(5, 0, 5, 1), Ok(()));
+        assert_eq!(validate_envelope_epoch(6, 0, 5, 1), Ok(()));  // exactly at skew
+        assert_eq!(validate_envelope_epoch(0, 0, 10, 0), Ok(())); // at genesis
+    }
+
+    #[test]
+    fn validate_epoch_rejects_pre_genesis() {
+        // envelope_epoch < genesis_epoch
+        assert_eq!(
+            validate_envelope_epoch(0, 1, 10, 1),
+            Err(HaltReason::DecodeInvalid)
+        );
+    }
+
+    #[test]
+    fn validate_epoch_rejects_too_far_future() {
+        // envelope_epoch > current_epoch + skew_bound
+        assert_eq!(
+            validate_envelope_epoch(7, 0, 5, 1),
+            Err(HaltReason::DecodeInvalid)
+        );
+    }
+
+    #[test]
+    fn validate_epoch_overflow_on_add() {
+        // current_epoch + skew_bound overflows u64
+        assert_eq!(
+            validate_envelope_epoch(u64::MAX, 0, u64::MAX, 1),
+            Err(HaltReason::EpochOverflow)
+        );
+    }
+
+    #[test]
+    fn validate_epoch_zero_skew_accepts_only_current() {
+        assert_eq!(validate_envelope_epoch(5, 0, 5, 0), Ok(()));
+        assert_eq!(
+            validate_envelope_epoch(6, 0, 5, 0),
+            Err(HaltReason::DecodeInvalid)
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // 2-D: cascade health tracking
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn cascade_health_increments_on_clean_epochs() {
+        let mut state = genesis_state_vc4(); // all divergence = 0
+        for expected in 1..=CASCADE_DEPTH {
+            advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+            assert_eq!(state.cascade_health, expected, "epoch {}", state.epoch);
+        }
+    }
+
+    #[test]
+    fn cascade_health_saturates_at_depth() {
+        let mut state = genesis_state_vc4();
+        // advance past CASCADE_DEPTH epochs
+        for _ in 0..=(CASCADE_DEPTH + 2) {
+            advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+        }
+        assert_eq!(state.cascade_health, CASCADE_DEPTH);
+    }
+
+    #[test]
+    fn cascade_health_resets_on_high_divergence() {
+        let mut state = genesis_state_vc4();
+        // Run 4 clean epochs to build health
+        for _ in 0..4 {
+            advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+        }
+        assert_eq!(state.cascade_health, 4);
+
+        // Inject any non-zero divergence: cascade condition requires V_convergence == 0.
+        let mut input = idle_input(4);
+        input.updates[0] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::from_raw(1),
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::ZERO,
+        });
+        advance_epoch(&mut state, &input, &[]).unwrap();
+        assert_eq!(state.cascade_health, 0, "cascade health must reset on any divergence");
+    }
+
+    #[test]
+    fn cascade_health_in_state_root_commitment() {
+        // Two states identical except cascade_health must produce different state roots.
+        let mut state_a = genesis_state_vc4();
+        let mut state_b = genesis_state_vc4();
+        state_b.cascade_health = 1; // differs only in cascade_health
+
+        advance_epoch(&mut state_a, &idle_input(4), &[]).unwrap();
+        advance_epoch(&mut state_b, &idle_input(4), &[]).unwrap();
+
+        assert_ne!(
+            state_a.state_root, state_b.state_root,
+            "cascade_health must be committed to state root"
+        );
+    }
+
+    #[test]
+    fn incompatible_version_halt_roundtrip() {
+        // Ensure HaltReason::IncompatibleVersion (0x08) round-trips through from_u8.
+        let r = HaltReason::IncompatibleVersion;
+        assert_eq!(r as u8, 0x08);
+        let rt = HaltReason::from_u8(0x08).expect("0x08 must decode");
+        assert_eq!(rt, HaltReason::IncompatibleVersion);
     }
 }
 

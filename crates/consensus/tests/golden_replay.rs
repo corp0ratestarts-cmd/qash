@@ -30,6 +30,7 @@ fn genesis_state() -> EpochState {
         convergence_window: ConvergenceWindow::new(),
         nonces: [0u64; MAX_VALIDATORS],
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        cascade_health: 0,
         state_root: [0u8; 32],
     }
 }
@@ -353,8 +354,8 @@ fn state_root_changes_each_epoch() {
 // If this test fails after a change to the encoding or hash logic, regenerate
 // by running with PRINT_GOLDEN=1 and updating the constant below.
 const EXPECTED_STATE_ROOT_3_EPOCHS: [u8; 32] = [
-    138, 219, 164, 211, 10, 54, 30, 39, 151, 223, 239, 42, 191, 141, 13, 181, 121, 224, 79, 241, 4,
-    74, 49, 44, 138, 224, 93, 197, 103, 104, 122, 198,
+    86, 72, 221, 214, 223, 233, 172, 122, 143, 21, 31, 143, 33, 183, 207, 12, 110, 97, 3, 5, 70,
+    100, 59, 118, 149, 4, 255, 121, 253, 156, 114, 45,
 ];
 
 /// Compute the canonical 3-epoch state root for the genesis sequence.

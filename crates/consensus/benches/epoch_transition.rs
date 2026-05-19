@@ -42,6 +42,7 @@ fn make_state(vc: u32) -> EpochState {
         convergence_window: ConvergenceWindow::new(),
         nonces: [0u64; MAX_VALIDATORS],
         validator_ids,
+        cascade_health: 0,
         state_root: [0u8; 32],
     }
 }

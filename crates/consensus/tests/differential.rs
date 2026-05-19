@@ -28,6 +28,7 @@ fn genesis_state_n(n: u32) -> EpochState {
         convergence_window: ConvergenceWindow::new(),
         nonces: [0u64; MAX_VALIDATORS],
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        cascade_health: 0,
         state_root: [0u8; 32],
     };
     for i in 0..n as usize {

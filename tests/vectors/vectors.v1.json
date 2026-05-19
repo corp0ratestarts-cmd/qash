@@ -25,26 +25,26 @@
     {
       "name": "state_root_commitment_genesis_epoch1",
       "pdf_section": "§4.2",
-      "status": "genesis KAT for the v1.0 state-root commitment; uses H_domain(STATE_ROOT) over Encode_for_commitment, not H_cascade",
+      "status": "genesis KAT for the v1.0 state-root commitment; uses H_domain(STATE_ROOT) over Encode_for_commitment, not H_cascade. Wire format v1.1: FULL_STATE_FIXED_BYTES=120 (adds cascade_health:u32 + 4-byte pad).",
       "algorithm": "H_domain_SHA3_256",
       "domain_tag": "STATE_ROOT",
       "domain_tag_u32_le_hex": "01000000",
       "validator_count": 4,
       "prior_root_hex": "0000000000000000000000000000000000000000000000000000000000000000",
-      "commitment_preimage_len": 460,
-      "commitment_preimage_sha3_256_hex": "a92369cc605eacb076e28fdb2ca7d5f26bae9f566290da09863e7ca5365b4c0e",
-      "expected_state_root_hex": "513e26e067c3857289f0557adc7db9ea43cda6595cda4510cbf11af06196d352"
+      "commitment_preimage_len": 468,
+      "commitment_preimage_sha3_256_hex": "816c4268bf73afed81acc03ca274237aa2a8e3aae083bbb843a2af8f9c78dfd9",
+      "expected_state_root_hex": "5206dd7854901fa17203379be2e6a25329dcba9356ba6fd72dcab76a201c71a7"
     },
     {
       "name": "genesis_noop_epochs",
       "pdf_section": "§4.2",
       "validator_count": 4,
-      "status": "expected roots are code-derived from current implementation (4-validator all-zero genesis)",
+      "status": "expected roots are code-derived from current implementation (4-validator all-zero genesis, wire format v1.1 FULL_STATE_FIXED_BYTES=120)",
       "epochs": [
         {
           "epoch": 1,
           "inputs": [],
-          "expected_state_root_hex": "513e26e067c3857289f0557adc7db9ea43cda6595cda4510cbf11af06196d352",
+          "expected_state_root_hex": "5206dd7854901fa17203379be2e6a25329dcba9356ba6fd72dcab76a201c71a7",
           "expected_lyapunov_raw": 0,
           "expected_phi_safety_raw": 0,
           "expected_halted": false
@@ -52,7 +52,7 @@
         {
           "epoch": 2,
           "inputs": [],
-          "expected_state_root_hex": "e7792b2a8317c5f935f957338614a81a406ca21275c18d2e4376523a98a1989b",
+          "expected_state_root_hex": "02768c60a6e5aa66c689eda21ead6078945718dfa4117e768b436c500f5c2ebb",
           "expected_lyapunov_raw": 0,
           "expected_phi_safety_raw": 0,
           "expected_halted": false
