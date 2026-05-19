@@ -1,0 +1,52 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: QASH Traceability Matrix Schema
+description: Schema for requirement traceability chain across roadmap, specification, code, proofs, tests, and architecture decisions.
+type: object
+required: [version, generated_at, items]
+properties:
+  version:
+    type: string
+  generated_at:
+    type: string
+  items:
+    type: array
+    items:
+      type: object
+      required: [rm, status, sp, cd, pf, ts, ar]
+      properties:
+        rm:
+          type: string
+          pattern: '^RM-[0-9]{3,}$'
+        status:
+          type: string
+          enum: [active, done, blocked, deferred]
+        sp:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            pattern: '^SP-[0-9]{3,}$'
+        cd:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            pattern: '^CD-[0-9]{3,}$'
+        pf:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            pattern: '^PF-[0-9]{3,}$'
+        ts:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            pattern: '^TS-[0-9]{3,}$'
+        ar:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            pattern: '^AR-[0-9]{3,}$'

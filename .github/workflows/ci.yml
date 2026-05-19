@@ -170,3 +170,19 @@ jobs:
             proof-hashes.txt
           if-no-files-found: error
           retention-days: 365
+
+  traceability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install checker dependency
+        run: python -m pip install --upgrade pip pyyaml
+      - name: Validate roadmap traceability chain
+        run: python scripts/check_traceability.py
+      - name: Upload traceability artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: traceability-${{ github.sha }}
+          path: artifacts/traceability/
+          if-no-files-found: error
+          retention-days: 365

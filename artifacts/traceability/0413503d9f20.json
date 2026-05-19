@@ -1,0 +1,12 @@
+{
+  "generated_at": "2026-05-19T21:43:13.757848+00:00",
+  "sha": "0413503d9f20",
+  "matrix": "docs/traceability/matrix.yaml",
+  "active_items": [
+    "RM-001",
+    "RM-002"
+  ],
+  "failures": [],
+  "rc_blockers": [],
+  "ok": true
+}

@@ -1,0 +1,27 @@
+version: 1
+generated_at: "2026-05-19T00:00:00Z"
+items:
+  - rm: RM-001
+    status: active
+    summary: Deterministic consensus replay across canonical vectors
+    sp: [SP-001]
+    cd: [CD-001]
+    pf: [PF-001]
+    ts: [TS-001]
+    ar: [AR-001]
+  - rm: RM-002
+    status: active
+    summary: Cross-ISA binary/output equivalence checks
+    sp: [SP-002]
+    cd: [CD-002]
+    pf: [PF-002]
+    ts: [TS-002]
+    ar: [AR-002]
+  - rm: RM-003
+    status: done
+    summary: Coq proof CI gate integration
+    sp: [SP-003]
+    cd: [CD-003]
+    pf: [PF-003]
+    ts: [TS-003]
+    ar: [AR-003]

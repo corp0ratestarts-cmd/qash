@@ -115,3 +115,20 @@ All signatures below are required before genesis decision:
 | Release |  | ☐ Approve / ☐ Block |  |  |
 
 **Final rule:** If any required owner blocks or any P0 gate is not pass, genesis decision is **NO-GO**.
+
+
+## 7) Traceability Gate + RC Tag Blocker Rule
+
+Attach/store all files under: `artifacts/traceability/<rc-tag>/`
+
+Required artifacts:
+1. `traceability_report.md`
+2. `traceability_report.json`
+3. CI URL for the `traceability` check on the RC commit SHA.
+
+RC blocker rule:
+- **RC tags are blocked** if any open `RM-*` in `docs/traceability/matrix.yaml` is missing at least one `PF-*` or `TS-*` link.
+
+Pass criteria:
+- `scripts/check_traceability.py` succeeds.
+- No open `RM-*` item lacks `PF-*` or `TS-*` chain coverage.
