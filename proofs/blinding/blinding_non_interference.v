@@ -98,3 +98,13 @@ Proof.
   intros key q Hq.
   exact (cascade_prf_quantitative_bound key q Hq).
 Qed.
+
+
+(** TH-BPRF: explicit theorem handle for the PRF security assumption used by\n    the blinding non-interference argument. *)
+Theorem TH_BPRF_cascade_prf :
+  forall (key : BlindingKey) (q : Z), 0 <= q ->
+    adv_le (prf_distinguishing_advantage key q) (PRF_advantage q).
+Proof.
+  intros key q Hq.
+  exact (cascade_prf_quantitative_bound key q Hq).
+Qed.

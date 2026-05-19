@@ -72,3 +72,11 @@ Theorem it_mac_forgery_bound_16 :
 Proof.
   apply ghash_poly_mac_au_bound. lia.
 Qed.
+
+
+(** TH-ITMAC: explicit theorem handle for the 16-block forgery cap used in\n    derive.rs (8-family cascade key schedule). *)
+Theorem TH_ITMAC_forgery_cap_16 :
+  adv_le (ghash_forgery_advantage 16) (AU_MAC_advantage 16).
+Proof.
+  exact it_mac_forgery_bound_16.
+Qed.

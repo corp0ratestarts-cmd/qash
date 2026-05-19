@@ -71,12 +71,23 @@ Axiom sha3_256_collision_resistant :
     This is the reduction shape.  It is a typed non-trivial statement:
     Coq enforces that the conclusion has computational content and is not
     trivially satisfied. *)
-Axiom TH10_cascade_collision_resistance :
+Axiom cascade_collision_implies_sha3_collision :
   forall (x y : list bool),
     x <> y ->
     cascade_hash x = cascade_hash y ->
     exists (a b : list bool),
       a <> b /\ sha3_256 a = sha3_256 b.
+
+Theorem TH10_cascade_collision_resistance :
+  forall (x y : list bool),
+    x <> y ->
+    cascade_hash x = cascade_hash y ->
+    exists (a b : list bool),
+      a <> b /\ sha3_256 a = sha3_256 b.
+Proof.
+  intros x y Hne Heq.
+  exact (cascade_collision_implies_sha3_collision x y Hne Heq).
+Qed.
 
 (* ---------------------------------------------------------------------------
    Derived corollary: cascade collision resistance follows from SHA3 CR.
@@ -94,6 +105,6 @@ Proof.
   destruct (list_eq_dec Bool.bool_dec x y) as [Hxy | Hne].
   - exact Hxy.
   - exfalso.
-    destruct (TH10_cascade_collision_resistance x y Hne Heq) as [a [b [Hab_ne Hab_eq]]].
+    destruct (cascade_collision_implies_sha3_collision x y Hne Heq) as [a [b [Hab_ne Hab_eq]]].
     exact (Hab_ne (sha3_256_collision_resistant a b Hab_eq)).
 Qed.
