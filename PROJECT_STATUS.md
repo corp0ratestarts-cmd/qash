@@ -233,3 +233,23 @@ Full matrix: `proofs/COVERAGE.md`
 | `crates/consensus/src/lyapunov.rs` | Lyapunov stability evaluation |
 | `fuzz/fuzz_targets/` | Fuzz harnesses for Domain A functions |
 | `.github/workflows/` | CI pipeline definitions |
+
+
+## Compliance readiness scorecard
+
+This scorecard is populated from CI-generated compliance artifacts (see `.github/workflows/compliance-evidence.yml`).
+
+| Evidence class | CI artifact source | Current status |
+|---|---|---|
+| Cryptographic KATs | KAT test artifacts from CI test jobs | Pending integration |
+| DRBG health/self-tests | Self-test logs from CI runtime checks | Pending integration |
+| Reproducible build attestations | Provenance/reproducibility artifacts under `artifacts/compliance/provenance/` | Skeleton workflow added |
+| SBOM + vuln scan | `artifacts/compliance/sbom/`, `artifacts/compliance/vuln/` | Skeleton workflow added |
+| Proof coverage report | `proofs/COVERAGE.md` + CI-uploaded proof hashes/manifests | Available; wiring to scorecard pending |
+
+Scoring policy:
+- Green: evidence present, policy-compliant, and indexed.
+- Yellow: evidence generated but policy disposition pending.
+- Red: required evidence missing or stale.
+
+Release policy reminder: no release tag is permitted without a complete `artifacts/compliance/<tag>/index.json` evidence index.

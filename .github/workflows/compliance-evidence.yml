@@ -1,0 +1,71 @@
+name: compliance-evidence
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  compliance-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          cargo install cargo-cyclonedx --locked
+          mkdir -p artifacts/compliance/sbom
+          cargo cyclonedx --format json --output-path artifacts/compliance/sbom
+
+      - name: Run cargo-audit
+        run: |
+          cargo install cargo-audit --locked
+          mkdir -p artifacts/compliance/vuln
+          cargo audit --json > artifacts/compliance/vuln/cargo-audit.json
+
+      - name: Run cargo-deny
+        run: |
+          cargo install cargo-deny --locked
+          cargo deny check advisories bans licenses sources \
+            --format json > artifacts/compliance/vuln/cargo-deny.json
+
+      - name: Build provenance subjects
+        run: |
+          cargo build --workspace --release
+          mkdir -p artifacts/compliance/provenance
+          sha256sum target/release/* | tee artifacts/compliance/provenance/subjects.sha256
+
+      - name: Generate provenance attestation (skeleton)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: artifacts/compliance/provenance/subjects.sha256
+
+      - name: Upload compliance evidence bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-evidence
+          path: artifacts/compliance/
+
+  release-evidence-gate:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enforce release evidence index policy
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          INDEX="artifacts/compliance/${TAG}/index.json"
+          test -f "$INDEX" || (echo "Missing required compliance evidence index: $INDEX" && exit 1)
