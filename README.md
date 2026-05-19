@@ -34,6 +34,16 @@ QASH **is**:
 
 ---
 
+## Genesis Lock Status
+
+> **Pre-lock:** `QASH_Spec_v1.0.pdf` has not yet been committed to `spec/pdf/`.
+> All quotes, page references, and requirement traces in `docs/traceability.md`,
+> `docs/errata/`, and `docs/adr/` are **provisional** until the PDF is committed
+> and the genesis hash is recomputed. See `spec/pdf/README.md` for the full
+> authority rule and lock procedure.
+
+---
+
 ## Repository Structure
 
 ```
@@ -71,9 +81,6 @@ GENESIS_CONSTANTS.toml   Immutable genesis parameters (not yet locked)
 > **Runtime status: thin scaffold — the hosted binary is a CLI demo only. PAL traits
 > are wired but the Host implementation returns zeroes/no-ops. This is not a
 > deployable node.**
-
-```
-```
 
 The relationship between layers:
 

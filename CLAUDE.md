@@ -9,9 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cargo build
 cargo build --release
 
-# Test (CI uses --no-default-features)
-cargo test --no-default-features
-cargo test -p qash-consensus   # test a specific crate
+# Test (always use --workspace; bare `cargo test` at root only tests the binary stub)
+cargo test --workspace --no-default-features
+cargo test -p qash-consensus --no-default-features   # test a specific crate
 
 # Check without building
 cargo check
