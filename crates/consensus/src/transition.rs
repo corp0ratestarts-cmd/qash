@@ -764,6 +764,61 @@ mod tests {
     }
 
     #[test]
+    fn phi_safety_halts_one_over_threshold_before_commit() {
+        let mut state = genesis_state_vc4();
+        let mut input = idle_input(4);
+        input.updates[0] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::ZERO,
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::from_raw(2_000_000_004),
+        });
+
+        let result = advance_epoch(&mut state, &input, &[]);
+
+        assert_eq!(result, Err(HaltReason::PhiSafetyViolation));
+        assert_eq!(state.halt_reason, HaltReason::PhiSafetyViolation);
+        assert_eq!(state.epoch, 0);
+    }
+
+    #[test]
+    fn lyapunov_delta_equal_epsilon_does_not_halt() {
+        let mut state = genesis_state_vc4();
+        state.convergence_window.push(FixedPoint::ZERO);
+        state.convergence_window.push(FixedPoint::ZERO);
+        state.convergence_window.push(FixedPoint::ZERO);
+        let mut input = idle_input(4);
+        input.updates[0] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::from_raw(50_000),
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::ZERO,
+        });
+
+        let result = advance_epoch(&mut state, &input, &[]).unwrap();
+
+        assert_eq!(result.lyapunov.delta_window.raw(), lyapunov::EPSILON.raw());
+        assert!(!result.lyapunov.halt_triggered);
+    }
+
+    #[test]
+    fn lyapunov_delta_one_over_epsilon_halts() {
+        let mut state = genesis_state_vc4();
+        state.convergence_window.push(FixedPoint::ZERO);
+        state.convergence_window.push(FixedPoint::ZERO);
+        state.convergence_window.push(FixedPoint::ZERO);
+        let mut input = idle_input(4);
+        input.updates[0] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::from_raw(50_003),
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::ZERO,
+        });
+
+        let result = advance_epoch(&mut state, &input, &[]);
+
+        assert_eq!(result, Err(HaltReason::LyapunovViolation));
+        assert_eq!(state.halt_reason, HaltReason::LyapunovViolation);
+    }
+
+    #[test]
     fn tx_nonce_overflow_halts_without_partial_commit() {
         let mut state = genesis_state_vc4();
         set_distinct_validator_ids(&mut state);

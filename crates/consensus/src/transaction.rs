@@ -153,6 +153,9 @@ pub fn is_admissible(state: &EpochState, tx: &Tx0<'_>) -> Result<usize, TxError>
 /// Apply TX-0: increment the author's nonce. No other state change.
 /// Caller must pass the slot index returned by `is_admissible`.
 pub fn apply_tx_0(state: &mut EpochState, idx: usize) -> Result<(), TxError> {
+    if idx >= state.validator_count as usize {
+        return Err(TxError::MalformedEnvelope);
+    }
     state.nonces[idx] = state.nonces[idx]
         .checked_add(1)
         .ok_or(TxError::MalformedEnvelope)?;
@@ -455,5 +458,57 @@ mod tests {
             TxError::MalformedEnvelope
         );
         assert_eq!(state.nonces[0], u64::MAX);
+    }
+
+    #[test]
+    fn prevalidate_all_replayed_nonce_is_rejected_without_advancing_projection() {
+        let mut state = make_state(1);
+        state.nonces[0] = 1;
+        let replay = make_tx0_raw(author_id(0), 0);
+
+        let plan = prevalidate_all(&state, &[replay.as_slice()], 100).unwrap();
+        assert_eq!(plan.applied_count, 0);
+        assert_eq!(plan.next_nonces[0], 1);
+        assert_eq!(state.nonces[0], 1, "prevalidation must not mutate state");
+    }
+
+    #[test]
+    fn prevalidate_all_out_of_order_same_author_sequence_converges_deterministically() {
+        let state = make_state(1);
+        let (tx0, tx1) = ordered_same_author_txs();
+
+        let forward = prevalidate_all(&state, &[tx0.as_slice(), tx1.as_slice()], 100).unwrap();
+        let reverse = prevalidate_all(&state, &[tx1.as_slice(), tx0.as_slice()], 100).unwrap();
+
+        assert_eq!(forward.applied_count, 2);
+        assert_eq!(reverse.applied_count, 2);
+        assert_eq!(forward.next_nonces, reverse.next_nonces);
+        assert_eq!(forward.next_nonces[0], 2);
+    }
+
+    #[test]
+    fn apply_all_conflicting_same_nonce_transactions_deduplicate_by_nonce_progression() {
+        let mut s1 = make_state(1);
+        let mut s2 = make_state(1);
+
+        let tx_a = make_tx0_raw(author_id(0), 0);
+        let mut tx_b = make_tx0_raw(author_id(0), 0);
+        tx_b[TX_HEADER_BYTES] = 1; // signature differs -> distinct tx_id/sort key
+
+        let n1 = apply_all(&mut s1, &[tx_a.as_slice(), tx_b.as_slice()], 100).unwrap();
+        let n2 = apply_all(&mut s2, &[tx_b.as_slice(), tx_a.as_slice()], 100).unwrap();
+
+        assert_eq!(n1, 1, "only one conflicting nonce-0 tx may apply");
+        assert_eq!(n2, 1, "only one conflicting nonce-0 tx may apply");
+        assert_eq!(s1.nonces[0], 1);
+        assert_eq!(s2.nonces[0], 1);
+    }
+
+    #[test]
+    fn apply_tx_0_rejects_out_of_range_slot_index() {
+        let mut state = make_state(1);
+        let err = apply_tx_0(&mut state, MAX_VALIDATORS).unwrap_err();
+        assert_eq!(err, TxError::MalformedEnvelope);
+        assert_eq!(state.nonces[0], 0);
     }
 }

@@ -127,4 +127,73 @@ mod tests {
         let half = FixedPoint::from_raw(500_000);
         assert_eq!(half.checked_mul(half).map(|x| x.raw()), Ok(250_000));
     }
+
+    #[test]
+    fn checked_add_overflow_is_error() {
+        let a = FixedPoint::from_raw(i128::MAX);
+        let b = FixedPoint::from_raw(1);
+        assert_eq!(a.checked_add(b), Err(OverflowError));
+    }
+
+    #[test]
+    fn checked_sub_overflow_is_error() {
+        let a = FixedPoint::from_raw(i128::MIN);
+        let b = FixedPoint::from_raw(1);
+        assert_eq!(a.checked_sub(b), Err(OverflowError));
+    }
+
+    #[test]
+    fn checked_mul_overflow_is_error() {
+        let a = FixedPoint::from_raw(i128::MAX);
+        let b = FixedPoint::from_raw(2);
+        assert_eq!(a.checked_mul(b), Err(OverflowError));
+    }
+
+    #[test]
+    fn checked_div_overflow_is_error() {
+        let a = FixedPoint::from_raw(i128::MAX);
+        let b = FixedPoint::from_raw(1);
+        assert_eq!(a.checked_div(b), Err(OverflowError));
+    }
+
+    #[test]
+    fn checked_div_by_zero_is_error() {
+        let a = FixedPoint::from_raw(123_456);
+        assert_eq!(a.checked_div(FixedPoint::ZERO), Err(OverflowError));
+    }
+
+    #[test]
+    fn floor_div_matches_euclidean_semantics_for_sign_mixed_inputs() {
+        let cases = [
+            (-1_i128, 2_i128, -1_i128),
+            (1, -2, -1),
+            (-3, 2, -2),
+            (3, -2, -2),
+            (-5, 3, -2),
+            (5, -3, -2),
+        ];
+
+        for (a, b, expected_floor_q) in cases {
+            assert_eq!(floor_div_i128(a, b), Ok(expected_floor_q));
+        }
+    }
+
+    #[test]
+    fn floor_div_i128_min_div_negative_one_is_error() {
+        assert_eq!(floor_div_i128(i128::MIN, -1), Err(OverflowError));
+    }
+
+    #[test]
+    fn to_i64_bounds_are_checked() {
+        assert_eq!(FixedPoint::from_raw(i64::MAX as i128).to_i64(), Ok(i64::MAX));
+        assert_eq!(FixedPoint::from_raw(i64::MIN as i128).to_i64(), Ok(i64::MIN));
+        assert_eq!(
+            FixedPoint::from_raw(i64::MAX as i128 + 1).to_i64(),
+            Err(OverflowError)
+        );
+        assert_eq!(
+            FixedPoint::from_raw(i64::MIN as i128 - 1).to_i64(),
+            Err(OverflowError)
+        );
+    }
 }

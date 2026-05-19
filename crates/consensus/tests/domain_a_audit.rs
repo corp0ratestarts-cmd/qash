@@ -116,8 +116,27 @@ mod encoding_audit {
         decode_validator_dynamic, decode_state_header, encode_state_header,
         EncodeError, VALIDATOR_DYNAMIC_SIZE, STATE_HEADER_SIZE,
     };
-    use qash_consensus::fixed_point::{FixedPoint, SCALE};
+    use qash_consensus::fixed_point::SCALE;
+    use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
+    use qash_consensus::transition::{
+        decode_full_state, encode_full_state_into, EpochState, HaltReason, FULL_STATE_MAX_BYTES,
+        MAX_VALIDATORS,
+    };
 
+
+    fn minimal_state(vc: u32) -> EpochState {
+        EpochState {
+            epoch: 0,
+            halt_reason: HaltReason::None,
+            entropy_seed: [0u8; 32],
+            validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
+            validator_count: vc,
+            convergence_window: ConvergenceWindow::new(),
+            nonces: [0u64; MAX_VALIDATORS],
+            validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+            state_root: [0u8; 32],
+        }
+    }
     fn encode_vd(d: i128, c: i128, s: i128) -> [u8; VALIDATOR_DYNAMIC_SIZE as usize] {
         let mut out = [0u8; VALIDATOR_DYNAMIC_SIZE as usize];
         out[0..16].copy_from_slice(&d.to_le_bytes());
@@ -220,6 +239,63 @@ mod encoding_audit {
     fn decode_vd_i128_min_all_fields_rejected() {
         let bytes = encode_vd(i128::MIN, i128::MIN, i128::MIN);
         assert_eq!(decode_validator_dynamic(&bytes), Err(EncodeError::DecodeInvalid));
+    }
+
+    #[test]
+    fn decode_state_header_canonical_bytes_unique() {
+        let epoch: u64 = 42;
+        let vc: u32 = 3;
+        let halt: u8 = 0;
+        let seed = [0x11_u8; 32];
+
+        let mut canonical = [0u8; STATE_HEADER_SIZE as usize];
+        encode_state_header(epoch, vc, halt, &seed, &mut canonical);
+        assert!(decode_state_header(&canonical).is_ok());
+
+        // Any non-zero pad creates an alternate representation and must reject.
+        for idx in [17usize, 18, 19] {
+            let mut noncanonical = canonical;
+            noncanonical[idx] = 0xFF;
+            assert_eq!(
+                decode_state_header(&noncanonical),
+                Err(EncodeError::DecodeInvalid),
+                "byte {idx} should reject"
+            );
+        }
+    }
+
+    #[test]
+    fn decode_full_state_boundary_and_truncation_rejections() {
+        let state = minimal_state(2);
+        let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+        let len = encode_full_state_into(&state, &mut buf);
+        let canonical = &buf[..len];
+
+        assert!(decode_full_state(canonical).is_ok());
+        assert!(matches!(decode_full_state(&[]), Err(EncodeError::BufferTooSmall)));
+        assert!(matches!(decode_full_state(&canonical[..canonical.len() - 1]), Err(EncodeError::DecodeInvalid)));
+    }
+
+    #[test]
+    fn decode_full_state_noncanonical_and_invalid_fields_rejected() {
+        let state = minimal_state(1);
+        let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+        let len = encode_full_state_into(&state, &mut buf);
+
+        // header pad byte at offset 105 must be zero.
+        let mut bad_header_pad = buf;
+        bad_header_pad[105] = 0x01;
+        assert!(matches!(decode_full_state(&bad_header_pad[..len]), Err(EncodeError::DecodeInvalid)));
+
+        // window pad byte at offset 193 must be zero for vc=1.
+        let mut bad_window_pad = buf;
+        bad_window_pad[193] = 0x01;
+        assert!(matches!(decode_full_state(&bad_window_pad[..len]), Err(EncodeError::DecodeInvalid)));
+
+        // divergence i64 field at offset 112 must be in [0, SCALE].
+        let mut bad_divergence = buf;
+        bad_divergence[112..120].copy_from_slice(&(-1i64).to_le_bytes());
+        assert!(matches!(decode_full_state(&bad_divergence[..len]), Err(EncodeError::DecodeInvalid)));
     }
 }
 
