@@ -31,14 +31,15 @@ For full context see `README.md`, `design_decisions.md`, and `docs/spec/00_execu
 | Dimension | Status | Notes |
 |-----------|--------|-------|
 | Consensus core correctness | **Strong** | `no_std`, `forbid(unsafe_code)`, determinism constraints fully enforced |
-| Formal proof coverage | **Strong conceptually** | 14 PROVED, 4 CI-VERIFIED, 2 AXIOM, 2 PLACEHOLDER — see `proofs/COVERAGE.md` |
+| Formal proof coverage | **Strong** | 18 PROVED, 4 CI-VERIFIED, 3 AXIOM, 2 PLACEHOLDER — see `proofs/COVERAGE.md` |
 | Proof CI pipeline | **Automated for active Coq proofs** | `.github/workflows/ci.yml` installs Coq, rejects active `Admitted`/`admit` markers, checks new axioms against `proofs/COVERAGE.md`, compiles active `.v` files, records `.vo` SHA-256 hashes, and uploads version/hash artifacts |
 | Runtime / PAL implementation | **Scaffold only** | PAL Host returns zeroes/no-ops; no network, no persistence, no crash recovery |
 | Fuzzing infrastructure | **Expanded** | honggfuzz harness covers encoding, decode, transition, fixed-point, lyapunov, cascade, and tx targets; fuzz-smoke CI gate runs all targets |
 | Performance benchmarks | **None** | Worst-case epoch transition cost, serialization throughput, stack depth: unmeasured |
 | Reproducible builds | **Done** | `rust-toolchain.toml` pins 1.95.0; `docker/Dockerfile.build` pins full build+proof environment; `release-attestation.yml` CI job verifies byte-identical two-stage builds and records SHA-256 manifests under `artifacts/attestations/` with 365-day retention |
 | Adversarial simulation | **Done** | 23-test suite across 10 scenarios: halt-trigger boundary, liveness suppression, coordinated spike, nonce replay, max-field saturation, slash monotonicity, halt irreversibility, grace period |
-| Deep module audits | **Pending** | `fixed_point.rs`, `encoding.rs`, `lyapunov.rs`, `hash.rs` not yet independently audited |
+| Deep module audits | **Done** | `fixed_point.rs`, `encoding.rs`, `lyapunov.rs`, `hash.rs`, `transaction.rs` audited and hardened with boundary/adversarial tests (PRs #69, #71) |
+| Multi-compiler differential | **Done** | opt-level=0 vs opt-level=3 required gate + cranelift advisory; weekly scheduled CI (PR #65) |
 | Production readiness | **Pre-production** | Intentionally — this is a protocol design and formal proof repository |
 
 ---
@@ -203,9 +204,9 @@ These are fixed constraints that no future work will alter:
 
 | Status | Count | Meaning |
 |--------|-------|----------|
-| PROVED | 14 | Coq theorem, compiles, zero `Admitted` |
+| PROVED | 18 | Coq theorem, compiles, zero `Admitted` |
 | CI-VERIFIED | 4 | Verified by cross-ISA CI or KAT vectors |
-| AXIOM | 2 | Assumed property rows with documented justification; not provable from first principles |
+| AXIOM | 3 | Assumed property rows with documented justification; not provable from first principles |
 | PLACEHOLDER | 2 | Coq file exists, body axiomatised or reduction target deferred; full proof deferred |
 | MISSING | 0 | |
 

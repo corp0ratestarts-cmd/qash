@@ -445,4 +445,19 @@ A release should not be marked certification-ready unless all seven are present 
 4. Build Phase 2 PAL host with strict Domain A boundary tests and crash-recovery equivalence checks.
 5. Advance Phase 3 refinement and multi-compiler differential evidence for independent assurance.
 
+---
+
+## Roadmap Gap Closure (v1.1 Features vs Kernel-Reduced Architecture)
+
+The repository tracks two complementary planning views:
+
+- **Feature migration view** (v1.0→v1.1): deterministic ordering, epoch-seed/timing controls, cascade/health mechanics, migration compatibility windows, and cross-ISA replay validation.
+- **Kernel-reduced architecture view**: semantic-kernel closure, compile-time domain enforcement, hardened Domain B profiles, privacy/compliance normalization, and certification-evidence packaging.
+
+Both are required for high-assurance delivery:
+- Feature migration explains what changed.
+- Kernel roadmap explains why the trusted core is auditable and certifiable.
+
+See `ARCHITECTURE.md` for the full phased architecture roadmap and CI/evidence gating model.
+
 This sequence is intentionally conservative: no deployment claims should be made before Phase 2 closure, and no high-assurance certification claim should be made before substantive Phase 3 evidence is complete.
