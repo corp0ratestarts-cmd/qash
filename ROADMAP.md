@@ -5,6 +5,8 @@ verified execution substrate in maximum technical detail. It is the authoritativ
 developer, auditor, or formal methods contributor picking up this codebase.
 
 **Last updated:** 2026-05-19
+
+Latest determinism certification artifact path: `artifacts/certification/determinism/<sha>.json`.
 **Current state:** All pre-v1.0 work complete — `v1.0-reference` tag is the immediate next step
 before v1.1 work begins. v1.1 item 2-A (cross-ISA CI gate) merged. Item 2-B (Envelope primitives
 and causal ordering) in review (PR #77).

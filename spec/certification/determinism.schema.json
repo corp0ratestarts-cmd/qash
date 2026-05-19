@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qash.dev/spec/certification/determinism.schema.json",
+  "title": "QASH Determinism Evidence Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "commit_sha",
+    "toolchains",
+    "target_triples",
+    "state_root_hashes",
+    "vectors",
+    "artifact_digests"
+  ],
+  "properties": {
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "toolchains": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rustc", "cargo"],
+      "properties": {
+        "rustc": { "type": "string", "minLength": 1 },
+        "cargo": { "type": "string", "minLength": 1 },
+        "qemu": { "type": "string", "minLength": 1 },
+        "cosign": { "type": "string", "minLength": 1 }
+      }
+    },
+    "target_triples": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "x86_64-unknown-linux-gnu",
+          "aarch64-unknown-linux-gnu",
+          "riscv64gc-unknown-linux-gnu"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "state_root_hashes": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[A-Fa-f0-9]{64}$"
+      }
+    },
+    "vectors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "pass", "state_root_hash"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "pass": { "type": "boolean" },
+          "state_root_hash": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "artifact_digests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[A-Fa-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

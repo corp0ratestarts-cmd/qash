@@ -5,14 +5,22 @@
   "bypass_actors": [],
   "conditions": {
     "ref_name": {
-      "include": ["refs/heads/main"],
+      "include": [
+        "refs/heads/main"
+      ],
       "exclude": []
     }
   },
   "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    { "type": "required_linear_history" },
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "required_linear_history"
+    },
     {
       "type": "pull_request",
       "parameters": {
@@ -22,7 +30,10 @@
         "require_last_push_approval": true,
         "required_review_thread_resolution": true,
         "automatic_copilot_code_review_enabled": false,
-        "allowed_merge_methods": ["squash", "rebase"]
+        "allowed_merge_methods": [
+          "squash",
+          "rebase"
+        ]
       }
     },
     {
@@ -31,10 +42,21 @@
         "strict_required_status_checks_policy": true,
         "do_not_enforce_on_create": false,
         "required_status_checks": [
-          { "context": "build-x86_64" },
-          { "context": "test-determinism" },
-          { "context": "clippy-lint" },
-          { "context": "coq-proofs" }
+          {
+            "context": "build-x86_64"
+          },
+          {
+            "context": "test-determinism"
+          },
+          {
+            "context": "clippy-lint"
+          },
+          {
+            "context": "coq-proofs"
+          },
+          {
+            "context": "l2-evidence-gate"
+          }
         ]
       }
     }

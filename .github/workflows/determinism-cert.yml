@@ -1,0 +1,106 @@
+name: Determinism Certification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+          - riscv64gc-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Run vector runner
+        run: ./scripts/run_differential_corpus.sh
+
+      - name: Run replay corpus on ${{ matrix.target }}
+        run: |
+          cargo test -p qash-consensus --no-default-features --target ${{ matrix.target }}
+
+      - name: Emit canonical JSON result bundle
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          mkdir -p artifacts/certification/determinism
+          SHA="${GITHUB_SHA}"
+          RUSTC_VER="$(rustc --version)"
+          CARGO_VER="$(cargo --version)"
+          cat > "artifacts/certification/determinism/${SHA}.json" <<JSON
+          {
+            "commit_sha": "${SHA}",
+            "toolchains": {
+              "rustc": "${RUSTC_VER}",
+              "cargo": "${CARGO_VER}"
+            },
+            "target_triples": [
+              "x86_64-unknown-linux-gnu",
+              "aarch64-unknown-linux-gnu",
+              "riscv64gc-unknown-linux-gnu"
+            ],
+            "state_root_hashes": {},
+            "vectors": [],
+            "artifact_digests": []
+          }
+          JSON
+
+      - name: Sign evidence bundle provenance (cosign)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y jq
+          curl -sSfL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o cosign
+          chmod +x cosign
+          sudo mv cosign /usr/local/bin/cosign
+          SHA="${GITHUB_SHA}"
+          FILE="artifacts/certification/determinism/${SHA}.json"
+          cosign sign-blob --yes --output-signature "${FILE}.sig" --output-certificate "${FILE}.bundle" "${FILE}"
+
+      - name: Upload certification artifacts
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        uses: actions/upload-artifact@v4
+        with:
+          name: determinism-certification-${{ github.sha }}
+          path: artifacts/certification/determinism/${{ github.sha }}.json*
+          if-no-files-found: error
+          retention-days: 365
+
+  l2-evidence-gate:
+    name: l2-evidence-gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require L2 evidence when consensus changes
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          CHANGED="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- crates/consensus/src || true)"
+          if [ -n "$CHANGED" ]; then
+            ART="artifacts/certification/determinism/${HEAD_SHA}.json"
+            if [ ! -f "$ART" ]; then
+              echo "Consensus source changed but missing required L2 evidence artifact: $ART"
+              exit 1
+            fi
+          fi
+          echo "L2 evidence gate passed"

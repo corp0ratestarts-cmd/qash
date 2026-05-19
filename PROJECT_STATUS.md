@@ -5,7 +5,9 @@
 > are, and what the priority order for closing them is. It is updated as milestones
 > are reached.
 >
-> Last updated: 2026-05-19. Based on internal review, the current CI workflow,
+> Last updated: 2026-05-19.
+> Latest determinism certification artifact path: `artifacts/certification/determinism/<sha>.json`.
+> Based on internal review, the current CI workflow,
 > and an independent external audit of the architecture, workspace, and consensus
 > implementation.
 
