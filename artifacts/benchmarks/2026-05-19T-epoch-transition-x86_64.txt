@@ -1,0 +1,93 @@
+# Benchmark: epoch_transition (Phase 2 item 6 — performance characterization)
+
+- Commit: 60c0490f81b39a6d4130c28ff15c11fc7b7b0f4c
+- Toolchain: rustc 1.95.0 (59807616e 2026-04-14)
+- Target triple: x86_64-unknown-linux-gnu
+- Command: cargo bench -p qash-consensus --bench epoch_transition
+- Dataset: synthetic — idle and max-divergence epoch inputs at 1/16/128/512/1024 validators
+- Profile: release (criterion default)
+
+---
+
+## B1/B2: Epoch transition throughput (advance_epoch per call)
+
+| Scenario            | Validators | Time (median) |
+|---------------------|-----------|---------------|
+| idle                | 1         | ~16 µs        |
+| idle                | 16        | ~16 µs        |
+| idle                | 128       | ~22 µs        |
+| idle                | 512       | ~73 µs        |
+| idle                | 1024      | ~282 µs       |
+| max_divergence      | 1         | ~16 µs        |
+| max_divergence      | 16        | ~16 µs        |
+| max_divergence      | 128       | ~22 µs        |
+| max_divergence      | 512       | ~73 µs        |
+| max_divergence      | 1024      | ~282 µs       |
+
+Note: idle vs max_divergence costs are nearly identical — Lyapunov evaluation
+dominates at high validator counts, not the arithmetic per se.
+
+---
+
+## B4/B5: Full-state serialization (encode/decode at 1/128/1024 validators)
+
+| Operation            | Validators | Time (median) |
+|----------------------|-----------|---------------|
+| encode_full_state    | 1         | ~0.30 µs      |
+| encode_full_state    | 128       | ~1.2 µs       |
+| encode_full_state    | 1024      | ~8.2 µs       |
+| decode_full_state    | 1         | ~0.29 µs      |
+| decode_full_state    | 128       | ~1.1 µs       |
+| decode_full_state    | 1024      | ~7.4 µs       |
+
+---
+
+## B6: N-epoch replay latency (4 validators, idle inputs)
+
+| Epochs | Time (median) | Per-epoch cost |
+|--------|---------------|----------------|
+| 10     | 164 µs        | 16.4 µs        |
+| 100    | 1.54 ms       | 15.4 µs        |
+| 500    | 7.68 ms       | 15.4 µs        |
+
+Worst case: 1024 validators × 10 epochs = 2.83 ms (283 µs/epoch).
+Control-loop budget: 450 ms per epoch spec. Current worst-case is 283 µs —
+1590× margin against the 450 ms budget.
+
+---
+
+## B7: h_domain (SHA3-256 with 4-byte tag prefix)
+
+| Input length | Time (median) |
+|-------------|---------------|
+| 32 bytes    | 471 ns        |
+| 512 bytes   | 1.70 µs       |
+| 4096 bytes  | 12.7 µs       |
+
+---
+
+## Technical effect observed
+
+1. Per-epoch cost scales roughly linearly with validator count: ~0.28 µs per
+   validator at 1024 validators. This is dominated by the hash cascade in
+   `encode_full_state_into` and SHA3-256 state-root computation, not by the
+   Lyapunov fixed-point arithmetic.
+
+2. Worst-case epoch transition (1024 validators, max divergence): 282 µs.
+   The 450 ms spec budget provides approximately 1590× safety margin.
+
+3. Serialization cost is ~8 µs encode / 7.4 µs decode at 1024 validators —
+   below 2% of the 450 ms budget.
+
+4. Replay scales linearly: 100 epochs × 4 validators = 1.54 ms total.
+   Full genesis-to-current replay of 10,000 epochs with 4 validators would
+   cost ~154 ms; with 1024 validators, ~2.83 s.
+
+## Limitations
+
+- Measurements on a shared cloud host; variance ~5%. Re-run on dedicated
+  hardware for publication-grade numbers.
+- Stack depth not measured here. EpochState is ~420 KB on stack (large
+  fixed arrays). Tests pass with default Rust stack (8 MB) but production
+  deployment should verify thread stack sizes for replay tasks.
+- `advance_epoch` is called on a single thread; no concurrency modeling.
