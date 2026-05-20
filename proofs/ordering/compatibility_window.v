@@ -10,15 +10,15 @@
     CW-1  Compatibility window bound: COMPATIBILITY_WINDOW = 100.
 
     CW-2  Version acceptance before window:
-            epoch < COMPATIBILITY_WINDOW →
+            epoch < COMPATIBILITY_WINDOW ->
             v1.0 envelope is accepted (version check does not reject it).
 
     CW-3  Version rejection after window:
-            epoch >= COMPATIBILITY_WINDOW /\ version < V1_1 →
+            epoch >= COMPATIBILITY_WINDOW /\ version < V1_1 ->
             advance_epoch returns IncompatibleVersion.
 
     CW-4  V1.1 always accepted:
-            version >= V1_1 →
+            version >= V1_1 ->
             version check passes regardless of epoch.
 
     CW-5  Monotonicity of the window: once epoch >= COMPATIBILITY_WINDOW,
@@ -163,11 +163,15 @@ Theorem version_gate_trichotomy :
 Proof.
   intros epoch version.
   unfold version_accepted, version_rejected.
-  destruct (Z.lt_ge_cases epoch COMPATIBILITY_WINDOW) as [Hlt | Hge].
-  - left. lia.
-  - destruct (Z.lt_ge_cases version PROTOCOL_VERSION_V1_1) as [Hlt2 | Hge2].
-    + right. split; lia.
-    + left. lia.
+  destruct (Z.le_or_lt COMPATIBILITY_WINDOW epoch) as [Hge | Hlt].
+  - (* epoch >= COMPATIBILITY_WINDOW *)
+    destruct (Z.le_or_lt PROTOCOL_VERSION_V1_1 version) as [Hge2 | Hlt2].
+    + (* version >= PROTOCOL_VERSION_V1_1: accepted *)
+      left. lia.
+    + (* version < PROTOCOL_VERSION_V1_1: rejected *)
+      right. split; lia.
+  - (* epoch < COMPATIBILITY_WINDOW: accepted *)
+    left. lia.
 Qed.
 
 Theorem version_gate_exclusive :

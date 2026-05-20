@@ -34,7 +34,7 @@
     equality.  Totality of the strict order uses case analysis on pairs.
 
     Note: the full cryptographic justification for sort-key distinctness
-    (distinct envelopes → distinct sort keys with overwhelming probability)
+    (distinct envelopes -> distinct sort keys with overwhelming probability)
     is an AX-3 assumption, not proved here.  This file proves the
     *structural* properties of the ordering relation given sort keys.
 *)
@@ -157,7 +157,7 @@ Qed.
 (** CO-2c: Totality (trichotomy): for any two *distinct* positions,
     exactly one of p ≺ q or q ≺ p holds.
 
-    We prove: if p ≠ q then p ≺ q ∨ q ≺ p.
+    We prove: if p <> q then p ≺ q \/ q ≺ p.
 
     Note: full distinctness of sort keys within an epoch is an AX-3
     (SHA3-256 preimage resistance) consequence and is not proved here. *)
@@ -168,35 +168,38 @@ Theorem epoch_sortkey_lt_total :
 Proof.
   intros [ep1 sk1] [ep2 sk2] Hne.
   unfold env_pos_lt, word256_lt. simpl.
-  (* Case split on epoch comparison *)
-  destruct (Z.compare_spec ep1 ep2) as [Heq | Hlt | Hgt].
+  destruct (Z.eq_dec ep1 ep2) as [Heq | Hne_ep].
   - (* ep1 = ep2 *)
     subst ep2.
     destruct sk1 as [lo1 hi1], sk2 as [lo2 hi2]. simpl.
-    (* Case split on lo component *)
-    destruct (Z.compare_spec lo1 lo2) as [Hleq | Hllt | Hlgt].
+    destruct (Z.eq_dec lo1 lo2) as [Hleq | Hne_lo].
     + (* lo1 = lo2 *)
       subst lo2.
-      (* Case split on hi component *)
-      destruct (Z.compare_spec hi1 hi2) as [Hheq | Hhlt | Hhgt].
-      * (* hi1 = hi2: contradiction with p ≠ q *)
+      destruct (Z.eq_dec hi1 hi2) as [Hheq | Hne_hi].
+      * (* hi1 = hi2: contradiction with p <> q *)
         subst hi2. exfalso. apply Hne. reflexivity.
-      * (* hi1 < hi2: p ≺ q via right branch of word256_lt *)
-        left. right. split. { reflexivity. }
-        right. split. { reflexivity. } exact Hhlt.
-      * (* hi2 < hi1: q ≺ p via right branch *)
+      * (* hi1 <> hi2: use Z.le_or_lt to determine order *)
+        destruct (Z.le_or_lt hi2 hi1) as [Hge | Hlt].
+        -- (* hi2 <= hi1, and hi1 <> hi2, so hi2 < hi1: q ≺ p *)
+           right. right. split. { reflexivity. }
+           right. split. { reflexivity. } lia.
+        -- (* hi1 < hi2: p ≺ q *)
+           left. right. split. { reflexivity. }
+           right. split. { reflexivity. } exact Hlt.
+    + (* lo1 <> lo2: use Z.le_or_lt to determine order *)
+      destruct (Z.le_or_lt lo2 lo1) as [Hge | Hlt].
+      * (* lo2 <= lo1, and lo1 <> lo2, so lo2 < lo1: q ≺ p *)
         right. right. split. { reflexivity. }
-        right. split. { reflexivity. } exact Hhgt.
-    + (* lo1 < lo2: p ≺ q via left branch of word256_lt *)
-      left. right. split. { reflexivity. }
-      left. exact Hllt.
-    + (* lo2 < lo1: q ≺ p via left branch *)
-      right. right. split. { reflexivity. }
-      left. exact Hlgt.
-  - (* ep1 < ep2: p ≺ q via epoch *)
-    left. left. exact Hlt.
-  - (* ep1 > ep2, i.e. ep2 < ep1: q ≺ p via epoch *)
-    right. left. lia.
+        left. lia.
+      * (* lo1 < lo2: p ≺ q *)
+        left. right. split. { reflexivity. }
+        left. exact Hlt.
+  - (* ep1 <> ep2: use Z.le_or_lt to determine order *)
+    destruct (Z.le_or_lt ep2 ep1) as [Hge | Hlt].
+    + (* ep2 <= ep1, and ep1 <> ep2, so ep2 < ep1: q ≺ p *)
+      right. left. lia.
+    + (* ep1 < ep2: p ≺ q *)
+      left. left. exact Hlt.
 Qed.
 
 (* ================================================================= *)
