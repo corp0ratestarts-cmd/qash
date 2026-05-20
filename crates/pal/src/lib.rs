@@ -1,3 +1,4 @@
+pub mod cap_token;
 /// Platform Abstraction Layer (PAL) traits.
 pub trait Time {
     fn epoch_counter() -> u64;
