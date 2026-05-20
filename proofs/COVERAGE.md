@@ -99,7 +99,7 @@ the full three-layer correspondence chain and extraction pipeline.
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
 |----------|----------|--------|-------------|-----------|---------|
 | Fingerprint computation is deterministic: equal inputs → equal fingerprint | §2, §4 | **PROVED** | `fingerprint_deterministic` in `safety/causal_fingerprint.v` | `src/transition.rs` | `interpreter_conformance.rs::prop_p5_fingerprint_deterministic` |
-| Single-step hash injectivity: H(fp,ep,r) = H(fp',ep',r') → fp=fp', ep=ep', r=r' | §2 | **PROVED** | `fp_step_injective` in `safety/causal_fingerprint.v` | `src/transition.rs` | — |
+| Single-step hash injectivity: H(fp,ep,r) = H(fp',ep',r') → fp=fp', ep=ep', r=r' | §2 | **PROVED** | `fp_step_injective` in `safety/causal_fingerprint.v` (from Axiom `fp_hash_injective`) | `src/transition.rs` | — |
 | Fingerprint chain injectivity: equal-length chains with equal final fps had equal histories | §2, §4 | **PROVED** | `fingerprint_chain_injective` in `safety/causal_fingerprint.v` (from Axiom `fp_chain_collision_resistant`) | `src/transition.rs` | — |
 | Bisimulation collapse prevention: fp-bisimilar sequences are identical | §2, §4 | **PROVED** | `bisim_collapse_prevented` in `safety/causal_fingerprint.v` | `src/transition.rs` | `interpreter_conformance.rs::prop_p4_fingerprint_changes` |
 | Divergence detected: non-equal sequences cannot be fp-bisimilar | §2, §4 | **PROVED** | `divergence_detected` in `safety/causal_fingerprint.v` | `src/transition.rs` | — |
