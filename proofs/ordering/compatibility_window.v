@@ -163,15 +163,15 @@ Theorem version_gate_trichotomy :
 Proof.
   intros epoch version.
   unfold version_accepted, version_rejected.
-  destruct (Z.le_or_lt COMPATIBILITY_WINDOW epoch) as [Hge | Hlt].
-  - (* epoch >= COMPATIBILITY_WINDOW *)
-    destruct (Z.le_or_lt PROTOCOL_VERSION_V1_1 version) as [Hge2 | Hlt2].
-    + (* version >= PROTOCOL_VERSION_V1_1: accepted *)
-      left. lia.
-    + (* version < PROTOCOL_VERSION_V1_1: rejected *)
-      right. split; lia.
+  destruct (Z_lt_le_dec epoch COMPATIBILITY_WINDOW) as [Hlt | Hge].
   - (* epoch < COMPATIBILITY_WINDOW: accepted *)
     left. lia.
+  - (* epoch >= COMPATIBILITY_WINDOW *)
+    destruct (Z_lt_le_dec version PROTOCOL_VERSION_V1_1) as [Hlt2 | Hge2].
+    + (* version < PROTOCOL_VERSION_V1_1: rejected *)
+      right. split; lia.
+    + (* version >= PROTOCOL_VERSION_V1_1: accepted *)
+      left. lia.
 Qed.
 
 Theorem version_gate_exclusive :

@@ -9,7 +9,7 @@
     ---------------
     CO-1  SortKey is a deterministic function of its inputs:
             sort_key_deterministic —
-            equal inputs → equal sort keys
+            equal inputs -> equal sort keys
 
     CO-2  The (epoch, sort_key) lexicographic ordering is a strict total order
           on the set of (epoch, sort_key) pairs (assuming sort keys are
@@ -21,11 +21,11 @@
 
     CO-3  Envelope processing order is deterministic:
             sort_order_deterministic —
-            same (epoch, sort_key) sequence → same processing order
+            same (epoch, sort_key) sequence -> same processing order
 
     Background
     ----------
-    `compute_sort_key` in `crates/consensus/src/causal_order.rs` computes:
+    compute_sort_key in crates/consensus/src/causal_order.rs computes:
       sort_key = H_domain(CausalOrder, epoch_seed || shard_id_be || envelope_hash)
 
     Because H_domain is modelled as injective (AX-3), equal sort keys
@@ -43,7 +43,6 @@ Require Import Coq.ZArith.ZArith.
 Require Import Coq.Bool.Bool.
 Require Import Coq.Lists.List.
 Require Import Coq.micromega.Lia.
-Require Import Coq.Arith.Arith.
 Open Scope Z_scope.
 
 (* ================================================================= *)
@@ -65,7 +64,7 @@ Record EnvPosition : Type := mk_pos {
 (** ** §1 — Sort Key Computation Model                                *)
 (* ================================================================= *)
 
-(** We model `compute_sort_key` as an abstract function to avoid
+(** We model compute_sort_key as an abstract function to avoid
     reproducing the full SHA3 specification in Coq.  Determinism follows
     from it being a pure function — proved below without any assumption
     on its specific behaviour. *)
@@ -119,11 +118,9 @@ Definition env_pos_lt (p q : EnvPosition) : Prop :=
   (ep_epoch p < ep_epoch q) \/
   (ep_epoch p = ep_epoch q /\ word256_lt (ep_sort_key p) (ep_sort_key q)).
 
-Notation "p ≺ q" := (env_pos_lt p q) (at level 70).
-
 (** CO-2a: Irreflexivity. *)
 Theorem epoch_sortkey_lt_irrefl :
-  forall (p : EnvPosition), ~ (p ≺ p).
+  forall (p : EnvPosition), ~ (env_pos_lt p p).
 Proof.
   intros p [Hepoch | [_ Hsk]].
   - exact (Z.lt_irrefl _ Hepoch).
@@ -135,7 +132,8 @@ Qed.
 
 (** CO-2b: Transitivity. *)
 Theorem epoch_sortkey_lt_trans :
-  forall (p q r : EnvPosition), p ≺ q -> q ≺ r -> p ≺ r.
+  forall (p q r : EnvPosition),
+  env_pos_lt p q -> env_pos_lt q r -> env_pos_lt p r.
 Proof.
   intros p q r Hpq Hqr.
   unfold env_pos_lt in *.
@@ -155,64 +153,57 @@ Proof.
 Qed.
 
 (** CO-2c: Totality (trichotomy): for any two *distinct* positions,
-    exactly one of p ≺ q or q ≺ p holds.
+    exactly one of env_pos_lt p q or env_pos_lt q p holds.
 
-    We prove: if p <> q then p ≺ q \/ q ≺ p.
+    We prove: if p <> q then env_pos_lt p q \/ env_pos_lt q p.
 
     Note: full distinctness of sort keys within an epoch is an AX-3
     (SHA3-256 preimage resistance) consequence and is not proved here. *)
 Theorem epoch_sortkey_lt_total :
   forall (p q : EnvPosition),
   p <> q ->
-  p ≺ q \/ q ≺ p.
+  env_pos_lt p q \/ env_pos_lt q p.
 Proof.
   intros [ep1 sk1] [ep2 sk2] Hne.
+  destruct sk1 as [lo1 hi1], sk2 as [lo2 hi2].
   unfold env_pos_lt, word256_lt. simpl.
-  destruct (Z.eq_dec ep1 ep2) as [Heq | Hne_ep].
-  - (* ep1 = ep2 *)
-    subst ep2.
-    destruct sk1 as [lo1 hi1], sk2 as [lo2 hi2]. simpl.
-    destruct (Z.eq_dec lo1 lo2) as [Hleq | Hne_lo].
-    + (* lo1 = lo2 *)
-      subst lo2.
-      destruct (Z.eq_dec hi1 hi2) as [Hheq | Hne_hi].
-      * (* hi1 = hi2: contradiction with p <> q *)
-        subst hi2. exfalso. apply Hne. reflexivity.
-      * (* hi1 <> hi2: use Z.le_or_lt to determine order *)
-        destruct (Z.le_or_lt hi2 hi1) as [Hge | Hlt].
-        -- (* hi2 <= hi1, and hi1 <> hi2, so hi2 < hi1: q ≺ p *)
-           right. right. split. { reflexivity. }
-           right. split. { reflexivity. } lia.
-        -- (* hi1 < hi2: p ≺ q *)
-           left. right. split. { reflexivity. }
-           right. split. { reflexivity. } exact Hlt.
-    + (* lo1 <> lo2: use Z.le_or_lt to determine order *)
-      destruct (Z.le_or_lt lo2 lo1) as [Hge | Hlt].
-      * (* lo2 <= lo1, and lo1 <> lo2, so lo2 < lo1: q ≺ p *)
-        right. right. split. { reflexivity. }
-        left. lia.
-      * (* lo1 < lo2: p ≺ q *)
-        left. right. split. { reflexivity. }
-        left. exact Hlt.
-  - (* ep1 <> ep2: use Z.le_or_lt to determine order *)
-    destruct (Z.le_or_lt ep2 ep1) as [Hge | Hlt].
-    + (* ep2 <= ep1, and ep1 <> ep2, so ep2 < ep1: q ≺ p *)
+  destruct (Z_lt_le_dec ep1 ep2) as [Hlt | Hge].
+  - (* ep1 < ep2: p < q via epoch *)
+    left. left. exact Hlt.
+  - destruct (Z.eq_dec ep1 ep2) as [Heq | Hne_ep].
+    + (* ep1 = ep2: compare sort keys *)
+      subst ep2.
+      destruct (Z_lt_le_dec lo1 lo2) as [Hlt | Hge2].
+      * (* lo1 < lo2 *)
+        left. right. split. { reflexivity. } left. exact Hlt.
+      * destruct (Z.eq_dec lo1 lo2) as [Hleq | Hne_lo].
+        -- (* lo1 = lo2: compare hi *)
+           subst lo2.
+           destruct (Z_lt_le_dec hi1 hi2) as [Hlt | Hge3].
+           ++ (* hi1 < hi2 *)
+              left. right. split. { reflexivity. } right. split. { reflexivity. } exact Hlt.
+           ++ destruct (Z.eq_dec hi1 hi2) as [Hheq | Hne_hi].
+              ** (* hi1 = hi2: contradiction *)
+                 subst hi2. exfalso. apply Hne. reflexivity.
+              ** (* hi2 < hi1 *)
+                 right. right. split. { reflexivity. } right. split. { reflexivity. } lia.
+        -- (* lo2 < lo1 *)
+           right. right. split. { reflexivity. } left. lia.
+    + (* ep2 < ep1: q < p via epoch *)
       right. left. lia.
-    + (* ep1 < ep2: p ≺ q *)
-      left. left. exact Hlt.
 Qed.
 
 (* ================================================================= *)
 (** ** §4 — Processing Order Determinism                              *)
 (* ================================================================= *)
 
-(** A causal schedule is a list of envelope positions sorted by ≺. *)
+(** A causal schedule is a list of envelope positions sorted by env_pos_lt. *)
 Definition sorted_by_lt (ps : list EnvPosition) : Prop :=
-  forall i j,
-  i < j ->
-  i < length ps ->
-  j < length ps ->
-  (nth i ps (mk_pos 0 (0,0))) ≺ (nth j ps (mk_pos 0 (0,0))).
+  forall (i j : nat),
+  (i < j)%nat ->
+  (i < length ps)%nat ->
+  (j < length ps)%nat ->
+  env_pos_lt (nth i ps (mk_pos 0 (0,0))) (nth j ps (mk_pos 0 (0,0))).
 
 (** CO-3: Two lists with the same elements produce the same order.
     We prove the statement for propositionally equal lists, which is the
@@ -223,7 +214,7 @@ Theorem sort_order_deterministic :
   ps = qs ->
   sorted_by_lt ps ->
   sorted_by_lt qs ->
-  forall i, nth i ps (mk_pos 0 (0,0)) = nth i qs (mk_pos 0 (0,0)).
+  forall (i : nat), nth i ps (mk_pos 0 (0,0)) = nth i qs (mk_pos 0 (0,0)).
 Proof.
   intros ps qs Heq _ _.
   subst qs.
