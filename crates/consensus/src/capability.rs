@@ -67,17 +67,22 @@ pub enum Capability {
 
 /// Validate that a raw code byte maps to a known [`Capability`] variant.
 ///
-/// Returns `Ok(cap)` for any approved capability code, `Err(())` for an
+/// Returns `Ok(cap)` for any approved capability code, `Err(CapabilityError::UnknownCode)` for an
 /// unknown byte. Used at PAL admission points to guard against serialisation
 /// errors or unexpected capability extensions.
-pub fn validate_capability(raw_code: u8) -> Result<Capability, ()> {
+pub fn validate_capability(raw_code: u8) -> Result<Capability, CapabilityError> {
     match raw_code {
         0x01 => Ok(Capability::EntropyIngress),
         0x02 => Ok(Capability::EpochSchedule),
         0x03 => Ok(Capability::NetworkEnvelope),
         0x04 => Ok(Capability::ExternalHalt),
-        _    => Err(()),
+        _    => Err(CapabilityError::UnknownCode),
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CapabilityError {
+    UnknownCode,
 }
 
 #[cfg(test)]
@@ -101,7 +106,7 @@ mod tests {
     #[test]
     fn unknown_codes_rejected() {
         for code in [0x00u8, 0x05, 0xFF] {
-            assert_eq!(validate_capability(code), Err(()));
+            assert_eq!(validate_capability(code), Err(CapabilityError::UnknownCode));
         }
     }
 }
