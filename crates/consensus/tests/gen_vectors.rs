@@ -12,9 +12,10 @@ fn genesis(vc: u32) -> EpochState {
         nonces: [0u64; MAX_VALIDATORS], validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     }
 }
-fn idle(vc: u32) -> EpochInput { EpochInput { updates: [None; MAX_VALIDATORS], update_count: vc } }
+fn idle(vc: u32) -> EpochInput { EpochInput::new(vc) }
 
 fn root_hex(r: &[u8; 32]) -> String { r.iter().map(|b| format!("{:02x}", b)).collect() }
 fn hr(r: HaltReason) -> u8 { r as u8 }
@@ -133,7 +134,7 @@ fn gen_coq_vectors() {
     // TV-6: DecodeInvalid — wrong update_count (4 validators, count=3)
     {
         let mut s = genesis(4);
-        let bad = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 3 };
+        let bad = EpochInput::new(3);
         let res = advance_epoch(&mut s, &bad, &[]);
         assert_eq!(res, Err(HaltReason::DecodeInvalid));
         records.push(format!(
@@ -224,8 +225,9 @@ fn _scratch_check_v1_vectors() {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     };
-    let input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 4 };
+    let input = EpochInput::new(4);
     advance_epoch(&mut state, &input, &[]).unwrap();
     eprintln!("4-validator epoch 1 root: {}", hex_encode(&state.state_root));
     
@@ -241,8 +243,9 @@ fn _scratch_check_v1_vectors() {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     };
-    let input0 = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 0 };
+    let input0 = EpochInput::new(0);
     let r0 = advance_epoch(&mut state0, &input0, &[]);
     eprintln!("0-validator epoch 1 result: {:?}", r0);
     if r0.is_ok() {
@@ -276,9 +279,10 @@ fn _scratch_epoch2_root() {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     };
     for epoch in 1..=2u64 {
-        let input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 4 };
+        let input = EpochInput::new(4);
         let r = advance_epoch(&mut state, &input, &[]).unwrap();
         let bytes: Vec<String> = state.state_root.iter().map(|b| format!("{:02x}", b)).collect();
         eprintln!("epoch {} root: {}", epoch, bytes.join(""));

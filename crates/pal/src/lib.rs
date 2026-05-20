@@ -1,3 +1,6 @@
+/// Domain B cryptographic primitives (KEM, DRBG).
+pub mod crypto;
+
 /// Platform Abstraction Layer (PAL) traits.
 pub trait Time {
     fn epoch_counter() -> u64;
@@ -206,6 +209,7 @@ pub mod hosted {
             Ok(EpochInput {
                 updates,
                 update_count: state.validator_count,
+                protocol_version: qash_consensus::envelope::PROTOCOL_VERSION_V1_1,
             })
         }
     }

@@ -25,6 +25,8 @@ pub enum DomainTag {
     InternalHash   = 0x0000_0005,
     TxId           = 0x0000_0010,
     CausalOrder    = 0x0000_0020,
+    LineageSkip        = 0x0000_0040,
+    CausalFingerprint  = 0x0000_0030,
 }
 
 pub fn h_domain(tag: DomainTag, input: &[u8]) -> [u8; 32] {

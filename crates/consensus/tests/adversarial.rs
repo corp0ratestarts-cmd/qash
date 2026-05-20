@@ -39,11 +39,12 @@ fn genesis_state() -> EpochState {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     }
 }
 
 fn idle_input(n: u32) -> EpochInput {
-    EpochInput { updates: [None; MAX_VALIDATORS], update_count: n }
+    EpochInput::new(n)
 }
 
 /// Build a well-formed TX-0 envelope with the given author_id and nonce.
@@ -273,7 +274,7 @@ fn adversarial_non_validator_tx_end_to_end_rejected() {
 #[test]
 fn adversarial_update_count_mismatch_halts() {
     let mut state = genesis_state(); // validator_count = 4
-    let bad = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 3 };
+    let bad = EpochInput::new(3);
     let r = advance_epoch(&mut state, &bad, &[]);
     assert_eq!(r, Err(HaltReason::DecodeInvalid));
     assert_eq!(state.halt_reason, HaltReason::DecodeInvalid);

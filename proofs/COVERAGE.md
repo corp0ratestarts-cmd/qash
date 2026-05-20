@@ -94,16 +94,54 @@ the full three-layer correspondence chain and extraction pipeline.
 
 ---
 
+## v1.1 Causal Fingerprint Properties (2-L)
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| Fingerprint computation is deterministic: equal inputs → equal fingerprint | §2, §4 | **PROVED** | `fingerprint_deterministic` in `safety/causal_fingerprint.v` | `src/transition.rs` | `interpreter_conformance.rs::prop_p5_fingerprint_deterministic` |
+| Single-step hash injectivity: H(fp,ep,r) = H(fp',ep',r') → fp=fp', ep=ep', r=r' | §2 | **PROVED** | `fp_step_injective` in `safety/causal_fingerprint.v` | `src/transition.rs` | — |
+| Fingerprint chain injectivity: equal-length chains with equal final fps had equal histories | §2, §4 | **PROVED** | `fingerprint_chain_injective` in `safety/causal_fingerprint.v` (from Axiom `fp_chain_collision_resistant`) | `src/transition.rs` | — |
+| Bisimulation collapse prevention: fp-bisimilar sequences are identical | §2, §4 | **PROVED** | `bisim_collapse_prevented` in `safety/causal_fingerprint.v` | `src/transition.rs` | `interpreter_conformance.rs::prop_p4_fingerprint_changes` |
+| Divergence detected: non-equal sequences cannot be fp-bisimilar | §2, §4 | **PROVED** | `divergence_detected` in `safety/causal_fingerprint.v` | `src/transition.rs` | — |
+
+---
+
+## v1.1 Skip-List Confluence Properties (2-L)
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| Skip-list advance is deterministic | §5 | **PROVED** | `skiplist_advance_deterministic` in `composition/lyapunov_confluence.v` | `src/lineage.rs` | `lineage.rs::tests::*` |
+| Compression is confluent: same step sequence from same header → same final header | §5 | **PROVED** | `skiplist_compression_confluent` in `composition/lyapunov_confluence.v` | `src/lineage.rs` | — |
+| Canonical form is unique: run_chain is a pure function | §5 | **PROVED** | `canonical_form_unique_strong` in `composition/lyapunov_confluence.v` | `src/lineage.rs` | — |
+| Deterministic replay: cross-ISA identical headers from same genesis | §1, §5 | **PROVED** | `cross_isa_replay_invariant` in `composition/lyapunov_confluence.v` | `src/lineage.rs` | `scripts/replay_test.sh` |
+| Prefix consistency: append-monotone — partial replay consistent with full replay | §5 | **PROVED** | `prefix_consistent` in `composition/lyapunov_confluence.v` | `src/lineage.rs` | — |
+
+---
+
+## v1.1 Ordering Properties
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| Causal sort key is deterministic: equal inputs → equal sort keys | §2, §3 | **PROVED** | `sort_key_deterministic` in `ordering/causal_ordering.v` | `src/causal_order.rs` | `causal_order.rs::tests::*` |
+| `(epoch, sort_key)` lexicographic order is strict total (irrefl, trans, total) | §3 | **PROVED** | `epoch_sortkey_lt_irrefl`, `epoch_sortkey_lt_trans`, `epoch_sortkey_lt_total` in `ordering/causal_ordering.v` | `src/causal_order.rs` | — |
+| Sort order is deterministic: same position list → same processing order | §3 | **PROVED** | `sort_order_deterministic` in `ordering/causal_ordering.v` | `src/causal_order.rs` | — |
+| V1.0 envelope accepted before compatibility window (epoch < 100) | §3, GENESIS | **PROVED** | `version_v1_0_accepted_before_window` in `ordering/compatibility_window.v` | `src/transition.rs` | `transition::tests::version_gate_accepts_v1_0_before_window` |
+| V1.0 envelope rejected at or after compatibility window (epoch ≥ 100) | §3, GENESIS | **PROVED** | `version_v1_0_rejected_after_window` in `ordering/compatibility_window.v` | `src/transition.rs` | `transition::tests::version_gate_rejects_v1_0_after_window` |
+| V1.1+ always accepted regardless of epoch | §3 | **PROVED** | `version_v1_1_always_accepted` in `ordering/compatibility_window.v` | `src/transition.rs` | `transition::tests::version_gate_accepts_v1_1_after_window` |
+| Window closure monotone: once past window, all future epochs reject V1.0 | §3 | **PROVED** | `window_closure_monotone`, `v1_0_rejected_all_future` in `ordering/compatibility_window.v` | `src/transition.rs` | — |
+
+---
+
 ## Coverage Summary
 
 | Status | Count |
 |--------|-------|
-| **PROVED** | 18 |
+| **PROVED** | 35 |
 | **CI-VERIFIED** | 4 |
 | **AXIOM** | 3 |
 | **PLACEHOLDER** | 2 |
 | **MISSING** | 0 |
-| **Total** | 27 |
+| **Total** | 37 |
 
 ---
 

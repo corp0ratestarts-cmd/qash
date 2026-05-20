@@ -1,0 +1,308 @@
+{
+  "version": "1.1",
+  "description": "50-epoch v1.1 replay corpus. Steps 0,2,4,6,8 use v1.0 protocol_version (exercising compatibility-window acceptance before epoch 100); steps 1,3,5,7,9 and 10-49 use v1.1. Generated on x86_64; CI verifies on aarch64 and riscv64gc.",
+  "corpus_epochs": 50,
+  "validator_count": 4,
+  "state_roots": [
+    {
+      "step": 0,
+      "epoch": 1,
+      "protocol_version": "v1.0",
+      "root": "5206dd7854901fa17203379be2e6a25329dcba9356ba6fd72dcab76a201c71a7"
+    },
+    {
+      "step": 1,
+      "epoch": 2,
+      "protocol_version": "v1.1",
+      "root": "02768c60a6e5aa66c689eda21ead6078945718dfa4117e768b436c500f5c2ebb"
+    },
+    {
+      "step": 2,
+      "epoch": 3,
+      "protocol_version": "v1.0",
+      "root": "5648ddd6dfe9ac7a8f151f8f21b7cf0c6e61030546643b769504ff79fd9c722d"
+    },
+    {
+      "step": 3,
+      "epoch": 4,
+      "protocol_version": "v1.1",
+      "root": "190cce7be3764160089a42678538a36f4c6bb16128a0dd5bca8a887a9245536f"
+    },
+    {
+      "step": 4,
+      "epoch": 5,
+      "protocol_version": "v1.0",
+      "root": "26ba34bbd9a23a560943b128299b851a3d9728b0b72afcce371c0d45cac75d4a"
+    },
+    {
+      "step": 5,
+      "epoch": 6,
+      "protocol_version": "v1.1",
+      "root": "f95fc90bf6894b7bbe75da8ee016fc6f99bd7ddb502c8d464db15d22c17ad7cf"
+    },
+    {
+      "step": 6,
+      "epoch": 7,
+      "protocol_version": "v1.0",
+      "root": "1a7330949443d41692e69a239e070bef0e6e2261f093de3d96b34312f71ec9bb"
+    },
+    {
+      "step": 7,
+      "epoch": 8,
+      "protocol_version": "v1.1",
+      "root": "887a56de06af15e70d6fd210f2ab505e5c2dabe14a41c213891fe0c4c2b9626e"
+    },
+    {
+      "step": 8,
+      "epoch": 9,
+      "protocol_version": "v1.0",
+      "root": "d67f413962279783a8bf63dc0310505d4eaca3f0d366edac9dfc982ff1cb1a17"
+    },
+    {
+      "step": 9,
+      "epoch": 10,
+      "protocol_version": "v1.1",
+      "root": "a05d9786e2be2d72a5d207d85ee325bb86f408596fd3e0d54ef4cf98c66ed192"
+    },
+    {
+      "step": 10,
+      "epoch": 11,
+      "protocol_version": "v1.1",
+      "root": "422129e955502a7ba0e792bc0b59823a47c0494de7356986cd238f75a753e0c6"
+    },
+    {
+      "step": 11,
+      "epoch": 12,
+      "protocol_version": "v1.1",
+      "root": "538872c3b8389dd26fb24a538a50eaf669c07aaa76eb958bff19f5a15b551c63"
+    },
+    {
+      "step": 12,
+      "epoch": 13,
+      "protocol_version": "v1.1",
+      "root": "41ae3340e86dd4384e9cc7bfae4c9aec24de160a275ef6ecbd92ac4926677722"
+    },
+    {
+      "step": 13,
+      "epoch": 14,
+      "protocol_version": "v1.1",
+      "root": "bebba8b0a04a4fdda19dc78ff9039493c28a16823fff163dcd9c82f2c14bb5b3"
+    },
+    {
+      "step": 14,
+      "epoch": 15,
+      "protocol_version": "v1.1",
+      "root": "9545162c9a23a8de6cd3578b14d40983fd6322b78382a60964062b1bf90759af"
+    },
+    {
+      "step": 15,
+      "epoch": 16,
+      "protocol_version": "v1.1",
+      "root": "5211fb799db79fab90df19fce98309406902e9e88692d6f332dfc527aee7f5c6"
+    },
+    {
+      "step": 16,
+      "epoch": 17,
+      "protocol_version": "v1.1",
+      "root": "0a651a5c922da42b947f029dec801a9de7a96d76cf2caa9188bf0ecd4b936cea"
+    },
+    {
+      "step": 17,
+      "epoch": 18,
+      "protocol_version": "v1.1",
+      "root": "9437acd666e416a3e0e14ada8403d2607b9c698bd0f8fa735d0532c41a35a643"
+    },
+    {
+      "step": 18,
+      "epoch": 19,
+      "protocol_version": "v1.1",
+      "root": "904edfffdfa71e8ddc21976158467af4c63466c4eb76f8930e8a1d16481517b2"
+    },
+    {
+      "step": 19,
+      "epoch": 20,
+      "protocol_version": "v1.1",
+      "root": "6ce609e37a9940defeeae7d34404844f8860ee70afe8c1d4b2705249af7312b1"
+    },
+    {
+      "step": 20,
+      "epoch": 21,
+      "protocol_version": "v1.1",
+      "root": "763f05838132501670fc384ae611d3474a9039c50042118530878f420221cbd5"
+    },
+    {
+      "step": 21,
+      "epoch": 22,
+      "protocol_version": "v1.1",
+      "root": "1d315d48c5924d56082d04544f59e5617d4ba89e20fc689a0c2202a44bbf01fc"
+    },
+    {
+      "step": 22,
+      "epoch": 23,
+      "protocol_version": "v1.1",
+      "root": "4e84c556a0e08dfec19f5558c49d8e8feb3555d6cfff5f8f6b0d51a4ab6d5a19"
+    },
+    {
+      "step": 23,
+      "epoch": 24,
+      "protocol_version": "v1.1",
+      "root": "f95155e963a47dd56147a9be438b29f7e2328b27cfc094b2351fb1458d8344c9"
+    },
+    {
+      "step": 24,
+      "epoch": 25,
+      "protocol_version": "v1.1",
+      "root": "eb5e09bdbe699f78d532d0986e285110ae9e95c6b865b495ce7939b2a5e84270"
+    },
+    {
+      "step": 25,
+      "epoch": 26,
+      "protocol_version": "v1.1",
+      "root": "8e12bf21363544929c0fe2889cdee98d6b927a23307a6f457d41944e05e27559"
+    },
+    {
+      "step": 26,
+      "epoch": 27,
+      "protocol_version": "v1.1",
+      "root": "30edf5b35c55ea20ac6f94a8a912abc1d08d68bd7b9f69f3302c0cb567708d52"
+    },
+    {
+      "step": 27,
+      "epoch": 28,
+      "protocol_version": "v1.1",
+      "root": "dfb4859bbc86c0f1aa6350e4bdf0dd0212e0b9a310aad0aeed7424e3ca60be62"
+    },
+    {
+      "step": 28,
+      "epoch": 29,
+      "protocol_version": "v1.1",
+      "root": "294dbd30c68c5f026c7752adc4f38113db1ced46b4f39fdf334bf8da1bf52177"
+    },
+    {
+      "step": 29,
+      "epoch": 30,
+      "protocol_version": "v1.1",
+      "root": "9d9b45307ee5de2b0b82da10ff7c5839fda2d50d18bbbe5f3c3a088b11fac711"
+    },
+    {
+      "step": 30,
+      "epoch": 31,
+      "protocol_version": "v1.1",
+      "root": "382a06787448ba9d95596c6844814efc7d2895aa9ae7a392f8b6db132a0255d3"
+    },
+    {
+      "step": 31,
+      "epoch": 32,
+      "protocol_version": "v1.1",
+      "root": "eef365a59ea4a4a7cc55547a5929d653a9d5686ac057bb8fd57e51de806d4383"
+    },
+    {
+      "step": 32,
+      "epoch": 33,
+      "protocol_version": "v1.1",
+      "root": "e619585d69da84ad501efb058714e02e4e84e7dedfc989ce6d379e555b65fdd1"
+    },
+    {
+      "step": 33,
+      "epoch": 34,
+      "protocol_version": "v1.1",
+      "root": "667a15ed6292e512ec7630a53b7581cce00b04d1e21fd08c39264a3fa737c05f"
+    },
+    {
+      "step": 34,
+      "epoch": 35,
+      "protocol_version": "v1.1",
+      "root": "1a1be545f7fbc16faabd6f453c6d10b0f9e193bcf08b41cf3845658c367bad31"
+    },
+    {
+      "step": 35,
+      "epoch": 36,
+      "protocol_version": "v1.1",
+      "root": "5fdbadf74013edb4c33ba55b732e411768567534b3f7b111afe15188b60491ed"
+    },
+    {
+      "step": 36,
+      "epoch": 37,
+      "protocol_version": "v1.1",
+      "root": "e90e29b67839f85e3ceeaf01048701ffcfc737b7a3d49002dcd25b4909ffa4c6"
+    },
+    {
+      "step": 37,
+      "epoch": 38,
+      "protocol_version": "v1.1",
+      "root": "13793079afb31d1fb855b7169af0db84f523c0cd29ce4ba11c33e671497fb431"
+    },
+    {
+      "step": 38,
+      "epoch": 39,
+      "protocol_version": "v1.1",
+      "root": "092574a79a2edf13a8ccfb6ea16d8a2d3097076f04200379cffb51decc057507"
+    },
+    {
+      "step": 39,
+      "epoch": 40,
+      "protocol_version": "v1.1",
+      "root": "8d74850c06187012888ed1e5ee3b6988d3bd491b71be82e923f03915ded58c30"
+    },
+    {
+      "step": 40,
+      "epoch": 41,
+      "protocol_version": "v1.1",
+      "root": "1b7b9c56ee8e95d6531f8b7390b4580cfe53475442ffdb757337987b23168386"
+    },
+    {
+      "step": 41,
+      "epoch": 42,
+      "protocol_version": "v1.1",
+      "root": "828b666bcf72cf6745eadf3a9c07b6be110128e890d607a84650ef9baef9656b"
+    },
+    {
+      "step": 42,
+      "epoch": 43,
+      "protocol_version": "v1.1",
+      "root": "8cf38c645c50b85c934724cdf589963cd762d2710f70a398fda52d2e9a591f75"
+    },
+    {
+      "step": 43,
+      "epoch": 44,
+      "protocol_version": "v1.1",
+      "root": "1b02dc7c4781c775f0249b854f7dec731874b7eadd571d727022a414b1013fff"
+    },
+    {
+      "step": 44,
+      "epoch": 45,
+      "protocol_version": "v1.1",
+      "root": "43ac73aeed8138042d1eb23e50898fb243722d31f68e0a46b8b3429ed1d022c8"
+    },
+    {
+      "step": 45,
+      "epoch": 46,
+      "protocol_version": "v1.1",
+      "root": "3bad0607830b5d4a2299d611ac6b7e3f3380b066759c4ea466316ba7732f84cf"
+    },
+    {
+      "step": 46,
+      "epoch": 47,
+      "protocol_version": "v1.1",
+      "root": "c6e2930cebe1aa7321d602b046b55fe439ad929f196f6596adb89bcfdb7acc9d"
+    },
+    {
+      "step": 47,
+      "epoch": 48,
+      "protocol_version": "v1.1",
+      "root": "6eb76d671ca6fd202d1ef96e95c0886b756668d68bfaa6832d60bfefc2ec52ca"
+    },
+    {
+      "step": 48,
+      "epoch": 49,
+      "protocol_version": "v1.1",
+      "root": "50595d5b95932313819cb106ab50bd51bb0f2b73d0ec66d81b3dd38b6dca8019"
+    },
+    {
+      "step": 49,
+      "epoch": 50,
+      "protocol_version": "v1.1",
+      "root": "9590340ff88543565b857b407ccb2cbd04f6ad9022c7dd63790b730bc5153500"
+    }
+  ]
+}
