@@ -36,6 +36,7 @@ pub fn near_halt(validator_count: u32) -> (EpochState, Vec<EpochInput>) {
     let high = FixedPoint::from_raw(900_000); // 0.9 × SCALE
     let mut spike = EpochInput {
         updates: [None; MAX_VALIDATORS],
+        protocol_version: qash_consensus::envelope::PROTOCOL_VERSION_V1_1,
         update_count: validator_count,
     };
     for i in 0..validator_count as usize {
@@ -86,6 +87,7 @@ pub fn single_spike(
     let v = FixedPoint::from_raw(spike_raw);
     let mut spike = EpochInput {
         updates: [None; MAX_VALIDATORS],
+        protocol_version: qash_consensus::envelope::PROTOCOL_VERSION_V1_1,
         update_count: validator_count,
     };
     for i in 0..validator_count as usize {
@@ -111,6 +113,7 @@ pub fn single_spike(
 fn idle_input(validator_count: u32) -> EpochInput {
     EpochInput {
         updates: [None; MAX_VALIDATORS],
+        protocol_version: qash_consensus::envelope::PROTOCOL_VERSION_V1_1,
         update_count: validator_count,
     }
 }

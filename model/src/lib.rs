@@ -199,7 +199,7 @@ pub fn run(state: &mut EpochState, inputs: &[EpochInput]) -> Vec<StepOutput> {
 mod tests {
     use super::*;
     fn idle_input(vc: u32) -> EpochInput {
-        EpochInput { updates: [None; MAX_VALIDATORS], update_count: vc }
+        EpochInput::new(vc)
     }
 
     /// §A1: step is deterministic — same state + input → same output.
@@ -220,7 +220,7 @@ mod tests {
     fn step_absorbs_on_halt() {
         let mut state = genesis(4, None);
         // Force a halt via update_count mismatch.
-        let bad_input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 99 };
+        let bad_input = EpochInput::new(99);
         let o1 = step(&mut state, &bad_input);
         assert!(o1.halt_triggered);
         let reason = o1.halt_reason;
@@ -235,7 +235,7 @@ mod tests {
     fn run_stops_at_halt() {
         let mut state = genesis(4, None);
         // First input is bad (halt), rest would be valid.
-        let bad = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 99 };
+        let bad = EpochInput::new(99);
         let inputs = [bad, idle_input(4), idle_input(4)];
         let out = run(&mut state, &inputs);
         // Only 1 output (the halt), not 3.

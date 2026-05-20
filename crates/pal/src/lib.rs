@@ -133,6 +133,7 @@ pub mod hosted {
             Ok(EpochInput {
                 updates,
                 update_count: state.validator_count,
+                protocol_version: qash_consensus::envelope::PROTOCOL_VERSION_V1_1,
             })
         }
     }
