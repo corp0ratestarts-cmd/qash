@@ -4,10 +4,9 @@ This document captures the complete project direction from current state through
 verified execution substrate in maximum technical detail. It is the authoritative reference for any
 developer, auditor, or formal methods contributor picking up this codebase.
 
-**Last updated:** 2026-05-19
+**Last updated:** 2026-05-20
 **Current state:** All pre-v1.0 work complete — `v1.0-reference` tag is the immediate next step
-before v1.1 work begins. v1.1 item 2-A (cross-ISA CI gate) merged. Item 2-B (Envelope primitives
-and causal ordering) in review (PR #77).
+before v1.1 work begins. v1.1 items 2-A/2-B/2-C/2-D are merged (PR #75 and PR #77).
 
 > **Strategic framing:** QASH is not a blockchain. It is a **formally verified state-transition
 > substrate with coterminous governance** — a kernel-reduced, proof-carrying execution substrate
@@ -133,7 +132,7 @@ now verified on every commit, not only on the weekly `platform-determinism.yml` 
 
 ---
 
-### 2-B: Envelope Primitives and Causal Ordering ✓ IN REVIEW (PR #77)
+### 2-B: Envelope Primitives and Causal Ordering ✓ MERGED (PR #77)
 
 **Branch:** `claude/quantum-secure-hashing-6tjxq`  
 **Depends on:** 2-A
