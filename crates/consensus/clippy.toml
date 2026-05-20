@@ -1,0 +1,18 @@
+# Clippy configuration for qash-consensus (Domain A crate).
+#
+# Domain A prohibits several std types that introduce non-determinism or
+# prevent no_std compatibility. These rules make violations a hard error
+# even in test code that re-enables `extern crate std`.
+
+disallowed-types = [
+    { path = "std::collections::HashMap",     reason = "Domain A requires deterministic iteration order; use BTreeMap" },
+    { path = "std::collections::HashSet",     reason = "Domain A requires deterministic iteration order; use BTreeSet" },
+    { path = "std::time::SystemTime",         reason = "Domain A prohibits wall-clock access" },
+    { path = "std::time::Instant",            reason = "Domain A prohibits wall-clock access" },
+    { path = "std::time::Duration",           reason = "Domain A prohibits wall-clock-derived values" },
+    { path = "std::io::Read",                 reason = "Domain A prohibits I/O traits" },
+    { path = "std::io::Write",                reason = "Domain A prohibits I/O traits" },
+    { path = "std::net::TcpStream",           reason = "Domain A prohibits network I/O" },
+    { path = "std::sync::Mutex",              reason = "Domain A prohibits synchronization primitives" },
+    { path = "std::sync::RwLock",             reason = "Domain A prohibits synchronization primitives" },
+]

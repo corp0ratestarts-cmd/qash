@@ -54,12 +54,14 @@ fn genesis_state(validator_count: u32) -> EpochState {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     }
 }
 
 fn idle_input(n: u32) -> EpochInput {
     EpochInput {
         updates: [None; MAX_VALIDATORS],
+        protocol_version: qash_consensus::envelope::PROTOCOL_VERSION_V1_1,
         update_count: n,
     }
 }

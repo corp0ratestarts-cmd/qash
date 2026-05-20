@@ -6,7 +6,14 @@ license = "GPL-3.0-or-later"
 
 [dependencies]
 qash-consensus = { path = "../consensus", version = "0.1.0" }
+hmac-drbg = "0.3.0"
+sha2 = "0.9"
+sha3 = "0.10"
+ml-kem = { version = "0.3", optional = true }
+getrandom = { version = "0.2", optional = true }
+typenum = "1.20.0"
 
 [features]
 default = []
-std = []
+std = ["getrandom"]
+pqc = ["ml-kem"]

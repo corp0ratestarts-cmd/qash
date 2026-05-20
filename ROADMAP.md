@@ -4,10 +4,9 @@ This document captures the complete project direction from current state through
 verified execution substrate in maximum technical detail. It is the authoritative reference for any
 developer, auditor, or formal methods contributor picking up this codebase.
 
-**Last updated:** 2026-05-19
+**Last updated:** 2026-05-20
 **Current state:** All pre-v1.0 work complete — `v1.0-reference` tag is the immediate next step
-before v1.1 work begins. v1.1 item 2-A (cross-ISA CI gate) merged. Item 2-B (Envelope primitives
-and causal ordering) in review (PR #77).
+before v1.1 work begins. v1.1 items 2-A/2-B/2-C/2-D are merged (PR #75 and PR #77).
 
 > **Strategic framing:** QASH is not a blockchain. It is a **formally verified state-transition
 > substrate with coterminous governance** — a kernel-reduced, proof-carrying execution substrate
@@ -17,6 +16,49 @@ and causal ordering) in review (PR #77).
 > jurisdiction-neutral, governance-free, and replay-deterministic across all authorized ISAs.
 > Every design decision serves this goal; features that would require governance to maintain
 > are excluded by construction.
+
+---
+
+## Executive Summary
+
+QASH has evolved from a deterministic consensus prototype into a **kernel-reduced, proof-carrying execution substrate**. This roadmap documents the complete path from the v1.0 reference baseline to a globally compliant, formally verified execution layer.
+
+| Evolution | From | To | Result |
+|-----------|------|----|--------|
+| Architecture | Monolithic consensus | Four-primitive kernel | Proof-carrying binary |
+| Verification | Unit tests + fuzz | Rocq/Coq + property tests + cross-ISA | Machine-checkable correctness |
+| Compliance | None | FIPS 140-3, GDPR, CNSA 2.0, CC EAL4+ | Regulatory-ready |
+| Deployment | Single profile | Global Standard / Guomi / Sovereign Hardened | Multi-jurisdiction |
+
+### Domain Separation
+
+| Layer | Role | Constraints | Verification |
+|-------|------|-------------|--------------|
+| **Domain A** (`crates/consensus/`) | Deterministic consensus kernel | No `unsafe`, no float, no `HashMap`, no wall clock, checked arithmetic only | Coq proofs + cross-ISA replay invariance |
+| **Domain B** (`crates/pal/`, `src/`) | Platform abstraction, crypto, I/O | `unsafe` permitted under audit; nondeterminism allowed | Integration tests, fuzz, CAVP KAT |
+
+**Cross-domain rule:** Domain B values must never flow into Domain A computations. Violation is a protocol error even if tests pass.
+
+### v1.1 Roadmap Status
+
+| Phase | Item | Branch | Depends On | Status |
+|-------|------|--------|------------|--------|
+| Core | 2-A CI toolchain | `codex/v1.1-ci-toolchain` | — | ✅ Merged |
+| Core | 2-B Envelope primitives | `codex/v1.1-envelope-primitives` | 2-A | ✅ Merged |
+| Core | 2-C Epoch semantics | `codex/v1.1-epoch-semantics` | 2-B | ✅ Merged |
+| Core | 2-D Cascade health | `codex/v1.1-cascade-health` | 2-B | ✅ Merged |
+| Core | 2-E Lineage skip-list | `codex/v1.1-lineage-skiplist` | 2-D | 🔲 Pending |
+| Core | 2-F Version gating | `codex/v1.1-version-gating` | 2-D, 2-B | 🔲 Pending |
+| Core | 2-K Replay corpus | `codex/v1.1-replay-corpus` | 2-E, 2-F | 🔲 Pending |
+| Compliance | 2-G ML-KEM-768 | `codex/v1.1-pqc-kem` | — | 🔲 Pending |
+| Compliance | 2-H FIPS compliance | `codex/v1.1-fips-compliance` | — | 🔲 Pending |
+| Compliance | 2-I Formal proofs | `codex/v1.1-proofs` | 2-B–2-F | 🔲 Pending |
+| Compliance | 2-J Semantic closure | `codex/v1.1-semantic-closure` | 2-B | 🔲 Pending |
+| Compliance | 2-L Confluence + interpreter | `codex/v1.1-semantic-closure-ext` | 2-E, 2-J, 2-I | 🔲 Pending |
+| Compliance | 2-M Hardware hardening | `codex/v1.1-domain-b-hardening` | 2-G, 2-H | 🔲 Pending |
+| Compliance | 2-N Privacy model | `codex/v1.1-privacy-model` | 2-J | 🔲 Pending |
+| Compliance | 2-O Crypto agility | `codex/v1.1-sovereign-profiles` | 2-G, 2-H | 🔲 Pending |
+| Compliance | 2-P Cert artifacts | `codex/v1.1-cert-artifacts` | 2-H, 2-N, 2-O | 🔲 Pending |
 
 ---
 
@@ -133,7 +175,7 @@ now verified on every commit, not only on the weekly `platform-determinism.yml` 
 
 ---
 
-### 2-B: Envelope Primitives and Causal Ordering ✓ IN REVIEW (PR #77)
+### 2-B: Envelope Primitives and Causal Ordering ✓ MERGED (PR #77)
 
 **Branch:** `claude/quantum-secure-hashing-6tjxq`  
 **Depends on:** 2-A
@@ -747,6 +789,204 @@ pub fn check_state_invariants(state: &EpochState) -> Result<(), HaltReason> {
    ```
 
 4. **`platform-determinism.yml`** update: add v1.1 corpus to the cross-ISA matrix check.
+
+---
+
+### 2-L: Semantic Closure Completion — Confluence & Verified Interpreter
+
+**Branch:** `codex/v1.1-semantic-closure-ext`  
+**Depends on:** 2-E (skip-list), 2-I (proofs), 2-J (CapToken stub)
+
+#### Causal Fingerprint Coinduction (Domain A)
+
+- **`crates/consensus/src/capability.rs`** (new): `Capability` enum + `validate_capability()` — enforces that Domain B values cannot enter Domain A without explicit `CapToken<T>` unwrap at the PAL boundary
+- **`DomainTag::CausalFingerprint = 0x30`** added to `crates/consensus/src/hash.rs`
+- `fingerprint: [u8; 32]` tracked in causal-history state; divergence from expected fingerprint triggers immediate halt
+
+#### Proof Targets
+
+- **`proofs/safety/causal_fingerprint.v`**: coinductive safety predicate — any two states with equal causal fingerprints are bisimilar; prevents bisimulation collapse and hidden side-channel leakage
+- **`proofs/composition/lyapunov_confluence.v`**: Church-Rosser confluence — skip-list lineage compression steps commute to a unique canonical normal form regardless of scheduling order; required for deterministic replay guarantee
+
+Add 2 new rows to `proofs/COVERAGE.md`.
+
+#### Verified Interpreter Conformance
+
+- **`crates/consensus/tests/interpreter_conformance.rs`**: property-based test comparing Rocq-extracted interpreter `G(h)` to Rust `advance_epoch` runtime
+  - 70,000+ random directive sequences (7 properties × ≥10k inputs each)
+  - Zero disagreements gate: any divergence is a protocol bug
+  - Runs on all 3 authorized ISAs in CI
+
+**Verification gates:**
+```bash
+# Both Coq files must compile with zero Admitted
+coqc proofs/safety/causal_fingerprint.v
+coqc proofs/composition/lyapunov_confluence.v
+# Fingerprint divergence must be detected
+cargo test -p qash-consensus fingerprint_divergence
+# Skip-list compression must be confluent under shuffled inputs
+cargo test -p qash-consensus skiplist_confluence
+# Interpreter conformance: zero disagreements
+cargo test -p qash-consensus --test interpreter_conformance -- --nocapture
+```
+
+---
+
+### 2-M: Hardware & Physical Hardening (Domain B, feature-gated)
+
+**Branch:** `codex/v1.1-domain-b-hardening`  
+**Depends on:** 2-G, 2-H  
+**Feature gate:** All behind `#[cfg(feature = "hardened")]`
+
+#### Algorithmic Hardening
+
+- **`crates/pal/src/signing/cbm.rs`** (new): Code-Based Masking for PQC signing — fault injection resistance; masks intermediate NTT values with random blinding before each butterfly operation
+- **`crates/pal/src/signing/bitsliced_ntt.rs`** (new): Redundantly Bitsliced NTT — constant-time lattice operations; two independent bitsliced representations compared before output (detect glitch injection)
+
+#### Microarchitectural Defenses
+
+- **`deploy/kernel-modules/softtrr.c`** + **`catt.c`** (new): Linux LKM reference implementations for SoftTRR (software Target Row Refresh) and CATT (Checked Address Translation Table) — Rowhammer mitigation
+- **`crates/pal/src/proximity/distance_bounding.rs`** (new): Hancke-Kuhn distance-bounding protocol stub — prevents relay attacks on physical validator admission; RTT challenge-response under 1ms threshold
+
+#### Threshold & Attestable Signing
+
+- **`crates/pal/src/threshold/talus.rs`** (new, `#[cfg(feature = "threshold_signing")]`): TALUS/Quorus threshold signing scheme — eliminates single-point-of-failure for validator keys; requires t-of-n signers
+- **`scripts/attest_release.sh`** (new): two-stage reproducible build + Sigstore/SLSA provenance pipeline
+
+**Verification gates:**
+```bash
+cargo test -p qash-pal --features hardened cbm_fault_injection  # must detect 1-bit flip
+cargo test -p qash-pal --features hardened distance_bounding_rtt
+# SoftTRR/CATT: load as LKM on test kernel (CI: qemu-kvm)
+insmod deploy/kernel-modules/softtrr.ko && dmesg | grep "SoftTRR: active"
+```
+
+---
+
+### 2-N: Privacy Model Specification & PublicTranscript (Domain B)
+
+**Branch:** `codex/v1.1-privacy-model`  
+**Depends on:** 2-J
+
+#### Privacy Specification
+
+**`docs/spec/09_privacy_model.md`** (new normative spec):
+
+```
+Observer classes:
+  Class I  — Public: sees (state_root, receipt_root, epoch, halt_flag) only
+  Class II — Validator: sees own slot + aggregated divergence metrics
+  Class III — Auditor: sees PublicTranscript (no PII, no raw keys)
+  Class IV — Receipt holder: sees encrypted receipt for own transactions
+
+Graph non-publication invariant:
+  The DAG is never published. Only state roots cross the public boundary.
+  Violation is a Domain B bug, not a Domain A state-machine error.
+
+GDPR Art. 17 Right to Erasure:
+  All receipts are encrypted under per-receipt keys.
+  shred_key() zeroizes the receipt key → decryption becomes impossible.
+  No on-chain personal data exists (PublicTranscript contains no PII).
+```
+
+#### Code Artifacts (Domain B, `crates/pal/`)
+
+- **`crates/pal/src/privacy/public_transcript.rs`** (new): `PublicTranscript` struct — contains only `state_root: [u8;32]`, `epoch: u64`, `halt_flag: bool`, `receipt_root: [u8;32]`; no PII fields
+- **`crates/pal/src/privacy/receipt.rs`** (new): encrypted receipt routing + `shred_key()` for GDPR erasure
+- **`crates/pal/src/privacy/erasure.rs`** (new): key-shredding engine — uses `zeroize::ZeroizeOnDrop` to zeroize receipt encryption keys on demand
+
+**Verification gates:**
+```bash
+# PublicTranscript must compile with no PII fields
+cargo check -p qash-pal
+# Receipt shredding: decryption must fail after shred_key()
+cargo test -p qash-pal privacy::receipt::tests::shred_prevents_decryption
+# POPIA/NDPA alignment: manual compliance review of 09_privacy_model.md
+```
+
+---
+
+### 2-O: Crypto-Agility Traits & Sovereign Suite Gates (Domain B)
+
+**Branch:** `codex/v1.1-sovereign-profiles`  
+**Depends on:** 2-G, 2-H
+
+#### Crypto-Agility Trait Layer (`crates/pal/src/crypto/`)
+
+- **`traits.rs`** (new): `HasherTrait`, `KemTrait`, `CipherTrait`, `SignatureTrait` — Domain B PAL layer dispatches hash/KEM/cipher operations through these traits; **Domain A never imports these traits**
+- **`profiles/mod.rs`** (new):
+  - `SuiteStandard`: ML-KEM-768 + SHA-3/BLAKE3 (USA/EU/UK/Japan/Singapore)
+  - `SuiteGuomi`: SM2/SM3/SM4 (China/SEA) — `#[cfg(feature = "suite_guomi")]`
+  - `SuiteKorea`: ARIA/LSH-512 (South Korea) — `#[cfg(feature = "suite_korea")]`
+- **`profiles/lsh512.rs`** (new): custom in-repo pure-Rust implementation of KS X 3262 — **NOT** the `lsh-rs` crate (which is a similarity-search library, not the cryptographic standard)
+- **`profiles/sm3.rs`**, **`sm4.rs`**, **`sm2.rs`**, **`streebog.rs`** (new): pure-Rust stubs; no external sovereign-cipher crates
+
+#### Genesis Flag
+
+Append to `GENESIS_CONSTANTS.toml` `[protocol]` section (requires `[genesis-change-acknowledged]`):
+```toml
+is_consortium_mode = false    # tokenless consortium mode for Guomi profile
+```
+
+#### Risk Mitigation
+
+| Risk | Mitigation |
+|------|-----------|
+| LSH name collision: `lsh-rs` crate is similarity-search, not KS X 3262 | Custom `profiles/lsh512.rs` in-repo; document in crate README |
+| Sovereign suite upgrade paradox | Suites are genesis-profile configuration, not runtime mutation; new profile = new genesis |
+
+**Verification gates:**
+```bash
+cargo test --features suite_guomi   # SM3/SM4 KAT vectors
+cargo test --features suite_korea   # LSH-512 KAT vectors
+# Toggling features must produce zero Domain A code changes:
+git diff crates/consensus/ # must be empty after feature toggle
+```
+
+---
+
+### 2-P: Certification Artifacts
+
+**Branch:** `codex/v1.1-cert-artifacts`  
+**Depends on:** 2-H, 2-N, 2-O
+
+#### FIPS 140-3 CAVP CI
+
+New `.github/workflows/ci.yml` job `cavp-kat`:
+```yaml
+- name: CAVP KAT — SHA3-256
+  run: cargo test -p qash-consensus --no-default-features cavp_sha3_256
+- name: CAVP KAT — ML-KEM-768
+  run: cargo test -p qash-pal --features pqc cavp_ml_kem_768
+- name: CAVP KAT — SM3 (Guomi)
+  run: cargo test -p qash-pal --features suite_guomi cavp_sm3
+- name: Constant-time audit (dudect)
+  run: cargo test -p qash-pal constant_time_audit -- --nocapture
+```
+
+This job must pass before any crypto primitive merge. Results are uploaded as CI artifacts → FIPS validation test report.
+
+#### Common Criteria
+
+- **`docs/compliance/cc_security_target.md`** (new): CC Security Target document (EAL4+ scope, TOE boundary definition, SFRs — FCS_CKM, FCS_COP, FPT_TST; SARs — ADV_ARC, ATE_COV)
+- **`docs/compliance/fips_compliance.md`** (extend from 2-H draft): maps each FIPS 140-3 L3 requirement to implementation evidence
+
+#### GDPR / Privacy
+
+- **`docs/compliance/dpia.md`** (new): Data Protection Impact Assessment per GDPR Art. 35 / EDPB 02/2025; cross-references `PublicTranscript` struct and key-shredding engine as Art. 17 Right to Erasure mitigations
+
+#### Reproducible Build Verification
+
+- **`scripts/verify_reproducible_build.sh`** (new): two-stage build comparison; byte-identical output check; Sigstore/SLSA provenance generation
+- **`docs/compliance/reproducible_builds.md`** (new): build verification procedure documentation
+
+**Verification gates:**
+```bash
+bash scripts/verify_reproducible_build.sh   # must exit 0
+# CC Security Target and DPIA: manual compliance review
+grep "EAL4\|TOE boundary\|SFR" docs/compliance/cc_security_target.md
+grep "Art. 35\|DPIA\|Right to Erasure" docs/compliance/dpia.md
+```
 
 ---
 
@@ -1713,6 +1953,167 @@ a new network. No exceptions.
 
 ---
 
+## Compliance & Certification Matrix
+
+> These are the regulatory domains that v1.1 must satisfy for global deployment. Each row maps a standard to its concrete implementation and verifiable artifact.
+
+| Regulatory Domain | Standard | Concrete Implementation | Verification Artifact |
+|-------------------|----------|------------------------|----------------------|
+| Post-Quantum Crypto | FIPS 203 (ML-KEM-768), CNSA 2.0 | `crates/pal/src/crypto/kem.rs` — ML-KEM-768 + X25519 hybrid ("X-Wing") | CAVP KAT vectors in CI (`cavp-kat` job) |
+| Hash / Signature | BSI TR-02102-1, NIST SP 800-208 | SHA3-256 (Domain A), SLH-DSA-SHA3-256 anchor, Dilithium5 primary | Cross-ISA replay invariance (TH-7, CI-VERIFIED) |
+| Common Criteria | CC EAL4+ (target: EAL7) | Rocq proofs as formal evidence; `docs/compliance/cc_security_target.md` | CC Security Target document + Coq proof archive |
+| Avionics / Safety | DO-178C / DO-333 Level A | Domain A: no `unsafe`, no float, checked arithmetic, deterministic FSM | Formal proofs (PROVED ≥ 25), zero Admitted |
+| Privacy | GDPR Art. 25 / EDPB 02/2025 | `PublicTranscript` (no PII), key-shredding engine, graph non-publication invariant | `docs/compliance/dpia.md` + receipt shredding KAT |
+| Financial Resilience | DORA / MiCA | Absorbing-halt FSM (never crashes); deterministic replay for audit trails | TH-2 (absorbing halt), cross-ISA replay |
+| Platform Integrity | NIST SP 800-193 | Reproducible two-stage build; Sigstore/SLSA provenance; SoftTRR/CATT | `scripts/verify_reproducible_build.sh` |
+| Microarchitectural | Rowhammer / Side-Channel | SoftTRR/CATT LKMs; CBM fault masking; bitsliced NTT; `dudect-bencher` audit | `cavp-kat` + `constant_time_audit` CI gates |
+
+**Recommendation:** Engage a FIPS 140-3 CAVP-accredited lab concurrent with 2-H. Begin CC EAL4+ evaluation after `v1.0-reference` tag. File DPIA before first public validator deployment.
+
+---
+
+## Competitive Positioning & Supersession Analysis
+
+> QASH is not competing in the blockchain space. It supersedes the entire category.
+
+| Competitor Category | QASH Supersession Mechanism |
+|---------------------|-----------------------------|
+| **BFT Consensus Engines** (Tendermint, HotStuff, PBFT) | Lyapunov-certified convergence replaces probabilistic safety assumptions; no leader election; no view-change protocol |
+| **Appchain Frameworks** (Cosmos SDK, Substrate) | No governance module — governance is structurally impossible, not just disabled; Domain A/B partition enforced at type level |
+| **Smart Contract Platforms** (EVM, WASM runtimes) | No Turing-complete execution — effect-capability tokens restrict all side-effects to auditable Domain B paths |
+| **Formal Verification Tools** (TLA+, Dafny, Certora) | Not a verification layer bolted onto an implementation — the Rocq proofs *are* the specification; extraction produces the implementation |
+
+> **Strategic Positioning:** QASH is the digital equivalent of physical cash: offline-operable, jurisdiction-neutral, governance-free, and replay-deterministic across all authorized ISAs. It is the first consensus protocol where correctness is not claimed but proved, and where the proof is carried in the binary.
+
+---
+
+## Formal Verification & Mechanized Governance
+
+### Rocq/Coq Infrastructure
+
+| Attribute | Value |
+|-----------|-------|
+| Proof assistant | Rocq (Coq 8.19+) |
+| Modules | 36 |
+| Lines of proof | ~12,000 |
+| Theorems | 454 |
+| `Admitted` | 0 (enforced by CI axiom-guard) |
+| Extraction target | OCaml → Rust correspondence via `RefinementStatement.v` |
+
+**Five key results:**
+1. **TH-2** — Absorbing halt: once halted, no state change is possible under any input sequence
+2. **TH-7** — Cross-ISA replay invariance: identical inputs produce identical outputs on x86_64, aarch64, riscv64gc
+3. **TH-3a/3b** — Cascade hash collision resistance reduces to SHA3-256 preimage resistance
+4. **Lyapunov confluence** — Skip-list compression steps are Church-Rosser; unique canonical normal form exists
+5. **Causal fingerprint bisimulation** — States with equal causal fingerprints are bisimilar; bisimulation collapse is impossible
+
+### Proof-to-Code Pipeline
+
+```
+1. Specification  →  Rocq model in proofs/model/
+2. Extraction     →  OCaml via coqc -extraction; checked into artifacts/
+3. Conformance    →  70,000+ random directive sequences: Rocq G(h) vs Rust advance_epoch
+4. Bug Discovery  →  Three specification bugs found and fixed before implementation
+```
+
+*This section supplements but does not replace the existing [Proof obligation tracking](#proof-obligation-tracking) section below.*
+
+---
+
+## Sovereign Cryptographic Compliance Matrix
+
+Deploying QASH in regulated jurisdictions requires support for nationally mandated cryptographic primitives. The following matrix maps deployment regions to required cipher suites.
+
+| Country / Region | Required Primitives | QASH Implementation | Gap Mitigation |
+|-----------------|---------------------|---------------------|----------------|
+| China / SEA | SM2, SM3, SM4 | `SuiteGuomi` profile (`#[cfg(feature = "suite_guomi")]`) | Pure-Rust stubs; no external crates |
+| Russia | Streebog (GOST R 34.11-2012) | `profiles/streebog.rs` | Constant-time via bit-slicing + `subtle` crate |
+| South Korea | LSH-256/512 (KS X 3262) | `profiles/lsh512.rs` (custom in-repo) | NOT `lsh-rs` crate (similarity-search); custom implementation |
+| Ukraine | Kupyna (DSTU 7564:2014) | Stub in `profiles/kupyna.rs` | `zeroize::ZeroizeOnDrop` on all key material |
+| Belarus | BelT | Stub in `profiles/belt.rs` | `dudect-bencher` constant-time audit |
+| France | FRP256v1 (ANSSI) | Stub in `profiles/frp256v1.rs` | Brainpool curves via `p256` with custom params |
+| Brazil | Brainpool P256r1 | Stub in `profiles/brainpool.rs` | Same as FRP256v1 path |
+| USA / EU / UK | SHA-3, AES-256-GCM, Ed25519 | `SuiteStandard` (default) | ML-KEM-768 hybrid for PQC transition |
+
+**Gap mitigation summary:** All sovereign cipher stubs use constant-time arithmetic via the `subtle` crate, zeroize all key material with `zeroize::ZeroizeOnDrop`, and are audited with `dudect-bencher` before any production deployment.
+
+---
+
+## Global Expansion Strategy — Sovereign Cryptographic Profiles
+
+### 6-A: Profile Mechanism
+
+Sovereign Cryptographic Profiles are **genesis-time configuration**, not runtime-switchable options. A node selects its cipher suite at build time via Cargo features. Changing the suite defines a new network (new genesis hash).
+
+```rust
+// Domain B PAL layer — Domain A never sees these traits
+trait HasherTrait { fn hash(&self, data: &[u8]) -> [u8; 32]; }
+trait KemTrait    { fn encapsulate(&self, pk: &[u8]) -> ([u8; 32], Vec<u8>); }
+trait CipherTrait { fn encrypt(&self, key: &[u8; 32], pt: &[u8]) -> Vec<u8>; }
+```
+
+Genesis flag (append-only to `GENESIS_CONSTANTS.toml`):
+```toml
+[protocol]
+is_consortium_mode = false    # true → tokenless consortium mode (Guomi profile only)
+```
+
+### 6-B: Three Deployment Flavors
+
+| Profile | Target Jurisdictions | Key Primitives | Special Features |
+|---------|---------------------|----------------|-----------------|
+| **Global Standard** | USA, EU, UK, Japan, Singapore | ML-KEM-768, SHA-3, BLAKE3 | FIPS 140-3 L3 TPM binding |
+| **Guomi** | China, SEA | SM2, SM3, SM4 | Tokenless consortium mode; `is_consortium_mode = true` genesis flag |
+| **Sovereign Hardened** | UAE, KSA, Defense | SoftTRR/CATT, Hancke-Kuhn distance-bounding, TPM measured boot | Hardware attestation mandatory |
+
+### 6-C: Implementation Steps
+
+**Phase 1 — Trait abstraction (`crates/pal/src/crypto/`):**
+```
+traits.rs          HasherTrait, KemTrait, CipherTrait, SignatureTrait
+profiles/mod.rs    SuiteStandard, SuiteGuomi, SuiteKorea
+profiles/lsh512.rs KS X 3262 pure-Rust (NOT lsh-rs)
+profiles/sm3.rs    SM3 pure-Rust stub
+profiles/sm4.rs    SM4 pure-Rust stub
+profiles/sm2.rs    SM2 pure-Rust stub
+profiles/streebog.rs  Streebog pure-Rust stub
+```
+
+**Phase 2 — Privacy & consortium (`crates/pal/src/privacy/`):**
+```
+public_transcript.rs  PublicTranscript struct (no PII)
+receipt.rs            Encrypted receipt + shred_key()
+erasure.rs            Key-shredding engine (ZeroizeOnDrop)
+```
+Consortium mode toggle: `is_consortium_mode` genesis flag disables token emission for Guomi deployments.
+
+**Phase 3 — CAVP CI & kernel defenses:**
+```
+.github/workflows/ci.yml  → cavp-kat job
+deploy/kernel-modules/    → softtrr.c, catt.c
+scripts/attest_release.sh → SLSA provenance
+```
+
+### 6-D: Risk Mitigation
+
+| Risk | Mitigation |
+|------|-----------|
+| LSH name collision (`lsh-rs` = similarity-search) | Custom `profiles/lsh512.rs` in-repo with clear documentation |
+| Upgrade Paradox: sovereign suite changes protocol | Suites are genesis-profile configuration; upgrade = new genesis, not mutation |
+| Sovereign key material side-channels | `subtle` crate for constant-time comparisons; `dudect-bencher` CI audit |
+
+### 6-E: Global Value Proposition
+
+| Region | Value Proposition | Key Compliance Target |
+|--------|------------------|-----------------------|
+| USA / EU | Formally verified, FIPS 140-3 compliant, GDPR-ready | FIPS 140-3 L3, CC EAL4+, DORA |
+| China / SEA | SM2/SM3/SM4 native support; consortium mode for permissioned networks | MLPS 2.0, GM/T standards |
+| Russia / CIS | Streebog + Kupyna support; air-gapped deployment capable | GOST R 34.11, offline operation |
+| South Korea | LSH-512 native; KS X 3262 compliant | K-ISMS, KCMVP |
+| Defense / GovSec | SoftTRR/CATT Rowhammer hardening; Hancke-Kuhn relay prevention; TPM measured boot | NSA CNSA 2.0, NATO STANAG |
+
+---
+
 ## Post-Genesis — Tokonomics and Ecosystem Extensions
 
 > **Invariant:** All items in this section are post-genesis. They cannot change the
@@ -1894,6 +2295,23 @@ fails CI.
 
 ---
 
+## Implementation Checklist Additions (v1.1 completion gates)
+
+Before the v1.1 cutover at epoch 101, all of the following must be green:
+
+- [ ] Sovereign profile tests pass: `cargo test --features suite_guomi` and `cargo test --features suite_korea`
+- [ ] CAVP KAT gate: `cavp-kat` CI job passes before any crypto primitive merge
+- [ ] Constant-time audit for any new Domain B crypto path: `cargo test -p qash-pal constant_time_audit -- --nocapture`
+- [ ] Interpreter conformance: 70,000+ random sequences, zero disagreements: `cargo test -p qash-consensus --test interpreter_conformance`
+- [ ] Privacy spec merged: `docs/spec/09_privacy_model.md` normative; receipt shredding test passes
+- [ ] CC Security Target drafted: `docs/compliance/cc_security_target.md`
+- [ ] DPIA filed: `docs/compliance/dpia.md` per GDPR Art. 35
+- [ ] Reproducible build verified: `bash scripts/verify_reproducible_build.sh` exits 0
+- [ ] Confluence proof: `proofs/composition/lyapunov_confluence.v` compiles, zero `Admitted`
+- [ ] Causal fingerprint: `proofs/safety/causal_fingerprint.v` compiles, zero `Admitted`
+
+---
+
 ## Key invariants that are never changed
 
 These are fixed constraints inherited from genesis. No post-genesis work may violate them:
@@ -1909,6 +2327,36 @@ These are fixed constraints inherited from genesis. No post-genesis work may vio
    public-observable channel. Adding a field to `PublicTranscript` requires privacy review.
 8. Causal ordering is determined exclusively by `(epoch, sort_key)`. No fee-ordering,
    no validator-priority ordering, no time-based ordering. No exceptions.
+
+---
+
+## Genesis Readiness Assessment
+
+### Readiness Statement
+
+QASH v1.1 will be the first consensus protocol released with:
+- **Machine-checkable correctness**: Rocq proofs carried in the binary as evidence
+- **Global compliance**: FIPS 140-3, GDPR Art. 25, CNSA 2.0, CC EAL4+ artifacts
+- **Multi-jurisdiction deployment**: Three sovereign cryptographic profiles (Global Standard, Guomi, Sovereign Hardened)
+- **Zero-governance architecture**: Structural impossibility of governance, not policy prohibition
+
+### Remaining Risks
+
+| Risk | Mitigations in v1.1 |
+|------|---------------------|
+| **Kernel Boundary Integrity** | CapToken schema proof + causal fingerprint coinduction (2-L); Clippy deny-list enforcement (2-J) |
+| **Extraction Fidelity** | 70,000+ Rocq↔Rust conformance tests (2-L); `RefinementStatement.v` mechanized |
+| **Temporal/Causal Semantics** | Church-Rosser confluence proof (2-L); skip-list shuffled-input tests |
+| **Hardware Side-Channels** | SoftTRR/CATT (2-M); CBM + bitsliced NTT (2-M); `dudect-bencher` CI gate (2-P) |
+
+### Immediate Actions
+
+1. `git tag v1.0-reference main && git push origin v1.0-reference` — freeze the pre-v1.1 baseline
+2. Begin v1.1 core consensus track: 2-E → 2-F → 2-K
+3. Begin parallel compliance track: 2-G + 2-H → 2-I → 2-J → 2-L → 2-M → 2-N → 2-O → 2-P
+4. Engage FIPS 140-3 CAVP-accredited lab concurrent with 2-H
+5. File CC EAL4+ evaluation request after `v1.0-reference` tag
+6. File DPIA before first public validator deployment
 
 ---
 

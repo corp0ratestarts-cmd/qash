@@ -66,7 +66,7 @@ fn run_and_verify(mut state: EpochState, input: EpochInput, vc: u32) {
             let frozen_epoch = state.epoch;
             let frozen_root = state.state_root;
 
-            let idle = EpochInput { updates: [None; MAX_VALIDATORS], update_count: vc };
+            let idle = EpochInput::new(vc);
             let r2 = advance_epoch(&mut state, &idle, &[]);
             assert_eq!(r2, Err(halt));
             assert_eq!(state.epoch, frozen_epoch);
@@ -106,6 +106,7 @@ fn main() {
                     nonces: [0u64; MAX_VALIDATORS],
                     validator_ids: [[0u8; 48]; MAX_VALIDATORS],
                     cascade_health: 0,
+                    causal_fingerprint: [0u8; 32],
                     state_root: [0u8; 32],
                 };
 
@@ -114,7 +115,7 @@ fn main() {
                     state.convergence_window.push(FixedPoint::from_raw(d));
                 }
 
-                let mut input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: vc };
+                let mut input = EpochInput::new(vc);
                 for i in 0..vc as usize {
                     input.updates[i] = Some(ValidatorUpdate {
                         divergence_new: FixedPoint::from_raw(d),
@@ -152,6 +153,7 @@ fn main() {
                     nonces: [0u64; MAX_VALIDATORS],
                     validator_ids: [[0u8; 48]; MAX_VALIDATORS],
                     cascade_health: 0,
+                    causal_fingerprint: [0u8; 32],
                     state_root: [0u8; 32],
                 };
 
@@ -162,7 +164,7 @@ fn main() {
                     state.convergence_window.push(FixedPoint::from_raw(wv));
                 }
 
-                let mut input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: vc };
+                let mut input = EpochInput::new(vc);
                 for i in 0..vc as usize {
                     input.updates[i] = Some(ValidatorUpdate {
                         divergence_new: FixedPoint::from_raw(d),

@@ -34,6 +34,8 @@
 | `blinding/blinding_non_interference.v` | Compiles | Blinding non-interference (cascade_prf_security assumption) |
 | `model/Model.v` | Compiles | th3a_no_halt_within_epsilon, th3b_halt_above_epsilon, step_halted_is_identity, run_halted_is_identity |
 | `model/RefinementStatement.v` | Compiles | RT1_successful_step, RT2_halt_step, RT3_halt_absorbing_epoch, RT4_halt_absorbing_flag, rust_RT1 … rust_RT4 (via AX2_rust_refinement); see docs/refinement.md |
+| `ordering/causal_ordering.v` | Compiles | CO-1 sort_key_deterministic; CO-2 epoch_sortkey_lt_irrefl/trans/total; CO-3 sort_order_deterministic; validators_agree_on_sort_key |
+| `ordering/compatibility_window.v` | Compiles | CW-1 compatibility_window_bound; CW-2 version_v1_0_accepted_before_window; CW-3 version_v1_0_rejected_after_window; CW-4 version_v1_1_always_accepted; CW-5 window_closure_monotone; v1_0_rejected_all_future |
 | `model/Extract.v` | Manual only (not CI) | Extraction pipeline to OCaml; run coqc manually to produce model_extracted.ml |
 | `_wip/absorbing_halt.v.draft` | Archived draft | Superseded by `safety/absorbing_halt.v` |
 | `_wip/encode_injectivity.v.draft` | Archived draft | Superseded by `contractivity/encode_injectivity.v` |

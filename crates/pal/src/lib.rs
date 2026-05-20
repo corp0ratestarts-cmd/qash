@@ -1,3 +1,6 @@
+/// Domain B cryptographic primitives (KEM, DRBG).
+pub mod crypto;
+
 /// Platform Abstraction Layer (PAL) traits.
 pub trait Time {
     fn epoch_counter() -> u64;
@@ -11,6 +14,79 @@ pub trait Attest {
 }
 pub trait Halt {
     fn absorbing_reset() -> !;
+}
+
+#[cfg(feature = "std")]
+pub mod smartcard {
+    use std::fmt;
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct TokenDescriptor {
+        pub provider: &'static str,
+        pub slot_id: u64,
+        pub label: String,
+        pub serial: String,
+        pub mechanisms: Vec<&'static str>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct SignRequest {
+        pub key_label: String,
+        pub payload: Vec<u8>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum SmartcardError {
+        TokenUnavailable,
+        KeyNotFound,
+        InvalidInput(&'static str),
+        Provider(String),
+    }
+
+    impl fmt::Display for SmartcardError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            match self {
+                SmartcardError::TokenUnavailable => write!(f, "token unavailable"),
+                SmartcardError::KeyNotFound => write!(f, "key not found"),
+                SmartcardError::InvalidInput(msg) => write!(f, "invalid input: {msg}"),
+                SmartcardError::Provider(msg) => write!(f, "provider error: {msg}"),
+            }
+        }
+    }
+
+    pub trait KeyStore {
+        fn token_descriptor(&self) -> Result<TokenDescriptor, SmartcardError>;
+        fn sign(&self, req: &SignRequest) -> Result<Vec<u8>, SmartcardError>;
+    }
+
+    /// Minimal in-memory adapter that models a Domain-B token provider.
+    /// This is intentionally deterministic and test-friendly until a PKCS#11
+    /// backend is wired in.
+    #[derive(Debug, Clone)]
+    pub struct InMemoryKeyStore {
+        pub descriptor: TokenDescriptor,
+        pub key_label: String,
+    }
+
+    impl KeyStore for InMemoryKeyStore {
+        fn token_descriptor(&self) -> Result<TokenDescriptor, SmartcardError> {
+            Ok(self.descriptor.clone())
+        }
+
+        fn sign(&self, req: &SignRequest) -> Result<Vec<u8>, SmartcardError> {
+            if req.payload.is_empty() {
+                return Err(SmartcardError::InvalidInput("payload cannot be empty"));
+            }
+            if req.key_label != self.key_label {
+                return Err(SmartcardError::KeyNotFound);
+            }
+            // Deterministic pseudo-signature placeholder for PAL integration.
+            let mut out = b"QASH-SIGNATURE\0".to_vec();
+            out.extend_from_slice(req.key_label.as_bytes());
+            out.extend_from_slice(&req.payload);
+            Ok(out)
+        }
+    }
 }
 
 #[cfg(feature = "std")]
@@ -133,6 +209,7 @@ pub mod hosted {
             Ok(EpochInput {
                 updates,
                 update_count: state.validator_count,
+                protocol_version: qash_consensus::envelope::PROTOCOL_VERSION_V1_1,
             })
         }
     }
