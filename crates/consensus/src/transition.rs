@@ -104,6 +104,10 @@ pub struct EpochState {
     pub cascade_health: u32,
     /// This epoch's committed state root; used as prior_root for the next epoch.
     pub state_root: [u8; 32],
+    /// v1.1 causal fingerprint: running H_domain chain over (prev_fingerprint || epoch || state_root).
+    /// Tracks full causal history; equal fingerprints ⟹ bisimilar states (cf. proofs/safety/causal_fingerprint.v).
+    /// Not included in the state_root commitment — parallel divergence-detection chain.
+    pub causal_fingerprint: [u8; 32],
 }
 
 impl EpochState {
@@ -349,6 +353,7 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
         validator_ids,
         cascade_health,
         state_root,
+        causal_fingerprint: [0u8; 32], // not wire-encoded; resets on decode (runtime-only chain)
     })
 }
 
@@ -498,6 +503,16 @@ fn run_pipeline(
     projected.cascade_health = new_cascade_health;
     let root = compute_state_root(&projected, &prior_root);
 
+    // v1.1 causal fingerprint: H_domain(CausalFingerprint, prev_fp || epoch_le || state_root).
+    // Chains the full transition history; equal fingerprints ⟹ equal histories.
+    let new_fingerprint = {
+        let mut fp_input = [0u8; 72];
+        fp_input[..32].copy_from_slice(&state.causal_fingerprint);
+        fp_input[32..40].copy_from_slice(&next_epoch.to_le_bytes());
+        fp_input[40..72].copy_from_slice(&root);
+        h_domain(DomainTag::CausalFingerprint, &fp_input)
+    };
+
     // +==================================================+
     // | COMMIT POINT                                     |
     // | Below: assignments only. No `?`. No checked ops. |
@@ -510,6 +525,7 @@ fn run_pipeline(
     state.epoch = next_epoch;
     state.cascade_health = new_cascade_health;
     state.state_root = root;
+    state.causal_fingerprint = new_fingerprint;
 
     Ok(TransitionResult {
         state_root: root,
@@ -629,6 +645,7 @@ mod tests {
             validator_ids: [[0u8; 48]; MAX_VALIDATORS],
             cascade_health: 0,
             state_root: [0u8; 32],
+            causal_fingerprint: [0u8; 32],
         }
     }
 

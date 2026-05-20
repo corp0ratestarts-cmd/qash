@@ -54,6 +54,7 @@ fn genesis_state(validator_count: u32) -> EpochState {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     }
 }
 

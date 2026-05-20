@@ -137,6 +137,8 @@ jobs:
             blinding/blinding_non_interference.v \
             ordering/causal_ordering.v \
             ordering/compatibility_window.v \
+            safety/causal_fingerprint.v \
+            composition/lyapunov_confluence.v \
             model/Model.v \
             model/RefinementStatement.v; do
             coqc -Q . QASH "$f"

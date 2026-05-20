@@ -80,6 +80,7 @@ fn state(vc: u32) -> EpochState {
         validator_ids,
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     }
 }
 

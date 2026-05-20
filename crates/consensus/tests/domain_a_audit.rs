@@ -136,6 +136,7 @@ mod encoding_audit {
             validator_ids: [[0u8; 48]; MAX_VALIDATORS],
             cascade_health: 0,
             state_root: [0u8; 32],
+            causal_fingerprint: [0u8; 32],
         }
     }
     fn encode_vd(d: i128, c: i128, s: i128) -> [u8; VALIDATOR_DYNAMIC_SIZE as usize] {
@@ -555,6 +556,7 @@ mod transaction_audit {
             validator_ids,
             cascade_health: 0,
             state_root: [0u8; 32],
+            causal_fingerprint: [0u8; 32],
         }
     }
 

@@ -23,6 +23,7 @@ pub mod envelope;
 pub mod causal_order;
 pub mod lineage;
 pub mod domain;
+pub mod capability;
 // Not yet activated in transition.rs (v1.1.1 feature gate — when WEIGHT_BH > 0).
 // Declared here so their unit tests run in CI.
 #[allow(dead_code)]
@@ -48,3 +49,4 @@ pub use envelope::{Envelope, PROTOCOL_VERSION_V1_0, PROTOCOL_VERSION_V1_1};
 pub use causal_order::{compute_sort_key, sort_key_from_payload};
 pub use lineage::{SkipListHeader, SKIPLIST_DEPTH, SKIP_DISTANCES};
 pub use domain::{DomainA, CapToken};
+pub use capability::{Capability, validate_capability};

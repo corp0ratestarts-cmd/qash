@@ -12,6 +12,7 @@ fn genesis(vc: u32) -> EpochState {
         nonces: [0u64; MAX_VALIDATORS], validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     }
 }
 fn idle(vc: u32) -> EpochInput { EpochInput::new(vc) }
@@ -224,6 +225,7 @@ fn _scratch_check_v1_vectors() {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     };
     let input = EpochInput::new(4);
     advance_epoch(&mut state, &input, &[]).unwrap();
@@ -241,6 +243,7 @@ fn _scratch_check_v1_vectors() {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     };
     let input0 = EpochInput::new(0);
     let r0 = advance_epoch(&mut state0, &input0, &[]);
@@ -276,6 +279,7 @@ fn _scratch_epoch2_root() {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        causal_fingerprint: [0u8; 32],
     };
     for epoch in 1..=2u64 {
         let input = EpochInput::new(4);

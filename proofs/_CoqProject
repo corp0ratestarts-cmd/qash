@@ -18,3 +18,5 @@ cascade/it_mac_forgery_bound.v
 blinding/blinding_non_interference.v
 ordering/causal_ordering.v
 ordering/compatibility_window.v
+safety/causal_fingerprint.v
+composition/lyapunov_confluence.v
