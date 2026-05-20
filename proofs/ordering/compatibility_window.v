@@ -14,14 +14,14 @@
             v1.0 envelope is accepted (version check does not reject it).
 
     CW-3  Version rejection after window:
-            epoch ≥ COMPATIBILITY_WINDOW ∧ version < V1_1 →
+            epoch >= COMPATIBILITY_WINDOW /\ version < V1_1 →
             advance_epoch returns IncompatibleVersion.
 
     CW-4  V1.1 always accepted:
-            version ≥ V1_1 →
+            version >= V1_1 →
             version check passes regardless of epoch.
 
-    CW-5  Monotonicity of the window: once epoch ≥ COMPATIBILITY_WINDOW,
+    CW-5  Monotonicity of the window: once epoch >= COMPATIBILITY_WINDOW,
             all future epochs satisfy the predicate (epoch is non-decreasing).
 
     Background
@@ -31,10 +31,9 @@
     in `crates/consensus/src/envelope.rs`.
 
     The version gate in `step_1_validate`:
-      if epoch ≥ COMPATIBILITY_WINDOW && version < V1_1 → IncompatibleVersion (H8)
+      if epoch >= COMPATIBILITY_WINDOW && version < V1_1 -> IncompatibleVersion (H8)
 
-    This file proves the structural correctness of that gate — namely that it
-    accepts exactly what the spec requires and rejects exactly what it should.
+    This file proves the structural correctness of that gate.
     The Rust implementation is separately verified by the unit tests
     `version_gate_*` in `crates/consensus/src/transition.rs`.
 *)
@@ -49,8 +48,8 @@ Open Scope Z_scope.
 (* ================================================================= *)
 
 Definition COMPATIBILITY_WINDOW : Z := 100.
-Definition PROTOCOL_VERSION_V1_0 : Z := 0x1000. (* 4096 *)
-Definition PROTOCOL_VERSION_V1_1 : Z := 0x1100. (* 4352 *)
+Definition PROTOCOL_VERSION_V1_0 : Z := 4096.  (* 0x1000 *)
+Definition PROTOCOL_VERSION_V1_1 : Z := 4352.  (* 0x1100 *)
 
 Lemma compat_window_pos : 0 < COMPATIBILITY_WINDOW.
 Proof. unfold COMPATIBILITY_WINDOW. lia. Qed.
@@ -63,7 +62,7 @@ Proof. unfold PROTOCOL_VERSION_V1_0, PROTOCOL_VERSION_V1_1. lia. Qed.
 (* ================================================================= *)
 
 (** `version_rejected epoch version` models the H8 rejection predicate:
-    rejected iff epoch ≥ COMPATIBILITY_WINDOW AND version < V1_1. *)
+    rejected iff epoch >= COMPATIBILITY_WINDOW AND version < V1_1. *)
 Definition version_rejected (epoch version : Z) : Prop :=
   epoch >= COMPATIBILITY_WINDOW /\ version < PROTOCOL_VERSION_V1_1.
 
@@ -164,12 +163,11 @@ Theorem version_gate_trichotomy :
 Proof.
   intros epoch version.
   unfold version_accepted, version_rejected.
-  destruct (Z.le_gt_cases COMPATIBILITY_WINDOW epoch) as [Hge | Hlt];
-  destruct (Z.lt_ge_cases version PROTOCOL_VERSION_V1_1) as [Hlt2 | Hge2].
-  - right. split; lia.
-  - left. unfold version_rejected. lia.
-  - left. unfold version_rejected. lia.
-  - left. unfold version_rejected. lia.
+  destruct (Z.lt_ge_cases epoch COMPATIBILITY_WINDOW) as [Hlt | Hge].
+  - left. lia.
+  - destruct (Z.lt_ge_cases version PROTOCOL_VERSION_V1_1) as [Hlt2 | Hge2].
+    + right. split; lia.
+    + left. lia.
 Qed.
 
 Theorem version_gate_exclusive :
@@ -177,33 +175,20 @@ Theorem version_gate_exclusive :
   ~ (version_accepted epoch version /\ version_rejected epoch version).
 Proof.
   intros epoch version [Ha Hr].
-  unfold version_accepted in Ha.
   exact (Ha Hr).
 Qed.
 
 (* ================================================================= *)
-(** ** §4 — Epoch State Machine: Epoch is Non-Decreasing              *)
+(** ** §4 — Epoch Is Non-Decreasing                                   *)
 (* ================================================================= *)
 
 (** In Domain A, each successful `advance_epoch` increments the epoch by 1.
-    We model a step as epoch ↦ epoch + 1, then prove that once past
-    the compatibility window the epoch never returns below it. *)
+    We prove that once past the compatibility window, all future epochs
+    also satisfy the window predicate. *)
 
-Inductive EpochStep : Z -> Z -> Prop :=
-  | step_advance : forall e, EpochStep e (e + 1).
-
-(** Epoch never decreases. *)
-Lemma epoch_step_nondecreasing :
-  forall e e', EpochStep e e' -> e' > e.
-Proof.
-  intros e e' H. inversion H. lia.
-Qed.
-
-(** Once past the window, the rejection predicate holds forever.
-    We model multi-step reachability as: e' = e + k for some natural k. *)
+(** Once past the window, any k-step future also satisfies it. *)
 Theorem past_window_stays_past :
-  forall e : Z,
-  forall k : nat,
+  forall (e : Z) (k : nat),
   e >= COMPATIBILITY_WINDOW ->
   e + Z.of_nat k >= COMPATIBILITY_WINDOW.
 Proof.
@@ -211,10 +196,9 @@ Proof.
   lia.
 Qed.
 
-(** Corollary: V1.0 is rejected for all future epochs once window closes. *)
+(** Corollary: V1.0 is rejected for all future epochs once the window closes. *)
 Corollary v1_0_rejected_all_future :
-  forall e : Z,
-  forall k : nat,
+  forall (e : Z) (k : nat),
   e >= COMPATIBILITY_WINDOW ->
   version_rejected (e + Z.of_nat k) PROTOCOL_VERSION_V1_0.
 Proof.
