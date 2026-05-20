@@ -320,3 +320,55 @@ fn consensus_halt_propagates_and_is_not_written_to_wal() {
 
     let _ = std::fs::remove_file(path);
 }
+
+
+#[test]
+fn apply_rejects_raw_tx_that_fails_cap_token_validation() {
+    let path = unique_log_path("cap-token-tx-too-large");
+    let genesis = genesis_state(2);
+    let mut state = genesis;
+    let mut host = Host::new(&path).expect("host created");
+
+    let mut input = CanonicalInput::idle(state.epoch, state.validator_count).expect("idle input");
+    input.raw_txs.push(vec![0u8; 5000]); // exceeds CapTokenParams::default().max_payload_bytes=4096
+
+    let result = host.apply_canonical_input(&mut state, &input);
+    assert!(matches!(result, Err(HostedError::InvalidInput(_))), "oversized raw tx must fail cap-token validation");
+    assert_eq!(state.epoch, 0, "state must remain unchanged on cap-token rejection");
+
+    let _ = std::fs::remove_file(path);
+}
+
+
+#[test]
+fn apply_rejects_epoch_beyond_skew_bound_at_ingress() {
+    let path = unique_log_path("epoch-skew-ingress");
+    let genesis = genesis_state(2);
+    let mut state = genesis;
+    let mut host = Host::new(&path).expect("host created");
+
+    // state.epoch == 0; skew bound at ingress is 1, so epoch 2 must be rejected.
+    let input = CanonicalInput::idle(2, state.validator_count).expect("input");
+    let result = host.apply_canonical_input(&mut state, &input);
+
+    assert!(matches!(result, Err(HostedError::InvalidInput(_))), "epoch beyond skew must be rejected at ingress");
+    assert_eq!(state.epoch, 0, "state must be unchanged after ingress rejection");
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn apply_rejects_epoch_window_overflow_at_ingress() {
+    let path = unique_log_path("epoch-overflow-ingress");
+    let mut state = genesis_state(1);
+    state.epoch = u64::MAX;
+    let mut host = Host::new(&path).expect("host created");
+
+    let input = CanonicalInput::idle(u64::MAX, state.validator_count).expect("input");
+    let result = host.apply_canonical_input(&mut state, &input);
+
+    assert!(matches!(result, Err(HostedError::InvalidInput(_))), "overflow in envelope epoch window check must be rejected");
+    assert_eq!(state.epoch, u64::MAX, "state epoch must remain unchanged");
+
+    let _ = std::fs::remove_file(path);
+}

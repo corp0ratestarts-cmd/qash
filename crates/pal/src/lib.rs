@@ -1,3 +1,4 @@
+pub mod cap_token;
 /// Platform Abstraction Layer (PAL) traits.
 pub trait Time {
     fn epoch_counter() -> u64;
@@ -24,9 +25,10 @@ pub mod hosted {
     //! records through `qash_consensus::advance_epoch`.
 
     use super::*;
+    use crate::cap_token::{validate_effect_token, CapTokenParams};
     use qash_consensus::{
-        advance_epoch, EpochInput, EpochState, FixedPoint, HaltReason, TransitionResult,
-        ValidatorUpdate, MAX_VALIDATORS,
+        advance_epoch, validate_envelope_epoch, EpochInput, EpochState, FixedPoint, HaltReason,
+        TransitionResult, ValidatorUpdate, MAX_VALIDATORS,
     };
     use std::collections::VecDeque;
     use std::fs::{File, OpenOptions};
@@ -135,6 +137,43 @@ pub mod hosted {
                 update_count: state.validator_count,
             })
         }
+
+        fn validate_with_cap_tokens(&self, state: &EpochState) -> Result<(), HostedError> {
+            validate_envelope_epoch(self.epoch, 0, state.epoch, 1)
+                .map_err(|_| HostedError::InvalidInput("envelope epoch outside admission window"))?;
+
+            let params = CapTokenParams {
+                max_validators: state.validator_count,
+                ..CapTokenParams::default()
+            };
+
+            // Validate update-bearing validator effects.
+            for (validator_id, update) in self.updates.iter().enumerate() {
+                if update.is_some() {
+                    let _ = validate_effect_token(
+                        &params,
+                        self.epoch.saturating_add(1),
+                        validator_id as u32,
+                        state.cascade_health,
+                        &[],
+                    ).map_err(|_| HostedError::InvalidInput("capability token validation failed for validator update"))?;
+                }
+            }
+
+            // Validate raw tx effects crossing Domain B boundary.
+            for tx in &self.raw_txs {
+                let _ = validate_effect_token(
+                    &params,
+                    self.epoch.saturating_add(1),
+                    0,
+                    state.cascade_health,
+                    tx.as_slice(),
+                ).map_err(|_| HostedError::InvalidInput("capability token validation failed for raw tx"))?;
+            }
+
+            Ok(())
+        }
+
     }
 
     impl Host {
@@ -165,6 +204,7 @@ pub mod hosted {
             state: &mut EpochState,
             input: &CanonicalInput,
         ) -> Result<TransitionResult, HostedError> {
+            input.validate_with_cap_tokens(state)?;
             let epoch_input = input.to_epoch_input(state)?;
             let raw_refs: Vec<&[u8]> = input.raw_txs.iter().map(Vec::as_slice).collect();
 
@@ -184,6 +224,7 @@ pub mod hosted {
         pub fn replay_from_genesis(&self, genesis: EpochState) -> Result<EpochState, HostedError> {
             let mut state = genesis;
             for input in read_records(&self.log_path)? {
+                input.validate_with_cap_tokens(&state)?;
                 let epoch_input = input.to_epoch_input(&state)?;
                 let raw_refs: Vec<&[u8]> = input.raw_txs.iter().map(Vec::as_slice).collect();
                 advance_epoch(&mut state, &epoch_input, &raw_refs)

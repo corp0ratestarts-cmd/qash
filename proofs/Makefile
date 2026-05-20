@@ -1,7 +1,7 @@
 COQC ?= coqc
 COQDEP ?= coqdep
 
-VFILES := util/list_inj.v contractivity/lyapunov_stability.v
+VFILES := util/list_inj.v contractivity/lyapunov_stability.v ordering/causal_ordering.v
 VOFILES := $(VFILES:.v=.vo)
 
 all: no-admitted $(VOFILES)

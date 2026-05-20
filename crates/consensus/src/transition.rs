@@ -386,6 +386,9 @@ impl From<LyapunovError> for TransitionHalt {
 pub struct TransitionResult {
     pub state_root: [u8; 32],
     pub lyapunov: LyapunovEval,
+    /// v1.1 liveness gate: true when transition is intentionally stalled
+    /// (post-compatibility and insufficient cascade health).
+    pub stalled: bool,
 }
 
 pub fn advance_epoch(
@@ -474,6 +477,16 @@ fn run_pipeline(
         0
     };
 
+    // v1.1 finality liveness gate: beyond compatibility window, require
+    // cascade health threshold before committing epoch advancement.
+    if state.epoch > COMPATIBILITY_WINDOW && new_cascade_health < CASCADE_DEPTH {
+        return Ok(TransitionResult {
+            state_root: state.state_root,
+            lyapunov: lyap,
+            stalled: true,
+        });
+    }
+
     let mut projected = *state;
     projected.validators = next_validators;
     projected.nonces = tx_plan.next_nonces;
@@ -499,6 +512,7 @@ fn run_pipeline(
     Ok(TransitionResult {
         state_root: root,
         lyapunov: lyap,
+        stalled: false,
     })
 }
 
@@ -1051,6 +1065,28 @@ mod tests {
         });
         advance_epoch(&mut state, &input, &[]).unwrap();
         assert_eq!(state.cascade_health, 0, "cascade health must reset on any divergence");
+    }
+
+    #[test]
+    fn stalls_after_compatibility_window_when_cascade_health_below_threshold() {
+        let mut state = genesis_state_vc4();
+        state.epoch = COMPATIBILITY_WINDOW + 1;
+        state.cascade_health = 0;
+
+        // force unhealthy epoch by injecting non-zero divergence
+        let mut updates = [None; MAX_VALIDATORS];
+        updates[0] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::from_raw(1),
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::ZERO,
+        });
+        let input = EpochInput { updates, update_count: state.validator_count };
+
+        let before = state;
+        let result = advance_epoch(&mut state, &input, &[]).unwrap();
+        assert!(result.stalled, "transition must stall when cascade health is below threshold after compatibility window");
+        assert_eq!(state.epoch, before.epoch, "stalled transition must not advance epoch");
+        assert_eq!(state.state_root, before.state_root, "stalled transition must not commit a new root");
     }
 
     #[test]
