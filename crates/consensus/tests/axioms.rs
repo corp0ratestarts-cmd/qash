@@ -33,10 +33,7 @@ fn genesis_state() -> EpochState {
 }
 
 fn idle_input(n: u32) -> EpochInput {
-    EpochInput {
-        updates: [None; MAX_VALIDATORS],
-        update_count: n,
-    }
+    EpochInput::new(n)
 }
 
 fn assign_ids(state: &mut EpochState, n: usize) {
@@ -234,10 +231,7 @@ fn axiom_a6_halt_flag_never_clears() {
     let mut state = genesis_state();
 
     // Force halt via bad update_count.
-    let bad_input = EpochInput {
-        updates: [None; MAX_VALIDATORS],
-        update_count: 3,
-    };
+    let bad_input = EpochInput::new(3);
     let r = advance_epoch(&mut state, &bad_input, &[]);
     assert_eq!(r, Err(HaltReason::DecodeInvalid));
     assert!(state.is_halted(), "§A6: must be halted after first trigger");

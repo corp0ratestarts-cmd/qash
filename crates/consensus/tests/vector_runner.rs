@@ -60,6 +60,7 @@ fn genesis_state(validator_count: u32) -> EpochState {
 fn idle_input(n: u32) -> EpochInput {
     EpochInput {
         updates: [None; MAX_VALIDATORS],
+        protocol_version: qash_consensus::envelope::PROTOCOL_VERSION_V1_1,
         update_count: n,
     }
 }

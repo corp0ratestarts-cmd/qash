@@ -84,11 +84,11 @@ fn state(vc: u32) -> EpochState {
 }
 
 fn idle(vc: u32) -> EpochInput {
-    EpochInput { updates: [None; MAX_VALIDATORS], update_count: vc }
+    EpochInput::new(vc)
 }
 
 fn uniform_spike(vc: u32, d_raw: i128, c_raw: i128) -> EpochInput {
-    let mut input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: vc };
+    let mut input = EpochInput::new(vc);
     for i in 0..vc as usize {
         input.updates[i] = Some(ValidatorUpdate {
             divergence_new: FixedPoint::from_raw(d_raw),
@@ -100,7 +100,7 @@ fn uniform_spike(vc: u32, d_raw: i128, c_raw: i128) -> EpochInput {
 }
 
 fn single_validator_spike(vc: u32, slot: usize, d_raw: i128) -> EpochInput {
-    let mut input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: vc };
+    let mut input = EpochInput::new(vc);
     input.updates[slot] = Some(ValidatorUpdate {
         divergence_new: FixedPoint::from_raw(d_raw),
         conflict_new: FixedPoint::ZERO,
@@ -277,7 +277,7 @@ fn sim4_coalition_of_3_at_epsilon_each_triggers_halt() {
     fill_window_idle(&mut s);
 
     // Slots 0, 1, 2 spike at D = EPSILON-per-validator. Slot 3 is idle.
-    let mut input = EpochInput { updates: [None; MAX_VALIDATORS], update_count: vc };
+    let mut input = EpochInput::new(vc);
     for i in 0..3 {
         input.updates[i] = Some(ValidatorUpdate {
             divergence_new: FixedPoint::from_raw(D_AT_EPSILON),
@@ -382,7 +382,7 @@ fn sim7_stale_epoch_input_rejected() {
     // advance_epoch validates update_count against state.validator_count;
     // epoch matching is enforced at the PAL layer, not Domain A.
     // At Domain A, we test that the update_count mismatch path is absorbing.
-    let wrong_vc = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 2 };
+    let wrong_vc = EpochInput::new(2);
     assert_eq!(
         advance_epoch(&mut s, &wrong_vc, &[]),
         Err(HaltReason::DecodeInvalid),
@@ -397,7 +397,7 @@ fn sim7_stale_epoch_input_rejected() {
 #[test]
 fn sim7_post_decode_invalid_halt_absorbs() {
     let mut s = state(4);
-    let bad = EpochInput { updates: [None; MAX_VALIDATORS], update_count: 3 };
+    let bad = EpochInput::new(3);
     let _ = advance_epoch(&mut s, &bad, &[]);
     assert_eq!(s.halt_reason, HaltReason::DecodeInvalid);
 
@@ -474,7 +474,7 @@ fn sim9_halt_finality_under_varied_attacks() {
         idle(4),
         uniform_spike(4, SCALE / 2, SCALE / 2),              // large spike (within bounds)
         uniform_spike(4, 0, 0),                              // zeros
-        EpochInput { updates: [None; MAX_VALIDATORS], update_count: 1 }, // wrong vc
+        EpochInput::new(1), // wrong vc
     ];
 
     for (i, attack) in attacks.iter().enumerate() {

@@ -1,6 +1,7 @@
 //! Epoch transition (atomic, infallible commit phase).
 
 use crate::encoding::EncodeError;
+use crate::envelope::PROTOCOL_VERSION_V1_1;
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
 use crate::hash::{h_domain, DomainTag};
 use crate::lyapunov::{
@@ -71,6 +72,20 @@ pub struct ValidatorUpdate {
 pub struct EpochInput {
     pub updates: [Option<ValidatorUpdate>; MAX_VALIDATORS],
     pub update_count: u32,
+    /// Protocol version of the originating envelope (PROTOCOL_VERSION_V1_0 or V1_1).
+    /// After epoch COMPATIBILITY_WINDOW, V1_0 envelopes are rejected with IncompatibleVersion.
+    /// Default: PROTOCOL_VERSION_V1_1.
+    pub protocol_version: u32,
+}
+
+impl EpochInput {
+    pub fn new(update_count: u32) -> Self {
+        Self {
+            updates: [None; MAX_VALIDATORS],
+            update_count,
+            protocol_version: PROTOCOL_VERSION_V1_1,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -529,6 +544,13 @@ pub fn validate_envelope_epoch(
 }
 
 fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), TransitionHalt> {
+    // H8: after the compatibility window, reject any v1.0 envelope.
+    if state.epoch >= COMPATIBILITY_WINDOW && input.protocol_version < PROTOCOL_VERSION_V1_1 {
+        return Err(TransitionHalt {
+            reason: HaltReason::IncompatibleVersion,
+        });
+    }
+
     if state.validator_count > MAX_VALIDATORS_WIRE {
         return Err(TransitionHalt {
             reason: HaltReason::DecodeInvalid,
@@ -611,10 +633,7 @@ mod tests {
     }
 
     fn idle_input(n: u32) -> EpochInput {
-        EpochInput {
-            updates: [None; MAX_VALIDATORS],
-            update_count: n,
-        }
+        EpochInput::new(n)
     }
 
     fn set_distinct_validator_ids(state: &mut EpochState) {
@@ -1076,6 +1095,39 @@ mod tests {
         assert_eq!(r as u8, 0x08);
         let rt = HaltReason::from_u8(0x08).expect("0x08 must decode");
         assert_eq!(rt, HaltReason::IncompatibleVersion);
+    }
+
+    #[test]
+    fn version_gate_accepts_v1_1_after_window() {
+        // A v1.1 envelope must be accepted even at epoch >= COMPATIBILITY_WINDOW.
+        let mut state = genesis_state_vc4();
+        state.epoch = COMPATIBILITY_WINDOW;
+        let mut input = idle_input(4);
+        // protocol_version defaults to V1_1 via EpochInput::new; explicit for clarity.
+        input.protocol_version = crate::envelope::PROTOCOL_VERSION_V1_1;
+        assert!(advance_epoch(&mut state, &input, &[]).is_ok());
+    }
+
+    #[test]
+    fn version_gate_rejects_v1_0_after_window() {
+        // A v1.0 envelope must be rejected at epoch >= COMPATIBILITY_WINDOW with H8.
+        let mut state = genesis_state_vc4();
+        state.epoch = COMPATIBILITY_WINDOW;
+        let mut input = idle_input(4);
+        input.protocol_version = crate::envelope::PROTOCOL_VERSION_V1_0;
+        let result = advance_epoch(&mut state, &input, &[]);
+        assert_eq!(result, Err(HaltReason::IncompatibleVersion));
+        assert_eq!(state.halt_reason, HaltReason::IncompatibleVersion);
+    }
+
+    #[test]
+    fn version_gate_accepts_v1_0_before_window() {
+        // A v1.0 envelope must be accepted before the compatibility window closes.
+        let mut state = genesis_state_vc4();
+        state.epoch = COMPATIBILITY_WINDOW - 1;
+        let mut input = idle_input(4);
+        input.protocol_version = crate::envelope::PROTOCOL_VERSION_V1_0;
+        assert!(advance_epoch(&mut state, &input, &[]).is_ok());
     }
 }
 

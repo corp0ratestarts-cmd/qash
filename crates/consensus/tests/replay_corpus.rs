@@ -77,7 +77,7 @@ fn genesis_4() -> EpochState {
 }
 
 fn idle(vc: u32) -> EpochInput {
-    EpochInput { updates: [None; MAX_VALIDATORS], update_count: vc }
+    EpochInput::new(vc)
 }
 
 // ---------------------------------------------------------------------------

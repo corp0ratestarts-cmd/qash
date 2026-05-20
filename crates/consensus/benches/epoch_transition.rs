@@ -50,6 +50,7 @@ fn make_state(vc: u32) -> EpochState {
 fn idle_input(vc: u32) -> EpochInput {
     EpochInput {
         updates: [None; MAX_VALIDATORS],
+        protocol_version: qash_consensus::envelope::PROTOCOL_VERSION_V1_1,
         update_count: vc,
     }
 }
@@ -58,6 +59,7 @@ fn max_divergence_input(vc: u32) -> EpochInput {
     let scale = 1_000_000i128;
     let mut input = EpochInput {
         updates: [None; MAX_VALIDATORS],
+        protocol_version: qash_consensus::envelope::PROTOCOL_VERSION_V1_1,
         update_count: vc,
     };
     for i in 0..vc as usize {
