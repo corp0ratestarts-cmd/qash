@@ -18,6 +18,7 @@ pub mod derive;
 pub mod invariants;
 pub mod envelope;
 pub mod causal_order;
+pub mod lineage;
 // Not yet activated in transition.rs (v1.1.1 feature gate — when WEIGHT_BH > 0).
 // Declared here so their unit tests run in CI.
 #[allow(dead_code)]
@@ -41,3 +42,4 @@ pub use derive::{derive_leaf_index, verify_leaf_index};
 pub use invariants::{check_state_invariants, InvariantViolation};
 pub use envelope::{Envelope, PROTOCOL_VERSION_V1_0, PROTOCOL_VERSION_V1_1};
 pub use causal_order::{compute_sort_key, sort_key_from_payload};
+pub use lineage::{SkipListHeader, SKIPLIST_DEPTH, SKIP_DISTANCES};
