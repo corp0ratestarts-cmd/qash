@@ -94,11 +94,25 @@ the full three-layer correspondence chain and extraction pipeline.
 
 ---
 
+## v1.1 Ordering Properties
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| Causal sort key is deterministic: equal inputs → equal sort keys | §2, §3 | **PROVED** | `sort_key_deterministic` in `ordering/causal_ordering.v` | `src/causal_order.rs` | `causal_order.rs::tests::*` |
+| `(epoch, sort_key)` lexicographic order is strict total (irrefl, trans, total) | §3 | **PROVED** | `epoch_sortkey_lt_irrefl`, `epoch_sortkey_lt_trans`, `epoch_sortkey_lt_total` in `ordering/causal_ordering.v` | `src/causal_order.rs` | — |
+| Sort order is deterministic: same position list → same processing order | §3 | **PROVED** | `sort_order_deterministic` in `ordering/causal_ordering.v` | `src/causal_order.rs` | — |
+| V1.0 envelope accepted before compatibility window (epoch < 100) | §3, GENESIS | **PROVED** | `version_v1_0_accepted_before_window` in `ordering/compatibility_window.v` | `src/transition.rs` | `transition::tests::version_gate_accepts_v1_0_before_window` |
+| V1.0 envelope rejected at or after compatibility window (epoch ≥ 100) | §3, GENESIS | **PROVED** | `version_v1_0_rejected_after_window` in `ordering/compatibility_window.v` | `src/transition.rs` | `transition::tests::version_gate_rejects_v1_0_after_window` |
+| V1.1+ always accepted regardless of epoch | §3 | **PROVED** | `version_v1_1_always_accepted` in `ordering/compatibility_window.v` | `src/transition.rs` | `transition::tests::version_gate_accepts_v1_1_after_window` |
+| Window closure monotone: once past window, all future epochs reject V1.0 | §3 | **PROVED** | `window_closure_monotone`, `v1_0_rejected_all_future` in `ordering/compatibility_window.v` | `src/transition.rs` | — |
+
+---
+
 ## Coverage Summary
 
 | Status | Count |
 |--------|-------|
-| **PROVED** | 18 |
+| **PROVED** | 25 |
 | **CI-VERIFIED** | 4 |
 | **AXIOM** | 3 |
 | **PLACEHOLDER** | 2 |
