@@ -11,7 +11,7 @@ pub const STATE_HEADER_SIZE: u32 = 52;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EncodeError {
-    DecodeInvalid,   // H4
+    DecodeInvalid,    // H4
     RoundtripFailure, // H5
     BufferTooSmall,
     InvalidHaltCode, // halt_reason byte has no known variant

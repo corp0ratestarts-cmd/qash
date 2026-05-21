@@ -43,13 +43,13 @@ pub enum Capability {
     /// Only permitted at chain genesis; never permitted mid-epoch.
     /// The caller must certify this is the first and only entropy ingress
     /// for this chain instance.
-    EntropyIngress  = 0x01,
+    EntropyIngress = 0x01,
 
     /// Wall-clock epoch scheduling signal from Domain B scheduler.
     ///
     /// The timestamp must be sanitised to a `u64` epoch index (monotone,
     /// within `[genesis_epoch, genesis_epoch + MAX_EPOCHS]`) before wrapping.
-    EpochSchedule   = 0x02,
+    EpochSchedule = 0x02,
 
     /// Raw envelope bytes arriving from the network layer.
     ///
@@ -62,7 +62,7 @@ pub enum Capability {
     ///
     /// Sets `HaltReason::HaltFlagSet` on the active epoch state.
     /// Irreversible; no transition is possible after this capability fires.
-    ExternalHalt    = 0x04,
+    ExternalHalt = 0x04,
 }
 
 /// Validate that a raw code byte maps to a known [`Capability`] variant.
@@ -76,7 +76,7 @@ pub fn validate_capability(raw_code: u8) -> Result<Capability, CapabilityError> 
         0x02 => Ok(Capability::EpochSchedule),
         0x03 => Ok(Capability::NetworkEnvelope),
         0x04 => Ok(Capability::ExternalHalt),
-        _    => Err(CapabilityError::UnknownCode),
+        _ => Err(CapabilityError::UnknownCode),
     }
 }
 

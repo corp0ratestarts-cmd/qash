@@ -108,12 +108,16 @@ fn h_f4j_16(tag: &[u8], data: &[u8]) -> [u8; 16] {
 }
 
 fn xor32(mut a: [u8; 32], b: &[u8; 32]) -> [u8; 32] {
-    for i in 0..32 { a[i] ^= b[i]; }
+    for i in 0..32 {
+        a[i] ^= b[i];
+    }
     a
 }
 
 fn xor16(mut a: [u8; 16], b: &[u8; 16]) -> [u8; 16] {
-    for i in 0..16 { a[i] ^= b[i]; }
+    for i in 0..16 {
+        a[i] ^= b[i];
+    }
     a
 }
 
@@ -317,7 +321,9 @@ impl core::fmt::Display for AddressError {
         match self {
             AddressError::NoSeparator => write!(f, "missing bech32 separator '1'"),
             AddressError::BadHrp => write!(f, "HRP must be 'qash'"),
-            AddressError::BadLength => write!(f, "encoded data has wrong length for 48-byte payload"),
+            AddressError::BadLength => {
+                write!(f, "encoded data has wrong length for 48-byte payload")
+            }
             AddressError::InvalidChar(c) => write!(f, "invalid bech32 character: {:?}", c),
             AddressError::BadChecksum => write!(f, "bech32m checksum mismatch"),
         }

@@ -108,6 +108,8 @@ fn main() {
                     cascade_health: 0,
                     causal_fingerprint: [0u8; 32],
                     state_root: [0u8; 32],
+                    receipt_root: [0u8; 32],
+                    efb_root: [0u8; 32],
                 };
 
                 let fill = (fi.window_fill as usize).min(3);
@@ -155,6 +157,8 @@ fn main() {
                     cascade_health: 0,
                     causal_fingerprint: [0u8; 32],
                     state_root: [0u8; 32],
+                    receipt_root: [0u8; 32],
+                    efb_root: [0u8; 32],
                 };
 
                 // Pre-fill window with a large value to prime the δ_window halt trigger.

@@ -31,8 +31,10 @@
 
 use qash_consensus::{
     fixed_point::{FixedPoint, SCALE},
-    lyapunov::{ConvergenceWindow, ValidatorMetrics, EPSILON, WEIGHT_C, WEIGHT_D, WINDOW_SIZE},
-    transition::{advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS},
+    lyapunov::{ConvergenceWindow, ValidatorMetrics, EPSILON, WEIGHT_D, WINDOW_SIZE},
+    transition::{
+        advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
+    },
 };
 
 // ---------------------------------------------------------------------------
@@ -80,6 +82,8 @@ fn state(vc: u32) -> EpochState {
         validator_ids,
         cascade_health: 0,
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32],
     }
 }
@@ -113,10 +117,12 @@ fn single_validator_spike(vc: u32, slot: usize, d_raw: i128) -> EpochInput {
 /// Fill the convergence window with WINDOW_SIZE idle epochs (V=0 each).
 fn fill_window_idle(s: &mut EpochState) {
     for _ in 0..WINDOW_SIZE {
-        advance_epoch(s, &idle(s.validator_count), &[])
-            .expect("idle epoch must succeed");
+        advance_epoch(s, &idle(s.validator_count), &[]).expect("idle epoch must succeed");
     }
-    assert!(s.convergence_window.is_full(), "window must be full after WINDOW_SIZE idle epochs");
+    assert!(
+        s.convergence_window.is_full(),
+        "window must be full after WINDOW_SIZE idle epochs"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +138,8 @@ fn sim1_minimum_halt_d_triggers_h1_one_validator() {
     let spike = uniform_spike(1, MIN_HALT_D_1V, 0);
     let result = advance_epoch(&mut s, &spike, &[]);
     assert_eq!(
-        result, Err(HaltReason::LyapunovViolation),
+        result,
+        Err(HaltReason::LyapunovViolation),
         "D={MIN_HALT_D_1V} must trigger H1 with 1 validator"
     );
 }
@@ -147,7 +154,8 @@ fn sim1_one_below_minimum_d_does_not_halt() {
     let result = advance_epoch(&mut s, &spike, &[]);
     assert!(
         result.is_ok(),
-        "D={} must not trigger H1 (below threshold)", MIN_HALT_D_1V - 1
+        "D={} must not trigger H1 (below threshold)",
+        MIN_HALT_D_1V - 1
     );
 }
 
@@ -155,12 +163,22 @@ fn sim1_one_below_minimum_d_does_not_halt() {
 #[test]
 fn sim1_boundary_is_exact_at_50003() {
     // floor(WEIGHT_D * D / SCALE) for the two boundary values.
-    let below = WEIGHT_D.checked_mul(FixedPoint::from_raw(MIN_HALT_D_1V - 1)).unwrap();
-    let at    = WEIGHT_D.checked_mul(FixedPoint::from_raw(MIN_HALT_D_1V)).unwrap();
-    assert_eq!(below.raw(), EPSILON.raw(),
-        "D={} should produce V = EPSILON exactly", MIN_HALT_D_1V - 1);
-    assert!(at.raw() > EPSILON.raw(),
-        "D={MIN_HALT_D_1V} should produce V > EPSILON");
+    let below = WEIGHT_D
+        .checked_mul(FixedPoint::from_raw(MIN_HALT_D_1V - 1))
+        .unwrap();
+    let at = WEIGHT_D
+        .checked_mul(FixedPoint::from_raw(MIN_HALT_D_1V))
+        .unwrap();
+    assert_eq!(
+        below.raw(),
+        EPSILON.raw(),
+        "D={} should produce V = EPSILON exactly",
+        MIN_HALT_D_1V - 1
+    );
+    assert!(
+        at.raw() > EPSILON.raw(),
+        "D={MIN_HALT_D_1V} should produce V > EPSILON"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -176,7 +194,8 @@ fn grief_cost_check(vc: u32, expected_min_d: i128) {
     let below_spike = uniform_spike(vc, expected_min_d - 1, 0);
     assert!(
         advance_epoch(&mut s_ok, &below_spike, &[]).is_ok(),
-        "vc={vc}: D={} should not halt", expected_min_d - 1
+        "vc={vc}: D={} should not halt",
+        expected_min_d - 1
     );
 
     // At minimum: must halt.
@@ -239,24 +258,36 @@ fn single_validator_liveness_suppression(vc: u32) {
     let spike = single_validator_spike(vc, 0, MIN_HALT_D_1V);
     let result = advance_epoch(&mut s, &spike, &[]);
     assert_eq!(
-        result, Err(HaltReason::LyapunovViolation),
+        result,
+        Err(HaltReason::LyapunovViolation),
         "vc={vc}: single-validator spike should halt regardless of set size"
     );
     // advance_epoch sets halt_reason on Err (absorbing halt contract).
     // Note: the PAL layer's scratch-copy protection is separate — advance_epoch
     // itself does commit the halt_reason into the state.
-    assert_eq!(s.halt_reason, HaltReason::LyapunovViolation,
-        "halt_reason must be absorbed after H1");
+    assert_eq!(
+        s.halt_reason,
+        HaltReason::LyapunovViolation,
+        "halt_reason must be absorbed after H1"
+    );
 }
 
 #[test]
-fn sim3_single_validator_halts_2_validator_set() { single_validator_liveness_suppression(2); }
+fn sim3_single_validator_halts_2_validator_set() {
+    single_validator_liveness_suppression(2);
+}
 #[test]
-fn sim3_single_validator_halts_4_validator_set() { single_validator_liveness_suppression(4); }
+fn sim3_single_validator_halts_4_validator_set() {
+    single_validator_liveness_suppression(4);
+}
 #[test]
-fn sim3_single_validator_halts_16_validator_set() { single_validator_liveness_suppression(16); }
+fn sim3_single_validator_halts_16_validator_set() {
+    single_validator_liveness_suppression(16);
+}
 #[test]
-fn sim3_single_validator_halts_1024_validator_set() { single_validator_liveness_suppression(1024); }
+fn sim3_single_validator_halts_1024_validator_set() {
+    single_validator_liveness_suppression(1024);
+}
 
 // ---------------------------------------------------------------------------
 // SIM-4: Coalition halt (k validators, each below 1v threshold)
@@ -287,8 +318,11 @@ fn sim4_coalition_of_3_at_epsilon_each_triggers_halt() {
         });
     }
     let result = advance_epoch(&mut s, &input, &[]);
-    assert_eq!(result, Err(HaltReason::LyapunovViolation),
-        "3/4 coalition at D_AT_EPSILON each should trigger H1 (joint V > EPSILON)");
+    assert_eq!(
+        result,
+        Err(HaltReason::LyapunovViolation),
+        "3/4 coalition at D_AT_EPSILON each should trigger H1 (joint V > EPSILON)"
+    );
 }
 
 /// A single validator at D_AT_EPSILON (= EPSILON individually) does NOT halt.
@@ -298,8 +332,10 @@ fn sim4_single_validator_at_epsilon_does_not_halt() {
     fill_window_idle(&mut s);
 
     let spike = single_validator_spike(4, 0, D_AT_EPSILON);
-    assert!(advance_epoch(&mut s, &spike, &[]).is_ok(),
-        "single validator at D_AT_EPSILON should not halt (V = EPSILON, not > EPSILON)");
+    assert!(
+        advance_epoch(&mut s, &spike, &[]).is_ok(),
+        "single validator at D_AT_EPSILON should not halt (V = EPSILON, not > EPSILON)"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -319,16 +355,24 @@ fn sim5_joint_v_at_epsilon_does_not_halt() {
     // D = 12_500: floor(400_000 * 12_500 / 1_000_000) = floor(5_000) = 5_000
     // Joint V = 4 * 5_000 = 20_000 = EPSILON → strictly-greater check fails → no halt
     let spike = uniform_spike(vc, 12_500, 0);
-    assert!(advance_epoch(&mut s, &spike, &[]).is_ok(),
-        "joint V = EPSILON must not trigger halt (strict > check)");
+    assert!(
+        advance_epoch(&mut s, &spike, &[]).is_ok(),
+        "joint V = EPSILON must not trigger halt (strict > check)"
+    );
 }
 
 /// Confirm the constant D_AT_EPSILON produces V = EPSILON for 1 validator.
 #[test]
 fn sim5_d_at_epsilon_produces_v_equal_epsilon() {
-    let v = WEIGHT_D.checked_mul(FixedPoint::from_raw(D_AT_EPSILON)).unwrap();
-    assert_eq!(v.raw(), EPSILON.raw(),
-        "D_AT_EPSILON={D_AT_EPSILON} must produce V = EPSILON = {}", EPSILON.raw());
+    let v = WEIGHT_D
+        .checked_mul(FixedPoint::from_raw(D_AT_EPSILON))
+        .unwrap();
+    assert_eq!(
+        v.raw(),
+        EPSILON.raw(),
+        "D_AT_EPSILON={D_AT_EPSILON} must produce V = EPSILON = {}",
+        EPSILON.raw()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -344,13 +388,18 @@ fn sim6_spike_before_window_full_does_not_halt() {
     for _ in 0..WINDOW_SIZE - 1 {
         advance_epoch(&mut s, &idle(1), &[]).expect("idle must succeed");
     }
-    assert!(!s.convergence_window.is_full(), "window must not be full yet");
+    assert!(
+        !s.convergence_window.is_full(),
+        "window must not be full yet"
+    );
 
     // MIN_HALT_D_1V is within [0, SCALE] and would halt if the window were full.
     // Before the window fills, the delta_window check is disabled → no halt.
     let spike = uniform_spike(1, MIN_HALT_D_1V, 0);
-    assert!(advance_epoch(&mut s, &spike, &[]).is_ok(),
-        "spike before window full must not trigger halt (delta_window check disabled)");
+    assert!(
+        advance_epoch(&mut s, &spike, &[]).is_ok(),
+        "spike before window full must not trigger halt (delta_window check disabled)"
+    );
 }
 
 /// After exactly WINDOW_SIZE idle epochs, the next spike at threshold halts.
@@ -389,8 +438,11 @@ fn sim7_stale_epoch_input_rejected() {
         Err(HaltReason::DecodeInvalid),
         "mismatched update_count must trigger DecodeInvalid"
     );
-    assert_eq!(s.halt_reason, HaltReason::DecodeInvalid,
-        "halt_reason must be set after decode-invalid input");
+    assert_eq!(
+        s.halt_reason,
+        HaltReason::DecodeInvalid,
+        "halt_reason must be set after decode-invalid input"
+    );
 }
 
 /// After a decode-invalid halt (H4), the absorbing-halt contract holds:
@@ -439,8 +491,11 @@ fn sim8_entropy_seed_does_not_affect_lyapunov_halt_decision() {
     let r_b = advance_epoch(&mut s_b, &spike_b, &[]);
 
     assert_eq!(r_a, Err(HaltReason::LyapunovViolation));
-    assert_eq!(r_b, Err(HaltReason::LyapunovViolation),
-        "different entropy seed must not change the halt decision");
+    assert_eq!(
+        r_b,
+        Err(HaltReason::LyapunovViolation),
+        "different entropy seed must not change the halt decision"
+    );
     // advance_epoch absorbs the halt into state.halt_reason on Err.
     assert_eq!(s_a.halt_reason, HaltReason::LyapunovViolation);
     assert_eq!(s_b.halt_reason, HaltReason::LyapunovViolation);
@@ -462,8 +517,11 @@ fn sim9_halt_finality_under_varied_attacks() {
     // All 4 validators spike → V_sum = 4 * 20_001 = 80_004 >> EPSILON → H1.
     let spike = uniform_spike(4, MIN_HALT_D_1V, 0);
     let r = advance_epoch(&mut s, &spike, &[]);
-    assert_eq!(r, Err(HaltReason::LyapunovViolation),
-        "spike must trigger H1 to set up the finality test");
+    assert_eq!(
+        r,
+        Err(HaltReason::LyapunovViolation),
+        "spike must trigger H1 to set up the finality test"
+    );
     assert_eq!(s.halt_reason, HaltReason::LyapunovViolation);
 
     let frozen_epoch = s.epoch;
@@ -473,18 +531,33 @@ fn sim9_halt_finality_under_varied_attacks() {
     let halted_reason = s.halt_reason;
     let attacks: &[EpochInput] = &[
         idle(4),
-        uniform_spike(4, SCALE / 2, SCALE / 2),              // large spike (within bounds)
-        uniform_spike(4, 0, 0),                              // zeros
-        EpochInput::new(1), // wrong vc
+        uniform_spike(4, SCALE / 2, SCALE / 2), // large spike (within bounds)
+        uniform_spike(4, 0, 0),                 // zeros
+        EpochInput::new(1),                     // wrong vc
     ];
 
     for (i, attack) in attacks.iter().enumerate() {
         let r = advance_epoch(&mut s, attack, &[]);
-        assert!(r.is_err(), "attack {i}: halted state must reject all inputs");
-        assert_eq!(s.halt_reason, halted_reason,
-            "attack {i}: halt_reason must remain {halted_reason:?}");
-        assert_eq!(s.epoch, frozen_epoch, "attack {i}: epoch must stay frozen");
-        assert_eq!(s.state_root, frozen_root, "attack {i}: root must stay frozen");
+        assert!(
+            r.is_err(),
+            "attack {}: halted state must reject all inputs",
+            i
+        );
+        assert_eq!(
+            s.halt_reason, halted_reason,
+            "attack {}: halt_reason must remain {:?}",
+            i, halted_reason
+        );
+        assert_eq!(
+            s.epoch, frozen_epoch,
+            "attack {}: epoch must stay frozen",
+            i
+        );
+        assert_eq!(
+            s.state_root, frozen_root,
+            "attack {}: root must stay frozen",
+            i
+        );
     }
 }
 
@@ -503,22 +576,30 @@ fn sim10_minimum_attack_duration_is_window_size_plus_one() {
     // Attempt: 0 idle + 1 spike → must NOT halt (window not full).
     let mut s0 = state(1);
     let spike = uniform_spike(1, MIN_HALT_D_1V * 10, 0);
-    assert!(advance_epoch(&mut s0, &spike, &[]).is_ok(),
-        "0 idle + spike must not halt (window not full)");
+    assert!(
+        advance_epoch(&mut s0, &spike, &[]).is_ok(),
+        "0 idle + spike must not halt (window not full)"
+    );
 
     // Attempt: 1 idle + 1 spike → must NOT halt.
     let mut s1 = state(1);
     advance_epoch(&mut s1, &idle(1), &[]).unwrap();
     let spike = uniform_spike(1, MIN_HALT_D_1V * 10, 0);
-    assert!(advance_epoch(&mut s1, &spike, &[]).is_ok(),
-        "1 idle + spike must not halt (window not full)");
+    assert!(
+        advance_epoch(&mut s1, &spike, &[]).is_ok(),
+        "1 idle + spike must not halt (window not full)"
+    );
 
     // Attempt: 2 idle + 1 spike → must NOT halt.
     let mut s2 = state(1);
-    for _ in 0..2 { advance_epoch(&mut s2, &idle(1), &[]).unwrap(); }
+    for _ in 0..2 {
+        advance_epoch(&mut s2, &idle(1), &[]).unwrap();
+    }
     let spike = uniform_spike(1, MIN_HALT_D_1V * 10, 0);
-    assert!(advance_epoch(&mut s2, &spike, &[]).is_ok(),
-        "2 idle + spike must not halt (window not full, WINDOW_SIZE=3)");
+    assert!(
+        advance_epoch(&mut s2, &spike, &[]).is_ok(),
+        "2 idle + spike must not halt (window not full, WINDOW_SIZE=3)"
+    );
 
     // WINDOW_SIZE idle + 1 spike → MUST halt.
     let mut s3 = state(1);
@@ -540,7 +621,10 @@ fn sim10_rolling_window_raises_required_divergence() {
     // Fill window with non-zero V using a sub-threshold divergence.
     // D = 25_000 → V_per = floor(400_000 * 25_000 / 1_000_000) = 10_000.
     let d_low: i128 = 25_000;
-    let v_low_raw = WEIGHT_D.checked_mul(FixedPoint::from_raw(d_low)).unwrap().raw();
+    let v_low_raw = WEIGHT_D
+        .checked_mul(FixedPoint::from_raw(d_low))
+        .unwrap()
+        .raw();
     assert_eq!(v_low_raw, 10_000, "sanity: V for D=25_000 should be 10_000");
 
     // After filling window with V=10_000 each epoch, V_min = 10_000.

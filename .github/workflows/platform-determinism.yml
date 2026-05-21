@@ -1,5 +1,7 @@
 name: Cross-Platform Determinism
 on:
+  push:
+  pull_request:
   schedule:
     - cron: '0 0 * * 1'
   workflow_dispatch:
@@ -26,6 +28,10 @@ jobs:
                  | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1)
           echo "state_root=${ROOT}" >> "$GITHUB_OUTPUT"
           echo "Native state root: ${ROOT}"
+      - name: Run native replay vector gates
+        run: |
+          cargo test -p qash-consensus --no-default-features --test v1_1_replay v1_1_corpus_matches_pinned
+          cargo test -p qash-consensus --no-default-features --test v1_2_sharded_replay v1_2_sharded_corpus_matches_pinned
 
   # Step 2: cross-compile and run via QEMU user-static (no Docker required).
   # Uses .cargo/config.toml runners: qemu-aarch64-static -L /usr/aarch64-linux-gnu
@@ -72,3 +78,11 @@ jobs:
         run: |
           cargo test -p qash-consensus --no-default-features \
             --target ${{ matrix.target }}
+      - name: Run replay vector gates on ${{ matrix.target }}
+        run: |
+          cargo test -p qash-consensus --no-default-features \
+            --target ${{ matrix.target }} \
+            --test v1_1_replay v1_1_corpus_matches_pinned
+          cargo test -p qash-consensus --no-default-features \
+            --target ${{ matrix.target }} \
+            --test v1_2_sharded_replay v1_2_sharded_corpus_matches_pinned

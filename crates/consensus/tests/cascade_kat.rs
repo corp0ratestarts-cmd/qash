@@ -12,8 +12,7 @@
 
 use qash_consensus::cascade::{h_cascade, h_cascade_keyed};
 
-const CASCADE_KAT_JSON: &str =
-    include_str!("../../../tests/vectors/cascade_kat.json");
+const CASCADE_KAT_JSON: &str = include_str!("../../../tests/vectors/cascade_kat.json");
 
 // ---------------------------------------------------------------------------
 // Minimal JSON extraction — avoids a proc-macro dependency in CI.
@@ -38,16 +37,20 @@ fn hex_encode(b: &[u8]) -> String {
 
 #[test]
 fn cascade_kat_all_vectors() {
-    let root: serde_json::Value = serde_json::from_str(CASCADE_KAT_JSON)
-        .expect("cascade_kat.json must be valid JSON");
+    let root: serde_json::Value =
+        serde_json::from_str(CASCADE_KAT_JSON).expect("cascade_kat.json must be valid JSON");
 
-    let vectors = root.as_array().expect("cascade_kat.json root must be an array");
+    let vectors = root
+        .as_array()
+        .expect("cascade_kat.json root must be an array");
     assert!(!vectors.is_empty(), "no KAT vectors found");
 
     let mut passed = 0usize;
 
     for entry in vectors {
-        let label = entry["label"].as_str().expect("each entry must have a label");
+        let label = entry["label"]
+            .as_str()
+            .expect("each entry must have a label");
 
         let input_hex = entry["input_hex"].as_str().expect("missing input_hex");
         let input = hex_decode(input_hex);

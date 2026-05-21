@@ -1,14 +1,16 @@
-use qash_consensus::params::consensus_params_hash;
-use qash_consensus::encoding::ENCODING_VERSION;
-use qash_consensus::derive_leaf_index;
-use qash_model::{run, HaltReason};
 use qash_address::encode as addr_encode;
+use qash_consensus::derive_leaf_index;
+use qash_consensus::encoding::ENCODING_VERSION;
+use qash_consensus::params::consensus_params_hash;
+use qash_model::{run, HaltReason};
 
 fn main() {
     // --- 1. Protocol fingerprint ---
     let params_hash = consensus_params_hash();
     print!("QASH consensus params hash : ");
-    for b in &params_hash { print!("{:02x}", b); }
+    for b in &params_hash {
+        print!("{:02x}", b);
+    }
     println!();
     println!("Encoding version           : {}", ENCODING_VERSION);
     println!();
@@ -53,16 +55,25 @@ fn main() {
             if o.halt_triggered { "YES" } else { "no" },
         );
     }
-    let final_halt = trace2.last().map(|o| o.halt_reason).unwrap_or(HaltReason::None);
+    let final_halt = trace2
+        .last()
+        .map(|o| o.halt_reason)
+        .unwrap_or(HaltReason::None);
     println!("  → final halt_reason = {:?}", final_halt);
     println!();
 
     // --- 5. Protocol health summary ---
     println!("=== Protocol health ===");
     let steady_ok = trace.iter().all(|o| !o.halt_triggered);
-    let halt_ok   = trace2.last().map(|o| o.halt_triggered).unwrap_or(false);
-    println!("  Steady-state: {} (all epochs green)", if steady_ok { "PASS" } else { "FAIL" });
-    println!("  Halt-trigger: {} (spike causes halt)", if halt_ok   { "PASS" } else { "FAIL" });
+    let halt_ok = trace2.last().map(|o| o.halt_triggered).unwrap_or(false);
+    println!(
+        "  Steady-state: {} (all epochs green)",
+        if steady_ok { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "  Halt-trigger: {} (spike causes halt)",
+        if halt_ok { "PASS" } else { "FAIL" }
+    );
 
     if !steady_ok || !halt_ok {
         eprintln!("QASH simulation health check FAILED");

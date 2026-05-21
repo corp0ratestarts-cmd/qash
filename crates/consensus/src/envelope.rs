@@ -6,6 +6,7 @@
 
 pub const PROTOCOL_VERSION_V1_0: u32 = 0x1000;
 pub const PROTOCOL_VERSION_V1_1: u32 = 0x1100;
+pub const PROTOCOL_VERSION_V1_2: u32 = 0x1200;
 
 /// A consensus input envelope. `N` is the fixed payload byte length.
 ///
@@ -19,6 +20,8 @@ pub struct Envelope<const N: usize> {
     pub epoch: u64,
     /// Authoring validator slot index (u32 per Domain A rules).
     pub validator_id: u32,
+    /// Execution shard for v1.2+ envelopes. Zero for v1.0/v1.1 compatibility.
+    pub shard_id: u32,
     /// Cascade health level at time of envelope creation (v1.1; 0 in v1.0).
     pub cascade_health: u32,
     /// Epoch entropy seed used to compute sort_key (v1.1; zeroed in v1.0).
@@ -37,6 +40,7 @@ impl<const N: usize> Envelope<N> {
             version: PROTOCOL_VERSION_V1_0,
             epoch,
             validator_id,
+            shard_id: 0,
             cascade_health: 0,
             epoch_seed: [0u8; 32],
             sort_key: [0u8; 32],
@@ -57,6 +61,29 @@ impl<const N: usize> Envelope<N> {
             version: PROTOCOL_VERSION_V1_1,
             epoch,
             validator_id,
+            shard_id: 0,
+            cascade_health,
+            epoch_seed,
+            sort_key,
+            payload,
+        }
+    }
+
+    /// Construct a v1.2 envelope with explicit protocol-level shard binding.
+    pub fn new_v1_2(
+        epoch: u64,
+        validator_id: u32,
+        shard_id: u32,
+        cascade_health: u32,
+        epoch_seed: [u8; 32],
+        sort_key: [u8; 32],
+        payload: [u8; N],
+    ) -> Self {
+        Self {
+            version: PROTOCOL_VERSION_V1_2,
+            epoch,
+            validator_id,
+            shard_id,
             cascade_health,
             epoch_seed,
             sort_key,
@@ -67,6 +94,11 @@ impl<const N: usize> Envelope<N> {
     /// Returns true if this envelope carries v1.1 (or later) metadata.
     pub fn is_v1_1(&self) -> bool {
         self.version >= PROTOCOL_VERSION_V1_1
+    }
+
+    /// Returns true if this envelope carries explicit sharded execution metadata.
+    pub fn is_v1_2(&self) -> bool {
+        self.version >= PROTOCOL_VERSION_V1_2
     }
 
     /// Total ordering key: (epoch, sort_key). Deterministic across all ISAs.
@@ -86,6 +118,7 @@ mod tests {
         assert_eq!(env.version, PROTOCOL_VERSION_V1_0);
         assert_eq!(env.epoch, 10);
         assert_eq!(env.validator_id, 3);
+        assert_eq!(env.shard_id, 0);
         assert_eq!(env.cascade_health, 0);
         assert_eq!(env.epoch_seed, [0u8; 32]);
         assert_eq!(env.sort_key, [0u8; 32]);
@@ -100,6 +133,7 @@ mod tests {
         assert_eq!(env.version, PROTOCOL_VERSION_V1_1);
         assert_eq!(env.epoch, 20);
         assert_eq!(env.validator_id, 7);
+        assert_eq!(env.shard_id, 0);
         assert_eq!(env.cascade_health, 8);
         assert_eq!(env.epoch_seed, seed);
         assert_eq!(env.sort_key, key);
@@ -121,7 +155,24 @@ mod tests {
 
     #[test]
     fn version_constants_distinct() {
-        assert_ne!(PROTOCOL_VERSION_V1_0, PROTOCOL_VERSION_V1_1);
-        assert!(PROTOCOL_VERSION_V1_0 < PROTOCOL_VERSION_V1_1);
+        let versions = [
+            PROTOCOL_VERSION_V1_0,
+            PROTOCOL_VERSION_V1_1,
+            PROTOCOL_VERSION_V1_2,
+        ];
+        assert_ne!(versions[0], versions[1]);
+        assert!(versions[0] < versions[1]);
+        assert!(versions[1] < versions[2]);
+    }
+
+    #[test]
+    fn v1_2_envelope_fields() {
+        let seed = [1u8; 32];
+        let key = [2u8; 32];
+        let env = Envelope::<4>::new_v1_2(20, 7, 3, 8, seed, key, [1, 2, 3, 4]);
+        assert_eq!(env.version, PROTOCOL_VERSION_V1_2);
+        assert_eq!(env.shard_id, 3);
+        assert!(env.is_v1_1());
+        assert!(env.is_v1_2());
     }
 }

@@ -1,31 +1,47 @@
 // Vector generation helper — not a CI test; run manually to regenerate vectors.
 // cargo test -p qash-consensus --no-default-features -- --nocapture --ignored gen_coq_vectors
-use qash_consensus::transition::{advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS};
-use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
 use qash_consensus::fixed_point::FixedPoint;
+use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
+use qash_consensus::transition::{
+    advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
+};
 
 fn genesis(vc: u32) -> EpochState {
     EpochState {
-        epoch: 0, halt_reason: HaltReason::None, entropy_seed: [0u8; 32],
+        epoch: 0,
+        halt_reason: HaltReason::None,
+        entropy_seed: [0u8; 32],
         validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
-        validator_count: vc, convergence_window: ConvergenceWindow::new(),
-        nonces: [0u64; MAX_VALIDATORS], validator_ids: [[0u8; 48]; MAX_VALIDATORS],
+        validator_count: vc,
+        convergence_window: ConvergenceWindow::new(),
+        nonces: [0u64; MAX_VALIDATORS],
+        validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32],
     }
 }
-fn idle(vc: u32) -> EpochInput { EpochInput::new(vc) }
+fn idle(vc: u32) -> EpochInput {
+    EpochInput::new(vc)
+}
 
-fn root_hex(r: &[u8; 32]) -> String { r.iter().map(|b| format!("{:02x}", b)).collect() }
-fn hr(r: HaltReason) -> u8 { r as u8 }
+fn root_hex(r: &[u8; 32]) -> String {
+    r.iter().map(|b| format!("{:02x}", b)).collect()
+}
+fn hr(r: HaltReason) -> u8 {
+    r as u8
+}
 
 fn emit_step_idle(vc: u32) -> String {
     format!(r#"{{"kind":"idle","update_count":{}}}"#, vc)
 }
 fn emit_step_spike(vc: u32, validator_idx: usize, d: i64, c: i64, s: i64) -> String {
-    format!(r#"{{"kind":"spike","update_count":{},"idx":{},"divergence":{},"conflict":{},"slash_accum":{}}}"#,
-        vc, validator_idx, d, c, s)
+    format!(
+        r#"{{"kind":"spike","update_count":{},"idx":{},"divergence":{},"conflict":{},"slash_accum":{}}}"#,
+        vc, validator_idx, d, c, s
+    )
 }
 
 #[ignore]
@@ -57,7 +73,9 @@ fn gen_coq_vectors() {
     {
         let mut s = genesis(4);
         let steps: Vec<String> = (0..3).map(|_| emit_step_idle(4)).collect();
-        for _ in 0..3 { advance_epoch(&mut s, &idle(4), &[]).unwrap(); }
+        for _ in 0..3 {
+            advance_epoch(&mut s, &idle(4), &[]).unwrap();
+        }
         records.push(format!(
             r#"  {{"id":"TV-2","desc":"3 idle epochs, window full","vc":4,"steps":[{}],"expect":{{"epoch":{},"halt":false,"halt_reason":{},"state_root":"{}"}}}}"#,
             steps.join(","), s.epoch, hr(s.halt_reason), root_hex(&s.state_root)
@@ -86,7 +104,9 @@ fn gen_coq_vectors() {
     {
         let mut s = genesis(4);
         let mut steps: Vec<String> = (0..WINDOW_SIZE).map(|_| emit_step_idle(4)).collect();
-        for _ in 0..WINDOW_SIZE { advance_epoch(&mut s, &idle(4), &[]).unwrap(); }
+        for _ in 0..WINDOW_SIZE {
+            advance_epoch(&mut s, &idle(4), &[]).unwrap();
+        }
 
         let spike_raw = 900_000i64;
         let mut spike_input = idle(4);
@@ -110,7 +130,9 @@ fn gen_coq_vectors() {
     // TV-5: halt is absorbing — after TV-4's halt, further steps don't change epoch
     {
         let mut s = genesis(4);
-        for _ in 0..WINDOW_SIZE { advance_epoch(&mut s, &idle(4), &[]).unwrap(); }
+        for _ in 0..WINDOW_SIZE {
+            advance_epoch(&mut s, &idle(4), &[]).unwrap();
+        }
         let mut spike_input = idle(4);
         for i in 0..4 {
             spike_input.updates[i] = Some(ValidatorUpdate {
@@ -123,7 +145,9 @@ fn gen_coq_vectors() {
         // 5 more steps — state must not change
         let root_after_halt = s.state_root;
         let epoch_after_halt = s.epoch;
-        for _ in 0..5 { advance_epoch(&mut s, &idle(4), &[]).unwrap_err(); }
+        for _ in 0..5 {
+            advance_epoch(&mut s, &idle(4), &[]).unwrap_err();
+        }
         assert_eq!(s.state_root, root_after_halt);
         records.push(format!(
             r#"  {{"id":"TV-5","desc":"halt absorbing — 5 more steps after halt keep state","vc":4,"steps":[],"expect":{{"epoch":{},"halt":true,"halt_reason":{},"state_root":"{}"}}}}"#,
@@ -164,9 +188,15 @@ fn gen_coq_vectors() {
     // TV-8: entropy chain — seed evolves after 3 epochs
     {
         let mut s = genesis(4);
-        for _ in 0..3 { advance_epoch(&mut s, &idle(4), &[]).unwrap(); }
+        for _ in 0..3 {
+            advance_epoch(&mut s, &idle(4), &[]).unwrap();
+        }
         let seed_is_nonzero = s.entropy_seed != [0u8; 32];
-        let seed_hex: String = s.entropy_seed.iter().map(|b| format!("{:02x}", b)).collect();
+        let seed_hex: String = s
+            .entropy_seed
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect();
         records.push(format!(
             r#"  {{"id":"TV-8","desc":"entropy seed evolves after 3 epochs","vc":4,"steps":[],"expect":{{"epoch":{},"halt":false,"halt_reason":0,"state_root":"{}","entropy_seed":"{}","seed_nonzero":{}}}}}"#,
             s.epoch, root_hex(&s.state_root), seed_hex, seed_is_nonzero
@@ -177,7 +207,9 @@ fn gen_coq_vectors() {
     {
         let mut s = genesis(1);
         let steps: Vec<String> = (0..2).map(|_| emit_step_idle(1)).collect();
-        for _ in 0..2 { advance_epoch(&mut s, &idle(1), &[]).unwrap(); }
+        for _ in 0..2 {
+            advance_epoch(&mut s, &idle(1), &[]).unwrap();
+        }
         records.push(format!(
             r#"  {{"id":"TV-9","desc":"single validator, 2 idle epochs","vc":1,"steps":[{}],"expect":{{"epoch":{},"halt":false,"halt_reason":{},"state_root":"{}"}}}}"#,
             steps.join(","), s.epoch, hr(s.halt_reason), root_hex(&s.state_root)
@@ -194,7 +226,9 @@ use qash_consensus::transition::{encode_full_state_into, FULL_STATE_MAX_BYTES};
 fn gen_replay_snapshots() {
     fn snap(label: &str, vc: u32, epochs: usize) {
         let mut s = genesis(vc);
-        for _ in 0..epochs { advance_epoch(&mut s, &idle(vc), &[]).unwrap(); }
+        for _ in 0..epochs {
+            advance_epoch(&mut s, &idle(vc), &[]).unwrap();
+        }
         let mut buf = [0u8; FULL_STATE_MAX_BYTES];
         let len = encode_full_state_into(&mut s, &mut buf);
         let root_hex: String = s.state_root.iter().map(|b| format!("{:02x}", b)).collect();
@@ -209,10 +243,12 @@ fn gen_replay_snapshots() {
 #[ignore]
 #[test]
 fn _scratch_check_v1_vectors() {
-    use qash_consensus::transition::{advance_epoch, EpochState, EpochInput, HaltReason, MAX_VALIDATORS};
-    use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
     use qash_consensus::derive::derive_leaf_index;
-    
+    use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
+    use qash_consensus::transition::{
+        advance_epoch, EpochInput, EpochState, HaltReason, MAX_VALIDATORS,
+    };
+
     // Check 4-validator genesis
     let mut state = EpochState {
         epoch: 0,
@@ -225,12 +261,17 @@ fn _scratch_check_v1_vectors() {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32],
     };
     let input = EpochInput::new(4);
     advance_epoch(&mut state, &input, &[]).unwrap();
-    eprintln!("4-validator epoch 1 root: {}", hex_encode(&state.state_root));
-    
+    eprintln!(
+        "4-validator epoch 1 root: {}",
+        hex_encode(&state.state_root)
+    );
+
     // Check 0-validator genesis
     let mut state0 = EpochState {
         epoch: 0,
@@ -243,15 +284,20 @@ fn _scratch_check_v1_vectors() {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32],
     };
     let input0 = EpochInput::new(0);
     let r0 = advance_epoch(&mut state0, &input0, &[]);
     eprintln!("0-validator epoch 1 result: {:?}", r0);
     if r0.is_ok() {
-        eprintln!("0-validator epoch 1 root: {}", hex_encode(&state0.state_root));
+        eprintln!(
+            "0-validator epoch 1 root: {}",
+            hex_encode(&state0.state_root)
+        );
     }
-    
+
     // Check derive_leaf_index with 32-byte ab seed
     let seed = [0xabu8; 32];
     let leaf = derive_leaf_index(1, 2, &seed);
@@ -265,9 +311,11 @@ fn hex_encode(bytes: &[u8]) -> String {
 #[ignore]
 #[test]
 fn _scratch_epoch2_root() {
-    use qash_consensus::transition::{advance_epoch, EpochState, EpochInput, HaltReason, MAX_VALIDATORS};
     use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
-    
+    use qash_consensus::transition::{
+        advance_epoch, EpochInput, EpochState, HaltReason, MAX_VALIDATORS,
+    };
+
     let mut state = EpochState {
         epoch: 0,
         halt_reason: HaltReason::None,
@@ -279,13 +327,23 @@ fn _scratch_epoch2_root() {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32],
     };
     for epoch in 1..=2u64 {
         let input = EpochInput::new(4);
         let r = advance_epoch(&mut state, &input, &[]).unwrap();
-        let bytes: Vec<String> = state.state_root.iter().map(|b| format!("{:02x}", b)).collect();
+        let bytes: Vec<String> = state
+            .state_root
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect();
         eprintln!("epoch {} root: {}", epoch, bytes.join(""));
-        eprintln!("  lyapunov_raw: {}, phi_safety_raw: {}", r.lyapunov.v_convergence.raw(), r.lyapunov.phi_safety.raw());
+        eprintln!(
+            "  lyapunov_raw: {}, phi_safety_raw: {}",
+            r.lyapunov.v_convergence.raw(),
+            r.lyapunov.phi_safety.raw()
+        );
     }
 }

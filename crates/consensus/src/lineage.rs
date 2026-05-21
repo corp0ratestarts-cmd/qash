@@ -53,11 +53,7 @@ impl SkipListHeader {
     /// returned header; `prev_root` is the state root of the immediately
     /// preceding epoch; `prev_header` is the predecessor's `SkipListHeader`.
     ///
-    pub fn advance(
-        current_epoch: u64,
-        prev_root: &[u8; 32],
-        prev_header: &SkipListHeader,
-    ) -> Self {
+    pub fn advance(current_epoch: u64, prev_root: &[u8; 32], prev_header: &SkipListHeader) -> Self {
         let mut hdr = SkipListHeader::genesis();
 
         for (i, &dist) in SKIP_DISTANCES.iter().enumerate() {
@@ -195,8 +191,7 @@ mod tests {
         // Epoch 1: one epoch past genesis (current_epoch = 1, dist = 1 ≤ 1).
         let genesis_root = fake_root(0x00);
         let genesis_hdr = SkipListHeader::genesis();
-        let hdr = SkipListHeader::advance(1, &genesis_root, &genesis_hdr)
-            ;
+        let hdr = SkipListHeader::advance(1, &genesis_root, &genesis_hdr);
 
         let expected = SkipListHeader::commit(1, &genesis_root);
         assert_eq!(hdr.commitment_hashes[0], expected);
@@ -240,7 +235,11 @@ mod tests {
 
         // headers slice: [hdr of epoch current-1] = [hdr1]
         assert!(SkipListHeader::verify_ancestor(1, &root0, &[hdr1]));
-        assert!(!SkipListHeader::verify_ancestor(1, &fake_root(0xDD), &[hdr1]));
+        assert!(!SkipListHeader::verify_ancestor(
+            1,
+            &fake_root(0xDD),
+            &[hdr1]
+        ));
     }
 
     #[test]
@@ -254,7 +253,11 @@ mod tests {
         // Verifying depth=2 from epoch 3's perspective: supply hdr2, hdr1.
         // headers[0] = epoch 3-1 = hdr2, headers[1] = epoch 3-2 = hdr1.
         assert!(SkipListHeader::verify_ancestor(2, &root0, &[hdr2, hdr1]));
-        assert!(!SkipListHeader::verify_ancestor(2, &fake_root(0xFF), &[hdr2, hdr1]));
+        assert!(!SkipListHeader::verify_ancestor(
+            2,
+            &fake_root(0xFF),
+            &[hdr2, hdr1]
+        ));
     }
 
     #[test]
@@ -269,7 +272,11 @@ mod tests {
     #[test]
     fn verify_ancestor_depth0_is_false() {
         let hdr = SkipListHeader::genesis();
-        assert!(!SkipListHeader::verify_ancestor(0, &fake_root(0x00), &[hdr]));
+        assert!(!SkipListHeader::verify_ancestor(
+            0,
+            &fake_root(0x00),
+            &[hdr]
+        ));
     }
 
     #[test]

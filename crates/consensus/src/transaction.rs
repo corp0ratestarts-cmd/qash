@@ -1,9 +1,12 @@
-//! TX-0 (no-op) transaction pipeline for Domain A.
+//! TX-0/TX-1 transaction pipeline for Domain A.
 //!
 //! Signature bytes are carried opaquely; verification is Domain B (PAL).
-//! Only the nonce is checked and incremented here.
+//! Domain A checks deterministic admissibility, replay nonces, canonical
+//! ordering, and bounded state effects.
 
+use crate::fixed_point::FixedPoint;
 use crate::hash::{h_domain, DomainTag};
+use crate::lyapunov::ValidatorMetrics;
 use crate::transition::{EpochState, MAX_VALIDATORS};
 
 // ---------------------------------------------------------------------------
@@ -14,6 +17,8 @@ use crate::transition::{EpochState, MAX_VALIDATORS};
 pub const TX_VERSION: u16 = 0x0001;
 /// TX type for no-op.
 pub const TX_TYPE_NOOP: u16 = 0x0000;
+/// TX type for bounded validator divergence decrement.
+pub const TX_TYPE_SCORE_DECREMENT: u16 = 0x0001;
 /// Dilithium5 signature size (opaque in Domain A).
 pub const PQ_SIG_BYTES: usize = 2420;
 
@@ -23,6 +28,10 @@ pub const TX_HEADER_BYTES: usize = 64;
 
 /// Total wire size of a TX-0 envelope (no payload).
 pub const TX0_WIRE_BYTES: usize = TX_HEADER_BYTES + PQ_SIG_BYTES;
+/// TX-1 payload: [target_idx:u32][delta:u32].
+pub const TX1_PAYLOAD_BYTES: usize = 8;
+/// Total wire size of a TX-1 envelope.
+pub const TX1_WIRE_BYTES: usize = TX_HEADER_BYTES + TX1_PAYLOAD_BYTES + PQ_SIG_BYTES;
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -36,6 +45,8 @@ pub enum TxError {
     AuthorNotFound,
     MalformedEnvelope,
     BudgetExceeded,
+    TargetOutOfBounds,
+    DeltaExceedsDivergence,
 }
 
 // ---------------------------------------------------------------------------
@@ -50,6 +61,39 @@ pub struct Tx0<'a> {
     pub nonce: u64,
     /// Raw signature bytes (opaque in Domain A).
     pub signature: &'a [u8; PQ_SIG_BYTES],
+}
+
+/// A decoded TX-1 BoundedValidatorScoreDecrement envelope.
+#[derive(Debug)]
+pub struct Tx1<'a> {
+    pub author_id: [u8; 48],
+    pub nonce: u64,
+    pub target_idx: u32,
+    pub delta: u32,
+    /// Raw signature bytes (opaque in Domain A).
+    pub signature: &'a [u8; PQ_SIG_BYTES],
+}
+
+#[derive(Debug)]
+enum ParsedTx<'a> {
+    Tx0(Tx0<'a>),
+    Tx1(Tx1<'a>),
+}
+
+impl ParsedTx<'_> {
+    fn author_id(&self) -> &[u8; 48] {
+        match self {
+            ParsedTx::Tx0(tx) => &tx.author_id,
+            ParsedTx::Tx1(tx) => &tx.author_id,
+        }
+    }
+
+    fn nonce(&self) -> u64 {
+        match self {
+            ParsedTx::Tx0(tx) => tx.nonce,
+            ParsedTx::Tx1(tx) => tx.nonce,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -97,17 +141,110 @@ pub fn parse_tx0(raw: &[u8]) -> Result<(Tx0<'_>, usize), TxError> {
         Err(_) => return Err(TxError::MalformedEnvelope),
     };
 
-    Ok((Tx0 { author_id, nonce, signature: sig_arr }, TX0_WIRE_BYTES))
+    Ok((
+        Tx0 {
+            author_id,
+            nonce,
+            signature: sig_arr,
+        },
+        TX0_WIRE_BYTES,
+    ))
+}
+
+/// Decode a TX-1 envelope from `raw`.
+pub fn parse_tx1(raw: &[u8]) -> Result<(Tx1<'_>, usize), TxError> {
+    if raw.len() < TX1_WIRE_BYTES {
+        return Err(TxError::MalformedEnvelope);
+    }
+
+    let mut ver_b = [0u8; 2];
+    ver_b.copy_from_slice(&raw[0..2]);
+    let version = u16::from_le_bytes(ver_b);
+    if version != TX_VERSION {
+        return Err(TxError::InvalidVersion);
+    }
+
+    let mut typ_b = [0u8; 2];
+    typ_b.copy_from_slice(&raw[2..4]);
+    let tx_type = u16::from_le_bytes(typ_b);
+    if tx_type != TX_TYPE_SCORE_DECREMENT {
+        return Err(TxError::UnknownType);
+    }
+
+    let mut nonce_b = [0u8; 8];
+    nonce_b.copy_from_slice(&raw[4..12]);
+    let nonce = u64::from_le_bytes(nonce_b);
+
+    let mut author_id = [0u8; 48];
+    author_id.copy_from_slice(&raw[12..60]);
+
+    let mut plen_b = [0u8; 4];
+    plen_b.copy_from_slice(&raw[60..64]);
+    let payload_len = u32::from_le_bytes(plen_b);
+    if payload_len != TX1_PAYLOAD_BYTES as u32 {
+        return Err(TxError::MalformedEnvelope);
+    }
+
+    let mut target_b = [0u8; 4];
+    target_b.copy_from_slice(&raw[64..68]);
+    let target_idx = u32::from_le_bytes(target_b);
+
+    let mut delta_b = [0u8; 4];
+    delta_b.copy_from_slice(&raw[68..72]);
+    let delta = u32::from_le_bytes(delta_b);
+
+    let sig_slice = &raw[TX_HEADER_BYTES + TX1_PAYLOAD_BYTES..TX1_WIRE_BYTES];
+    let sig_arr: &[u8; PQ_SIG_BYTES] = match sig_slice.try_into() {
+        Ok(a) => a,
+        Err(_) => return Err(TxError::MalformedEnvelope),
+    };
+
+    Ok((
+        Tx1 {
+            author_id,
+            nonce,
+            target_idx,
+            delta,
+            signature: sig_arr,
+        },
+        TX1_WIRE_BYTES,
+    ))
+}
+
+fn parse_tx(raw: &[u8]) -> Result<(ParsedTx<'_>, usize), TxError> {
+    if raw.len() < TX_HEADER_BYTES {
+        return Err(TxError::MalformedEnvelope);
+    }
+    let mut typ_b = [0u8; 2];
+    typ_b.copy_from_slice(&raw[2..4]);
+    match u16::from_le_bytes(typ_b) {
+        TX_TYPE_NOOP => {
+            let (tx, consumed) = parse_tx0(raw)?;
+            Ok((ParsedTx::Tx0(tx), consumed))
+        }
+        TX_TYPE_SCORE_DECREMENT => {
+            let (tx, consumed) = parse_tx1(raw)?;
+            Ok((ParsedTx::Tx1(tx), consumed))
+        }
+        _ => Err(TxError::UnknownType),
+    }
 }
 
 // ---------------------------------------------------------------------------
 // tx_id: canonical identifier (used for sort key computation)
 // ---------------------------------------------------------------------------
 
-/// tx_id = H_domain(TxId, raw_bytes[..TX0_WIRE_BYTES])
+/// tx_id = H_domain(TxId, canonical tx bytes)
 /// Commits to all envelope fields including the opaque signature.
 pub fn tx_id(raw: &[u8; TX0_WIRE_BYTES]) -> [u8; 32] {
     h_domain(DomainTag::TxId, raw.as_slice())
+}
+
+fn tx_id_bytes(raw: &[u8], consumed: usize) -> Result<[u8; 32], TxError> {
+    if raw.len() < consumed {
+        return Err(TxError::MalformedEnvelope);
+    }
+    Ok(h_domain(DomainTag::TxId, &raw[..consumed]))
 }
 
 // ---------------------------------------------------------------------------
@@ -141,9 +278,23 @@ pub fn is_admissible(state: &EpochState, tx: &Tx0<'_>) -> Result<usize, TxError>
     let idx = index_of_validator(state, &tx.author_id).ok_or(TxError::AuthorNotFound)?;
     let expected = state.nonces[idx];
     if tx.nonce != expected {
-        return Err(TxError::NonceMismatch { expected, got: tx.nonce });
+        return Err(TxError::NonceMismatch {
+            expected,
+            got: tx.nonce,
+        });
     }
     Ok(idx)
+}
+
+fn check_nonce(next_nonces: &[u64; MAX_VALIDATORS], idx: usize, nonce: u64) -> Result<(), TxError> {
+    let expected = next_nonces[idx];
+    if nonce != expected {
+        return Err(TxError::NonceMismatch {
+            expected,
+            got: nonce,
+        });
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +313,72 @@ pub fn apply_tx_0(state: &mut EpochState, idx: usize) -> Result<(), TxError> {
     Ok(())
 }
 
+/// Apply TX-1: decrement target divergence and increment author nonce.
+pub fn apply_tx_1(state: &mut EpochState, author_idx: usize, tx: &Tx1<'_>) -> Result<(), TxError> {
+    apply_tx_1_projected(
+        &mut state.validators,
+        &mut state.nonces,
+        state.validator_count,
+        author_idx,
+        tx,
+    )
+}
+
+pub fn tx1_project_divergence(current: FixedPoint, delta: u32) -> Result<FixedPoint, TxError> {
+    let current_raw = current.raw();
+    let delta_raw = i128::from(delta);
+    if delta_raw > current_raw {
+        return Err(TxError::DeltaExceedsDivergence);
+    }
+    Ok(FixedPoint::from_raw(current_raw - delta_raw))
+}
+
+fn apply_tx_1_projected(
+    validators: &mut [ValidatorMetrics; MAX_VALIDATORS],
+    next_nonces: &mut [u64; MAX_VALIDATORS],
+    validator_count: u32,
+    author_idx: usize,
+    tx: &Tx1<'_>,
+) -> Result<(), TxError> {
+    if author_idx >= validator_count as usize {
+        return Err(TxError::MalformedEnvelope);
+    }
+    let target_idx = usize::try_from(tx.target_idx).map_err(|_| TxError::TargetOutOfBounds)?;
+    if target_idx >= validator_count as usize {
+        return Err(TxError::TargetOutOfBounds);
+    }
+
+    validators[target_idx].divergence =
+        tx1_project_divergence(validators[target_idx].divergence, tx.delta)?;
+    next_nonces[author_idx] = next_nonces[author_idx]
+        .checked_add(1)
+        .ok_or(TxError::MalformedEnvelope)?;
+    Ok(())
+}
+
+fn apply_tx_1_prevalidated(
+    projected_divergences: &mut [FixedPoint; MAX_VALIDATORS],
+    next_nonces: &mut [u64; MAX_VALIDATORS],
+    validator_count: u32,
+    author_idx: usize,
+    tx: &Tx1<'_>,
+) -> Result<(u32, FixedPoint), TxError> {
+    if author_idx >= validator_count as usize {
+        return Err(TxError::MalformedEnvelope);
+    }
+    let target_idx = usize::try_from(tx.target_idx).map_err(|_| TxError::TargetOutOfBounds)?;
+    if target_idx >= validator_count as usize {
+        return Err(TxError::TargetOutOfBounds);
+    }
+
+    let next_divergence = tx1_project_divergence(projected_divergences[target_idx], tx.delta)?;
+    projected_divergences[target_idx] = next_divergence;
+    next_nonces[author_idx] = next_nonces[author_idx]
+        .checked_add(1)
+        .ok_or(TxError::MalformedEnvelope)?;
+    Ok((tx.target_idx, next_divergence))
+}
+
 // ---------------------------------------------------------------------------
 // TxPrevalidation: result of stateless prevalidation pass
 // ---------------------------------------------------------------------------
@@ -174,7 +391,32 @@ pub fn apply_tx_0(state: &mut EpochState, idx: usize) -> Result<(), TxError> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TxPrevalidation {
     pub next_nonces: [u64; MAX_VALIDATORS],
+    pub divergence_targets: [u32; MAX_VALIDATORS],
+    pub divergence_values: [FixedPoint; MAX_VALIDATORS],
+    pub divergence_update_count: u32,
     pub applied_count: u32,
+}
+
+impl TxPrevalidation {
+    pub fn apply_divergence_updates(
+        &self,
+        validators: &mut [ValidatorMetrics; MAX_VALIDATORS],
+    ) -> Result<(), TxError> {
+        let count = usize::try_from(self.divergence_update_count)
+            .map_err(|_| TxError::MalformedEnvelope)?;
+        if count > MAX_VALIDATORS {
+            return Err(TxError::MalformedEnvelope);
+        }
+        for i in 0..count {
+            let target = usize::try_from(self.divergence_targets[i])
+                .map_err(|_| TxError::MalformedEnvelope)?;
+            if target >= MAX_VALIDATORS {
+                return Err(TxError::MalformedEnvelope);
+            }
+            validators[target].divergence = self.divergence_values[i];
+        }
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -185,11 +427,20 @@ pub struct TxPrevalidation {
 #[derive(Clone, Copy)]
 struct SortEntry {
     key: [u8; 32],
+    id: [u8; 32],
     raw_idx: u32,
 }
 
 impl SortEntry {
-    const ZERO: SortEntry = SortEntry { key: [0u8; 32], raw_idx: 0 };
+    const ZERO: SortEntry = SortEntry {
+        key: [0u8; 32],
+        id: [0u8; 32],
+        raw_idx: 0,
+    };
+}
+
+fn sort_entry_after(left: &SortEntry, right: &SortEntry) -> bool {
+    left.key > right.key || (left.key == right.key && left.id > right.id)
 }
 
 /// Prevalidate all transactions in `raw_txs` without mutating `state`.
@@ -220,42 +471,55 @@ pub fn prevalidate_all(
     let mut valid: usize = 0;
 
     for (raw_idx, raw) in raw_txs.iter().enumerate().take(n) {
-        let (tx, consumed) = match parse_tx0(raw) {
+        let (tx, consumed) = match parse_tx(raw) {
             Ok(v) => v,
             Err(_) => continue,
         };
-        if consumed != TX0_WIRE_BYTES {
-            continue;
-        }
-        if index_of_validator(state, &tx.author_id).is_none() {
+        if index_of_validator(state, tx.author_id()).is_none() {
             continue;
         }
 
-        if raw.len() < TX0_WIRE_BYTES {
-            continue;
-        }
-        let mut arr = [0u8; TX0_WIRE_BYTES];
-        arr.copy_from_slice(&raw[..TX0_WIRE_BYTES]);
-        let id = tx_id(&arr);
+        let id = match tx_id_bytes(raw, consumed) {
+            Ok(id) => id,
+            Err(_) => continue,
+        };
         let key = sort_key(&state.entropy_seed, &id);
 
-        entries[valid] = SortEntry { key, raw_idx: raw_idx as u32 };
+        entries[valid] = SortEntry {
+            key,
+            id,
+            raw_idx: raw_idx as u32,
+        };
         valid += 1;
     }
 
-    // Insertion sort (stable, deterministic, constant-size).
+    // Insertion sort (deterministic, constant-size), ordered by (sort_key, tx_id).
     let mut i: usize = 1;
     while i < valid {
         let mut j = i;
-        while j > 0 && entries[j - 1].key > entries[j].key {
+        while j > 0 && sort_entry_after(&entries[j - 1], &entries[j]) {
             entries.swap(j - 1, j);
             j -= 1;
         }
         i += 1;
     }
 
-    let limit = if (max_count as usize) < valid { max_count as usize } else { valid };
+    let limit = if (max_count as usize) < valid {
+        max_count as usize
+    } else {
+        valid
+    };
     let mut next_nonces = state.nonces;
+    let mut projected_divergences = [FixedPoint::ZERO; MAX_VALIDATORS];
+    for (dst, validator) in projected_divergences[..state.validator_count as usize]
+        .iter_mut()
+        .zip(state.validators[..state.validator_count as usize].iter())
+    {
+        *dst = validator.divergence;
+    }
+    let mut divergence_targets = [0u32; MAX_VALIDATORS];
+    let mut divergence_values = [FixedPoint::ZERO; MAX_VALIDATORS];
+    let mut divergence_update_count: u32 = 0;
     let mut applied: u32 = 0;
 
     for e in &entries[..valid] {
@@ -263,25 +527,58 @@ pub fn prevalidate_all(
             break;
         }
         let raw = raw_txs[e.raw_idx as usize];
-        let (tx, _) = match parse_tx0(raw) {
+        let (tx, _) = match parse_tx(raw) {
             Ok(v) => v,
             Err(_) => continue,
         };
-        let idx = match index_of_validator(state, &tx.author_id) {
+        let idx = match index_of_validator(state, tx.author_id()) {
             Some(i) => i,
             None => continue,
         };
-        let expected = next_nonces[idx];
-        if tx.nonce != expected {
+        if check_nonce(&next_nonces, idx, tx.nonce()).is_err() {
             continue;
         }
-        next_nonces[idx] = next_nonces[idx]
-            .checked_add(1)
-            .ok_or(TxError::MalformedEnvelope)?;
-        applied += 1;
+        let applied_tx = match tx {
+            ParsedTx::Tx0(_) => {
+                next_nonces[idx] = next_nonces[idx]
+                    .checked_add(1)
+                    .ok_or(TxError::MalformedEnvelope)?;
+                true
+            }
+            ParsedTx::Tx1(ref tx1) => {
+                match apply_tx_1_prevalidated(
+                    &mut projected_divergences,
+                    &mut next_nonces,
+                    state.validator_count,
+                    idx,
+                    tx1,
+                ) {
+                    Ok((target_idx, new_divergence)) => {
+                        let effect_idx = divergence_update_count as usize;
+                        if effect_idx >= MAX_VALIDATORS {
+                            return Err(TxError::BudgetExceeded);
+                        }
+                        divergence_targets[effect_idx] = target_idx;
+                        divergence_values[effect_idx] = new_divergence;
+                        divergence_update_count += 1;
+                        true
+                    }
+                    Err(_) => false,
+                }
+            }
+        };
+        if applied_tx {
+            applied += 1;
+        }
     }
 
-    Ok(TxPrevalidation { next_nonces, applied_count: applied })
+    Ok(TxPrevalidation {
+        next_nonces,
+        divergence_targets,
+        divergence_values,
+        divergence_update_count,
+        applied_count: applied,
+    })
 }
 
 /// Apply all transactions in `raw_txs` to `state`.
@@ -295,6 +592,7 @@ pub fn apply_all(
 ) -> Result<u32, TxError> {
     let plan = prevalidate_all(state, raw_txs, max_count)?;
     state.nonces = plan.next_nonces;
+    plan.apply_divergence_updates(&mut state.validators)?;
     Ok(plan.applied_count)
 }
 
@@ -324,6 +622,8 @@ mod tests {
             validator_ids,
             cascade_health: 0,
             state_root: [0u8; 32],
+            receipt_root: [0u8; 32],
+            efb_root: [0u8; 32],
             causal_fingerprint: [0u8; 32],
         }
     }
@@ -335,6 +635,23 @@ mod tests {
         raw[4..12].copy_from_slice(&nonce.to_le_bytes());
         raw[12..60].copy_from_slice(&author_id);
         raw[60..64].copy_from_slice(&0u32.to_le_bytes());
+        raw
+    }
+
+    fn make_tx1_raw(
+        author_id: [u8; 48],
+        nonce: u64,
+        target_idx: u32,
+        delta: u32,
+    ) -> [u8; TX1_WIRE_BYTES] {
+        let mut raw = [0u8; TX1_WIRE_BYTES];
+        raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
+        raw[2..4].copy_from_slice(&TX_TYPE_SCORE_DECREMENT.to_le_bytes());
+        raw[4..12].copy_from_slice(&nonce.to_le_bytes());
+        raw[12..60].copy_from_slice(&author_id);
+        raw[60..64].copy_from_slice(&(TX1_PAYLOAD_BYTES as u32).to_le_bytes());
+        raw[64..68].copy_from_slice(&target_idx.to_le_bytes());
+        raw[68..72].copy_from_slice(&delta.to_le_bytes());
         raw
     }
 
@@ -377,7 +694,13 @@ mod tests {
         let raw = make_tx0_raw(author_id(0), 99);
         let (tx, _) = parse_tx0(&raw).unwrap();
         let err = is_admissible(&state, &tx).unwrap_err();
-        assert_eq!(err, TxError::NonceMismatch { expected: 0, got: 99 });
+        assert_eq!(
+            err,
+            TxError::NonceMismatch {
+                expected: 0,
+                got: 99
+            }
+        );
     }
 
     #[test]
@@ -389,6 +712,48 @@ mod tests {
         let (tx, _) = parse_tx0(&raw).unwrap();
         let err = is_admissible(&state, &tx).unwrap_err();
         assert_eq!(err, TxError::AuthorNotFound);
+    }
+
+    #[test]
+    fn parse_tx1_reads_target_and_delta() {
+        let raw = make_tx1_raw(author_id(0), 7, 1, 25);
+        let (tx, consumed) = parse_tx1(&raw).unwrap();
+        assert_eq!(consumed, TX1_WIRE_BYTES);
+        assert_eq!(tx.author_id, author_id(0));
+        assert_eq!(tx.nonce, 7);
+        assert_eq!(tx.target_idx, 1);
+        assert_eq!(tx.delta, 25);
+    }
+
+    #[test]
+    fn tx1_decrements_target_divergence_and_advances_author_nonce() {
+        let mut state = make_state(2);
+        state.validators[1].divergence = FixedPoint::from_raw(100);
+        let raw = make_tx1_raw(author_id(0), 0, 1, 30);
+        let (tx, _) = parse_tx1(&raw).unwrap();
+        let author_idx = index_of_validator(&state, &tx.author_id).unwrap();
+
+        apply_tx_1(&mut state, author_idx, &tx).unwrap();
+
+        assert_eq!(state.nonces[0], 1);
+        assert_eq!(state.nonces[1], 0);
+        assert_eq!(state.validators[1].divergence.raw(), 70);
+    }
+
+    #[test]
+    fn tx1_rejects_delta_above_current_divergence() {
+        let mut state = make_state(2);
+        state.validators[1].divergence = FixedPoint::from_raw(50);
+        let raw = make_tx1_raw(author_id(0), 0, 1, 100);
+        let (tx, _) = parse_tx1(&raw).unwrap();
+        let author_idx = index_of_validator(&state, &tx.author_id).unwrap();
+
+        assert_eq!(
+            apply_tx_1(&mut state, author_idx, &tx).unwrap_err(),
+            TxError::DeltaExceedsDivergence
+        );
+        assert_eq!(state.nonces[0], 0);
+        assert_eq!(state.validators[1].divergence.raw(), 50);
     }
 
     #[test]
@@ -410,6 +775,32 @@ mod tests {
         assert_eq!(s1.nonces[0], s2.nonces[0]);
         assert_eq!(s1.nonces[1], s2.nonces[1]);
         assert_eq!(s1.nonces[2], s2.nonces[2]);
+    }
+
+    #[test]
+    fn apply_all_accepts_tx1_and_commits_projected_validator_metrics() {
+        let mut state = make_state(2);
+        state.validators[1].divergence = FixedPoint::from_raw(100);
+        let tx = make_tx1_raw(author_id(0), 0, 1, 100);
+
+        let applied = apply_all(&mut state, &[tx.as_slice()], 100).unwrap();
+
+        assert_eq!(applied, 1);
+        assert_eq!(state.nonces[0], 1);
+        assert_eq!(state.validators[1].divergence.raw(), 0);
+    }
+
+    #[test]
+    fn apply_all_filters_inadmissible_tx1_without_mutation() {
+        let mut state = make_state(2);
+        state.validators[1].divergence = FixedPoint::from_raw(50);
+        let tx = make_tx1_raw(author_id(0), 0, 1, 100);
+
+        let applied = apply_all(&mut state, &[tx.as_slice()], 100).unwrap();
+
+        assert_eq!(applied, 0);
+        assert_eq!(state.nonces[0], 0);
+        assert_eq!(state.validators[1].divergence.raw(), 50);
     }
 
     #[test]
@@ -504,6 +895,28 @@ mod tests {
         assert_eq!(n2, 1, "only one conflicting nonce-0 tx may apply");
         assert_eq!(s1.nonces[0], 1);
         assert_eq!(s2.nonces[0], 1);
+    }
+
+    #[test]
+    fn sort_entry_total_order_breaks_equal_sort_key_by_tx_id() {
+        let mut low_id = [0u8; 32];
+        low_id[31] = 1;
+        let mut high_id = [0u8; 32];
+        high_id[31] = 2;
+
+        let high_first = SortEntry {
+            key: [7u8; 32],
+            id: high_id,
+            raw_idx: 0,
+        };
+        let low_second = SortEntry {
+            key: [7u8; 32],
+            id: low_id,
+            raw_idx: 1,
+        };
+
+        assert!(sort_entry_after(&high_first, &low_second));
+        assert!(!sort_entry_after(&low_second, &high_first));
     }
 
     #[test]

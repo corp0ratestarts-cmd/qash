@@ -71,12 +71,20 @@ impl FixedPoint {
 
     #[inline]
     pub const fn min(self, other: Self) -> Self {
-        if self.value <= other.value { self } else { other }
+        if self.value <= other.value {
+            self
+        } else {
+            other
+        }
     }
 
     #[inline]
     pub const fn max(self, other: Self) -> Self {
-        if self.value >= other.value { self } else { other }
+        if self.value >= other.value {
+            self
+        } else {
+            other
+        }
     }
 }
 
@@ -185,8 +193,14 @@ mod tests {
 
     #[test]
     fn to_i64_bounds_are_checked() {
-        assert_eq!(FixedPoint::from_raw(i64::MAX as i128).to_i64(), Ok(i64::MAX));
-        assert_eq!(FixedPoint::from_raw(i64::MIN as i128).to_i64(), Ok(i64::MIN));
+        assert_eq!(
+            FixedPoint::from_raw(i64::MAX as i128).to_i64(),
+            Ok(i64::MAX)
+        );
+        assert_eq!(
+            FixedPoint::from_raw(i64::MIN as i128).to_i64(),
+            Ok(i64::MIN)
+        );
         assert_eq!(
             FixedPoint::from_raw(i64::MAX as i128 + 1).to_i64(),
             Err(OverflowError)

@@ -49,8 +49,8 @@ use sm3::Sm3;
 use streebog::Streebog512;
 use tiny_keccak::{Hasher as K12Hasher, KangarooTwelve};
 
-use kupyna::Kupyna512;
 use crate::lsh512::lsh512;
+use kupyna::Kupyna512;
 
 // ---------------------------------------------------------------------------
 // GF(2^128) arithmetic — irreducible polynomial x^128+x^7+x^2+x+1
@@ -238,11 +238,7 @@ fn path_h_kupyna(epoch_seed: &[u8; 32], epoch: u64, validator_id: u64) -> [u8; 3
 ///
 /// Used to populate `EpochState::validator_ids` at genesis and to verify
 /// validator identity during epoch transitions.
-pub fn derive_leaf_index(
-    validator_id: u64,
-    epoch: u64,
-    epoch_seed: &[u8; 32],
-) -> [u8; 48] {
+pub fn derive_leaf_index(validator_id: u64, epoch: u64, epoch_seed: &[u8; 32]) -> [u8; 48] {
     // Step 1 — compute eight independent path hashes (each 32 bytes = 256 total).
     let pa = path_a_sha3_512(epoch_seed, epoch, validator_id);
     let pb = path_b_blake3(epoch_seed, epoch, validator_id);
@@ -278,10 +274,10 @@ pub fn derive_leaf_index(
     // Step 3 — IT-MAC over the 256-byte concatenation of the 8 paths.
     // Forgery probability ≤ 16 / 2^128 (16 sixteen-byte blocks).
     let mut all_paths = [0u8; 256]; // 8 × 32
-    all_paths[  0.. 32].copy_from_slice(&pa);
-    all_paths[ 32.. 64].copy_from_slice(&pb);
-    all_paths[ 64.. 96].copy_from_slice(&pc);
-    all_paths[ 96..128].copy_from_slice(&pd);
+    all_paths[0..32].copy_from_slice(&pa);
+    all_paths[32..64].copy_from_slice(&pb);
+    all_paths[64..96].copy_from_slice(&pc);
+    all_paths[96..128].copy_from_slice(&pd);
     all_paths[128..160].copy_from_slice(&pe);
     all_paths[160..192].copy_from_slice(&pf);
     all_paths[192..224].copy_from_slice(&pg);
@@ -447,6 +443,10 @@ mod tests {
         let b = derive_leaf_index(1, 0, &seed_flip);
         // Count differing bytes — expect at least 16 of 48 (rough avalanche check).
         let diff = a.iter().zip(b.iter()).filter(|(x, y)| x != y).count();
-        assert!(diff >= 16, "avalanche: only {} bytes differ (want ≥ 16)", diff);
+        assert!(
+            diff >= 16,
+            "avalanche: only {} bytes differ (want ≥ 16)",
+            diff
+        );
     }
 }

@@ -4,6 +4,9 @@
 
 **Decision Rule:** Genesis decision is blocked until all P0 gates are green and all required owners have signed off.
 
+For the current pre-genesis integration snapshot, use
+`docs/release/pre_genesis_evidence_snapshot.md` before applying this RC checklist.
+
 ## 1) P0 Gate Matrix (with evidence links/artifacts)
 
 | Gate ID | P0 Gate | Owner | Status | Evidence / Artifact Link | Notes |
@@ -79,7 +82,27 @@ Pass criteria:
 
 ---
 
-## 5) Explicit Change-Freeze Window Policy
+## 5) Performance Claim Evidence
+
+This is conditional evidence, not a P0 genesis prerequisite. It is required for
+any RC, README, release note, or certification package that claims latency,
+throughput, stack-depth, or tx-heavy admission performance.
+
+Required artifacts:
+
+1. Criterion reports under `artifacts/benchmarks/<rc-tag>/`.
+2. Exact command lines and machine/toolchain identifiers.
+3. Before/after state-root parity logs for any Phase 2-R runtime optimization.
+4. Cross-ISA replay parity for the same vector set used by the benchmarked code.
+
+Pass criteria:
+- No performance claim is published without archived benchmark artifacts.
+- Phase 2-R changes remain consensus-byte-preserving as required by
+  `docs/adr/ADR-006-runtime-optimization-track.md`.
+
+---
+
+## 6) Explicit Change-Freeze Window Policy
 
 **Freeze starts:** RC candidate cut (`T0`).
 
@@ -103,7 +126,7 @@ Exception process:
 
 ---
 
-## 6) Mandatory Multi-Owner Sign-off (before genesis decision)
+## 7) Mandatory Multi-Owner Sign-off (before genesis decision)
 
 All signatures below are required before genesis decision:
 
