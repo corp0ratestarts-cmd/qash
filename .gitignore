@@ -13,3 +13,7 @@ target/
 .*.aux
 .lia.cache
 .depend
+
+# Local evidence bundles; keep the directory README tracked.
+artifacts/evidence/*
+!artifacts/evidence/README.md

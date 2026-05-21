@@ -18,15 +18,15 @@
 //! The `run` function corresponds to the iterated application of `step`
 //! over a sequence of inputs (TH-6: halted state is terminal).
 
-pub use qash_consensus::{
-    advance_epoch, EpochInput, EpochState, HaltReason, LyapunovEval,
-    ValidatorMetrics, ValidatorUpdate, MAX_VALIDATORS,
-};
 pub use qash_consensus::fixed_point::FixedPoint;
 pub use qash_consensus::lyapunov::{ConvergenceWindow, WINDOW_SIZE};
+pub use qash_consensus::{
+    advance_epoch, EpochInput, EpochState, HaltReason, LyapunovEval, ValidatorMetrics,
+    ValidatorUpdate, MAX_VALIDATORS,
+};
 
-pub mod scenario;
 pub mod coq_correspondence;
+pub mod scenario;
 
 // ---------------------------------------------------------------------------
 // StepOutput — explicit output type for one epoch transition
@@ -91,6 +91,8 @@ pub fn genesis(validator_count: u32, ids: Option<&[[u8; 48]]>) -> EpochState {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32],
     };
     match ids {
@@ -249,7 +251,13 @@ mod tests {
     fn genesis_auto_ids_sequential() {
         let state = genesis(4, None);
         for i in 0..4usize {
-            assert_eq!(state.validator_ids[i][0], (i as u8) + 1, "id[{}][0] must be {}", i, i+1);
+            assert_eq!(
+                state.validator_ids[i][0],
+                (i as u8) + 1,
+                "id[{}][0] must be {}",
+                i,
+                i + 1
+            );
             // All other bytes must be zero.
             assert_eq!(&state.validator_ids[i][1..], &[0u8; 47][..]);
         }

@@ -6,6 +6,7 @@ concat_injective.v
 contractivity/lyapunov_stability.v
 contractivity/encode_injectivity.v
 contractivity/tx_perturbation_0.v
+contractivity/tx1_score_decrement.v
 contractivity/lyapunov_grace_convergence.v
 encoding_injectivity.v
 lyapunov_decrease.v
@@ -20,3 +21,8 @@ ordering/causal_ordering.v
 ordering/compatibility_window.v
 safety/causal_fingerprint.v
 composition/lyapunov_confluence.v
+composition/th3_system_closure.v
+model/Model.v
+model/RefinementStatement.v
+model/Extract.v
+sharding/efb_determinism.v

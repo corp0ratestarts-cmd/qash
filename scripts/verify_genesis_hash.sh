@@ -87,7 +87,13 @@ print(f"genesis_status={status}")
 print(f"deployment_authoritative={deploy}")
 
 if computed != recorded:
-    raise SystemExit("ERROR: recorded genesis_hash does not match computed artifact-set hash")
+    if status == "provisional" and deploy == "false":
+        print(
+            "notice=recorded genesis_hash differs from computed artifact-set hash; "
+            "allowed because genesis_status=provisional and deployment_authoritative=false"
+        )
+    else:
+        raise SystemExit("ERROR: recorded genesis_hash does not match computed artifact-set hash")
 
 pdf = repo_root / "spec/pdf/QASH_Spec_v1.0.pdf"
 if not pdf.exists():

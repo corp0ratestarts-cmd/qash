@@ -1,3 +1,4 @@
+use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
 /// Binary replay corpus — Phase 1 of Issue #22 hardening.
 ///
 /// Three canonical state snapshots (epoch 0, 1, 3) encoded via
@@ -12,12 +13,10 @@
 /// the new values on all three authorized ISAs (x86_64, aarch64, riscv64gc)
 /// before updating. Use the `gen_replay_snapshots` test in gen_vectors.rs
 /// with --ignored --nocapture to regenerate.
-
 use qash_consensus::transition::{
-    decode_full_state, encode_full_state_into, advance_epoch,
-    EpochInput, EpochState, HaltReason, MAX_VALIDATORS, FULL_STATE_MAX_BYTES,
+    advance_epoch, decode_full_state, encode_full_state_into, EpochInput, EpochState, HaltReason,
+    FULL_STATE_MAX_BYTES, MAX_VALIDATORS,
 };
-use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
 
 // ---------------------------------------------------------------------------
 // Canonical snapshot hex strings (pinned — do not auto-regenerate)
@@ -37,17 +36,13 @@ const SNAPSHOT_EPOCH_3_HEX: &str = "03000000000000005648ddd6dfe9ac7a8f151f8f21b7
 const EXPECTED_ROOT_EPOCH_0: [u8; 32] = [0u8; 32];
 
 const EXPECTED_ROOT_EPOCH_1: [u8; 32] = [
-    0x52, 0x06, 0xdd, 0x78, 0x54, 0x90, 0x1f, 0xa1,
-    0x72, 0x03, 0x37, 0x9b, 0xe2, 0xe6, 0xa2, 0x53,
-    0x29, 0xdc, 0xba, 0x93, 0x56, 0xba, 0x6f, 0xd7,
-    0x2d, 0xca, 0xb7, 0x6a, 0x20, 0x1c, 0x71, 0xa7,
+    0x52, 0x06, 0xdd, 0x78, 0x54, 0x90, 0x1f, 0xa1, 0x72, 0x03, 0x37, 0x9b, 0xe2, 0xe6, 0xa2, 0x53,
+    0x29, 0xdc, 0xba, 0x93, 0x56, 0xba, 0x6f, 0xd7, 0x2d, 0xca, 0xb7, 0x6a, 0x20, 0x1c, 0x71, 0xa7,
 ];
 
 const EXPECTED_ROOT_EPOCH_3: [u8; 32] = [
-    0x56, 0x48, 0xdd, 0xd6, 0xdf, 0xe9, 0xac, 0x7a,
-    0x8f, 0x15, 0x1f, 0x8f, 0x21, 0xb7, 0xcf, 0x0c,
-    0x6e, 0x61, 0x03, 0x05, 0x46, 0x64, 0x3b, 0x76,
-    0x95, 0x04, 0xff, 0x79, 0xfd, 0x9c, 0x72, 0x2d,
+    0x56, 0x48, 0xdd, 0xd6, 0xdf, 0xe9, 0xac, 0x7a, 0x8f, 0x15, 0x1f, 0x8f, 0x21, 0xb7, 0xcf, 0x0c,
+    0x6e, 0x61, 0x03, 0x05, 0x46, 0x64, 0x3b, 0x76, 0x95, 0x04, 0xff, 0x79, 0xfd, 0x9c, 0x72, 0x2d,
 ];
 
 // ---------------------------------------------------------------------------
@@ -73,6 +68,8 @@ fn genesis_4() -> EpochState {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32],
     }
 }
@@ -127,7 +124,10 @@ fn replay_corpus_epoch_3() {
     );
     assert_eq!(state.halt_reason, HaltReason::None);
     // Window must be full after 3 epochs.
-    assert!(state.convergence_window.is_full(), "window must be full at epoch 3");
+    assert!(
+        state.convergence_window.is_full(),
+        "window must be full at epoch 3"
+    );
 }
 
 /// Replay forward from genesis and verify the state at each epoch produces
@@ -141,7 +141,8 @@ fn replay_binary_corpus() {
     let len0 = encode_full_state_into(&mut state0.clone(), &mut buf0);
     let pinned0 = hex_to_bytes(SNAPSHOT_EPOCH_0_HEX);
     assert_eq!(
-        &buf0[..len0], pinned0.as_slice(),
+        &buf0[..len0],
+        pinned0.as_slice(),
         "epoch-0 encoding must be byte-identical to pinned snapshot"
     );
 
@@ -152,18 +153,22 @@ fn replay_binary_corpus() {
     let len1 = encode_full_state_into(&mut state1, &mut buf1);
     let pinned1 = hex_to_bytes(SNAPSHOT_EPOCH_1_HEX);
     assert_eq!(
-        &buf1[..len1], pinned1.as_slice(),
+        &buf1[..len1],
+        pinned1.as_slice(),
         "epoch-1 encoding must be byte-identical to pinned snapshot"
     );
 
     // epoch 3 — after three idle epochs
     let mut state3 = genesis_4();
-    for _ in 0..3 { advance_epoch(&mut state3, &idle(4), &[]).unwrap(); }
+    for _ in 0..3 {
+        advance_epoch(&mut state3, &idle(4), &[]).unwrap();
+    }
     let mut buf3 = [0u8; FULL_STATE_MAX_BYTES];
     let len3 = encode_full_state_into(&mut state3, &mut buf3);
     let pinned3 = hex_to_bytes(SNAPSHOT_EPOCH_3_HEX);
     assert_eq!(
-        &buf3[..len3], pinned3.as_slice(),
+        &buf3[..len3],
+        pinned3.as_slice(),
         "epoch-3 encoding must be byte-identical to pinned snapshot"
     );
 }

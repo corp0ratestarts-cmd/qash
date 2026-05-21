@@ -2,6 +2,9 @@ name: QASH CI
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   build-x86_64:
     runs-on: ubuntu-latest
@@ -45,6 +48,14 @@ jobs:
         run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::unreachable -D warnings
       - name: Clippy (workspace)
         run: cargo clippy --workspace -- -D warnings
+
+  document-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject raw transcripts and ad hoc root specs
+        run: bash scripts/check_document_hygiene.sh
+
   supply-chain:
     runs-on: ubuntu-latest
     steps:
@@ -60,6 +71,8 @@ jobs:
 
   proofs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Install Coq
@@ -115,34 +128,7 @@ jobs:
         run: bash scripts/check_axiom_coverage.sh
       - name: Compile active Coq proofs
         working-directory: proofs
-        run: |
-          # Tier 1: no cross-QASH dependencies — compile first
-          coqc -Q . QASH crypto_game_framework.v
-          coqc -Q . QASH util/list_inj.v
-          coqc -Q . QASH contractivity/lyapunov_stability.v
-          # Tier 2: depend only on Tier 1 or stdlib only
-          for f in \
-            concat_injective.v \
-            contractivity/encode_injectivity.v \
-            contractivity/tx_perturbation_0.v \
-            contractivity/tx1_score_decrement.v \
-            contractivity/lyapunov_grace_convergence.v \
-            lyapunov_decrease.v \
-            safety/absorbing_halt.v \
-            integration/th8_composition.v \
-            cascade/cascade_health_bounded.v \
-            cascade/cascade_determinism.v \
-            cascade/cascade_collision_resistance.v \
-            cascade/it_mac_forgery_bound.v \
-            blinding/blinding_non_interference.v \
-            ordering/causal_ordering.v \
-            ordering/compatibility_window.v \
-            safety/causal_fingerprint.v \
-            composition/lyapunov_confluence.v \
-            model/Model.v \
-            model/RefinementStatement.v; do
-            coqc -Q . QASH "$f"
-          done
+        run: make all
       - name: Record proof-object hashes
         # Produces a reproducibility manifest: auditors can verify .vo files
         # match a specific Coq version + source commit pair.
@@ -174,3 +160,19 @@ jobs:
             proof-hashes.txt
           if-no-files-found: error
           retention-days: 365
+
+  kani-advisory:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+      - name: Install Kani
+        run: cargo install kani-verifier --version 0.67.0 --locked
+      - name: Set up Kani
+        run: cargo kani setup
+      - name: Verify consensus Kani harnesses
+        run: scripts/run_kani_consensus.sh

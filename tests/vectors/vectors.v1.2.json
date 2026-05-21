@@ -1,0 +1,21 @@
+{
+  "version": "1.2",
+  "description": "12-epoch v1.2 sharded replay corpus over two sorted shard commitments. Pins state_root, aggregate receipt_root, and efb_root for cross-ISA replay verification.",
+  "corpus_epochs": 12,
+  "validator_count": 4,
+  "shard_count": 2,
+  "epochs": [
+    {"step": 0, "epoch": 1, "state_root": "2ee36c9b0d41aeb03c4487efb193d70ced5eed1acf5384ded65c03ecfbe09a16", "receipt_root": "37f8ea384b89115c70702b1455f94de9ba25e9ec81de19050d603f50746ddae5", "efb_root": "bebe2a1a27d8497f1d46f0d63aa33da02c5aa2d30d22581f5561cad83c079bc7"},
+    {"step": 1, "epoch": 2, "state_root": "bc82b29ae1122e74022cd824599f082813e2d1791b5ac59cff090ad081cbcae0", "receipt_root": "5ddeda8620e97f9a6dc9fafb89b7e183aa9d3b3700427cd49a910113eaf6dd63", "efb_root": "1492f612186226b5029374e7f5111d39b2ca8c52352f97cad87e11cc9b2e7ac9"},
+    {"step": 2, "epoch": 3, "state_root": "04d653fec84a17c31ac30b29bce1f5b096a8af37000e40b9536b6df6e3f84248", "receipt_root": "f7d3f837ff666b49488146331423e60f696a82c78b1e5a01469f04e8e2606424", "efb_root": "33be9591f0f7a9b90fc7ce1548a387b8a4bbc816ecbc71191333fd62544254c0"},
+    {"step": 3, "epoch": 4, "state_root": "6208b5d667507095c2496861a13daaffbc28200700da8464221ada06d32affb4", "receipt_root": "a512e7a041dd6d819998b10798b9d99509ad5d84096b6dbff287eeb5725406b5", "efb_root": "f2cb36b9904e6fee7b5c47e1584716ab8817028b5881e14fb5f2a4ea2d908745"},
+    {"step": 4, "epoch": 5, "state_root": "d48d0966c1c2fef9111bea17f2cd871f8d66198a7e666127455230d7a49698ed", "receipt_root": "10cef99323a0fab9019578123b9bfeee0617f4cb8198dffcc520890d72129e30", "efb_root": "87955cd13f748ba84ce0ce4567ff86303077c5ed109ae9d055b5ad94f973c058"},
+    {"step": 5, "epoch": 6, "state_root": "d0112ed9207c731b00c82a628600755fc32bf2731a4eec9a8d01906cf4e9092e", "receipt_root": "11ba990439ca7060ce84b4ac6051959c9b83b30ff6ccab4cf0e29a2c9cfc2086", "efb_root": "20cdd14a5c8a71b2a399588157ce5380a1e957240c1bffeb9f018c872fc08214"},
+    {"step": 6, "epoch": 7, "state_root": "096b982db368578fe3ad64454ebf53098f3bb2a5c372f951efd4c949296eaf7b", "receipt_root": "392234a0c04b1a183ee9d11717d059e8940d4e133d248f4c95fe33e4c635aa2d", "efb_root": "5029bf4a0d31f6c52a02d24b7a777907b35a6fe5ca95a93d18e41637c13db968"},
+    {"step": 7, "epoch": 8, "state_root": "774af87782080593bd83758ccb840ed3a2842be884422c9204f871368a616e4b", "receipt_root": "86ed6bda170c15e07555adc4ff5dc5f9b7a74b98103fdfdc257bb92598956785", "efb_root": "4c3d457ebbcab2b405528740c7c457c162e5e7b2a01ee28ad4030fc4e8106503"},
+    {"step": 8, "epoch": 9, "state_root": "e9fcae4d541f2d733f81c8525d180ba9f14d53c4f5ef89ca544f0467a657e834", "receipt_root": "3a9eb3a706b677c8a992d325b1e5b7c50dbf3358517f0d62bff9a16a34e8dfce", "efb_root": "49b3864a48660730d60edb92974b8f1491c551cafd355848fa1e550ad97d0441"},
+    {"step": 9, "epoch": 10, "state_root": "faa53110a580d9ba9a61f5319a94b0094fe6091112ba23646f24a117cfb83e7c", "receipt_root": "8d2c60f7b24f025b6539b77f95e63f564d03cfd2b71dd8d300253f9ac7bd5ff7", "efb_root": "c67e86ebef990ef7849195d5bf4536527a3d77f38d36c8f052a30d8f90a8ebf4"},
+    {"step": 10, "epoch": 11, "state_root": "15a6479e22cae0d5b2e267c89848a58b5d7961ab91875f3f1a1e768cbf76f979", "receipt_root": "4916a817b60a2dcb2b5d14c37b03f506091483ac7d3903d3238f09a7f848e2ea", "efb_root": "d77e1f12b6394d2b1c6a8b17d053b0da4c91515eb6cc2d0a9c654076a15d94cb"},
+    {"step": 11, "epoch": 12, "state_root": "04a6e06139b3079749a540c16b5dbbfe952a8f4f740f962c360ce660b38b2457", "receipt_root": "8e2b9d5d179b9cd27ce9fedc6b06161079678b918e2fea3daf2c828858f0305c", "efb_root": "3b8620249d94dfac748422b138ffe3be1730ef35617135e303919d0b80cf44e8"}
+  ]
+}

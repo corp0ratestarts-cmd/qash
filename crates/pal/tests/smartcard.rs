@@ -1,6 +1,8 @@
 #![cfg(feature = "std")]
 
-use qash_pal::smartcard::{InMemoryKeyStore, KeyStore, SignRequest, SmartcardError, TokenDescriptor};
+use qash_pal::smartcard::{
+    InMemoryKeyStore, KeyStore, SignRequest, SmartcardError, TokenDescriptor,
+};
 
 #[test]
 fn token_descriptor_round_trip() {

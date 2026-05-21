@@ -54,6 +54,8 @@ fn genesis_state(validator_count: u32) -> EpochState {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32],
     }
 }
@@ -442,5 +444,8 @@ fn regen() {
     let preimage_len = encode_full_state_into(&commitment_state, &mut preimage);
     let preimage_sha = sha3_256(&preimage[..preimage_len]);
     println!("state_root_commitment preimage_len = {}", preimage_len);
-    println!("state_root_commitment preimage_sha3_256 = {}", hex_encode(&preimage_sha));
+    println!(
+        "state_root_commitment preimage_sha3_256 = {}",
+        hex_encode(&preimage_sha)
+    );
 }

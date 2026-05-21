@@ -12,8 +12,7 @@
 //! * Private key material is zeroized on drop via `ml_kem`'s internal hygiene.
 
 use ml_kem::{
-    kem::Decapsulate,
-    B32, Ciphertext, DecapsulationKey, EncapsulationKey, MlKem768, Seed,
+    kem::Decapsulate, Ciphertext, DecapsulationKey, EncapsulationKey, MlKem768, Seed, B32,
 };
 use sha3::{Digest, Sha3_256};
 
@@ -138,9 +137,15 @@ mod tests {
         let base = xwing_combine(&[0x01u8; 32], &[0x02u8; 32], &[0x03u8; 64], &[0x04u8; 32]);
         let mut v = [0x01u8; 32];
         v[0] ^= 0xFF;
-        assert_ne!(base, xwing_combine(&v, &[0x02u8; 32], &[0x03u8; 64], &[0x04u8; 32]));
+        assert_ne!(
+            base,
+            xwing_combine(&v, &[0x02u8; 32], &[0x03u8; 64], &[0x04u8; 32])
+        );
         let mut v = [0x02u8; 32];
         v[0] ^= 0xFF;
-        assert_ne!(base, xwing_combine(&[0x01u8; 32], &v, &[0x03u8; 64], &[0x04u8; 32]));
+        assert_ne!(
+            base,
+            xwing_combine(&[0x01u8; 32], &v, &[0x03u8; 64], &[0x04u8; 32])
+        );
     }
 }

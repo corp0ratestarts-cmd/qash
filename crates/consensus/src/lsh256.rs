@@ -19,10 +19,8 @@ const NS: usize = 26; // number of compression steps
 // ── IV: LSH-256-256 initialisation vector (§4.3.2) ─────────────────────────
 
 const IV256: [u32; 16] = [
-    0x46a10f1f, 0xfddce486, 0xb41443a8, 0x198e6b9d,
-    0x3304388d, 0xb0f5a3c7, 0xb36061c4, 0x7adbd553,
-    0x105d5378, 0x2f74de54, 0x5c2f2d95, 0xf2553fbe,
-    0x8051357a, 0x138668c8, 0x47aa4484, 0xe01afb41,
+    0x46a10f1f, 0xfddce486, 0xb41443a8, 0x198e6b9d, 0x3304388d, 0xb0f5a3c7, 0xb36061c4, 0x7adbd553,
+    0x105d5378, 0x2f74de54, 0x5c2f2d95, 0xf2553fbe, 0x8051357a, 0x138668c8, 0x47aa4484, 0xe01afb41,
 ];
 
 // ── Permutation τ: MsgExp recurrence (§4.2.1, Table 4-2) ───────────────────
@@ -55,13 +53,21 @@ const SC0: [u32; 8] = [
 // α: even step = 29, odd step = 5
 #[inline(always)]
 fn alpha(step: usize) -> u32 {
-    if step & 1 == 0 { 29 } else { 5 }
+    if step & 1 == 0 {
+        29
+    } else {
+        5
+    }
 }
 
 // β: even step = 1, odd step = 17
 #[inline(always)]
 fn beta(step: usize) -> u32 {
-    if step & 1 == 0 { 1 } else { 17 }
+    if step & 1 == 0 {
+        1
+    } else {
+        17
+    }
 }
 
 // ── Core primitives ─────────────────────────────────────────────────────────
@@ -123,7 +129,7 @@ fn compress(cv: [u32; 16], block: &[u32; 32]) -> [u32; 16] {
         // ── Mix_j: 8 parallel two-word lanes  (§4.2.3, eq 4.8) ───────────
         for l in 0..8usize {
             let (x, y) = mix_pair(t[l], t[l + 8], j, sc[l], GAMMA[l]);
-            t[l]     = x;
+            t[l] = x;
             t[l + 8] = y;
         }
 
@@ -145,9 +151,9 @@ fn compress(cv: [u32; 16], block: &[u32; 32]) -> [u32; 16] {
         // M_{j+2}[l] = M_{j+1}[l] ⊞ M_j[τ(l)]
         // Write into slot (j+2) % 3, which is free (neither j%3 nor (j+1)%3).
         if j + 2 <= NS {
-            let mj_copy  = m[j % 3];       // M_j   (already copied above)
+            let mj_copy = m[j % 3]; // M_j   (already copied above)
             let mj1_copy = m[(j + 1) % 3]; // M_{j+1}
-            let dest     = (j + 2) % 3;
+            let dest = (j + 2) % 3;
             for l in 0..16usize {
                 m[dest][l] = mj1_copy[l].wrapping_add(mj_copy[TAU[l]]);
             }
@@ -174,7 +180,7 @@ fn finalize_256(cv: [u32; 16]) -> [u8; 32] {
     for l in 0..8usize {
         let h = cv[l] ^ cv[l + 8];
         let b = h.to_le_bytes();
-        out[4 * l]     = b[0];
+        out[4 * l] = b[0];
         out[4 * l + 1] = b[1];
         out[4 * l + 2] = b[2];
         out[4 * l + 3] = b[3];
@@ -225,15 +231,19 @@ pub fn lsh256_domain(tag: DomainTag, input: &[u8]) -> [u8; 32] {
 ///
 /// Assembles the virtual concatenation block by block.
 pub fn lsh256_parts(prefix: &[u8], suffix: &[u8]) -> [u8; 32] {
-    let mut cv   = IV256;
-    let total    = prefix.len() + suffix.len();
-    let mut pos  = 0usize; // position in the virtual prefix‖suffix stream
+    let mut cv = IV256;
+    let total = prefix.len() + suffix.len();
+    let mut pos = 0usize; // position in the virtual prefix‖suffix stream
 
     while pos + 128 <= total {
         let mut blk = [0u8; 128];
         for (i, b) in blk.iter_mut().enumerate() {
             let v = pos + i;
-            *b = if v < prefix.len() { prefix[v] } else { suffix[v - prefix.len()] };
+            *b = if v < prefix.len() {
+                prefix[v]
+            } else {
+                suffix[v - prefix.len()]
+            };
         }
         cv = compress(cv, &parse_block(&blk));
         pos += 128;
@@ -244,7 +254,11 @@ pub fn lsh256_parts(prefix: &[u8], suffix: &[u8]) -> [u8; 32] {
     let tail = total - pos;
     for (i, b) in pad.iter_mut().enumerate().take(tail) {
         let v = pos + i;
-        *b = if v < prefix.len() { prefix[v] } else { suffix[v - prefix.len()] };
+        *b = if v < prefix.len() {
+            prefix[v]
+        } else {
+            suffix[v - prefix.len()]
+        };
     }
     pad[tail] = 0x80;
     cv = compress(cv, &parse_block(&pad));
@@ -305,7 +319,11 @@ mod tests {
         let b = lsh256(b"iello"); // first byte differs by one bit
         assert_ne!(a, b);
         // Count differing bytes — expect roughly half to differ.
-        let diff: u32 = a.iter().zip(b.iter()).map(|(x, y)| (x ^ y).count_ones()).sum();
+        let diff: u32 = a
+            .iter()
+            .zip(b.iter())
+            .map(|(x, y)| (x ^ y).count_ones())
+            .sum();
         assert!(diff >= 64, "poor avalanche: only {} bits differ", diff);
     }
 
@@ -324,7 +342,7 @@ mod tests {
         use crate::hash::DomainTag;
         let input = b"validator_id_bytes";
         let h1 = lsh256_domain(DomainTag::ValidatorId, input);
-        let h2 = lsh256_domain(DomainTag::StateRoot,   input);
+        let h2 = lsh256_domain(DomainTag::StateRoot, input);
         assert_ne!(h1, h2);
     }
 
@@ -345,8 +363,8 @@ mod tests {
     #[test]
     fn two_block_message() {
         let msg_short = [0x5au8; 100];
-        let msg_long  = [0x5au8; 200]; // second block required
-        // They must differ (different lengths → different padding).
+        let msg_long = [0x5au8; 200]; // second block required
+                                      // They must differ (different lengths → different padding).
         assert_ne!(lsh256(&msg_short), lsh256(&msg_long));
         // And the two-block result must be deterministic.
         assert_eq!(lsh256(&msg_long), lsh256(&msg_long));
@@ -358,10 +376,9 @@ mod tests {
     #[test]
     fn lsh256_official_kat() {
         let expected = [
-            0x5f, 0xbf, 0x36, 0x5d, 0xae, 0xa5, 0x44, 0x6a,
-            0x70, 0x53, 0xc5, 0x2b, 0x57, 0x40, 0x4d, 0x77,
-            0xa0, 0x7a, 0x5f, 0x48, 0xa1, 0xf7, 0xc1, 0x96,
-            0x3a, 0x08, 0x98, 0xba, 0x1b, 0x71, 0x47, 0x41,
+            0x5f, 0xbf, 0x36, 0x5d, 0xae, 0xa5, 0x44, 0x6a, 0x70, 0x53, 0xc5, 0x2b, 0x57, 0x40,
+            0x4d, 0x77, 0xa0, 0x7a, 0x5f, 0x48, 0xa1, 0xf7, 0xc1, 0x96, 0x3a, 0x08, 0x98, 0xba,
+            0x1b, 0x71, 0x47, 0x41,
         ];
         assert_eq!(lsh256(b"abc"), expected);
     }

@@ -15,7 +15,6 @@
 ///          -- --ignored --nocapture
 ///    then copy stdout into tests/vectors/vectors.v1.1.json.
 ///    VERIFY the new values on all three authorized ISAs before pinning.
-
 use qash_consensus::envelope::{PROTOCOL_VERSION_V1_0, PROTOCOL_VERSION_V1_1};
 use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
 use qash_consensus::transition::{
@@ -40,6 +39,8 @@ fn genesis() -> EpochState {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32],
     }
 }
@@ -127,7 +128,8 @@ fn v1_1_corpus_matches_pinned() {
     let actual = run_corpus();
     for (i, ((epoch, root), expected)) in actual.iter().zip(pinned.iter()).enumerate() {
         assert_eq!(
-            root, expected,
+            root,
+            expected,
             "state_root mismatch at step {} (epoch {})\n  got:      {}\n  expected: {}",
             i,
             epoch,
@@ -159,7 +161,11 @@ fn gen_v1_1_corpus() {
             "    {{\"step\": {}, \"epoch\": {}, \"protocol_version\": \"{}\", \"root\": \"{}\"}}{}",
             i,
             epoch,
-            if protocol_version_for_step(i as u64) == PROTOCOL_VERSION_V1_0 { "v1.0" } else { "v1.1" },
+            if protocol_version_for_step(i as u64) == PROTOCOL_VERSION_V1_0 {
+                "v1.0"
+            } else {
+                "v1.1"
+            },
             bytes_to_hex(root),
             comma,
         );

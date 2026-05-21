@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod consensus;
-pub mod hardware;
 pub mod crypto;
-pub mod offline;
+pub mod hardware;
 pub mod obfuscation;
+pub mod offline;

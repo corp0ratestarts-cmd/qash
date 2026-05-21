@@ -161,5 +161,6 @@
 | P1-5 | §5 | Hosted PAL nondeterminism boundary | Minimal hosted runtime now implemented; cross-ISA replay artifacts deferred. |
 | P1-6 | §6 | Obfuscation VM | Later subsystem phase. |
 | P1-7 | §7 | Clone protocol | Later subsystem phase. |
+| P1-8 | PDF-SILENT | Runtime optimization track | Scheduled by `docs/adr/ADR-006-runtime-optimization-track.md`; implementation is deferred until parity and benchmark gates exist. |
 | P2-1 | §9.1 (pp. 24–25, provisional) | `vm_correctness` proof | Depends on obfuscation VM. |
 | P2-2 | §9.1 (pp. 24–25, provisional) | `decoy_state_identity` proof | Depends on obfuscation VM. |

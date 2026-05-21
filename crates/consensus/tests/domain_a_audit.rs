@@ -12,8 +12,7 @@
 
 mod fixed_point_audit {
     use qash_consensus::fixed_point::{
-        floor_div_i128, decode_fixed_point, encode_fixed_point,
-        FixedPoint, OverflowError, SCALE,
+        decode_fixed_point, encode_fixed_point, floor_div_i128, FixedPoint, OverflowError, SCALE,
     };
 
     // i128::MIN / -1 must return Err, not overflow/panic.
@@ -101,8 +100,14 @@ mod fixed_point_audit {
 
     #[test]
     fn to_i64_boundary_values_succeed() {
-        assert_eq!(FixedPoint::from_raw(i64::MAX as i128).to_i64(), Ok(i64::MAX));
-        assert_eq!(FixedPoint::from_raw(i64::MIN as i128).to_i64(), Ok(i64::MIN));
+        assert_eq!(
+            FixedPoint::from_raw(i64::MAX as i128).to_i64(),
+            Ok(i64::MAX)
+        );
+        assert_eq!(
+            FixedPoint::from_raw(i64::MIN as i128).to_i64(),
+            Ok(i64::MIN)
+        );
         assert_eq!(FixedPoint::from_raw(0).to_i64(), Ok(0));
     }
 }
@@ -113,8 +118,8 @@ mod fixed_point_audit {
 
 mod encoding_audit {
     use qash_consensus::encoding::{
-        decode_validator_dynamic, decode_state_header, encode_state_header,
-        EncodeError, VALIDATOR_DYNAMIC_SIZE, STATE_HEADER_SIZE,
+        decode_state_header, decode_validator_dynamic, encode_state_header, EncodeError,
+        STATE_HEADER_SIZE, VALIDATOR_DYNAMIC_SIZE,
     };
     use qash_consensus::fixed_point::SCALE;
     use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
@@ -122,7 +127,6 @@ mod encoding_audit {
         decode_full_state, encode_full_state_into, EpochState, HaltReason, FULL_STATE_MAX_BYTES,
         MAX_VALIDATORS,
     };
-
 
     fn minimal_state(vc: u32) -> EpochState {
         EpochState {
@@ -136,6 +140,8 @@ mod encoding_audit {
             validator_ids: [[0u8; 48]; MAX_VALIDATORS],
             cascade_health: 0,
             state_root: [0u8; 32],
+            receipt_root: [0u8; 32],
+            efb_root: [0u8; 32],
             causal_fingerprint: [0u8; 32],
         }
     }
@@ -163,42 +169,60 @@ mod encoding_audit {
     #[test]
     fn decode_vd_negative_divergence_rejected() {
         let bytes = encode_vd(-1, 0, 0);
-        assert_eq!(decode_validator_dynamic(&bytes), Err(EncodeError::DecodeInvalid));
+        assert_eq!(
+            decode_validator_dynamic(&bytes),
+            Err(EncodeError::DecodeInvalid)
+        );
     }
 
     // D > SCALE must be rejected.
     #[test]
     fn decode_vd_divergence_above_scale_rejected() {
         let bytes = encode_vd(SCALE + 1, 0, 0);
-        assert_eq!(decode_validator_dynamic(&bytes), Err(EncodeError::DecodeInvalid));
+        assert_eq!(
+            decode_validator_dynamic(&bytes),
+            Err(EncodeError::DecodeInvalid)
+        );
     }
 
     // C < 0 must be rejected.
     #[test]
     fn decode_vd_negative_conflict_rejected() {
         let bytes = encode_vd(0, -1, 0);
-        assert_eq!(decode_validator_dynamic(&bytes), Err(EncodeError::DecodeInvalid));
+        assert_eq!(
+            decode_validator_dynamic(&bytes),
+            Err(EncodeError::DecodeInvalid)
+        );
     }
 
     // C > SCALE must be rejected.
     #[test]
     fn decode_vd_conflict_above_scale_rejected() {
         let bytes = encode_vd(0, SCALE + 1, 0);
-        assert_eq!(decode_validator_dynamic(&bytes), Err(EncodeError::DecodeInvalid));
+        assert_eq!(
+            decode_validator_dynamic(&bytes),
+            Err(EncodeError::DecodeInvalid)
+        );
     }
 
     // S < 0 must be rejected.
     #[test]
     fn decode_vd_negative_slash_rejected() {
         let bytes = encode_vd(0, 0, -1);
-        assert_eq!(decode_validator_dynamic(&bytes), Err(EncodeError::DecodeInvalid));
+        assert_eq!(
+            decode_validator_dynamic(&bytes),
+            Err(EncodeError::DecodeInvalid)
+        );
     }
 
     // S > i64::MAX must be rejected (would not fit in transition invariant).
     #[test]
     fn decode_vd_slash_above_i64_max_rejected() {
         let bytes = encode_vd(0, 0, i64::MAX as i128 + 1);
-        assert_eq!(decode_validator_dynamic(&bytes), Err(EncodeError::DecodeInvalid));
+        assert_eq!(
+            decode_validator_dynamic(&bytes),
+            Err(EncodeError::DecodeInvalid)
+        );
     }
 
     // State header: non-zero padding bytes must be rejected.
@@ -240,7 +264,10 @@ mod encoding_audit {
     #[test]
     fn decode_vd_i128_min_all_fields_rejected() {
         let bytes = encode_vd(i128::MIN, i128::MIN, i128::MIN);
-        assert_eq!(decode_validator_dynamic(&bytes), Err(EncodeError::DecodeInvalid));
+        assert_eq!(
+            decode_validator_dynamic(&bytes),
+            Err(EncodeError::DecodeInvalid)
+        );
     }
 
     #[test]
@@ -274,8 +301,14 @@ mod encoding_audit {
         let canonical = &buf[..len];
 
         assert!(decode_full_state(canonical).is_ok());
-        assert!(matches!(decode_full_state(&[]), Err(EncodeError::BufferTooSmall)));
-        assert!(matches!(decode_full_state(&canonical[..canonical.len() - 1]), Err(EncodeError::DecodeInvalid)));
+        assert!(matches!(
+            decode_full_state(&[]),
+            Err(EncodeError::BufferTooSmall)
+        ));
+        assert!(matches!(
+            decode_full_state(&canonical[..canonical.len() - 1]),
+            Err(EncodeError::DecodeInvalid)
+        ));
     }
 
     #[test]
@@ -287,17 +320,26 @@ mod encoding_audit {
         // header pad byte at offset 105 must be zero.
         let mut bad_header_pad = buf;
         bad_header_pad[105] = 0x01;
-        assert!(matches!(decode_full_state(&bad_header_pad[..len]), Err(EncodeError::DecodeInvalid)));
+        assert!(matches!(
+            decode_full_state(&bad_header_pad[..len]),
+            Err(EncodeError::DecodeInvalid)
+        ));
 
         // window pad byte at offset 201 must be zero for vc=1 (120 fixed + 80 per-validator + 1).
         let mut bad_window_pad = buf;
         bad_window_pad[201] = 0x01;
-        assert!(matches!(decode_full_state(&bad_window_pad[..len]), Err(EncodeError::DecodeInvalid)));
+        assert!(matches!(
+            decode_full_state(&bad_window_pad[..len]),
+            Err(EncodeError::DecodeInvalid)
+        ));
 
         // divergence i64 field at offset 120 must be in [0, SCALE] (120-byte fixed header).
         let mut bad_divergence = buf;
         bad_divergence[120..128].copy_from_slice(&(-1i64).to_le_bytes());
-        assert!(matches!(decode_full_state(&bad_divergence[..len]), Err(EncodeError::DecodeInvalid)));
+        assert!(matches!(
+            decode_full_state(&bad_divergence[..len]),
+            Err(EncodeError::DecodeInvalid)
+        ));
     }
 }
 
@@ -306,11 +348,10 @@ mod encoding_audit {
 // ---------------------------------------------------------------------------
 
 mod lyapunov_audit {
-    use qash_consensus::lyapunov::{
-        evaluate, ConvergenceWindow, ValidatorMetrics, LyapunovError, WEIGHT_S,
-        PHI_MAX_SAFE,
-    };
     use qash_consensus::fixed_point::FixedPoint;
+    use qash_consensus::lyapunov::{
+        evaluate, ConvergenceWindow, LyapunovError, ValidatorMetrics, PHI_MAX_SAFE,
+    };
     use qash_consensus::transition::MAX_VALIDATORS;
 
     fn slash_metric(slash_raw: i128) -> ValidatorMetrics {
@@ -368,7 +409,11 @@ mod lyapunov_audit {
 
         // Must not error — the sum must fit in i128.
         let result = evaluate(&all_max, &ConvergenceWindow::new());
-        assert!(result.is_ok(), "overflow with max validators: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "overflow with max validators: {:?}",
+            result.err()
+        );
     }
 
     // Adversarial: max slash_accum (i64::MAX). phi uses max not sum, so no overflow.
@@ -384,8 +429,10 @@ mod lyapunov_audit {
         match evaluate(&all_slash, &ConvergenceWindow::new()) {
             Ok(eval) => {
                 // If it succeeds, phi_halt must be triggered (i64::MAX >> threshold).
-                assert!(eval.phi_halt_triggered,
-                    "i64::MAX slash_accum must trigger phi halt");
+                assert!(
+                    eval.phi_halt_triggered,
+                    "i64::MAX slash_accum must trigger phi halt"
+                );
             }
             Err(LyapunovError::Overflow) => {
                 // Arithmetic overflow is also acceptable.
@@ -447,6 +494,12 @@ mod hash_audit {
             DomainTag::LeafHash,
             DomainTag::InternalHash,
             DomainTag::TxId,
+            DomainTag::CausalOrder,
+            DomainTag::CausalFingerprint,
+            DomainTag::LineageSkip,
+            DomainTag::ShardAssignment,
+            DomainTag::CrossShardReceipt,
+            DomainTag::EpochFinalityBeacon,
         ];
         let input = b"audit-domain-separation-test";
         let hashes: Vec<[u8; 32]> = tags.iter().map(|&t| h_domain(t, input)).collect();
@@ -471,8 +524,10 @@ mod hash_audit {
         let input = b"test-input";
         let tagged = h_domain(DomainTag::StateRoot, input);
         let untagged = sha3_256(input);
-        assert_ne!(tagged, untagged,
-            "h_domain must differ from sha3_256 on same input");
+        assert_ne!(
+            tagged, untagged,
+            "h_domain must differ from sha3_256 on same input"
+        );
     }
 
     // Empty input: h_domain must still work without panic, and two calls agree.
@@ -509,12 +564,18 @@ mod hash_audit {
     // Domain tag values must match their declared constants (guards against accidental renumbering).
     #[test]
     fn domain_tag_wire_values_stable() {
-        assert_eq!(DomainTag::StateRoot      as u32, 0x0000_0001);
+        assert_eq!(DomainTag::StateRoot as u32, 0x0000_0001);
         assert_eq!(DomainTag::EntropyAdvance as u32, 0x0000_0002);
-        assert_eq!(DomainTag::ValidatorId    as u32, 0x0000_0003);
-        assert_eq!(DomainTag::LeafHash       as u32, 0x0000_0004);
-        assert_eq!(DomainTag::InternalHash   as u32, 0x0000_0005);
-        assert_eq!(DomainTag::TxId           as u32, 0x0000_0010);
+        assert_eq!(DomainTag::ValidatorId as u32, 0x0000_0003);
+        assert_eq!(DomainTag::LeafHash as u32, 0x0000_0004);
+        assert_eq!(DomainTag::InternalHash as u32, 0x0000_0005);
+        assert_eq!(DomainTag::TxId as u32, 0x0000_0010);
+        assert_eq!(DomainTag::CausalOrder as u32, 0x0000_0020);
+        assert_eq!(DomainTag::CausalFingerprint as u32, 0x0000_0030);
+        assert_eq!(DomainTag::LineageSkip as u32, 0x0000_0040);
+        assert_eq!(DomainTag::ShardAssignment as u32, 0x0000_0050);
+        assert_eq!(DomainTag::CrossShardReceipt as u32, 0x0000_0051);
+        assert_eq!(DomainTag::EpochFinalityBeacon as u32, 0x0000_0052);
     }
 }
 
@@ -523,12 +584,12 @@ mod hash_audit {
 // ---------------------------------------------------------------------------
 
 mod transaction_audit {
+    use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
     use qash_consensus::transaction::{
-        prevalidate_all, parse_tx0, sort_key, tx_id, apply_all,
-        TxError, TX_VERSION, TX_TYPE_NOOP, TX0_WIRE_BYTES, TX_HEADER_BYTES,
+        apply_all, parse_tx0, prevalidate_all, sort_key, tx_id, TxError, TX0_WIRE_BYTES,
+        TX_HEADER_BYTES, TX_TYPE_NOOP, TX_VERSION,
     };
     use qash_consensus::transition::{EpochState, HaltReason, MAX_VALIDATORS};
-    use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
 
     fn make_state_with(vc: u32, nonces: &[u64]) -> EpochState {
         let mut validator_ids = [[0u8; 48]; MAX_VALIDATORS];
@@ -556,6 +617,8 @@ mod transaction_audit {
             validator_ids,
             cascade_health: 0,
             state_root: [0u8; 32],
+            receipt_root: [0u8; 32],
+            efb_root: [0u8; 32],
             causal_fingerprint: [0u8; 32],
         }
     }
@@ -583,7 +646,10 @@ mod transaction_audit {
         // Submit the same raw bytes twice.
         let plan = prevalidate_all(&state, &[tx.as_slice(), tx.as_slice()], 100).unwrap();
         // Only one can succeed — the second has the same nonce and will be rejected.
-        assert_eq!(plan.applied_count, 1, "duplicate nonce must not apply twice");
+        assert_eq!(
+            plan.applied_count, 1,
+            "duplicate nonce must not apply twice"
+        );
         assert_eq!(plan.next_nonces[0], 1);
     }
 
@@ -663,7 +729,6 @@ mod transaction_audit {
         let mut state = make_state_with(1, &[]);
         state.nonces[0] = u64::MAX;
         let tx = make_tx0(0, u64::MAX);
-        let nonces_before = state.nonces;
         let _ = apply_all(&mut state, &[tx.as_slice()], 100);
         // State nonces must be unchanged since apply_all uses prevalidate_all first.
         // (prevalidate errors before commit phase)

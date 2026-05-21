@@ -69,14 +69,10 @@ pub enum BlindingMode {
 /// The epoch_key acts as a per-epoch additive mask at the L2 binding layer,
 /// making the cascade output computationally indistinguishable across epochs
 /// even when the input is identical.  `epoch_key` may be `&[]` when mode is None.
-pub fn blind_cascade_input(
-    mode: BlindingMode,
-    epoch_key: &[u8],
-    input: &[u8],
-) -> [u8; 64] {
+pub fn blind_cascade_input(mode: BlindingMode, epoch_key: &[u8], input: &[u8]) -> [u8; 64] {
     match mode {
-        BlindingMode::None            => h_cascade(input),
-        BlindingMode::EpochBoundPRF   => h_cascade_keyed(epoch_key, input),
+        BlindingMode::None => h_cascade(input),
+        BlindingMode::EpochBoundPRF => h_cascade_keyed(epoch_key, input),
     }
 }
 
@@ -198,13 +194,16 @@ mod tests {
     #[test]
     fn dilithium_scalar_none_is_zeroes() {
         let nonce = [0x01u8; 32];
-        assert_eq!(derive_dilithium_blinding_scalar(BlindingMode::None, &[], &nonce), [0u8; 32]);
+        assert_eq!(
+            derive_dilithium_blinding_scalar(BlindingMode::None, &[], &nonce),
+            [0u8; 32]
+        );
     }
 
     #[test]
     fn dilithium_scalar_prf_nonzero_deterministic() {
         let nonce = [0x42u8; 32];
-        let key   = b"epoch_key";
+        let key = b"epoch_key";
         let s1 = derive_dilithium_blinding_scalar(BlindingMode::EpochBoundPRF, key, &nonce);
         let s2 = derive_dilithium_blinding_scalar(BlindingMode::EpochBoundPRF, key, &nonce);
         assert_ne!(s1, [0u8; 32], "PRF scalar must be non-zero");
@@ -224,7 +223,7 @@ mod tests {
 
     #[test]
     fn split_and_reconstruct_roundtrip() {
-        let key   = [0xABu8; 32];
+        let key = [0xABu8; 32];
         let nonce = [0x01u8; 32];
         let epoch_key = b"epoch_key_material_here";
         let (s0, s1) = split_chunk_key(BlindingMode::EpochBoundPRF, epoch_key, &key, &nonce);
@@ -242,7 +241,7 @@ mod tests {
 
     #[test]
     fn prf_shares_differ_from_key() {
-        let key   = [0xFFu8; 32];
+        let key = [0xFFu8; 32];
         let nonce = [0x01u8; 32];
         let (s0, s1) = split_chunk_key(BlindingMode::EpochBoundPRF, b"k", &key, &nonce);
         // shares should differ from raw key

@@ -56,6 +56,7 @@ docs/spec/           ← Pre-existing derived engineering specs pending mirror m
   01_consensus.md         State space, encoding, transition function, stability
   07_hash_cascade.md      Astronomical depth-7 cascade spec (v1.1)
   09_migration_v1.0_to_v1.1.md  Migration guide and compatibility window
+  12_sharded_protocol.md  Sharding, EFB, cross-shard receipts, ZK profile
 
 proofs/             ← Formal theorems (Coq)
   contractivity/
@@ -78,9 +79,14 @@ src/                ← Hosted binary entrypoint
 GENESIS_CONSTANTS.toml   Immutable genesis parameters (not yet locked)
 ```
 
-> **Runtime status: thin scaffold — the hosted binary is a CLI demo only. PAL traits
-> are wired but the Host implementation returns zeroes/no-ops. This is not a
-> deployable node.**
+> **Runtime status: integration scaffold — hosted PAL replay, commitment
+> transport, attestation verifier interfaces, whole-protocol sharded replay, and
+> a ZK proof-bundle boundary exist. Production networking, hardware attestation,
+> Plonky3 proof verification, and certification evidence are not deployable yet.**
+>
+> **Evidence handoff:** current pre-genesis claims, blocked claims, and local
+> verification commands are tracked in
+> `docs/release/pre_genesis_evidence_snapshot.md`.
 
 The relationship between layers:
 
@@ -110,18 +116,58 @@ repository now resolves authority through the PDF-first governance model in
 |----|------|-------|--------|
 | TH-1 | Encoding injectivity | Formal theorem | ✅ FORMAL — `proofs/contractivity/encode_injectivity.v` |
 | TH-2 | Encoding totality | Formal theorem | ✅ FORMAL — `proofs/contractivity/encode_injectivity.v` |
-| TH-3 | Convergence decrease / halt gate | Formal theorem | ✅ FORMAL — `proofs/contractivity/lyapunov_stability.v` |
+| TH-3 | Convergence decrease / halt gate | Formal theorem | ✅ FORMAL — `proofs/contractivity/lyapunov_stability.v` + `proofs/composition/th3_system_closure.v` |
 | TX-0 §A8 | No-op perturbation bound | Formal theorem | ✅ FORMAL — `proofs/contractivity/tx_perturbation_0.v` |
+| TX-1 §A8 | Score-decrement perturbation bound | Formal theorem | ✅ FORMAL — `proofs/contractivity/tx1_score_decrement.v` |
 | TH-4 | Φ_safety monotonicity | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
 | TH-5 | Φ_safety boundedness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
 | TH-6 | Halt correctness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` |
 | TH-7 | Replay invariance RT-1 | Verification claim | ✅ CI-VERIFIED — identical state roots on x86_64, aarch64, riscv64gc (QEMU user-static) |
 | TH-8 | Succession soundness | Formal theorem | ✅ FORMAL — `proofs/safety/absorbing_halt.v` + `proofs/integration/th8_composition.v` |
+| Sharding/EFB | EFB determinism and receipt anchoring | Mixed | ✅ SCAFFOLDED — `docs/spec/12_sharded_protocol.md`, `crates/consensus/src/sharding.rs`, `proofs/sharding/efb_determinism.v` |
 
 Genesis lock gate:
 - TH-1 through TH-6, TH-8: **FORMAL** (Coq compiles; no `Admitted` beyond AX-1/AX-2/AX-3)
 - TH-7: CI-verified on x86_64, aarch64, and riscv64gc (QEMU user-static; identical state roots)
 - Archived drafts in `proofs/_wip/` are superseded — not lock evidence
+- Genesis remains unlocked until traceability, normative PDF, production PAL,
+  and release evidence are reconciled.
+
+---
+
+## Sharding and ZK Profile Status
+
+Sharding is protocol structure, not an optional implementation module. The
+current v1.2 scaffold includes deterministic shard assignment, cross-shard
+receipt IDs, EFB aggregation, EFB roots in `PublicTranscript`, and replay
+vectors. The provisional ZK profile is fixed as Plonky3 FRI-STARK with Poseidon
+inside the circuit and QASH-native outer commitments, using a two-layer
+recursion tree: Layer 0 shard validity, Layer 1 16:1 aggregation, Layer 2 EFB
+verification.
+
+This is not a production ZK verifier. Domain A validates the public profile
+shape and commits to `zk_batch_root`; Domain B owns proof generation,
+proof-byte transport, and the future Plonky3 verifier backend.
+
+## PR #93 Review Status
+
+PR #93 review feedback is incorporated through curated repository artifacts, not
+by tracking the raw conversational transcript file (`21`) from that PR branch.
+Protocol material extracted from the review belongs in `docs/spec/`,
+`docs/adr/`, `ROADMAP.md`, `PROJECT_STATUS.md`, tests, and proofs.
+The CI `document-hygiene` job rejects obvious raw transcript dumps and ad hoc
+root-level spec files so this remains enforceable after this branch.
+
+The sharding/ZK comments are reflected in the v1.2 scaffold: sharding is part
+of protocol structure, the provisional proof profile is Plonky3 FRI-STARK with
+Poseidon inside the circuit and QASH-native public commitments outside it, and
+the intended recursion profile is Layer 0 shard validity, Layer 1 16:1
+aggregation, and Layer 2 EFB verification.
+
+The latest runtime-performance review is scheduled as `Phase 2-R: Core Runtime
+Optimization` in `ROADMAP.md` and `docs/adr/ADR-006-runtime-optimization-track.md`.
+It is not implemented in this detour; it is constrained to consensus-byte-
+preserving refactors with parity and benchmark gates.
 
 ---
 

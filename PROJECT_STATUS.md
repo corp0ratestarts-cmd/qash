@@ -5,9 +5,13 @@
 > are, and what the priority order for closing them is. It is updated as milestones
 > are reached.
 >
-> Last updated: 2026-05-19. Based on internal review, the current CI workflow,
+> Last updated: 2026-05-21. Based on internal review, the current CI workflow,
 > and an independent external audit of the architecture, workspace, and consensus
 > implementation.
+>
+> **Genesis posture:** pre-genesis integration RC. `GENESIS_CONSTANTS.toml`
+> remains provisional and non-authoritative; this status update is not a genesis
+> lock recommendation.
 
 ---
 
@@ -31,16 +35,58 @@ For full context see `README.md`, `design_decisions.md`, and `docs/spec/00_execu
 | Dimension | Status | Notes |
 |-----------|--------|-------|
 | Consensus core correctness | **Strong** | `no_std`, `forbid(unsafe_code)`, determinism constraints fully enforced |
-| Formal proof coverage | **Strong** | 18 PROVED, 4 CI-VERIFIED, 3 AXIOM, 2 PLACEHOLDER — see `proofs/COVERAGE.md` |
-| Proof CI pipeline | **Automated for active Coq proofs** | `.github/workflows/ci.yml` installs Coq, rejects active `Admitted`/`admit` markers, checks new axioms against `proofs/COVERAGE.md`, compiles active `.v` files, records `.vo` SHA-256 hashes, and uploads version/hash artifacts |
-| Runtime / PAL implementation | **Scaffold only** | PAL Host returns zeroes/no-ops; no network, no persistence, no crash recovery |
+| Formal proof coverage | **Strong, pre-genesis** | TH-3 local arithmetic plus executable-step closure, TX-0/TX-1 perturbation proofs, EFB determinism, refinement statement, and extraction surface are checked by `make -C proofs all`; see `proofs/STATUS.md` and `proofs/COVERAGE.md` |
+| Proof CI pipeline | **Automated for active Coq proofs** | `.github/workflows/ci.yml` installs Coq, rejects active `Admitted`/`admit` markers, checks new axioms against `proofs/COVERAGE.md`, compiles active `.v` files including `model/Extract.v`, records `.vo` SHA-256 hashes, and uploads version/hash artifacts |
+| Runtime / PAL implementation | **Integration scaffold** | PAL has hosted replay, WAL-style replay tests, whole-protocol harnesses, commitment transport, attestation verifier interfaces, and a ZK proof-bundle boundary; production networking, hardware attestation, Plonky3 verification, and crash-recovery hardening remain open |
 | Fuzzing infrastructure | **Expanded** | honggfuzz harness covers encoding, decode, transition, fixed-point, lyapunov, cascade, and tx targets; fuzz-smoke CI gate runs all targets |
-| Performance benchmarks | **None** | Worst-case epoch transition cost, serialization throughput, stack depth: unmeasured |
+| Performance benchmarks | **Scheduled** | PR #93 runtime review is recorded as Phase 2-R: single-pass tx admission, deterministic total-order sorting, streaming state-root hashing, `ProjectedView`, and tx-heavy Criterion gates before genesis-lock performance claims |
 | Reproducible builds | **Done** | `rust-toolchain.toml` pins 1.95.0; `docker/Dockerfile.build` pins full build+proof environment; `release-attestation.yml` CI job verifies byte-identical two-stage builds and records SHA-256 manifests under `artifacts/attestations/` with 365-day retention |
 | Adversarial simulation | **Done** | 23-test suite across 10 scenarios: halt-trigger boundary, liveness suppression, coordinated spike, nonce replay, max-field saturation, slash monotonicity, halt irreversibility, grace period |
 | Deep module audits | **Done** | `fixed_point.rs`, `encoding.rs`, `lyapunov.rs`, `hash.rs`, `transaction.rs` audited and hardened with boundary/adversarial tests (PRs #69, #71) |
 | Multi-compiler differential | **Done** | opt-level=0 vs opt-level=3 required gate + cranelift advisory; weekly scheduled CI (PR #65) |
-| Production readiness | **Pre-production** | Intentionally — this is a protocol design and formal proof repository |
+| Genesis / production readiness | **Pre-genesis RC, not locked** | Protocol evidence is converging, but genesis lock waits on traceability artifact reconciliation, normative PDF finalization, full cross-ISA evidence review, and production PAL decisions |
+
+---
+
+## Strategic Execution Order
+
+1. Land the current integration work in reviewable slices: sharding/EFB scaffold,
+   PAL whole-protocol scaffold, proof/refinement closure, and PR #93 hygiene.
+   The current slice map is `docs/release/current_integration_review_slices.md`.
+2. Use `docs/release/pre_genesis_evidence_snapshot.md` as the audit handoff for
+   local commands, allowed claims, blocked claims, and evidence capture via
+   `scripts/capture_pre_genesis_evidence.sh`.
+3. Start Phase 2-R runtime optimization only after tx-heavy benchmarks and
+   parity tests exist.
+4. Keep production PAL/ZK backend work separate from Phase 2-R.
+5. Delay any genesis-lock/reference-tag decision until the normative PDF,
+   traceability, genesis hash, release evidence, and owner sign-off are
+   reconciled.
+
+---
+
+## PR #93 Review Incorporation
+
+The PR #93 raw transcript branch adds a root file named `21`. That transcript is
+not a repository artifact for this branch. Review findings are instead extracted
+into canonical docs, tests, proofs, and implementation files.
+
+Incorporated now:
+- Sharding is documented and scaffolded as protocol structure, not merely a
+  module.
+- The PR template and CI document-hygiene job reject raw transcript dumps and
+  ad hoc root-level spec files.
+- The ZK profile is fixed as Plonky3 FRI-STARK with Poseidon circuit hashing,
+  QASH-native public commitments, and a two-layer recursion profile.
+- EFB roots, aggregate receipt roots, whole-protocol PAL replay, and sharded
+  replay vectors are represented in the current integration scaffold.
+
+Scheduled, not implemented in this detour:
+- `Phase 2-R: Core Runtime Optimization`, covering single-pass transaction
+  admission, deterministic total-order sorting, streaming state-root hashing,
+  `ProjectedView`, and optional validator-directory work. These changes must
+  preserve consensus bytes exactly and pass vector, cross-ISA, and benchmark
+  gates before they support performance claims.
 
 ---
 
@@ -105,16 +151,15 @@ two different LLVM backend configurations).
 
 ## Strategic Next Steps (Prioritized)
 
-### Phase 1 — Pre-genesis lock (current)
+### Phase 1 — Pre-genesis integration RC (current)
 
-These must be completed before `GENESIS_CONSTANTS.toml` is locked. Everything
-here is Domain A correctness work.
+These items convert the implemented components into an audit-ready pre-genesis
+snapshot without locking `GENESIS_CONSTANTS.toml`.
 
-1. **Discharge open proof obligations** (`proofs/COVERAGE.md`):
-   - TH-10: Cascade collision resistance (`cascade/cascade_collision_resistance.v`)
-     — post-genesis migration item; v1.0 Domain A state roots remain `H_domain` / SHA3-256. Full activation requires formalising hash function; consider EasyCrypt or CryptHOL
-   - Blinding PRF: `H_cascade_keyed` is a PRF — formal proof in CryptHOL/SSProve
-   - IT-MAC: GF(2¹²⁸) forgery bound — mechanise in Coq via GHASH polynomial MAC reduction
+1. **Stabilize proof evidence**:
+   - Keep TH-3 composition closure checked in `proofs/composition/th3_system_closure.v`.
+   - Keep TX-0/TX-1 perturbation obligations checked before adding TX-2.
+   - Keep EFB determinism and model extraction in the `make -C proofs all` gate.
 
 2. **Proof CI pipeline**:
    - Keep the existing `.github/workflows/ci.yml` `proofs` job green: Coq install,
@@ -122,8 +167,8 @@ here is Domain A correctness work.
      Coq compilation, proof-object hashing, and artifact upload.
    - Extend the artifact trail with commit-pinned retention/indexing so auditors
      can reproduce and compare proof-object hashes outside GitHub Actions.
-   - Decide whether `_wip/` drafts and future proof trees need separate non-gating
-     CI coverage.
+   - Treat Kani as advisory until CI install/runtime behavior is repeatable, then
+     promote selected harnesses to a required gate.
 
 3. **Deep audit of core Domain A modules** (target: external cryptographer review):
    - `fixed_point.rs` — overflow handling, saturation behavior, rounding invariants
@@ -143,16 +188,29 @@ here is Domain A correctness work.
 These are prerequisites for any deployment, testnet or otherwise.
 
 5. **PAL Host implementation**:
-   - Real network transport (TCP/UDP; P2P gossip)
-   - Persistent state storage (crash-safe WAL or equivalent)
-   - Crash recovery with replay-from-genesis verification
-   - Integration test suite exercising Domain B → Domain A boundary
+   - Keep the current hosted replay and whole-protocol harnesses green.
+   - Add real network transport and hardware-backed attestation behind Domain B
+     interfaces without feeding nondeterminism into Domain A.
+   - Replace the static ZK proof-bundle verifier with a Plonky3 FRI-STARK
+     backend that preserves the fixed two-layer recursion profile.
+   - Harden crash recovery with replay-from-genesis verification before any
+     deployment claim.
 
 6. **Performance characterization**:
    - Benchmark worst-case epoch transition (1024 validators, max divergence)
    - Measure serialization throughput and stack depth
    - Profile replay latency against spec requirements (450 ms control-loop budget)
    - Archive results under `artifacts/benchmarks/`
+
+6a. **Core runtime optimization (Phase 2-R, scheduled)**:
+   - Single-pass transaction admission with deterministic `Candidate` records.
+   - Deterministic total-order sorting by `(sort_key, tx_id)`.
+   - Streaming state-root commitment with exact preimage parity against the
+     current buffered encoder.
+   - Runtime-only `ProjectedView` to reduce full-state copies without changing
+     the Coq logical transition model.
+   - Optional validator directory only if tx-heavy profiling shows lookup cost
+     dominates and the sidecar is rebuilt deterministically per epoch.
 
 7. **Adversarial simulation**:
    - Halt-trigger test suite: minimum input cost to trigger absorbing halt
@@ -170,9 +228,9 @@ These are required for independent auditability and long-term trust.
    - `scripts/attest_release.sh` for local/Docker reproduction
    - `rust-toolchain.toml` pins Rust 1.95.0; `scripts/verify_rust_toolchain.sh` verifies in every CI job
 
-9. **Proof-to-code refinement** ✓ COMPLETE:
+9. **Proof-to-code refinement** ✓ PRE-GENESIS EVIDENCE READY:
    - `proofs/model/RefinementStatement.v`: RT-1 … RT-4 formally proved; AX2_rust_refinement axiom with documented justification; `rust_RT1` … `rust_RT4` corollaries
-   - `proofs/model/Extract.v`: Coq extraction pipeline to OCaml (manual; not CI-compiled)
+   - `proofs/model/Extract.v`: Coq extraction pipeline to OCaml, checked by `make -C proofs all`
    - `docs/refinement.md`: three-layer correspondence chain, Coq-to-Rust definition mapping, extraction usage, axiom stack, and strengthening roadmap
    - Coverage: 18 PROVED, 4 CI-VERIFIED, 3 AXIOM, 2 PLACEHOLDER (see `proofs/COVERAGE.md`)
 
@@ -197,6 +255,8 @@ These are fixed constraints that no future work will alter:
 - Every new transaction type requires a filed proof obligation on its effect on
   `δ_window` before any implementation is merged.
 - Cross-ISA replay invariance (TH-7) is a non-negotiable CI gate.
+- Genesis lock is not implied by proof readiness; authoritative deployment requires
+  a separate lock decision and guarded artifact update.
 
 ---
 

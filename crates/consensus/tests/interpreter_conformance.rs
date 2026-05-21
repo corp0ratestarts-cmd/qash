@@ -22,11 +22,10 @@
 /// Run with:
 ///   cargo test -p qash-consensus --test interpreter_conformance \
 ///       -- --nocapture
-
 use qash_consensus::envelope::{PROTOCOL_VERSION_V1_0, PROTOCOL_VERSION_V1_1};
 use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
 use qash_consensus::transition::{
-    advance_epoch, EpochInput, EpochState, HaltReason, MAX_VALIDATORS, COMPATIBILITY_WINDOW,
+    advance_epoch, EpochInput, EpochState, HaltReason, COMPATIBILITY_WINDOW, MAX_VALIDATORS,
 };
 
 // ---------------------------------------------------------------------------
@@ -84,6 +83,8 @@ fn make_state(rng: &mut Rng, epoch: u64, vc: u32) -> EpochState {
         validator_ids,
         cascade_health: 0,
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32],
     }
 }
@@ -114,7 +115,11 @@ struct Counter {
 
 impl Counter {
     fn new(property: &'static str) -> Self {
-        Counter { property, disagreements: 0, checks: 0 }
+        Counter {
+            property,
+            disagreements: 0,
+            checks: 0,
+        }
     }
 
     fn check(&mut self, ok: bool) {
@@ -285,18 +290,21 @@ fn prop_p7_compatibility_window(rng: &mut Rng) -> Counter {
 #[test]
 fn interpreter_conformance() {
     println!();
-    println!("interpreter_conformance: 7 properties × {} inputs = {} total assertions",
-        INPUTS_PER_PROPERTY, 7 * INPUTS_PER_PROPERTY);
+    println!(
+        "interpreter_conformance: 7 properties × {} inputs = {} total assertions",
+        INPUTS_PER_PROPERTY,
+        7 * INPUTS_PER_PROPERTY
+    );
 
     let mut rng = Rng::new(0x1234_5678_abcd_ef01);
 
-    let mut p1 = prop_p1_epoch_advances(&mut rng);
-    let mut p2 = prop_p2_halt_cleared(&mut rng);
-    let mut p3 = prop_p3_halt_absorbing(&mut rng);
-    let mut p4 = prop_p4_fingerprint_changes(&mut rng);
-    let mut p5 = prop_p5_fingerprint_deterministic(&mut rng);
-    let mut p6 = prop_p6_state_root_chaining(&mut rng);
-    let mut p7 = prop_p7_compatibility_window(&mut rng);
+    let p1 = prop_p1_epoch_advances(&mut rng);
+    let p2 = prop_p2_halt_cleared(&mut rng);
+    let p3 = prop_p3_halt_absorbing(&mut rng);
+    let p4 = prop_p4_fingerprint_changes(&mut rng);
+    let p5 = prop_p5_fingerprint_deterministic(&mut rng);
+    let p6 = prop_p6_state_root_chaining(&mut rng);
+    let p7 = prop_p7_compatibility_window(&mut rng);
 
     p1.report();
     p2.report();
@@ -306,13 +314,20 @@ fn interpreter_conformance() {
     p6.report();
     p7.report();
 
-    let total_checks = p1.checks + p2.checks + p3.checks + p4.checks
-        + p5.checks + p6.checks + p7.checks;
-    let total_disagreements = p1.disagreements + p2.disagreements + p3.disagreements
-        + p4.disagreements + p5.disagreements + p6.disagreements + p7.disagreements;
+    let total_checks =
+        p1.checks + p2.checks + p3.checks + p4.checks + p5.checks + p6.checks + p7.checks;
+    let total_disagreements = p1.disagreements
+        + p2.disagreements
+        + p3.disagreements
+        + p4.disagreements
+        + p5.disagreements
+        + p6.disagreements
+        + p7.disagreements;
 
-    println!("interpreter_conformance: {} total checks, {} disagreements",
-        total_checks, total_disagreements);
+    println!(
+        "interpreter_conformance: {} total checks, {} disagreements",
+        total_checks, total_disagreements
+    );
 
     assert_eq!(total_disagreements, 0, "0 disagreements gate failed");
 }

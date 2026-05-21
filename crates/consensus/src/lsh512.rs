@@ -30,14 +30,22 @@ const NS: usize = 28; // number of compression steps (§4, Table 4-1)
 // ── IV: LSH-512-512 initialisation vector (§4.3.6) ─────────────────────────
 
 const IV512: [u64; 16] = [
-    0xadd50f3c7f07094e, 0xe3f3cee8f9418a4f,
-    0xb527ecde5b3d0ae9, 0x2ef6dec68076f501,
-    0x8cb994cae5aca216, 0xfbb9eae4bba48cc7,
-    0x650a526174725fea, 0x1f9a61a73f8d8085,
-    0xb6607378173b539b, 0x1bc99853b0c0b9ed,
-    0xdf727fc19b182d47, 0xdbef360cf893a457,
-    0x4981f5e570147e80, 0xd00c4490ca7d3e30,
-    0x5d73940c0e4ae1ec, 0x894085e2edb2d819,
+    0xadd50f3c7f07094e,
+    0xe3f3cee8f9418a4f,
+    0xb527ecde5b3d0ae9,
+    0x2ef6dec68076f501,
+    0x8cb994cae5aca216,
+    0xfbb9eae4bba48cc7,
+    0x650a526174725fea,
+    0x1f9a61a73f8d8085,
+    0xb6607378173b539b,
+    0x1bc99853b0c0b9ed,
+    0xdf727fc19b182d47,
+    0xdbef360cf893a457,
+    0x4981f5e570147e80,
+    0xd00c4490ca7d3e30,
+    0x5d73940c0e4ae1ec,
+    0x894085e2edb2d819,
 ];
 
 // ── Permutation τ: MsgExp recurrence (§4.2.1, Table 4-2) ───────────────────
@@ -70,13 +78,21 @@ const SC0: [u64; 8] = [
 // α: even step = 23, odd step = 7
 #[inline(always)]
 fn alpha(step: usize) -> u32 {
-    if step & 1 == 0 { 23 } else { 7 }
+    if step & 1 == 0 {
+        23
+    } else {
+        7
+    }
 }
 
 // β: even step = 59, odd step = 3
 #[inline(always)]
 fn beta(step: usize) -> u32 {
-    if step & 1 == 0 { 59 } else { 3 }
+    if step & 1 == 0 {
+        59
+    } else {
+        3
+    }
 }
 
 // ── Core primitives ─────────────────────────────────────────────────────────
@@ -99,8 +115,14 @@ fn parse_block(b: &[u8; 256]) -> [u64; 32] {
     let mut m = [0u64; 32];
     for s in 0..32usize {
         m[s] = u64::from_le_bytes([
-            b[8 * s],     b[8 * s + 1], b[8 * s + 2], b[8 * s + 3],
-            b[8 * s + 4], b[8 * s + 5], b[8 * s + 6], b[8 * s + 7],
+            b[8 * s],
+            b[8 * s + 1],
+            b[8 * s + 2],
+            b[8 * s + 3],
+            b[8 * s + 4],
+            b[8 * s + 5],
+            b[8 * s + 6],
+            b[8 * s + 7],
         ]);
     }
     m
@@ -125,7 +147,7 @@ fn compress(cv: [u64; 16], block: &[u64; 32]) -> [u64; 16] {
         // ── Mix_j: 8 parallel two-word lanes  (§4.2.3, eq 4.8) ───────────
         for l in 0..8usize {
             let (x, y) = mix_pair(t[l], t[l + 8], j, sc[l], GAMMA[l]);
-            t[l]     = x;
+            t[l] = x;
             t[l + 8] = y;
         }
 
@@ -144,9 +166,9 @@ fn compress(cv: [u64; 16], block: &[u64; 32]) -> [u64; 16] {
 
         // ── Compute M_{j+2}  (eq 4.6 recurrence) ─────────────────────────
         if j + 2 <= NS {
-            let mj_copy  = m[j % 3];
+            let mj_copy = m[j % 3];
             let mj1_copy = m[(j + 1) % 3];
-            let dest     = (j + 2) % 3;
+            let dest = (j + 2) % 3;
             for l in 0..16usize {
                 m[dest][l] = mj1_copy[l].wrapping_add(mj_copy[TAU[l]]);
             }
@@ -211,15 +233,19 @@ pub fn lsh512_domain(tag: DomainTag, input: &[u8]) -> [u8; 64] {
 
 /// LSH-512-512(prefix ‖ suffix) without heap allocation.
 pub fn lsh512_parts(prefix: &[u8], suffix: &[u8]) -> [u8; 64] {
-    let mut cv   = IV512;
-    let total    = prefix.len() + suffix.len();
-    let mut pos  = 0usize;
+    let mut cv = IV512;
+    let total = prefix.len() + suffix.len();
+    let mut pos = 0usize;
 
     while pos + 256 <= total {
         let mut blk = [0u8; 256];
         for (i, b) in blk.iter_mut().enumerate() {
             let v = pos + i;
-            *b = if v < prefix.len() { prefix[v] } else { suffix[v - prefix.len()] };
+            *b = if v < prefix.len() {
+                prefix[v]
+            } else {
+                suffix[v - prefix.len()]
+            };
         }
         cv = compress(cv, &parse_block(&blk));
         pos += 256;
@@ -229,7 +255,11 @@ pub fn lsh512_parts(prefix: &[u8], suffix: &[u8]) -> [u8; 64] {
     let tail = total - pos;
     for (i, b) in pad.iter_mut().enumerate().take(tail) {
         let v = pos + i;
-        *b = if v < prefix.len() { prefix[v] } else { suffix[v - prefix.len()] };
+        *b = if v < prefix.len() {
+            prefix[v]
+        } else {
+            suffix[v - prefix.len()]
+        };
     }
     pad[tail] = 0x80;
     cv = compress(cv, &parse_block(&pad));
@@ -288,7 +318,11 @@ mod tests {
         let a = lsh512(b"hello");
         let b = lsh512(b"iello");
         assert_ne!(a, b);
-        let diff: u32 = a.iter().zip(b.iter()).map(|(x, y)| (x ^ y).count_ones()).sum();
+        let diff: u32 = a
+            .iter()
+            .zip(b.iter())
+            .map(|(x, y)| (x ^ y).count_ones())
+            .sum();
         assert!(diff >= 128, "poor avalanche: only {} bits differ", diff);
     }
 
@@ -306,7 +340,7 @@ mod tests {
     fn domain_separation() {
         let input = b"validator_id_bytes";
         let h1 = lsh512_domain(DomainTag::ValidatorId, input);
-        let h2 = lsh512_domain(DomainTag::StateRoot,   input);
+        let h2 = lsh512_domain(DomainTag::StateRoot, input);
         assert_ne!(h1, h2);
     }
 
@@ -326,7 +360,7 @@ mod tests {
     #[test]
     fn two_block_message() {
         let msg_short = [0x5au8; 200];
-        let msg_long  = [0x5au8; 400];
+        let msg_long = [0x5au8; 400];
         assert_ne!(lsh512(&msg_short), lsh512(&msg_long));
         assert_eq!(lsh512(&msg_long), lsh512(&msg_long));
     }
@@ -347,15 +381,15 @@ mod tests {
     // this vector guards against regressions in the compression function or finalization.
     #[test]
     fn lsh512_stability_kat() {
-        assert_eq!(lsh512(b"abc"), [
-            0xa3, 0xd9, 0x3c, 0xfe, 0x60, 0xdc, 0x1a, 0xac,
-            0xdd, 0x3b, 0xd4, 0xbe, 0xf0, 0xa6, 0x98, 0x53,
-            0x81, 0xa3, 0x96, 0xc7, 0xd4, 0x9d, 0x9f, 0xd1,
-            0x77, 0x79, 0x56, 0x97, 0xc3, 0x53, 0x52, 0x08,
-            0xb5, 0xc5, 0x72, 0x24, 0xbe, 0xf2, 0x10, 0x84,
-            0xd4, 0x20, 0x83, 0xe9, 0x5a, 0x4b, 0xd8, 0xeb,
-            0x33, 0xe8, 0x69, 0x81, 0x2b, 0x65, 0x03, 0x1c,
-            0x42, 0x88, 0x19, 0xa1, 0xe7, 0xce, 0x59, 0x6d,
-        ]);
+        assert_eq!(
+            lsh512(b"abc"),
+            [
+                0xa3, 0xd9, 0x3c, 0xfe, 0x60, 0xdc, 0x1a, 0xac, 0xdd, 0x3b, 0xd4, 0xbe, 0xf0, 0xa6,
+                0x98, 0x53, 0x81, 0xa3, 0x96, 0xc7, 0xd4, 0x9d, 0x9f, 0xd1, 0x77, 0x79, 0x56, 0x97,
+                0xc3, 0x53, 0x52, 0x08, 0xb5, 0xc5, 0x72, 0x24, 0xbe, 0xf2, 0x10, 0x84, 0xd4, 0x20,
+                0x83, 0xe9, 0x5a, 0x4b, 0xd8, 0xeb, 0x33, 0xe8, 0x69, 0x81, 0x2b, 0x65, 0x03, 0x1c,
+                0x42, 0x88, 0x19, 0xa1, 0xe7, 0xce, 0x59, 0x6d,
+            ]
+        );
     }
 }

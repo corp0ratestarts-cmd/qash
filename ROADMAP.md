@@ -5,8 +5,10 @@ verified execution substrate in maximum technical detail. It is the authoritativ
 developer, auditor, or formal methods contributor picking up this codebase.
 
 **Last updated:** 2026-05-20
-**Current state:** All pre-v1.0 work complete — `v1.0-reference` tag is the immediate next step
-before v1.1 work begins. v1.1 items 2-A/2-B/2-C/2-D are merged (PR #75 and PR #77).
+**Current state:** Pre-genesis integration RC. The repository contains v1.0,
+v1.1, and v1.2 implementation/proof evidence in flight, but genesis remains
+provisional and non-authoritative. Do not create `v1.0-reference` or lock
+`GENESIS_CONSTANTS.toml` until the pre-genesis evidence gate below is complete.
 
 > **Strategic framing:** QASH is not a blockchain. It is a **formally verified state-transition
 > substrate with coterminous governance** — a kernel-reduced, proof-carrying execution substrate
@@ -39,26 +41,18 @@ QASH has evolved from a deterministic consensus prototype into a **kernel-reduce
 
 **Cross-domain rule:** Domain B values must never flow into Domain A computations. Violation is a protocol error even if tests pass.
 
-### v1.1 Roadmap Status
+### Pre-Genesis RC Status
 
-| Phase | Item | Branch | Depends On | Status |
-|-------|------|--------|------------|--------|
-| Core | 2-A CI toolchain | `codex/v1.1-ci-toolchain` | — | ✅ Merged |
-| Core | 2-B Envelope primitives | `codex/v1.1-envelope-primitives` | 2-A | ✅ Merged |
-| Core | 2-C Epoch semantics | `codex/v1.1-epoch-semantics` | 2-B | ✅ Merged |
-| Core | 2-D Cascade health | `codex/v1.1-cascade-health` | 2-B | ✅ Merged |
-| Core | 2-E Lineage skip-list | `codex/v1.1-lineage-skiplist` | 2-D | 🔲 Pending |
-| Core | 2-F Version gating | `codex/v1.1-version-gating` | 2-D, 2-B | 🔲 Pending |
-| Core | 2-K Replay corpus | `codex/v1.1-replay-corpus` | 2-E, 2-F | 🔲 Pending |
-| Compliance | 2-G ML-KEM-768 | `codex/v1.1-pqc-kem` | — | 🔲 Pending |
-| Compliance | 2-H FIPS compliance | `codex/v1.1-fips-compliance` | — | 🔲 Pending |
-| Compliance | 2-I Formal proofs | `codex/v1.1-proofs` | 2-B–2-F | 🔲 Pending |
-| Compliance | 2-J Semantic closure | `codex/v1.1-semantic-closure` | 2-B | 🔲 Pending |
-| Compliance | 2-L Confluence + interpreter | `codex/v1.1-semantic-closure-ext` | 2-E, 2-J, 2-I | 🔲 Pending |
-| Compliance | 2-M Hardware hardening | `codex/v1.1-domain-b-hardening` | 2-G, 2-H | 🔲 Pending |
-| Compliance | 2-N Privacy model | `codex/v1.1-privacy-model` | 2-J | 🔲 Pending |
-| Compliance | 2-O Crypto agility | `codex/v1.1-sovereign-profiles` | 2-G, 2-H | 🔲 Pending |
-| Compliance | 2-P Cert artifacts | `codex/v1.1-cert-artifacts` | 2-H, 2-N, 2-O | 🔲 Pending |
+| Area | Current state | Next gate |
+|------|---------------|-----------|
+| TH-3 convergence | Local arithmetic, TX-0/TX-1 perturbation, and executable-step closure are checked | Keep `proofs/composition/th3_system_closure.v` green in `make -C proofs all` |
+| TH-7 replay invariance | x86_64/aarch64/riscv64gc gates exist for replay roots | Extend evidence to hosted PAL whole-protocol replay before production claims |
+| Transactions | TX-0 and TX-1 are the admitted production transaction surface | Do not add TX-2 until TH-3 closure and replay evidence are stable |
+| PAL | Hosted replay, commitment transport, attestation verifier interfaces, whole-protocol tests, and ZK proof-bundle boundary exist | Add real network/hardware backends and Plonky3 verifier behind Domain B interfaces only |
+| Verification | Coq extraction is checked; selected Kani harnesses verify TX-1 helper behavior locally | Add advisory Kani CI, then promote once repeatable |
+| Performance | PR #93 runtime review is scheduled as Phase 2-R | Add tx-heavy and commit-path benchmarks before any genesis-lock latency claim |
+| Documentation hygiene | Raw transcript and ad hoc root-spec rejection is automated | Keep canonical protocol material in `docs/spec`, `docs/adr`, traceability, tests, and proofs |
+| Genesis | `genesis_status = "provisional"`, `deployment_authoritative = false` | Keep unlocked until traceability, normative PDF, and release evidence are reconciled |
 
 ---
 
@@ -74,6 +68,9 @@ QASH has evolved from a deterministic consensus prototype into a **kernel-reduce
 | `artifacts/` | Benchmark results, build attestations, proof artifact index | — |
 | `docker/` | Pinned build environment (`Dockerfile.build`) | — |
 | `docs/` | Protocol specs, ADRs, threat model, refinement pipeline | — |
+| `docs/release/pre_genesis_evidence_snapshot.md` | Current pre-genesis audit handoff and allowed-claim boundary | — |
+| `docs/release/current_integration_review_slices.md` | Review map for splitting the current integration branch | — |
+| `scripts/capture_pre_genesis_evidence.sh` | Local evidence bundle capture for the exact reviewed worktree | Writes under `artifacts/evidence/` |
 | `GENESIS_CONSTANTS.toml` | Immutable genesis parameters — treat as append-only | — |
 
 **Domain A rules** (enforced by CI clippy and type system): no `unsafe`, no `f32`/`f64`,
@@ -122,19 +119,13 @@ triggers the safety halt. Documented in the test file with exact threshold deriv
 
 ---
 
-## Phase milestone: v1.0 reference tag
+## Phase milestone: pre-genesis evidence gate
 
-All pre-v1.0 work is complete. Run:
+The immediate milestone is an audit-ready pre-genesis evidence snapshot, not a
+genesis lock tag. Do not run `git tag v1.0-reference` until the evidence gate is
+complete and the project explicitly chooses to lock genesis.
 
-```bash
-git tag v1.0-reference main
-git push origin v1.0-reference
-```
-
-This tag marks the stable pre-v1.1 snapshot. All v1.1 work branches from `main`
-after this point. The tag is never moved.
-
-**CI state at tag time (expected):**
+**CI state required before any lock decision:**
 - `build-x86_64`: green
 - `test-determinism`: green (includes `verify_two_stage_build.sh`)
 - `clippy-lint`: green
@@ -200,6 +191,52 @@ compat_version_floor = "1.0.0"
 
 **Proof obligation filed:** COVERAGE.md row "Causal ordering determinism" → CI-VERIFIED
 (test-vector-verified; Coq reduction in `proofs/ordering/causal_ordering.v` deferred to 2-I).
+
+---
+
+### 2-R: Core Runtime Optimization - SCHEDULED
+
+**Source:** Latest PR #93 runtime-performance review.
+
+**Status:** Scheduled. Initial parity tests and benchmark-compilation gates are
+present; do not treat the runtime optimization itself as implemented until the
+refactors below land and pass archived benchmark evidence.
+
+**Intent:** Improve the consensus hot path by removing redundant parsing,
+ordering, hashing, and projection work without changing consensus bytes, public
+interfaces, wire formats, hash preimages, or Domain A invariants.
+
+**Planned work:**
+- Single-pass transaction admission: replace duplicate parse/lookup passes in
+  `prevalidate_all` with a deterministic `Candidate` projection carrying
+  `sort_key`, `tx_id`, author slot, nonce, and parsed effect metadata.
+- Deterministic total-order sorting: order candidates by `(sort_key, tx_id)`
+  using a repo-local deterministic O(n log n) algorithm; equal sort-key test
+  vectors must produce identical output regardless of input order.
+- Streaming state-root commitment: feed canonical bytes to the state-root hash
+  without materializing the full temporary buffer, with an exact preimage parity
+  test against the current buffered path.
+- Runtime-only `ProjectedView`: remove full `EpochState` projection copies from
+  the commit path while keeping the Coq model over logical state transitions.
+- Optional validator directory: add only after profiling shows validator lookup
+  dominates tx-heavy epochs; rebuild deterministically from `validator_ids` at
+  epoch start and never persist it in consensus state.
+
+**Required gates before merge:**
+- Golden/vector replay parity, including a 1024-validator tx-heavy epoch.
+- Cross-ISA state-root parity on x86_64, aarch64, and riscv64gc.
+- Total-order test for identical `sort_key` values and reversed input batches.
+- Criterion groups for tx admission, candidate sorting, validator lookup, state
+  root commitment, and view-based epoch advancement.
+- ADR evidence in `docs/adr/ADR-006-runtime-optimization-track.md` showing
+  no wire-format, hash-preimage, proof-obligation, or Domain A rule changes.
+
+**Non-goals:**
+- No ZK, sharding, PAL networking, or proof-system implementation work.
+- No `unsafe`, `HashMap`, floats, nondeterministic iteration, or Domain B values
+  in Domain A.
+- No performance claim is accepted without archived benchmark artifacts under
+  `artifacts/benchmarks/`.
 
 ---
 
@@ -1736,10 +1773,12 @@ Class IV  — Regulatory authority (with GDPR-lawful-basis disclosure key):
 
 **`PublicTranscript` normative definition in `docs/spec/09_privacy_model.md`:**
 ```
-A PublicTranscript is the ordered sequence of (epoch, state_root, receipt_root)
-tuples visible to Class I observers. No other information may be published to
-a public channel. The receipt_root is a Merkle root over encrypted receipts;
-the receipt leaves are not published.
+A PublicTranscript is the ordered sequence of (epoch, state_root, receipt_root,
+efb_root) tuples visible to Class I observers. No raw transaction, receipt leaf,
+or Domain B transport metadata may be published to a public channel. The
+receipt_root is a Merkle root over encrypted receipts; the receipt leaves are
+not published. The efb_root is a fixed-length commitment over public shard
+commitments and optional transparent proof-batch roots.
 
 Any code path that would add a new field to the public surface MUST:
 1. Add the field to `crates/consensus/src/public.rs` PublicTranscript struct.
@@ -1748,6 +1787,47 @@ Any code path that would add a new field to the public surface MUST:
 ```
 
 ---
+
+### 5-A: Sharded Protocol Structure and EFB ✓ SCAFFOLDED
+
+**Source:** PR #93 design-review transcript, extracted into repo-native files.
+
+**What shipped:**
+- `docs/spec/12_sharded_protocol.md`: deterministic sharding spec, shard assignment,
+  cross-shard receipts, Epoch Finality Beacon, replay rules, and STARK-batch boundary.
+- `crates/consensus/src/sharding.rs`: Domain A fixed-width primitives for
+  `assign_shard`, `ShardCommitment`, `CrossShardReceipt`, `receipt_id`,
+  `receipt_is_epoch_anchored`, `verify_receipt_inclusion`,
+  `EpochFinalityBeacon`, and `compute_efb`.
+- `crates/consensus/src/envelope.rs`: v1.2 `shard_id` field so sharding is explicit
+  protocol metadata, not just a sort-key preimage.
+- `crates/consensus/src/public.rs`: `PublicTranscript` includes `efb_root`.
+- `crates/consensus/src/transition.rs`: `advance_epoch_sharded` computes EFBs
+  during epoch advancement and publishes `(state_root, receipt_root, efb_root)`.
+- `crates/consensus/src/sharding.rs`: `ZkProfile::PLONKY3_FRI_POSEIDON_QASH`
+  fixes the PR #93 profile shape: Plonky3 FRI-STARK, Poseidon inner circuit
+  hash, QASH-native outer commitment, recursion depth 2, and Layer 1 16:1
+  aggregation.
+- `crates/pal/src/lib.rs`: `ZkProofBundle` and `ZkProofVerifier` define the
+  Domain B boundary for future Plonky3 verification without feeding proof bytes
+  into Domain A.
+- `tests/vectors/vectors.v1.2.json`: 12-epoch two-shard replay corpus pinning
+  state roots, aggregate receipt roots, and EFB roots.
+- `proofs/sharding/efb_determinism.v`: initial formal obligations for deterministic
+  EFB aggregation and epoch-bound receipt replay rejection.
+
+**Why this matters:** Sharding is now represented as protocol structure:
+deterministic assignment → shard commitments → EFB → public transcript. This
+removes the earlier ambiguity where `shard_id` appeared only inside causal
+ordering.
+
+**Remaining before genesis lock:**
+- STARK batch verifier feature gate and transparent proof statement.
+- Production Plonky3 backend for the fixed PR #93 profile.
+- Poseidon circuit transcript bound to QASH-native public commitments.
+- 2-layer recursion corpus: shard validity proofs, 16:1 aggregation proofs,
+  EFB batch-root verification.
+- Adversarial shard-capture simulation using configured bond weights.
 
 ### 4-B: PublicTranscript Type-System Enforcement
 
@@ -1968,7 +2048,7 @@ a new network. No exceptions.
 | Platform Integrity | NIST SP 800-193 | Reproducible two-stage build; Sigstore/SLSA provenance; SoftTRR/CATT | `scripts/verify_reproducible_build.sh` |
 | Microarchitectural | Rowhammer / Side-Channel | SoftTRR/CATT LKMs; CBM fault masking; bitsliced NTT; `dudect-bencher` audit | `cavp-kat` + `constant_time_audit` CI gates |
 
-**Recommendation:** Engage a FIPS 140-3 CAVP-accredited lab concurrent with 2-H. Begin CC EAL4+ evaluation after `v1.0-reference` tag. File DPIA before first public validator deployment.
+**Recommendation:** Engage a FIPS 140-3 CAVP-accredited lab concurrent with 2-H. Begin CC EAL4+ evaluation only after the pre-genesis evidence gate and explicit lock/reference-tag decision. File DPIA before first public validator deployment.
 
 ---
 
@@ -2202,11 +2282,12 @@ Domain A only sees: epoch_seed (a [u8; 32] input), not the keys derived from it.
 Phase 0 (complete): pinned toolchain, reproducible builds, Domain A/B partition
 Phase 1 (pre-genesis, assurance):
   0-A (audit, done) → 0-B (proofs, done) → Phase 3 assurance (done)
-  → v1.0-reference tag
+  → pre-genesis evidence snapshot
 
 v1.1 Feature Migration (in progress):
   2-A (cross-ISA CI gate, done PR #75)
   → 2-B (envelope primitives + causal ordering, PR #77)
+  → 2-R (runtime optimization, scheduled) ← consensus-byte-preserving only
   → 2-C (epoch skew validation)     ←┐ can be parallel
   → 2-D (cascade health tracking)   ←┘
   → 2-E (lineage skip-list)         ← can be parallel with 2-C/2-D
@@ -2309,6 +2390,9 @@ Before the v1.1 cutover at epoch 101, all of the following must be green:
 - [ ] Reproducible build verified: `bash scripts/verify_reproducible_build.sh` exits 0
 - [ ] Confluence proof: `proofs/composition/lyapunov_confluence.v` compiles, zero `Admitted`
 - [ ] Causal fingerprint: `proofs/safety/causal_fingerprint.v` compiles, zero `Admitted`
+- [ ] Benchmark artifacts archived for every performance-sensitive change,
+      including Phase 2-R tx-heavy and commit-path Criterion reports under
+      `artifacts/benchmarks/`
 
 ---
 
@@ -2351,12 +2435,12 @@ QASH v1.1 will be the first consensus protocol released with:
 
 ### Immediate Actions
 
-1. `git tag v1.0-reference main && git push origin v1.0-reference` — freeze the pre-v1.1 baseline
-2. Begin v1.1 core consensus track: 2-E → 2-F → 2-K
-3. Begin parallel compliance track: 2-G + 2-H → 2-I → 2-J → 2-L → 2-M → 2-N → 2-O → 2-P
-4. Engage FIPS 140-3 CAVP-accredited lab concurrent with 2-H
-5. File CC EAL4+ evaluation request after `v1.0-reference` tag
-6. File DPIA before first public validator deployment
+1. Finish the pre-genesis evidence gate before creating any lock/reference tag.
+2. Keep v1.1 and v1.2 scaffold evidence green while traceability and PDF authority are reconciled.
+3. Begin Phase 2-R only as consensus-byte-preserving runtime optimization with benchmark artifacts.
+4. Engage FIPS 140-3 CAVP-accredited lab concurrent with 2-H.
+5. File CC EAL4+ evaluation request only after the lock/reference tag decision is explicit.
+6. File DPIA before first public validator deployment.
 
 ---
 

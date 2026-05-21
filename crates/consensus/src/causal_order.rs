@@ -31,11 +31,7 @@ pub fn compute_sort_key(
 /// Convenience: hash an envelope payload slice and compute its sort key.
 ///
 /// Equivalent to `compute_sort_key(epoch_seed, shard_id, &sha3_256(payload))`.
-pub fn sort_key_from_payload(
-    epoch_seed: &[u8; 32],
-    shard_id: u32,
-    payload: &[u8],
-) -> [u8; 32] {
+pub fn sort_key_from_payload(epoch_seed: &[u8; 32], shard_id: u32, payload: &[u8]) -> [u8; 32] {
     let envelope_hash = sha3_256(payload);
     compute_sort_key(epoch_seed, shard_id, &envelope_hash)
 }
@@ -59,7 +55,10 @@ mod tests {
         let hash = [0u8; 32];
         let k0 = compute_sort_key(&seed, 0, &hash);
         let k1 = compute_sort_key(&seed, 1, &hash);
-        assert_ne!(k0, k1, "different shard_id must produce different sort keys");
+        assert_ne!(
+            k0, k1,
+            "different shard_id must produce different sort keys"
+        );
     }
 
     #[test]

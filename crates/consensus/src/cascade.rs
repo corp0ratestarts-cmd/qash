@@ -9,9 +9,9 @@
 // pure-Rust / safe-Rust.  blake3 uses features=["pure"] to disable assembly.
 
 use sha3::{Digest, Sha3_256, Sha3_512};
-use tiny_keccak::{Hasher as TinyHasher, KangarooTwelve};
 use sm3::Sm3;
 use streebog::Streebog256;
+use tiny_keccak::{Hasher as TinyHasher, KangarooTwelve};
 
 // ---------------------------------------------------------------------------
 // Domain separators (spec §7) — pub const so the parity test can compare
@@ -47,18 +47,18 @@ pub fn h_cascade(input: &[u8]) -> [u8; 64] {
 /// Must be a deterministic protocol value — never a secret nonce.
 pub fn h_cascade_keyed(context_key: &[u8], input: &[u8]) -> [u8; 64] {
     // L1: five primitives in parallel — spec §1
-    let h1_sha3   = l1_sha3_256(DOM_SEP_L1, input);
+    let h1_sha3 = l1_sha3_256(DOM_SEP_L1, input);
     let h1_blake3 = l1_blake3(DOM_SEP_L1, input);
-    let h1_k12    = l1_k12(DOM_SEP_L1, input);
-    let h1_sm3    = l1_sm3(DOM_SEP_L1, input);
+    let h1_k12 = l1_k12(DOM_SEP_L1, input);
+    let h1_sm3 = l1_sm3(DOM_SEP_L1, input);
     let h1_streeb = l1_streebog(DOM_SEP_L1, input);
 
     // Canonical concat: SHA3-256, BLAKE3, K12, SM3, Streebog — spec §1
     let mut parallel = [0u8; 160];
-    parallel[  0.. 32].copy_from_slice(&h1_sha3);
-    parallel[ 32.. 64].copy_from_slice(&h1_blake3);
-    parallel[ 64.. 96].copy_from_slice(&h1_k12);
-    parallel[ 96..128].copy_from_slice(&h1_sm3);
+    parallel[0..32].copy_from_slice(&h1_sha3);
+    parallel[32..64].copy_from_slice(&h1_blake3);
+    parallel[64..96].copy_from_slice(&h1_k12);
+    parallel[96..128].copy_from_slice(&h1_sm3);
     parallel[128..160].copy_from_slice(&h1_streeb);
 
     // L2: binding layer with optional context_key — spec §2, §4
@@ -160,7 +160,10 @@ mod tests {
 
     #[test]
     fn h_cascade_is_deterministic() {
-        assert_eq!(h_cascade(b"determinism check"), h_cascade(b"determinism check"));
+        assert_eq!(
+            h_cascade(b"determinism check"),
+            h_cascade(b"determinism check")
+        );
     }
 
     #[test]
@@ -195,6 +198,9 @@ mod tests {
     fn derive_differs_by_epoch() {
         let root = h_cascade(b"genesis");
         let seed = [0x42u8; 32];
-        assert_ne!(h_cascade_derive(&root, 0, &seed), h_cascade_derive(&root, 1, &seed));
+        assert_ne!(
+            h_cascade_derive(&root, 0, &seed),
+            h_cascade_derive(&root, 1, &seed)
+        );
     }
 }

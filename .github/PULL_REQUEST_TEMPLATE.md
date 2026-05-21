@@ -22,10 +22,18 @@
 - [ ] A human (not only an AI assistant) has read and understood the changes in this PR
 - [ ] The changes have been tested or verified locally, not only in CI
 
+### Documentation hygiene
+- [ ] This PR does not add raw chat transcripts, prompt dumps, or uncurated review exports
+- [ ] Protocol/spec content is published in canonical docs (`docs/spec/`, `docs/adr/`, `docs/traceability.md`, or an accepted erratum), not as an ad hoc root file
+
 ### Domain A constraints *(skip if no `crates/consensus/` changes)*
 - [ ] No `unsafe`, no `f32`/`f64`, no `usize`/`isize` in state struct fields or wire arithmetic
 - [ ] All arithmetic uses checked operations (`checked_add`, `checked_mul`, etc.) or is `lia`-provable in Coq
 - [ ] No new `unwrap()` / `expect()` / `panic!()` / `unreachable!()` — overflow routes to `Halt::absorbing_reset()`
+
+### Performance claims *(skip if this PR makes no performance claim)*
+- [ ] Benchmark artifacts are archived under `artifacts/benchmarks/`
+- [ ] Any Phase 2-R runtime optimization preserves consensus bytes exactly and cites `docs/adr/ADR-006-runtime-optimization-track.md`
 
 ### Coq proofs *(skip if no `.v` file changes)*
 - [ ] `grep -r "^Admitted" proofs/` (excluding `_wip/`) returns **zero results**

@@ -1,12 +1,14 @@
 //! Epoch transition (atomic, infallible commit phase).
 
 use crate::encoding::EncodeError;
-use crate::envelope::PROTOCOL_VERSION_V1_1;
+use crate::envelope::{PROTOCOL_VERSION_V1_1, PROTOCOL_VERSION_V1_2};
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
 use crate::hash::{h_domain, DomainTag};
 use crate::lyapunov::{
     self, ConvergenceWindow, LyapunovError, LyapunovEval, ValidatorMetrics, WINDOW_SIZE,
 };
+use crate::public::PublicTranscript;
+use crate::sharding::{compute_efb, EpochFinalityBeacon, ShardCommitment, ShardingError};
 
 /// Protocol-facing limit (u32 per Domain A rules). Used in wire validation.
 pub const MAX_VALIDATORS_WIRE: u32 = 1024;
@@ -35,13 +37,13 @@ pub const FULL_STATE_MAX_BYTES: usize = FULL_STATE_FIXED_BYTES
 #[repr(u8)]
 pub enum HaltReason {
     None = 0x00,
-    LyapunovViolation   = 0x01, // H1
-    ArithOverflow       = 0x02, // H2
-    EpochOverflow       = 0x03, // H3
-    DecodeInvalid       = 0x04, // H4
-    RoundtripFailure    = 0x05, // H5
-    HaltFlagSet         = 0x06, // H6 (explicit external halt; reserved)
-    PhiSafetyViolation  = 0x07, // H7
+    LyapunovViolation = 0x01,   // H1
+    ArithOverflow = 0x02,       // H2
+    EpochOverflow = 0x03,       // H3
+    DecodeInvalid = 0x04,       // H4
+    RoundtripFailure = 0x05,    // H5
+    HaltFlagSet = 0x06,         // H6 (explicit external halt; reserved)
+    PhiSafetyViolation = 0x07,  // H7
     IncompatibleVersion = 0x08, // H8: v1.0 envelope rejected after compatibility window
 }
 
@@ -104,6 +106,10 @@ pub struct EpochState {
     pub cascade_health: u32,
     /// This epoch's committed state root; used as prior_root for the next epoch.
     pub state_root: [u8; 32],
+    /// This epoch's aggregate cross-shard receipt root. Zero before v1.2 sharding activates.
+    pub receipt_root: [u8; 32],
+    /// This epoch's Epoch Finality Beacon root. Zero before v1.2 sharding activates.
+    pub efb_root: [u8; 32],
     /// v1.1 causal fingerprint: running H_domain chain over (prev_fingerprint || epoch || state_root).
     /// Tracks full causal history; equal fingerprints ⟹ bisimilar states (cf. proofs/safety/causal_fingerprint.v).
     /// Not included in the state_root commitment — parallel divergence-detection chain.
@@ -123,25 +129,17 @@ impl EpochState {
 
 /// Encode the full state into `out`; returns bytes written.
 /// Only `state.validator_count` validator slots are encoded.
-pub fn encode_full_state_into(state: &EpochState, out: &mut [u8; FULL_STATE_MAX_BYTES]) -> usize {
+pub fn encode_full_state_into(state: &EpochState, out: &mut [u8]) -> usize {
     write_state_bytes(state, &state.state_root, out)
 }
 
 /// Encode for state-root commitment: identical to encode_full_state_into but
 /// substitutes `prior_root` into the state_root field.
-fn encode_for_commitment_into(
-    state: &EpochState,
-    prior_root: &[u8; 32],
-    out: &mut [u8; FULL_STATE_MAX_BYTES],
-) -> usize {
+fn encode_for_commitment_into(state: &EpochState, prior_root: &[u8; 32], out: &mut [u8]) -> usize {
     write_state_bytes(state, prior_root, out)
 }
 
-fn write_state_bytes(
-    state: &EpochState,
-    root_field: &[u8; 32],
-    out: &mut [u8; FULL_STATE_MAX_BYTES],
-) -> usize {
+fn write_state_bytes(state: &EpochState, root_field: &[u8; 32], out: &mut [u8]) -> usize {
     let mut pos: usize = 0;
 
     out[pos..pos + 8].copy_from_slice(&state.epoch.to_le_bytes());
@@ -252,8 +250,11 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
     let mut ch_bytes = [0u8; 4];
     ch_bytes.copy_from_slice(&bytes[pos..pos + 4]);
     let cascade_health = u32::from_le_bytes(ch_bytes);
-    if bytes[pos + 4] != 0x00 || bytes[pos + 5] != 0x00
-        || bytes[pos + 6] != 0x00 || bytes[pos + 7] != 0x00 {
+    if bytes[pos + 4] != 0x00
+        || bytes[pos + 5] != 0x00
+        || bytes[pos + 6] != 0x00
+        || bytes[pos + 7] != 0x00
+    {
         return Err(EncodeError::DecodeInvalid);
     }
     pos += 8;
@@ -353,6 +354,8 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
         validator_ids,
         cascade_health,
         state_root,
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32], // not wire-encoded; resets on decode (runtime-only chain)
     })
 }
@@ -367,8 +370,15 @@ fn fp_to_i64_wire(fp: FixedPoint) -> i64 {
 }
 
 fn compute_state_root(state: &EpochState, prior_root: &[u8; 32]) -> [u8; 32] {
-    let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+    let mut buf = [0u8; FULL_STATE_MAX_BYTES + 64];
     let len = encode_for_commitment_into(state, prior_root, &mut buf);
+    let len = if state.receipt_root != [0u8; 32] || state.efb_root != [0u8; 32] {
+        buf[len..len + 32].copy_from_slice(&state.receipt_root);
+        buf[len + 32..len + 64].copy_from_slice(&state.efb_root);
+        len + 64
+    } else {
+        len
+    };
     h_domain(DomainTag::StateRoot, &buf[..len])
 }
 
@@ -402,10 +412,25 @@ impl From<LyapunovError> for TransitionHalt {
     }
 }
 
+impl From<ShardingError> for TransitionHalt {
+    fn from(_: ShardingError) -> Self {
+        TransitionHalt {
+            reason: HaltReason::DecodeInvalid,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct TransitionResult {
     pub state_root: [u8; 32],
     pub lyapunov: LyapunovEval,
+    pub public_transcript: PublicTranscript,
+    pub efb: Option<EpochFinalityBeacon>,
+}
+
+pub struct EpochShardingInput<'a> {
+    pub shard_commitments: &'a [ShardCommitment],
+    pub zk_batch_root: [u8; 32],
 }
 
 pub fn advance_epoch(
@@ -417,7 +442,26 @@ pub fn advance_epoch(
         return Err(state.halt_reason);
     }
 
-    match run_pipeline(state, input, raw_txs) {
+    match run_pipeline(state, input, raw_txs, None) {
+        Ok(r) => Ok(r),
+        Err(h) => {
+            state.halt_reason = h.reason;
+            Err(h.reason)
+        }
+    }
+}
+
+pub fn advance_epoch_sharded(
+    state: &mut EpochState,
+    input: &EpochInput,
+    raw_txs: &[&[u8]],
+    sharding: &EpochShardingInput<'_>,
+) -> Result<TransitionResult, HaltReason> {
+    if state.is_halted() {
+        return Err(state.halt_reason);
+    }
+
+    match run_pipeline(state, input, raw_txs, Some(sharding)) {
         Ok(r) => Ok(r),
         Err(h) => {
             state.halt_reason = h.reason;
@@ -430,6 +474,7 @@ fn run_pipeline(
     state: &mut EpochState,
     input: &EpochInput,
     raw_txs: &[&[u8]],
+    sharding: Option<&EpochShardingInput<'_>>,
 ) -> Result<TransitionResult, TransitionHalt> {
     // +--------------------------------------------------+
     // | PRE-COMMIT PHASE: state is READ-ONLY             |
@@ -455,11 +500,6 @@ fn run_pipeline(
     })?;
     let next_entropy = h_domain(DomainTag::EntropyAdvance, &state.entropy_seed);
 
-    let tx_plan = crate::transaction::prevalidate_all(state, raw_txs, state.validator_count)
-        .map_err(|_| TransitionHalt {
-            reason: HaltReason::ArithOverflow,
-        })?;
-
     let mut next_validators = state.validators;
     for (next_v, update) in next_validators[..state.validator_count as usize]
         .iter_mut()
@@ -472,6 +512,18 @@ fn run_pipeline(
         }
     }
 
+    let mut tx_base = *state;
+    tx_base.validators = next_validators;
+    let tx_plan = crate::transaction::prevalidate_all(&tx_base, raw_txs, state.validator_count)
+        .map_err(|_| TransitionHalt {
+            reason: HaltReason::ArithOverflow,
+        })?;
+    tx_plan
+        .apply_divergence_updates(&mut next_validators)
+        .map_err(|_| TransitionHalt {
+            reason: HaltReason::ArithOverflow,
+        })?;
+
     let mut next_window = state.convergence_window;
     next_window.push(lyap.v_convergence);
 
@@ -482,16 +534,38 @@ fn run_pipeline(
     // Condition: all active validators are fully idle (D == 0 AND C == 0) after updates.
     // Even a single unit of divergence or conflict resets cascade health to 0.
     let cascade_ok = (0..state.validator_count as usize).all(|i| {
-        let (d, c) = match &input.updates[i] {
-            Some(u) => (u.divergence_new, u.conflict_new),
-            None => (state.validators[i].divergence, state.validators[i].conflict),
-        };
-        d == FixedPoint::ZERO && c == FixedPoint::ZERO
+        next_validators[i].divergence == FixedPoint::ZERO
+            && next_validators[i].conflict == FixedPoint::ZERO
     });
     let new_cascade_health = if cascade_ok {
         state.cascade_health.saturating_add(1).min(CASCADE_DEPTH)
     } else {
         0
+    };
+
+    let efb = match sharding {
+        Some(sharding) => {
+            if input.protocol_version < PROTOCOL_VERSION_V1_2 {
+                return Err(TransitionHalt {
+                    reason: HaltReason::IncompatibleVersion,
+                });
+            }
+            Some(compute_efb(
+                next_epoch,
+                state.efb_root,
+                sharding.shard_commitments,
+                sharding.zk_batch_root,
+            )?)
+        }
+        None => None,
+    };
+    let next_receipt_root = match efb {
+        Some(efb) => efb.aggregate_receipt_root,
+        None => state.receipt_root,
+    };
+    let next_efb_root = match efb {
+        Some(efb) => efb.efb_root,
+        None => state.efb_root,
     };
 
     let mut projected = *state;
@@ -501,6 +575,8 @@ fn run_pipeline(
     projected.entropy_seed = next_entropy;
     projected.epoch = next_epoch;
     projected.cascade_health = new_cascade_health;
+    projected.receipt_root = next_receipt_root;
+    projected.efb_root = next_efb_root;
     let root = compute_state_root(&projected, &prior_root);
 
     // v1.1 causal fingerprint: H_domain(CausalFingerprint, prev_fp || epoch_le || state_root).
@@ -524,12 +600,24 @@ fn run_pipeline(
     state.entropy_seed = next_entropy;
     state.epoch = next_epoch;
     state.cascade_health = new_cascade_health;
+    state.receipt_root = next_receipt_root;
+    state.efb_root = next_efb_root;
     state.state_root = root;
     state.causal_fingerprint = new_fingerprint;
+
+    let public_transcript = PublicTranscript {
+        state_root: root,
+        receipt_root: next_receipt_root,
+        efb_root: next_efb_root,
+        epoch: next_epoch,
+        halt_flag: false,
+    };
 
     Ok(TransitionResult {
         state_root: root,
         lyapunov: lyap,
+        public_transcript,
+        efb,
     })
 }
 
@@ -645,6 +733,8 @@ mod tests {
             validator_ids: [[0u8; 48]; MAX_VALIDATORS],
             cascade_health: 0,
             state_root: [0u8; 32],
+            receipt_root: [0u8; 32],
+            efb_root: [0u8; 32],
             causal_fingerprint: [0u8; 32],
         }
     }
@@ -723,6 +813,8 @@ mod tests {
         assert_eq!(after.nonces, before.nonces);
         assert_eq!(after.validator_ids, before.validator_ids);
         assert_eq!(after.state_root, before.state_root);
+        assert_eq!(after.receipt_root, before.receipt_root);
+        assert_eq!(after.efb_root, before.efb_root);
     }
 
     /// TV-0: genesis state_root is [0u8;32] before any epoch is advanced.
@@ -1006,7 +1098,7 @@ mod tests {
     #[test]
     fn validate_epoch_accepts_within_window() {
         assert_eq!(validate_envelope_epoch(5, 0, 5, 1), Ok(()));
-        assert_eq!(validate_envelope_epoch(6, 0, 5, 1), Ok(()));  // exactly at skew
+        assert_eq!(validate_envelope_epoch(6, 0, 5, 1), Ok(())); // exactly at skew
         assert_eq!(validate_envelope_epoch(0, 0, 10, 0), Ok(())); // at genesis
     }
 
@@ -1086,7 +1178,10 @@ mod tests {
             slash_accum_new: FixedPoint::ZERO,
         });
         advance_epoch(&mut state, &input, &[]).unwrap();
-        assert_eq!(state.cascade_health, 0, "cascade health must reset on any divergence");
+        assert_eq!(
+            state.cascade_health, 0,
+            "cascade health must reset on any divergence"
+        );
     }
 
     #[test]
@@ -1145,6 +1240,60 @@ mod tests {
         let mut input = idle_input(4);
         input.protocol_version = crate::envelope::PROTOCOL_VERSION_V1_0;
         assert!(advance_epoch(&mut state, &input, &[]).is_ok());
+    }
+
+    #[test]
+    fn sharded_epoch_commits_efb_to_public_transcript() {
+        let mut state = genesis_state_vc4();
+        let mut input = idle_input(4);
+        input.protocol_version = crate::envelope::PROTOCOL_VERSION_V1_2;
+        let shards = [
+            crate::sharding::ShardCommitment {
+                shard_id: 0,
+                state_root: [1u8; 32],
+                receipt_root: [2u8; 32],
+            },
+            crate::sharding::ShardCommitment {
+                shard_id: 1,
+                state_root: [3u8; 32],
+                receipt_root: [4u8; 32],
+            },
+        ];
+        let sharding = EpochShardingInput {
+            shard_commitments: &shards,
+            zk_batch_root: [9u8; 32],
+        };
+
+        let result = advance_epoch_sharded(&mut state, &input, &[], &sharding).unwrap();
+        let efb = result.efb.expect("v1.2 sharded transition must return EFB");
+
+        assert_eq!(state.receipt_root, efb.aggregate_receipt_root);
+        assert_eq!(state.efb_root, efb.efb_root);
+        assert_eq!(result.public_transcript.state_root, state.state_root);
+        assert_eq!(result.public_transcript.receipt_root, state.receipt_root);
+        assert_eq!(result.public_transcript.efb_root, state.efb_root);
+        assert_ne!(state.efb_root, [0u8; 32]);
+    }
+
+    #[test]
+    fn sharded_epoch_requires_v1_2_protocol() {
+        let mut state = genesis_state_vc4();
+        let input = idle_input(4);
+        let shards = [crate::sharding::ShardCommitment {
+            shard_id: 0,
+            state_root: [1u8; 32],
+            receipt_root: [2u8; 32],
+        }];
+        let sharding = EpochShardingInput {
+            shard_commitments: &shards,
+            zk_batch_root: [0u8; 32],
+        };
+
+        assert_eq!(
+            advance_epoch_sharded(&mut state, &input, &[], &sharding),
+            Err(HaltReason::IncompatibleVersion)
+        );
+        assert_eq!(state.efb_root, [0u8; 32]);
     }
 }
 

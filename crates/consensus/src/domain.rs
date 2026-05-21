@@ -94,9 +94,9 @@ impl<T> CapToken<T> {
 // audited to satisfy the Domain A constraints in CLAUDE.md.
 
 use crate::fixed_point::FixedPoint;
+use crate::hash::DomainTag;
 use crate::lyapunov::ValidatorMetrics;
 use crate::transition::EpochState;
-use crate::hash::DomainTag;
 
 impl private::Sealed for FixedPoint {}
 impl DomainA for FixedPoint {}
