@@ -108,6 +108,21 @@ repository now resolves authority through the PDF-first governance model in
 `docs/traceability.md`: PDF quote → erratum/ADR if needed → code → test/vector
 → proof.
 
+## Local Verification Setup
+
+Install the local tools used by the Rust, Coq, Kani, fuzz-smoke, and
+cross-ISA replay lanes:
+
+```
+scripts/install_test_dependencies.sh
+```
+
+The installer provisions the apt packages, pinned Rust toolchain targets, and
+Cargo tools mirrored from CI (`cargo-deny`, `honggfuzz`, and Kani 0.67.0). It is
+intended for Debian/Ubuntu-style hosts and uses `sudo apt-get` when it is not
+run as root. Set `SKIP_APT=1` when system packages are already present or must
+be installed by a separate privileged session.
+
 ---
 
 ## Theorem Status
