@@ -10,11 +10,16 @@
 
 #![cfg(feature = "std")]
 
+use qash_consensus::PublicTranscript;
 use qash_consensus::{
     lyapunov::{ConvergenceWindow, ValidatorMetrics},
     EpochState, HaltReason, MAX_VALIDATORS,
 };
-use qash_pal::hosted::{CanonicalInput, CanonicalValidatorUpdate, Host, HostedError};
+use qash_pal::hosted::{
+    AttestationReport, AttestationVerdict, AttestationVerifier, CanonicalInput,
+    CanonicalValidatorUpdate, CommitmentFrame, CommitmentTransport, Host, HostedError,
+    InMemoryCommitmentTransport, StaticAttestationVerifier,
+};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -39,6 +44,8 @@ fn genesis_state(validator_count: u32) -> EpochState {
         cascade_health: 0,
         causal_fingerprint: [0u8; 32],
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
     }
 }
 
@@ -55,8 +62,8 @@ fn unique_log_path(tag: &str) -> PathBuf {
 
 /// Build a CanonicalInput with a single non-idle validator update.
 fn spike_input(epoch: u64, validator_count: u32, divergence_raw: i64) -> CanonicalInput {
-    let mut input = CanonicalInput::idle(epoch, validator_count)
-        .expect("idle input construction must succeed");
+    let mut input =
+        CanonicalInput::idle(epoch, validator_count).expect("idle input construction must succeed");
     input.updates[0] = Some(CanonicalValidatorUpdate {
         divergence_raw,
         conflict_raw: divergence_raw / 4,
@@ -87,14 +94,16 @@ fn domain_b_observations_do_not_affect_domain_a_state_root() {
         host.request_reset();
 
         let i0 = spike_input(state_a.epoch, state_a.validator_count, D);
-        host.apply_canonical_input(&mut state_a, &i0).expect("epoch 0 applies");
+        host.apply_canonical_input(&mut state_a, &i0)
+            .expect("epoch 0 applies");
 
         host.enqueue_network_frame(b"inter-epoch noise frame".to_vec());
         host.set_attestation_quote([0xCD; 256]);
         host.send_network_frame(b"another outbound frame");
 
         let i1 = spike_input(state_a.epoch, state_a.validator_count, D * 2);
-        host.apply_canonical_input(&mut state_a, &i1).expect("epoch 1 applies");
+        host.apply_canonical_input(&mut state_a, &i1)
+            .expect("epoch 1 applies");
     }
 
     // Run B: identical Domain A inputs with no Domain B observations.
@@ -103,9 +112,11 @@ fn domain_b_observations_do_not_affect_domain_a_state_root() {
     {
         let mut host = Host::new(&path_b).expect("host B created");
         let i0 = spike_input(state_b.epoch, state_b.validator_count, D);
-        host.apply_canonical_input(&mut state_b, &i0).expect("epoch 0 applies");
+        host.apply_canonical_input(&mut state_b, &i0)
+            .expect("epoch 0 applies");
         let i1 = spike_input(state_b.epoch, state_b.validator_count, D * 2);
-        host.apply_canonical_input(&mut state_b, &i1).expect("epoch 1 applies");
+        host.apply_canonical_input(&mut state_b, &i1)
+            .expect("epoch 1 applies");
     }
 
     assert_eq!(
@@ -116,6 +127,50 @@ fn domain_b_observations_do_not_affect_domain_a_state_root() {
 
     let _ = std::fs::remove_file(path_a);
     let _ = std::fs::remove_file(path_b);
+}
+
+#[test]
+fn commitment_transport_round_trips_public_transcript_without_raw_txs() {
+    let transcript = PublicTranscript {
+        state_root: [1u8; 32],
+        receipt_root: [2u8; 32],
+        efb_root: [3u8; 32],
+        epoch: 42,
+        halt_flag: false,
+    };
+    let validator_id = [4u8; 48];
+    let attestation_quote = [5u8; 256];
+    let frame = CommitmentFrame::from_transcript(&transcript, validator_id, attestation_quote);
+
+    let mut transport = InMemoryCommitmentTransport::new();
+    transport
+        .send_commitment(&frame)
+        .expect("commitment send succeeds");
+    let received = transport
+        .recv_commitment()
+        .expect("commitment receive succeeds")
+        .expect("one frame queued");
+
+    assert_eq!(received, frame);
+    assert_eq!(transport.recv_commitment().unwrap(), None);
+}
+
+#[test]
+fn static_attestation_verifier_rejects_quote_mismatch() {
+    let verifier = StaticAttestationVerifier {
+        trusted_quote: [9u8; 256],
+    };
+    let trusted = AttestationReport {
+        validator_id: [1u8; 48],
+        quote: [9u8; 256],
+    };
+    let rejected = AttestationReport {
+        validator_id: [1u8; 48],
+        quote: [8u8; 256],
+    };
+
+    assert_eq!(verifier.verify(&trusted), AttestationVerdict::Trusted);
+    assert_eq!(verifier.verify(&rejected), AttestationVerdict::Rejected);
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +188,8 @@ fn apply_rejects_epoch_mismatch_and_leaves_state_unchanged() {
 
     // Advance to epoch 1.
     let i0 = CanonicalInput::idle(0, state.validator_count).expect("idle epoch 0");
-    host.apply_canonical_input(&mut state, &i0).expect("epoch 0 applies");
+    host.apply_canonical_input(&mut state, &i0)
+        .expect("epoch 0 applies");
     assert_eq!(state.epoch, 1);
 
     // Try to apply an input claiming epoch 5 (wrong).
@@ -208,7 +264,8 @@ fn replay_rejects_truncated_record() {
     {
         let mut host = Host::new(&path).expect("host created");
         let i0 = spike_input(state.epoch, state.validator_count, 10_000);
-        host.apply_canonical_input(&mut state, &i0).expect("epoch 0 applies");
+        host.apply_canonical_input(&mut state, &i0)
+            .expect("epoch 0 applies");
     }
 
     // Lop the last 8 bytes off the file, simulating a mid-write crash.
@@ -280,9 +337,9 @@ fn consensus_halt_propagates_and_is_not_written_to_wal() {
 
     // Fill convergence window with 3 idle epochs (V=0 each).
     for _ in 0..3 {
-        let idle = CanonicalInput::idle(state.epoch, state.validator_count)
-            .expect("idle input");
-        host.apply_canonical_input(&mut state, &idle).expect("idle epoch applies");
+        let idle = CanonicalInput::idle(state.epoch, state.validator_count).expect("idle input");
+        host.apply_canonical_input(&mut state, &idle)
+            .expect("idle epoch applies");
     }
     assert_eq!(state.epoch, 3);
     let pre_halt_root = state.state_root;
@@ -298,8 +355,14 @@ fn consensus_halt_propagates_and_is_not_written_to_wal() {
     );
 
     // (c) In-memory state must be completely unchanged (scratch-copy atomicity).
-    assert_eq!(state.epoch, 3, "epoch must be unchanged after rejected halt");
-    assert_eq!(state.state_root, pre_halt_root, "state root must be unchanged");
+    assert_eq!(
+        state.epoch, 3,
+        "epoch must be unchanged after rejected halt"
+    );
+    assert_eq!(
+        state.state_root, pre_halt_root,
+        "state root must be unchanged"
+    );
     assert_eq!(
         state.halt_reason,
         HaltReason::None,

@@ -74,6 +74,7 @@ appear in `PublicTranscript` (see §P3).
 PublicTranscript(epoch_t) = {
   state_root_t,
   receipt_root_t,
+  efb_root_t,
   epoch_t,
   halt_flag_t
 }
@@ -91,6 +92,12 @@ All artifacts in `PublicTranscript` are:
 - Indistinguishable under adaptive observation (cascade avalanche ensures no
   semantic leakage for observers without disclosure keys).
 - Decoupled from sender/receiver/amount/action type.
+
+`efb_root_t` is a public commitment over already-public shard state roots,
+receipt roots, the previous EFB root, shard count, and optional transparent
+proof batch root. It is permitted in `PublicTranscript` because it does not
+publish raw receipt leaves, transaction envelopes, admission transport metadata,
+or edge topology.
 
 ---
 
