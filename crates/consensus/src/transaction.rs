@@ -628,11 +628,11 @@ mod tests {
         }
     }
 
-    fn make_tx0_raw(author_id: [u8; 48], nonce: u64) -> [u8; TX0_WIRE_BYTES] {
+    fn make_tx0_raw(author_id: [u8; 48], tx_sequence: u64) -> [u8; TX0_WIRE_BYTES] {
         let mut raw = [0u8; TX0_WIRE_BYTES];
         raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
         raw[2..4].copy_from_slice(&TX_TYPE_NOOP.to_le_bytes());
-        raw[4..12].copy_from_slice(&nonce.to_le_bytes());
+        raw[4..12].copy_from_slice(&tx_sequence.to_le_bytes());
         raw[12..60].copy_from_slice(&author_id);
         raw[60..64].copy_from_slice(&0u32.to_le_bytes());
         raw
@@ -640,14 +640,14 @@ mod tests {
 
     fn make_tx1_raw(
         author_id: [u8; 48],
-        nonce: u64,
+        tx_sequence: u64,
         target_idx: u32,
         delta: u32,
     ) -> [u8; TX1_WIRE_BYTES] {
         let mut raw = [0u8; TX1_WIRE_BYTES];
         raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
         raw[2..4].copy_from_slice(&TX_TYPE_SCORE_DECREMENT.to_le_bytes());
-        raw[4..12].copy_from_slice(&nonce.to_le_bytes());
+        raw[4..12].copy_from_slice(&tx_sequence.to_le_bytes());
         raw[12..60].copy_from_slice(&author_id);
         raw[60..64].copy_from_slice(&(TX1_PAYLOAD_BYTES as u32).to_le_bytes());
         raw[64..68].copy_from_slice(&target_idx.to_le_bytes());

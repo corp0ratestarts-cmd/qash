@@ -78,11 +78,11 @@ fn max_divergence_input(vc: u32) -> EpochInput {
     input
 }
 
-fn make_tx0_raw(author_id: [u8; 48], nonce: u64, signature_byte: u8) -> [u8; TX0_WIRE_BYTES] {
+fn make_tx0_raw(author_id: [u8; 48], tx_sequence: u64, signature_byte: u8) -> [u8; TX0_WIRE_BYTES] {
     let mut raw = [0u8; TX0_WIRE_BYTES];
     raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
     raw[2..4].copy_from_slice(&TX_TYPE_NOOP.to_le_bytes());
-    raw[4..12].copy_from_slice(&nonce.to_le_bytes());
+    raw[4..12].copy_from_slice(&tx_sequence.to_le_bytes());
     raw[12..60].copy_from_slice(&author_id);
     raw[60..64].copy_from_slice(&0u32.to_le_bytes());
     raw[TX_HEADER_BYTES] = signature_byte;
