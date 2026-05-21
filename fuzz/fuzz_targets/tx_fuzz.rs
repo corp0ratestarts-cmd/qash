@@ -48,6 +48,8 @@ fn make_state(vc: u32, seed: [u8; 32]) -> EpochState {
         cascade_health: 0,
         causal_fingerprint: [0u8; 32],
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
     }
 }
 
