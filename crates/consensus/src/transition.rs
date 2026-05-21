@@ -368,6 +368,9 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
     if has_sharding_roots {
         receipt_root.copy_from_slice(&bytes[pos..pos + 32]);
         efb_root.copy_from_slice(&bytes[pos + 32..pos + 64]);
+        if receipt_root == [0u8; 32] && efb_root == [0u8; 32] {
+            return Err(EncodeError::DecodeInvalid);
+        }
         pos += FULL_STATE_ROOT_BYTES;
     }
 
@@ -1318,6 +1321,19 @@ mod tests {
 
         assert_eq!(decoded.receipt_root, state.receipt_root);
         assert_eq!(decoded.efb_root, state.efb_root);
+    }
+
+    #[test]
+    fn decode_rejects_extended_zero_sharding_roots() {
+        let state = genesis_state_vc4();
+        let mut encoded = [0u8; FULL_STATE_MAX_BYTES];
+        let base_len = encode_full_state_into(&state, &mut encoded);
+        let padded_len = base_len + FULL_STATE_ROOT_BYTES;
+
+        assert!(matches!(
+            decode_full_state(&encoded[..padded_len]),
+            Err(EncodeError::DecodeInvalid)
+        ));
     }
 
     #[test]
