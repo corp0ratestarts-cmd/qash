@@ -20,18 +20,21 @@ pub const CASCADE_DEPTH: u32 = 8;
 /// Epochs before v1.0 envelopes are rejected and cascade health is required.
 pub const COMPATIBILITY_WINDOW: u64 = 100;
 
-// Full-state wire format v1.1 (canonical, deterministic):
+// Full-state wire format v1.1/v1.2 (canonical, deterministic):
 // [epoch:8][state_root:32][ledger_root:32][entropy_seed:32][halt:1][pad:3][vc:4]
 // [cascade_health:4][pad:4]                                ← v1.1 addition (8 bytes)
 // [N x (div:8 + conf:8 + slash:8 + nonce:8 + id:48)]
 // [window_filled:1][pad:3][window_vals:3x8]
+// [receipt_root:32][efb_root:32] when either v1.2 sharding root is nonzero
 pub const FULL_STATE_FIXED_BYTES: usize = 120;
 pub const FULL_STATE_PER_VALIDATOR_BYTES: usize = 80;
 pub const FULL_STATE_WINDOW_BYTES: usize = 28;
-pub const FULL_STATE_MAX_BYTES: usize = FULL_STATE_FIXED_BYTES
+pub const FULL_STATE_ROOT_BYTES: usize = 64;
+pub const FULL_STATE_BASE_MAX_BYTES: usize = FULL_STATE_FIXED_BYTES
     + MAX_VALIDATORS * FULL_STATE_PER_VALIDATOR_BYTES
     + FULL_STATE_WINDOW_BYTES;
-// = 120 + 81920 + 28 = 82,068
+pub const FULL_STATE_MAX_BYTES: usize = FULL_STATE_BASE_MAX_BYTES + FULL_STATE_ROOT_BYTES;
+// = 120 + 81920 + 28 + 64 = 82,132
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -129,17 +132,23 @@ impl EpochState {
 
 /// Encode the full state into `out`; returns bytes written.
 /// Only `state.validator_count` validator slots are encoded.
-pub fn encode_full_state_into(state: &EpochState, out: &mut [u8]) -> usize {
-    write_state_bytes(state, &state.state_root, out)
+pub fn encode_full_state_into(state: &EpochState, out: &mut [u8; FULL_STATE_MAX_BYTES]) -> usize {
+    let len = write_state_base_bytes(state, &state.state_root, out);
+    append_sharding_roots_if_present(state, out, len)
 }
 
 /// Encode for state-root commitment: identical to encode_full_state_into but
 /// substitutes `prior_root` into the state_root field.
-fn encode_for_commitment_into(state: &EpochState, prior_root: &[u8; 32], out: &mut [u8]) -> usize {
-    write_state_bytes(state, prior_root, out)
+fn encode_for_commitment_into(
+    state: &EpochState,
+    prior_root: &[u8; 32],
+    out: &mut [u8; FULL_STATE_MAX_BYTES],
+) -> usize {
+    let len = write_state_base_bytes(state, prior_root, out);
+    append_sharding_roots_if_present(state, out, len)
 }
 
-fn write_state_bytes(state: &EpochState, root_field: &[u8; 32], out: &mut [u8]) -> usize {
+fn write_state_base_bytes(state: &EpochState, root_field: &[u8; 32], out: &mut [u8]) -> usize {
     let mut pos: usize = 0;
 
     out[pos..pos + 8].copy_from_slice(&state.epoch.to_le_bytes());
@@ -197,6 +206,16 @@ fn write_state_bytes(state: &EpochState, root_field: &[u8; 32], out: &mut [u8]) 
     }
 
     pos
+}
+
+fn append_sharding_roots_if_present(state: &EpochState, out: &mut [u8], pos: usize) -> usize {
+    if state.receipt_root == [0u8; 32] && state.efb_root == [0u8; 32] {
+        return pos;
+    }
+
+    out[pos..pos + 32].copy_from_slice(&state.receipt_root);
+    out[pos + 32..pos + 64].copy_from_slice(&state.efb_root);
+    pos + FULL_STATE_ROOT_BYTES
 }
 
 /// Decode a canonical full-state encoding. Validates halt_reason, D/C bounds,
@@ -264,11 +283,13 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
     }
 
     let vc = validator_count as usize;
-    let expected_len =
+    let expected_base_len =
         FULL_STATE_FIXED_BYTES + vc * FULL_STATE_PER_VALIDATOR_BYTES + FULL_STATE_WINDOW_BYTES;
-    if bytes.len() != expected_len {
+    let expected_with_roots = expected_base_len + FULL_STATE_ROOT_BYTES;
+    if bytes.len() != expected_base_len && bytes.len() != expected_with_roots {
         return Err(EncodeError::DecodeInvalid);
     }
+    let has_sharding_roots = bytes.len() == expected_with_roots;
 
     let scale_raw = SCALE;
     let mut validators = [ValidatorMetrics::ZERO; MAX_VALIDATORS];
@@ -342,7 +363,15 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
         window.push(wire_values[k]);
     }
 
-    let _ = pos; // consumed exactly expected_len bytes
+    let mut receipt_root = [0u8; 32];
+    let mut efb_root = [0u8; 32];
+    if has_sharding_roots {
+        receipt_root.copy_from_slice(&bytes[pos..pos + 32]);
+        efb_root.copy_from_slice(&bytes[pos + 32..pos + 64]);
+        pos += FULL_STATE_ROOT_BYTES;
+    }
+
+    let _ = pos; // consumed exactly the validated byte length
     Ok(EpochState {
         epoch,
         halt_reason,
@@ -354,8 +383,8 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
         validator_ids,
         cascade_health,
         state_root,
-        receipt_root: [0u8; 32],
-        efb_root: [0u8; 32],
+        receipt_root,
+        efb_root,
         causal_fingerprint: [0u8; 32], // not wire-encoded; resets on decode (runtime-only chain)
     })
 }
@@ -370,15 +399,8 @@ fn fp_to_i64_wire(fp: FixedPoint) -> i64 {
 }
 
 fn compute_state_root(state: &EpochState, prior_root: &[u8; 32]) -> [u8; 32] {
-    let mut buf = [0u8; FULL_STATE_MAX_BYTES + 64];
+    let mut buf = [0u8; FULL_STATE_MAX_BYTES];
     let len = encode_for_commitment_into(state, prior_root, &mut buf);
-    let len = if state.receipt_root != [0u8; 32] || state.efb_root != [0u8; 32] {
-        buf[len..len + 32].copy_from_slice(&state.receipt_root);
-        buf[len + 32..len + 64].copy_from_slice(&state.efb_root);
-        len + 64
-    } else {
-        len
-    };
     h_domain(DomainTag::StateRoot, &buf[..len])
 }
 
@@ -1273,6 +1295,29 @@ mod tests {
         assert_eq!(result.public_transcript.receipt_root, state.receipt_root);
         assert_eq!(result.public_transcript.efb_root, state.efb_root);
         assert_ne!(state.efb_root, [0u8; 32]);
+    }
+
+    #[test]
+    fn full_state_roundtrip_preserves_sharding_roots() {
+        let mut state = genesis_state_vc4();
+        set_distinct_validator_ids(&mut state);
+        state.receipt_root = [0xA5; 32];
+        state.efb_root = [0x5A; 32];
+
+        let mut encoded = [0u8; FULL_STATE_MAX_BYTES];
+        let len = encode_full_state_into(&state, &mut encoded);
+        assert_eq!(
+            len,
+            FULL_STATE_FIXED_BYTES
+                + state.validator_count as usize * FULL_STATE_PER_VALIDATOR_BYTES
+                + FULL_STATE_WINDOW_BYTES
+                + FULL_STATE_ROOT_BYTES
+        );
+
+        let decoded = decode_full_state(&encoded[..len]).unwrap();
+
+        assert_eq!(decoded.receipt_root, state.receipt_root);
+        assert_eq!(decoded.efb_root, state.efb_root);
     }
 
     #[test]
