@@ -7,6 +7,7 @@
 // before the functional tests even run.
 
 const VECTORS_V1_JSON: &str = include_str!("../../../tests/vectors/vectors.v1.json");
+const VECTORS_V1_2_JSON: &str = include_str!("../../../tests/vectors/vectors.v1.2.json");
 const CASCADE_KAT_JSON: &str = include_str!("../../../tests/vectors/cascade_kat.json");
 
 #[test]
@@ -44,6 +45,47 @@ fn vectors_v1_has_required_fields_and_minimum_count() {
             "vectors.v1.json: vector[{}] missing 'pdf_section'",
             i
         );
+    }
+}
+
+#[test]
+fn vectors_v1_2_has_required_sharded_roots() {
+    let root: serde_json::Value =
+        serde_json::from_str(VECTORS_V1_2_JSON).expect("vectors.v1.2.json must be valid JSON");
+
+    assert_eq!(
+        root["version"].as_str().unwrap_or(""),
+        "1.2",
+        "vectors.v1.2.json: missing or wrong 'version' field"
+    );
+    assert_eq!(
+        root["shard_count"].as_u64().unwrap_or(0),
+        2,
+        "vectors.v1.2.json: expected shard_count=2"
+    );
+
+    let epochs = root["epochs"]
+        .as_array()
+        .expect("vectors.v1.2.json: 'epochs' must be an array");
+    assert!(
+        epochs.len() >= 12,
+        "vectors.v1.2.json: expected at least 12 epochs, found {}",
+        epochs.len()
+    );
+
+    for (i, epoch) in epochs.iter().enumerate() {
+        for field in ["state_root", "receipt_root", "efb_root"] {
+            let value = epoch[field]
+                .as_str()
+                .unwrap_or_else(|| panic!("vectors.v1.2.json: epoch[{}] missing '{}'", i, field));
+            assert_eq!(
+                value.len(),
+                64,
+                "vectors.v1.2.json: epoch[{}].{} must be 32-byte hex",
+                i,
+                field
+            );
+        }
     }
 }
 
