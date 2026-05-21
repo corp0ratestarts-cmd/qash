@@ -409,6 +409,8 @@ Proof. reflexivity. Qed.
 
 Definition genesis4 : EpochState :=
   mkMS 0 HR_None [zero_vm; zero_vm; zero_vm; zero_vm] empty_window.
+Definition genesis1 : EpochState :=
+  mkMS 0 HR_None [zero_vm] empty_window.
 
 Definition idle4 : list ValidatorUpdate := [VU_Idle; VU_Idle; VU_Idle; VU_Idle].
 
@@ -428,4 +430,31 @@ Definition filled_zero_window_state : EpochState := run genesis4 [idle4; idle4; 
 Example advance_epoch_lyapunov_halt_observation_checked :
   advance_epoch_observation filled_zero_window_state spike4_900k =
     mkAdvanceEpochObservation 3 HR_LyapunovViolation 2_700_000 2_700_000 [0;0;0].
+Proof. reflexivity. Qed.
+
+Definition vm_v100k : ValidatorMetrics := mkVM 250_000 0 0.
+Definition epsilon_boundary_state : EpochState :=
+  mkMS 0 HR_None [vm_v100k] (mkCW [100_000; 100_000; 100_000]).
+Definition epsilon_boundary_update : list ValidatorUpdate :=
+  [VU_Update 300_000 0 0].
+
+Example advance_epoch_epsilon_boundary_observation_checked :
+  advance_epoch_observation epsilon_boundary_state epsilon_boundary_update =
+    mkAdvanceEpochObservation 1 HR_None 120_000 20_000 [120_000;100_000;100_000].
+Proof. reflexivity. Qed.
+
+Definition invalid_negative_update : list ValidatorUpdate :=
+  [VU_Update (-1) 0 0].
+
+Example advance_epoch_decode_invalid_observation_checked :
+  advance_epoch_observation genesis1 invalid_negative_update =
+    mkAdvanceEpochObservation 0 HR_DecodeInvalid 0 0 [].
+Proof. reflexivity. Qed.
+
+Definition halted_absorbing_state : EpochState :=
+  mkMS 7 HR_LyapunovViolation [zero_vm] (mkCW [1;2;3]).
+
+Example advance_epoch_halted_absorbing_observation_checked :
+  advance_epoch_observation halted_absorbing_state [VU_Update 300_000 0 0] =
+    mkAdvanceEpochObservation 7 HR_LyapunovViolation 120_000 119_999 [1;2;3].
 Proof. reflexivity. Qed.

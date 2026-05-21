@@ -1,5 +1,5 @@
 {
-  "generated_by": "proofs/model/Model.v checked Examples advance_epoch_idle4_observation_checked and advance_epoch_lyapunov_halt_observation_checked",
+  "generated_by": "proofs/model/Model.v checked advance_epoch_*_observation_checked Examples",
   "ci_jobs": ["proofs", "test-determinism"],
   "scope": "lyapunov-transition-observations",
   "vectors": [
@@ -29,6 +29,48 @@
         "v_convergence": 2700000,
         "delta_window": 2700000,
         "window_values": [0, 0, 0]
+      }
+    },
+    {
+      "id": "LYAP-EPSILON-1",
+      "rust": "crates/consensus/src/transition.rs::advance_epoch + crates/consensus/src/lyapunov.rs::evaluate",
+      "coq": "proofs/model/Model.v::advance_epoch_epsilon_boundary_observation_checked",
+      "initial": "one validator with full window [100000,100000,100000]",
+      "updates": "target V_convergence = 120000",
+      "expect": {
+        "epoch": 1,
+        "halt_reason": 0,
+        "v_convergence": 120000,
+        "delta_window": 20000,
+        "window_values": [120000, 100000, 100000]
+      }
+    },
+    {
+      "id": "LYAP-DECODE-INVALID-NEG-D",
+      "rust": "crates/consensus/src/transition.rs::advance_epoch + crates/consensus/src/lyapunov.rs::evaluate",
+      "coq": "proofs/model/Model.v::advance_epoch_decode_invalid_observation_checked",
+      "initial": "genesis1",
+      "updates": "negative divergence",
+      "expect": {
+        "epoch": 0,
+        "halt_reason": 4,
+        "v_convergence": 0,
+        "delta_window": 0,
+        "window_values": []
+      }
+    },
+    {
+      "id": "LYAP-ABSORB-HALT",
+      "rust": "crates/consensus/src/transition.rs::advance_epoch + crates/consensus/src/lyapunov.rs::evaluate",
+      "coq": "proofs/model/Model.v::advance_epoch_halted_absorbing_observation_checked",
+      "initial": "halted state at epoch 7 with window [1,2,3]",
+      "updates": "target V_convergence = 120000",
+      "expect": {
+        "epoch": 7,
+        "halt_reason": 1,
+        "v_convergence": 120000,
+        "delta_window": 119999,
+        "window_values": [1, 2, 3]
       }
     }
   ]

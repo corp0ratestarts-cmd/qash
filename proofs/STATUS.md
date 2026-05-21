@@ -6,7 +6,7 @@
 |----|------|-------|------|-------|
 | TH-1 | Encoding injectivity | FORMAL | `contractivity/encode_injectivity.v` | Fully proved. No Admitted. |
 | TH-2 | Encoding totality | FORMAL | `contractivity/encode_injectivity.v` | Trivial totality. No Admitted. |
-| TH-3 | Convergence decrease | FORMAL | `contractivity/lyapunov_stability.v` | TH-3a, TH-3b, TH-3c all proved. No Admitted. v1.0 weights (D=400k, C=350k, S=250k). Weight-independent theorems. |
+| TH-3 | Convergence decrease | FORMAL | `contractivity/lyapunov_stability.v` + `composition/th3_system_closure.v` | TH-3a, TH-3b, TH-3c all proved, with executable-step closure over the model transition gate. No Admitted. v1.0 weights (D=400k, C=350k, S=250k). |
 | TH-4 | Φ_safety monotonicity | FORMAL | `safety/absorbing_halt.v` | Proved. No Admitted. |
 | TH-5 | Φ_safety boundedness | FORMAL | `safety/absorbing_halt.v` | Proved. No Admitted. |
 | TH-6 | Halt correctness | FORMAL | `safety/absorbing_halt.v` | Proved. No Admitted. |
@@ -25,6 +25,7 @@
 | `contractivity/encode_injectivity.v` | Compiles | TH-1, TH-2, state_root_collision_resistance |
 | `contractivity/tx_perturbation_0.v` | Compiles | TX-0 ε_τ=0 (§A8 Form A) |
 | `contractivity/lyapunov_grace_convergence.v` | Compiles | TH-GC (grace: window not full → no halt within tolerance margin) |
+| `composition/th3_system_closure.v` | Compiles | Successful composed steps stay within the TH-3 epsilon envelope; Lyapunov halts imply projected delta exceeded epsilon; non-increasing transaction effects compose. |
 | `safety/absorbing_halt.v` | Compiles | TH-4, TH-5, TH-6, TH-8 (partial — halt-frozen state) |
 | `integration/th8_composition.v` | Compiles | TH-8 (full — uniqueness via AX-3 composition) |
 | `lyapunov_decrease.v` | Compiles | V_convergence_not_monotone, V_convergence_zero_achievable |
@@ -36,15 +37,19 @@
 | `model/RefinementStatement.v` | Compiles | RT1_successful_step, RT2_halt_step, RT3_halt_absorbing_epoch, RT4_halt_absorbing_flag, rust_RT1 … rust_RT4 (via AX2_rust_refinement); see docs/refinement.md |
 | `ordering/causal_ordering.v` | Compiles | CO-1 sort_key_deterministic; CO-2 epoch_sortkey_lt_irrefl/trans/total; CO-3 sort_order_deterministic; validators_agree_on_sort_key |
 | `ordering/compatibility_window.v` | Compiles | CW-1 compatibility_window_bound; CW-2 version_v1_0_accepted_before_window; CW-3 version_v1_0_rejected_after_window; CW-4 version_v1_1_always_accepted; CW-5 window_closure_monotone; v1_0_rejected_all_future |
-| `model/Extract.v` | Manual only (not CI) | Extraction pipeline to OCaml; run coqc manually to produce model_extracted.ml |
+| `sharding/efb_determinism.v` | Compiles | EFB root determinism for identical inputs; epoch-bound receipt replay rejection |
+| `model/Extract.v` | Compiles | Extraction surface checked by `make all`; extracted OCaml is redirected to `/tmp/qash-model-extracted.ml` during proof builds. |
 | `_wip/absorbing_halt.v.draft` | Archived draft | Superseded by `safety/absorbing_halt.v` |
 | `_wip/encode_injectivity.v.draft` | Archived draft | Superseded by `contractivity/encode_injectivity.v` |
 
 ## Genesis Lock Requirement
 
-All theorems must compile with `coqc` (no `Admitted`) before
-`GENESIS_CONSTANTS.toml` is locked. Current status: **READY** — all
-theorem obligations are discharged or formally justified. No open items.
+All checked theorems must compile with `coqc` (no `Admitted`) before
+`GENESIS_CONSTANTS.toml` is locked. Current proof status: **PRE-GENESIS
+EVIDENCE READY** for the checked proof set. Genesis lock remains intentionally
+deferred until the non-proof release gates are complete: traceability artifact
+reconciliation, normative PDF finalization, cross-ISA replay evidence review,
+and production PAL/network readiness decisions.
 
 ## Axiom Trust Hierarchy
 

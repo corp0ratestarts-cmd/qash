@@ -10,7 +10,7 @@ use qash_consensus::encoding::{
     VALIDATOR_DYNAMIC_SIZE,
 };
 use qash_consensus::fixed_point::FixedPoint;
-use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
+use qash_consensus::lyapunov::{evaluate, ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
 use qash_consensus::transition::{
     advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
 };
@@ -67,6 +67,8 @@ fn genesis(vc: u32) -> EpochState {
         validator_ids: [[0u8; 48]; MAX_VALIDATORS],
         cascade_health: 0,
         state_root: [0u8; 32],
+        receipt_root: [0u8; 32],
+        efb_root: [0u8; 32],
         causal_fingerprint: [0u8; 32],
     }
 }
@@ -165,5 +167,133 @@ fn coq_lyapunov_transition_observations_match_advance_epoch() {
     assert_eq!(
         halt_window.iter().map(|v| v.raw()).collect::<Vec<_>>(),
         vec![0, 0, 0]
+    );
+
+    let epsilon_vec = vector_block(json, "LYAP-EPSILON-1");
+    let mut epsilon_state = genesis(1);
+    epsilon_state
+        .convergence_window
+        .push(FixedPoint::from_raw(100_000));
+    epsilon_state
+        .convergence_window
+        .push(FixedPoint::from_raw(100_000));
+    epsilon_state
+        .convergence_window
+        .push(FixedPoint::from_raw(100_000));
+    let mut epsilon_input = idle(1);
+    epsilon_input.updates[0] = Some(ValidatorUpdate {
+        divergence_new: FixedPoint::from_raw(300_000),
+        conflict_new: FixedPoint::ZERO,
+        slash_accum_new: FixedPoint::ZERO,
+    });
+    let epsilon_result =
+        advance_epoch(&mut epsilon_state, &epsilon_input, &[]).expect("epsilon advance");
+    let (epsilon_filled, epsilon_window) = epsilon_state.convergence_window.raw_parts();
+    assert_eq!(
+        epsilon_state.epoch as i64,
+        extract_i64(epsilon_vec, "epoch")
+    );
+    assert_eq!(
+        epsilon_state.halt_reason as u8 as i64,
+        extract_i64(epsilon_vec, "halt_reason")
+    );
+    assert_eq!(
+        epsilon_result.lyapunov.v_convergence.raw() as i64,
+        extract_i64(epsilon_vec, "v_convergence")
+    );
+    assert_eq!(
+        epsilon_result.lyapunov.delta_window.raw() as i64,
+        extract_i64(epsilon_vec, "delta_window")
+    );
+    assert_eq!(epsilon_filled as usize, WINDOW_SIZE);
+    assert_eq!(
+        epsilon_window.iter().map(|v| v.raw()).collect::<Vec<_>>(),
+        vec![120_000, 100_000, 100_000]
+    );
+
+    let invalid_vec = vector_block(json, "LYAP-DECODE-INVALID-NEG-D");
+    let mut invalid_state = genesis(1);
+    let mut invalid_input = idle(1);
+    invalid_input.updates[0] = Some(ValidatorUpdate {
+        divergence_new: FixedPoint::from_raw(-1),
+        conflict_new: FixedPoint::ZERO,
+        slash_accum_new: FixedPoint::ZERO,
+    });
+    let invalid_eval = evaluate(
+        &invalid_state.validators[..invalid_state.validator_count as usize],
+        &invalid_state.convergence_window,
+    )
+    .expect("invalid baseline eval");
+    assert_eq!(
+        advance_epoch(&mut invalid_state, &invalid_input, &[]),
+        Err(HaltReason::DecodeInvalid)
+    );
+    let (invalid_filled, _) = invalid_state.convergence_window.raw_parts();
+    assert_eq!(
+        invalid_state.epoch as i64,
+        extract_i64(invalid_vec, "epoch")
+    );
+    assert_eq!(
+        invalid_state.halt_reason as u8 as i64,
+        extract_i64(invalid_vec, "halt_reason")
+    );
+    assert_eq!(
+        invalid_eval.v_convergence.raw() as i64,
+        extract_i64(invalid_vec, "v_convergence")
+    );
+    assert_eq!(
+        invalid_eval.delta_window.raw() as i64,
+        extract_i64(invalid_vec, "delta_window")
+    );
+    assert_eq!(invalid_filled, 0);
+
+    let absorb_vec = vector_block(json, "LYAP-ABSORB-HALT");
+    let mut absorb_state = genesis(1);
+    absorb_state.epoch = 7;
+    absorb_state.halt_reason = HaltReason::LyapunovViolation;
+    absorb_state
+        .convergence_window
+        .push(FixedPoint::from_raw(3));
+    absorb_state
+        .convergence_window
+        .push(FixedPoint::from_raw(2));
+    absorb_state
+        .convergence_window
+        .push(FixedPoint::from_raw(1));
+    let mut absorb_input = idle(1);
+    absorb_input.updates[0] = Some(ValidatorUpdate {
+        divergence_new: FixedPoint::from_raw(300_000),
+        conflict_new: FixedPoint::ZERO,
+        slash_accum_new: FixedPoint::ZERO,
+    });
+    let projected = [ValidatorMetrics {
+        divergence: FixedPoint::from_raw(300_000),
+        conflict: FixedPoint::ZERO,
+        slash_accum: FixedPoint::ZERO,
+    }];
+    let absorb_eval =
+        evaluate(&projected, &absorb_state.convergence_window).expect("absorbing eval");
+    assert_eq!(
+        advance_epoch(&mut absorb_state, &absorb_input, &[]),
+        Err(HaltReason::LyapunovViolation)
+    );
+    let (absorb_filled, absorb_window) = absorb_state.convergence_window.raw_parts();
+    assert_eq!(absorb_state.epoch as i64, extract_i64(absorb_vec, "epoch"));
+    assert_eq!(
+        absorb_state.halt_reason as u8 as i64,
+        extract_i64(absorb_vec, "halt_reason")
+    );
+    assert_eq!(
+        absorb_eval.v_convergence.raw() as i64,
+        extract_i64(absorb_vec, "v_convergence")
+    );
+    assert_eq!(
+        absorb_eval.delta_window.raw() as i64,
+        extract_i64(absorb_vec, "delta_window")
+    );
+    assert_eq!(absorb_filled as usize, WINDOW_SIZE);
+    assert_eq!(
+        absorb_window.iter().map(|v| v.raw()).collect::<Vec<_>>(),
+        vec![1, 2, 3]
     );
 }
