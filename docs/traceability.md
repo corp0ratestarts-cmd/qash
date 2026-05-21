@@ -69,11 +69,11 @@
 |-------|-------|
 | **PDF §** | §2.5 (p. 5, provisional) and §8.4 (pp. 23–24, provisional) |
 | **PDF quote** | `all validators produce bitwise-identical outputs regardless of hardware platform` / `./scripts/verify_cross_isa_identity.sh ${{ matrix.target }}` |
-| **Code** | `.github/workflows/platform-determinism.yml` invokes `scripts/verify_cross_isa_identity.sh`, which runs `qash-vector-runner` sequentially for `x86_64`, `aarch64`, and `riscv64gc` and diffs outputs. |
-| **Test / Vector** | `tests/vectors/vectors.v1.json`; `tests/vector-runner`. |
+| **Code** | `.github/workflows/platform-determinism.yml` and `scripts/verify_cross_isa_identity.sh` run the canonical consensus state-root test on native `x86_64` plus QEMU-backed `aarch64` and `riscv64gc` targets, then compare target roots against the native root. |
+| **Test / Vector** | `state_root_canonical_seq_print`; `tests/vectors/vectors.v1.json`; `crates/consensus/tests/v1_1_replay.rs`; `crates/consensus/tests/v1_2_sharded_replay.rs`; `crates/consensus/tests/vector_runner.rs`. |
 | **Proof** | — |
 | **Status** | ⚠️ |
-| **Gap** | The script and vector runner exist, but non-native QEMU execution was not verified in this environment. The state-root vector is code-derived until ADR-003 defines full state encoding. |
+| **Gap** | CI verifies the authorized ISA roots and replay gates. Remaining gaps: local non-native QEMU execution requires the apt packages installed by `scripts/install_test_dependencies.sh`, and the state-root vector remains code-derived until ADR-003 defines full state encoding and the normative PDF is committed. |
 
 ### P0-5: Absorbing halt semantics
 

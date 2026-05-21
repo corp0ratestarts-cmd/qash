@@ -20,10 +20,11 @@ happen to converge on the same final output.
 
 ## Current scaffold
 
-`vectors.v1.json` is a code-derived manifest used by `qash-vector-runner` until
-ADR-003 defines the full state encoding. The cross-ISA gate compares runner
-outputs across targets; it does not yet claim that those state-root bytes are
-PDF-derived golden roots.
+`vectors.v1.json` is a code-derived manifest used by the
+`crates/consensus/tests/vector_runner.rs` integration test until ADR-003 defines
+the full state encoding. The cross-ISA gate compares canonical consensus roots
+and replay vector gates across targets; it does not yet claim that those
+state-root bytes are PDF-derived golden roots.
 
 ## Rule
 
