@@ -98,3 +98,19 @@ bash scripts/capture_pre_genesis_evidence.sh
 
 Use the newest timestamped `manifest.txt` under `artifacts/evidence/` as the
 current passing bundle.
+
+## Sign-off Manifest Contract
+
+Sign-off uses the newest `artifacts/evidence/*/manifest.txt` generated on the PR
+branch. Reviewers must verify all of the following fields are present and
+consistent:
+
+- `Captured (UTC): <YYYYMMDDTHHMMSSZ>`
+- `Evidence freshness timestamp (UTC): <YYYYMMDDTHHMMSSZ>`
+- `Commit: <40-hex SHA>` and `Commit short: <12-hex SHA>`
+- `## Slice Command Statuses` table with one row per command listed in
+  each Slice 1–4 `Required evidence` section
+- `Status` column is `PASS` for each required command (the self-row
+  `bash scripts/capture_pre_genesis_evidence.sh` is expected to appear as `PASS`)
+
+Any missing field or non-`PASS` required command blocks integration sign-off.

@@ -1,0 +1,21 @@
+# Pre-Genesis Evidence Bundle
+
+Captured (UTC): 20260522T225646Z
+Evidence freshness timestamp (UTC): 20260522T225646Z
+Commit: 170a23586bd4727bbfc138a01d8a59cfc5c746ab
+Commit short: 170a23586bd4
+
+## Slice Command Statuses
+
+| Slice | Command | Status | Log |
+| --- | --- | --- | --- |
+| Slice 1 | `cargo test -p qash-consensus --test v1_2_sharded_replay` | PASS | logs/shard_replay.log |
+| Slice 1 | `cargo test -p qash-consensus --test vector_integrity` | PASS | logs/vector_integrity.log |
+| Slice 1 | `make -C proofs` | PASS | logs/proofs.log |
+| Slice 2 | `cargo test -p qash-pal --features std` | PASS | logs/pal_std_tests.log |
+| Slice 3 | `make -C proofs` | PASS | logs/proofs.log |
+| Slice 3 | `cargo test -p qash-consensus --test coq_refinement_vectors` | PASS | logs/coq_refinement_vectors.log |
+| Slice 4 | `bash scripts/check_document_hygiene.sh` | PASS | logs/document_hygiene.log |
+| Slice 4 | `cargo test -p qash-consensus --test phase2r_preconditions` | PASS | logs/phase2r_preconditions.log |
+| Slice 4 | `cargo bench -p qash-consensus --no-run` | PASS | logs/consensus_bench_compile.log |
+| Slice 4 | `bash scripts/capture_pre_genesis_evidence.sh` | PASS | self |

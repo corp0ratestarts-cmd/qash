@@ -17,3 +17,5 @@ target/
 # Local evidence bundles; keep the directory README tracked.
 artifacts/evidence/*
 !artifacts/evidence/README.md
+!artifacts/evidence/*/
+!artifacts/evidence/*/manifest.txt

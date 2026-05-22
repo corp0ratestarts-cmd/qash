@@ -6,6 +6,20 @@ permissions:
   contents: read
 
 jobs:
+  slice-evidence-freshness:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert fresh slice evidence manifest for slice-critical changes
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: bash scripts/check_slice_evidence_freshness.sh
+
   build-x86_64:
     runs-on: ubuntu-latest
     steps:

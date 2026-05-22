@@ -54,6 +54,14 @@
 [genesis-change-acknowledged]
 ```
 
+## Integration review evidence (required for slice-critical changes)
+
+- Evidence manifest path: `artifacts/evidence/<timestamp>-<commit>/manifest.txt`
+- Evidence manifest link (URL to this PR branch file):
+- I confirm the manifest includes `Captured (UTC)`, commit SHA fields, and a
+  `## Slice Command Statuses` table with `PASS` for all Slice 1–4 required
+  commands.
+
 ## Verification
 
 <!-- How was this tested? Paste relevant command output, CI links, or test results. -->
