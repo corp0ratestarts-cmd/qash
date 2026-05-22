@@ -58,7 +58,7 @@
 | **PDF §** | §2.4 (pp. 4–5, provisional) |
 | **PDF quote** | `pub struct FixedPoint { value: i128 }` / `const SCALE: i128 = 1_000_000` / `self.value.checked_mul(other.value).ok_or(OverflowError)?` / `product.checked_div(SCALE).ok_or(OverflowError)?` |
 | **Code** | `crates/consensus/src/fixed_point.rs` defines `FixedPoint(i128)`, `SCALE = 1_000_000`, checked operations, and deterministic division semantics. |
-| **Test / Vector** | Module-level tests exist in `crates/consensus/src/fixed_point.rs`; `tests/vectors/vectors.v1.json` includes a fixed-point case run by `tests/vector-runner`. |
+| **Test / Vector** | Module-level tests exist in `crates/consensus/src/fixed_point.rs`; `tests/vectors/vectors.v1.json` includes a fixed-point case run by `crates/consensus/tests/vector_runner.rs`. |
 | **Proof** | — |
 | **Status** | ⚠️ |
 | **Gap** | Arithmetic is now represented in the vector scaffold, but it remains code-derived until the PDF is committed and the vector values are independently verified. |
@@ -94,7 +94,7 @@
 | **PDF §** | §3.2 (pp. 6–7, provisional) |
 | **PDF quote** | `pub fn compute_leaf_index(validator_id: u64, epoch: u64, epoch_seed: [u8; 32]) -> [u8; 48]` / `out[0..8].copy_from_slice(&validator_id.to_le_bytes()); out[8..16].copy_from_slice(&epoch.to_le_bytes()); out[16..48].copy_from_slice(&epoch_seed);` |
 | **Code** | `crates/consensus/src/encoding.rs` implements `compute_leaf_index` with the same signature and byte layout. |
-| **Test / Vector** | `tests/vectors/vectors.v1.json` includes a leaf-index vector run by `tests/vector-runner`. |
+| **Test / Vector** | `tests/vectors/vectors.v1.json` includes a leaf-index vector run by `crates/consensus/tests/vector_runner.rs`. |
 | **Proof** | PDF §9.1 names `concat_injective`; `proofs/concat_injective.v` is compiled by the `.github/workflows/ci.yml` `proofs` job, with admitted-marker rejection and `.vo` hash recording. |
 | **Status** | ⚠️ |
 | **Gap** | Code appears byte-identical to the PDF pseudocode, has vector coverage, and the supporting Coq file is CI-compiled. Remaining gaps: traceability still needs a precise mapping from the PDF theorem name to the compiled theorem(s), and no proof-to-code refinement or extraction-equivalence evidence exists. |
