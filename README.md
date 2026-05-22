@@ -186,6 +186,31 @@ preserving refactors with parity and benchmark gates.
 
 ---
 
+
+## PR #93 Gap Matrix (Draft Review vs Current Repo)
+
+The PR #93 draft comments are treated as requirements only when they can be
+mapped to canonical repo artifacts. The table below tracks that mapping and
+highlights the remaining gaps.
+
+| PR #93 comment theme | Already incorporated | Gap / required follow-up |
+|---|---|---|
+| Sharding must be protocol structure, not a loose module | `docs/spec/12_sharded_protocol.md`, `crates/consensus/src/sharding.rs`, v1.2 vectors and replay tests | Expand cross-ISA hosted replay evidence for sharded whole-protocol traces before production claims |
+| ZK profile must be fixed and auditable | Provisional profile fixed as Plonky3 FRI-STARK + Poseidon-in-circuit + QASH commitments, documented in spec/roadmap | Implement production Plonky3 verifier backend in Domain B with profile-lock tests and artifacted performance evidence |
+| Runtime hot-path inefficiencies should be addressed without semantic drift | ADR-006 and Phase 2-R scheduling with parity preconditions exist | Execute Phase 2-R implementation behind strict consensus-byte parity, cross-ISA parity, and benchmark archive gates |
+| Raw conversational transcript material should not become canonical spec text | CI/document hygiene checks and PR template guards exist | Keep enforcing canonical placement (`docs/spec`, `docs/adr`, proofs, tests) and reject ad hoc root artifacts |
+| Performance claims must be evidence-backed | Precondition tests + bench compilation gates exist | Publish tx-heavy and commit-path benchmark artifacts before any latency/finality claims |
+
+## Planned Future Work (PR #93 Follow-Through)
+
+The next track is explicitly limited to closing the remaining PR #93 gaps:
+
+1. **Phase 2-R implementation** (single-pass admission, deterministic total-order sorting, streaming root hashing, runtime `ProjectedView`).
+2. **Profile-locked Plonky3 verifier backend in PAL** (Domain B only, no Domain A semantic influence).
+3. **Cross-ISA hosted replay evidence expansion** for sharded whole-protocol traces.
+4. **Benchmark publication discipline** under `artifacts/benchmarks/` for all performance-facing claims.
+5. **Documentation hygiene continuity** so review conclusions remain encoded as auditable repo artifacts.
+
 ## Foundational Axioms
 
 All guarantees reduce to three axioms. Everything above them is deductively certain.
