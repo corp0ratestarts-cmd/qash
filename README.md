@@ -57,6 +57,7 @@ docs/spec/           ← Pre-existing derived engineering specs pending mirror m
   07_hash_cascade.md      Astronomical depth-7 cascade spec (v1.1)
   09_migration_v1.0_to_v1.1.md  Migration guide and compatibility window
   12_sharded_protocol.md  Sharding, EFB, cross-shard receipts, ZK profile
+  13_optimizer_observability.md Traffic-shaping privacy + optimizer side-channel rules
 
 proofs/             ← Formal theorems (Coq)
   contractivity/
@@ -150,6 +151,17 @@ Genesis lock gate:
 
 ---
 
+## Documentation Alignment (PR #93 follow-through)
+
+The recovered PR #93 sharding discussion is now aligned across canonical docs:
+
+- `docs/spec/12_sharded_protocol.md` captures sharding as protocol topology
+  (not optional module wiring) and fixes the v1.2 ZK admissibility boundary.
+- `docs/traceability.md` tracks clone and sharded protocol work as
+  spec-captured with explicit remaining implementation/proof closure tasks.
+- `ROADMAP.md` and release-slice docs now point to those canonical spec
+  constraints so future implementation work inherits the same boundaries.
+
 ## Sharding and ZK Profile Status
 
 Sharding is protocol structure, not an optional implementation module. The
@@ -163,6 +175,20 @@ verification.
 This is not a production ZK verifier. Domain A validates the public profile
 shape and commits to `zk_batch_root`; Domain B owns proof generation,
 proof-byte transport, and the future Plonky3 verifier backend.
+
+
+## Optimizer Observability Status
+
+PR #93 review follow-through also captures traffic-shape privacy hardening in
+`docs/spec/13_optimizer_observability.md`. The current direction is:
+
+- constant-rate intent is implemented as profile-bounded shaping bands with
+  bounded jitter (not a strict fixed-cadence metronome),
+- cover traffic is Domain B-only and must never enter Domain A transcript/state,
+- profile changes are decoupled from consensus-health signals, and
+- Domain B profile tuning follows a privacy/safety monotonicity ratchet.
+
+This is spec-captured and pending implementation/CI closure.
 
 ## PR #93 Review Status
 

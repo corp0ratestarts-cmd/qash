@@ -138,3 +138,12 @@ All signatures below are required before genesis decision:
 | Release |  | ☐ Approve / ☐ Block |  |  |
 
 **Final rule:** If any required owner blocks or any P0 gate is not pass, genesis decision is **NO-GO**.
+
+
+## 8) Domain A/B Traffic-Shaping Separation Check (when optimizer profile is active)
+
+Required review assertions:
+- Cover traffic and padding logic remain Domain B-only.
+- No Domain B padding path mutates Domain A state or transcript fields.
+- Traffic-shaping profile switches are epoch-bound and not directly keyed to consensus-health signals.
+- Profile updates respect privacy/safety monotonicity floors.

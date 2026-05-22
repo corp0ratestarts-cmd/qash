@@ -282,3 +282,43 @@ Deferred implementation work:
 - 2-layer recursion corpus: Layer 0 shard proofs, Layer 1 16:1 aggregation,
   Layer 2 EFB batch-root verification
 - adversarial shard-capture simulation with configured bond weights
+
+---
+
+## §12.9 — Sharding Is Protocol Topology (Not Optional Module Wiring)
+
+Sharding defines the v1.2 protocol topology. In this profile, validators reason
+about an epoch through `(epoch, shard_count, shard commitments, efb_root)` and
+not through a monolithic single-lane execution trace.
+
+Normative consequences:
+
+- `shard_count` and EFB commitment shape are protocol constants for a given
+  deployment profile and cannot be hot-swapped by runtime policy flags.
+- Receipt semantics are structural: `source_shard` and `target_shard` are
+  first-class protocol coordinates, not transport metadata.
+- Finality is computed over shard aggregates; any candidate that treats shards as
+  optional plugin outputs is invalid under v1.2.
+- Performance claims (including sub-50ms global commitment) are evaluated
+  against the EFB aggregation path, not against per-shard proving latency.
+
+This clarifies the PR #93 design note that sharding is part of protocol
+structure itself.
+
+---
+
+## §12.10 — ZK Algorithm Admissibility and Recursion Length
+
+For the recovered v1.2 sharded profile, algorithm admissibility is constrained
+by QASH protocol goals (determinism, replayability, post-quantum safety, and
+native Rust implementability):
+
+- KZG-based SNARK profiles are not admissible in this profile ID.
+- The admissible proof family is transparent FRI-STARK with the fixed
+  Plonky3/Poseidon/QASH binding described in §12.6.
+- Recursion depth is fixed at 2 for this profile (`layer1` aggregation over
+  `layer0` shard proofs; `layer2` EFB verification boundary).
+
+Any alternative proving system, commitment scheme, or deeper recursion chain
+requires a new profile identifier, updated replay vectors, and explicit proof
+tracking updates before admission.

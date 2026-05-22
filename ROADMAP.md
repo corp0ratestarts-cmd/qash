@@ -240,6 +240,48 @@ interfaces, wire formats, hash preimages, or Domain A invariants.
 
 ---
 
+
+### 2-S: Sharded Topology + ZK Profile Closure (Spec-Captured, Implementation Pending)
+
+**Source:** PR #93-derived sharding review, normalized into canonical spec docs.
+
+**Status:** Documentation constraints captured; implementation/proof closure pending.
+
+**Canonical constraints:**
+- `docs/spec/12_sharded_protocol.md` treats sharding as protocol topology and
+  binds finality to EFB aggregation over ordered shard commitments.
+- v1.2 admissible ZK profile remains transparent FRI-STARK (Plonky3/Poseidon
+  profile) with fixed recursion structure for this profile ID.
+- Alternative proving systems/recursion depths require a new profile ID,
+  vectors, and proof-tracking updates before admission.
+
+**Future implementation gates:**
+- Domain B verifier/proof transport implementation behind existing interfaces.
+- Replay/vector parity for any verifier-path activation.
+- Proof-surface updates in `proofs/sharding/` and `proofs/COVERAGE.md`.
+- No consensus-byte, wire-format, or public-commitment drift from the
+  currently documented v1.2 profile.
+
+
+### 2-T: Optimizer Observability and Traffic-Shaping Hardening
+
+**Source:** PR #93 critique integration for traffic analysis resistance.
+
+**Status:** Spec captured in `docs/spec/13_optimizer_observability.md`;
+implementation and CI gates pending.
+
+**Pillars:**
+- Profile-bounded traffic-shaping bands with bounded jitter and epoch-bound switching.
+- Strict Domain A quarantine for cover traffic (Domain B-only padding).
+- Cross-layer side-channel prohibition (no direct profile switching from consensus-health signals).
+- DomainBProfile monotonicity ratchet for privacy/safety floors.
+
+**Required follow-up gates:**
+- static/CI guard against Domain B padding paths mutating consensus state
+- epoch-bound switch tests
+- side-channel guard tests for profile switching policy
+- API-level monotonicity enforcement for profile updates
+
 ### 2-C: Epoch Skew Validation
 
 **Branch:** `codex/v1.1-epoch-semantics`  

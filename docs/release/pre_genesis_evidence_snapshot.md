@@ -17,7 +17,7 @@ The current worktree should be reviewed as separate logical slices:
 | Sharding/EFB scaffold | v1.2 sharding primitives, EFB roots, sharded replay vectors, protocol spec | Consensus replay, v1.2 vector integrity, sharding proof compile |
 | PAL whole-protocol scaffold | Hosted replay, commitment transport, attestation interfaces, ZK proof-bundle boundary | `cargo test -p qash-pal --features std` |
 | Proof/refinement closure | TH-3 composition closure, model extraction surface, proof status updates | `make -C proofs` from a clean proof build before RC |
-| PR #93 hygiene and scheduling | Raw transcript rejection, canonical docs, ADR-006, Phase 2-R scheduling | `bash scripts/check_document_hygiene.sh`, doc review |
+| PR #93 hygiene, docs alignment, and scheduling | Raw transcript rejection, canonical docs alignment (README/ROADMAP/traceability/spec incl. optimizer-observability), ADR-006, Phase 2-R scheduling | `bash scripts/check_document_hygiene.sh`, doc review |
 
 The detailed slice map is `docs/release/current_integration_review_slices.md`.
 

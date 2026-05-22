@@ -85,6 +85,10 @@ encodes this boundary as a compile-time guarantee.  Any Domain A code path that
 inadvertently includes raw envelope fields in the public surface will fail to
 compile.
 
+Traffic-shape control policy is defined in `13_optimizer_observability.md` and
+remains a Domain B concern. Domain A publishes commitments only and must remain
+agnostic to padding/cover-traffic mechanics.
+
 All artifacts in `PublicTranscript` are:
 
 - Fixed-length (padded to protocol maximum).
@@ -105,7 +109,7 @@ or edge topology.
 
 | Observer | Domain Access | Visible Artifacts | Graph/Edge Exposure |
 |----------|---------------|-------------------|---------------------|
-| Passive internet observer | Domain A only | `state_root`, `receipt_root`, Lyapunov proofs, epoch seeds | None.  Fixed-size, constant-rate emissions. |
+| Passive internet observer | Domain A only | `state_root`, `receipt_root`, Lyapunov proofs, epoch seeds | None.  Fixed-size commitment artifacts plus Domain B profile-bounded shaping envelopes (with bounded jitter) to reduce traffic-analysis leakage. |
 | Light client (Tier 0–1) | Domain A | State-root chain continuity, sparse Merkle proofs against genesis cascade config | Zero transaction semantics.  Commitment validity only. |
 | Full validator (Tier 2–4) | Domain A + B (TEE/OEM) | Blinded opcodes, cascade receipts, validator attestations, admission queue metadata | Cryptographically decoupled from real-world identities.  Execution traces are blinded and epoch-relative. |
 | Receipt verifier / Auditor | Domain A + scoped Domain B | `receipt_root` + ZK membership proofs.  Decrypted receipts only with genesis-bound disclosure keys. | No adjacency reconstruction without explicit disclosure capability. |

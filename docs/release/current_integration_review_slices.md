@@ -63,7 +63,7 @@ Review focus:
 - Rust/Coq observation vectors match the executable transition behavior.
 - New proof claims are reflected in `proofs/STATUS.md`.
 
-## Slice 4: PR #93 Hygiene and Phase 2-R Gates
+## Slice 4: PR #93 Hygiene, Optimizer-Observability, and Phase 2-R Gates
 
 Primary files:
 - `.github/PULL_REQUEST_TEMPLATE.md`
@@ -72,6 +72,7 @@ Primary files:
 - `scripts/capture_pre_genesis_evidence.sh`
 - `docs/adr/ADR-006-runtime-optimization-track.md`
 - `docs/release/pre_genesis_evidence_snapshot.md`
+- `docs/spec/13_optimizer_observability.md`
 - `crates/consensus/tests/phase2r_preconditions.rs`
 - `crates/consensus/benches/epoch_transition.rs`
 
@@ -79,6 +80,7 @@ Required evidence:
 - `bash scripts/check_document_hygiene.sh`
 - `cargo test -p qash-consensus --test phase2r_preconditions`
 - `cargo bench -p qash-consensus --no-run`
+- doc review of `docs/spec/13_optimizer_observability.md`
 - `bash scripts/capture_pre_genesis_evidence.sh`
 
 Review focus:
@@ -87,6 +89,7 @@ Review focus:
 - Transaction prevalidation has an explicit `(sort_key, tx_id)` total-order
   tie-breaker for equal sort keys.
 - Runtime optimization remains consensus-byte-preserving.
+- Traffic shaping remains Domain B-only with epoch-bound profile switching and monotonic privacy floors.
 
 ## Whole-Branch Evidence
 

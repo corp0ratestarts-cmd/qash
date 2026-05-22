@@ -160,7 +160,9 @@
 | P1-4 | §5 | Hardware abstraction and deployment tiers | PAL implementation phase. |
 | P1-5 | §5 | Hosted PAL nondeterminism boundary | Minimal hosted runtime now implemented; cross-ISA replay artifacts deferred. |
 | P1-6 | §6 | Obfuscation VM | Later subsystem phase. |
-| P1-7 | §7 | Clone protocol | Later subsystem phase. |
+| P1-7 | §7 | Clone protocol | Baseline spec is now captured in `docs/spec/10_clone_protocol.md`; remaining work is implementation/test/proof closure. |
+| P1-9 | §12 (derived) | Sharded protocol topology + ZK profile | Baseline spec captured in `docs/spec/12_sharded_protocol.md`; pending verifier implementation, vectors, and proof refinement closure. |
+| P1-10 | §13 (derived) | Optimizer observability + traffic-shaping hardening | Baseline spec captured in `docs/spec/13_optimizer_observability.md`; pending PAL implementation, CI side-channel guards, and profile monotonicity enforcement. |
 | P1-8 | PDF-SILENT | Runtime optimization track | Scheduled by `docs/adr/ADR-006-runtime-optimization-track.md`; implementation is deferred until parity and benchmark gates exist. |
 | P2-1 | §9.1 (pp. 24–25, provisional) | `vm_correctness` proof | Depends on obfuscation VM. |
 | P2-2 | §9.1 (pp. 24–25, provisional) | `decoy_state_identity` proof | Depends on obfuscation VM. |
