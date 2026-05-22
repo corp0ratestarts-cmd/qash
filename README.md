@@ -41,6 +41,9 @@ QASH **is**:
 > `docs/errata/`, and `docs/adr/` are **provisional** until the PDF is committed
 > and the genesis hash is recomputed. See `spec/pdf/README.md` for the full
 > authority rule and lock procedure.
+>
+> Release gate single source of truth: `docs/release/genesis_lock_gates.md`
+> tracks each blocker from `proofs/STATUS.md` and required closure evidence.
 
 ---
 

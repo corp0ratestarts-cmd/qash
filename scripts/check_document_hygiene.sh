@@ -58,6 +58,91 @@ TRANSCRIPT_MARKER = re.compile(
 
 failures = []
 
+
+GATE_DOC = pathlib.Path("docs/release/genesis_lock_gates.md")
+EXPECTED_BLOCKERS = {
+    "traceability artifact reconciliation": "Traceability artifact reconciliation",
+    "normative pdf finalization": "Normative PDF finalization",
+    "cross-isa replay evidence review": "Cross-ISA replay evidence review",
+    "pal/network readiness decision": "PAL/network readiness decision",
+}
+
+
+def parse_gate_rows(lines):
+    rows = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        if stripped.startswith("| Blocker |") or stripped.startswith("|---"):
+            continue
+        cols = [c.strip() for c in stripped.strip("|").split("|")]
+        if len(cols) < 4:
+            continue
+        rows.append(cols[:4])
+    return rows
+
+
+def normalize_blocker(value):
+    value = value.strip().lower()
+    value = re.sub(r"\s+", " ", value)
+    return value
+
+
+def gate_doc_failures():
+    failures_local = []
+
+    if not GATE_DOC.is_file():
+        return [f"{GATE_DOC}: missing genesis lock gate source-of-truth document"]
+
+    gate_text = GATE_DOC.read_text(encoding="utf-8")
+    gate_lines = gate_text.splitlines()
+
+    rows = parse_gate_rows(gate_lines)
+    if not rows:
+        failures_local.append(f"{GATE_DOC}: missing blocker table rows")
+        return failures_local
+
+    seen = {}
+    for idx, row in enumerate(rows, start=1):
+        blocker, owner, criterion, evidence = row
+        label = f"{GATE_DOC}: table row {idx}"
+
+        if not blocker or not owner or not criterion or not evidence:
+            failures_local.append(f"{label}: blocker, owner, criterion, and evidence fields must all be non-empty")
+            continue
+
+        key = normalize_blocker(blocker)
+        seen[key] = label
+
+        if "TODO" in owner.upper() or "TODO" in criterion.upper() or "TODO" in evidence.upper():
+            failures_local.append(f"{label}: gate fields must be current (no TODO placeholders)")
+
+    for expected_key, expected_label in EXPECTED_BLOCKERS.items():
+        if expected_key not in seen:
+            failures_local.append(f"{GATE_DOC}: missing blocker row '{expected_label}'")
+
+    status_text = pathlib.Path("proofs/STATUS.md").read_text(encoding="utf-8")
+    status_text_lower = status_text.lower()
+    missing_mentions = []
+    for blocker_key in EXPECTED_BLOCKERS:
+        pattern_parts = [re.escape(part) for part in blocker_key.split()]
+        pattern_text = r"\b" + r"\s+".join(pattern_parts) + r"\b"
+        if blocker_key == "pal/network readiness decision":
+            pattern_text = pattern_text[:-2] + r"s?\b"
+        pattern = re.compile(pattern_text)
+        if not pattern.search(status_text_lower):
+            missing_mentions.append(blocker_key)
+    if missing_mentions:
+        missing = ", ".join(EXPECTED_BLOCKERS[b] for b in missing_mentions)
+        failures_local.append(f"proofs/STATUS.md: expected genesis blockers not found: {missing}")
+
+    if "spec/pdf/QASH_Spec_v1.0.pdf" not in gate_text:
+        failures_local.append(f"{GATE_DOC}: normative PDF gate must reference spec/pdf/QASH_Spec_v1.0.pdf")
+
+    return failures_local
+
+
 tracked = subprocess.run(
     ["git", "ls-files"],
     check=True,
@@ -96,6 +181,8 @@ for rel in tracked:
 
     if TRANSCRIPT_MARKER.search(text):
         failures.append(f"{rel}: appears to contain a raw chat transcript or prompt dump")
+
+failures.extend(gate_doc_failures())
 
 if failures:
     print("Document hygiene check failed:")

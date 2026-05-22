@@ -15,6 +15,12 @@
    until the blocking item is resolved.
 5. Mirrors may not introduce requirements not traceable to this table.
 
+## Genesis-lock release gate handoff
+
+Genesis-lock proof readiness in `proofs/STATUS.md` is bridged to release readiness via
+`docs/release/genesis_lock_gates.md`, which defines owners, objective pass criteria,
+and closure evidence for each non-proof blocker.
+
 ## Status key
 
 - ✅ **Covered:** code exists, tests/vectors pass, and proof obligations compile
