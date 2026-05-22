@@ -56,6 +56,25 @@ QASH has evolved from a deterministic consensus prototype into a **kernel-reduce
 
 ---
 
+
+## PR #93 Draft-Comment Closure Checklist
+
+This checklist records what remains to fully close the PR #93 draft comments
+that are already normalized into canonical docs and tests.
+
+- [x] Normalize sharding requirements into canonical spec/test/proof artifacts.
+- [x] Normalize provisional ZK profile shape and recursion plan into canonical docs.
+- [x] Add CI/document-hygiene protections against raw transcript artifacts.
+- [x] Isolate runtime optimization recommendations into a dedicated ADR/phase.
+- [ ] Implement Phase 2-R runtime refactors with byte-for-byte parity gates.
+- [ ] Add archived tx-heavy/commit-path benchmark evidence for performance claims.
+- [ ] Ship Domain B production Plonky3 verifier backend with profile-lock tests.
+- [ ] Extend hosted whole-protocol sharded replay evidence to explicit cross-ISA bundles.
+
+Exit criterion: all unchecked items are complete and evidenced under
+`artifacts/` at a commit that keeps consensus outputs byte-identical to the
+current baseline vectors.
+
 ## Repository orientation
 
 | Path | Purpose | Domain |

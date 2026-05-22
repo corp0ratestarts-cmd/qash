@@ -90,6 +90,22 @@ Scheduled, not implemented in this detour:
 
 ---
 
+
+## PR #93 Gap Closure Plan (Delta From Draft Comments)
+
+The PR #93 draft feedback is partly implemented and partly scheduled. The
+remaining delta, compared against canonical repository artifacts, is:
+
+- **Implemented now:** sharding protocol scaffold, fixed provisional ZK profile,
+  transcript/document hygiene, and explicit Phase 2-R scheduling.
+- **Still open:** Phase 2-R code-path execution, production Plonky3 verifier
+  backend in PAL, cross-ISA hosted replay expansion for sharded traces, and
+  benchmark-archived evidence for performance claims.
+
+This delta is intentional: no runtime optimization or production-verifier claim
+is considered complete until parity/benchmark gates are captured as artifacts
+for the exact reviewed commit.
+
 ## What the External Audit Found
 
 An independent architectural review identified the following (ordered by severity):
