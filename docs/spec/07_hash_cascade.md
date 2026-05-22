@@ -179,6 +179,24 @@ permits platform-divergent buffering). This is the same constraint as `H_domain`
 
 For v1.0 genesis, state root computation **never** calls `H_cascade`. Cascade health commitment **never** replaces the state root computation. The two functions are orthogonal. Any future cascade-backed state-root migration must define a new commitment/truncation rule, update `compute_state_root`, and replace the genesis KAT vectors in a separate post-genesis ADR.
 
+## Future UC-MJA Track
+
+PR #93 introduced a proposed Universally Composable Multi-Jurisdictional Anchor
+(UC-MJA) that could extend the cascade family with double-width sovereign hash
+paths, SHAKE256 XOF binding, a GF(2^256) polynomial MAC, and Domain B ZK
+compliance proofs.
+
+That proposal is **not** part of the current `H_cascade` definition and does
+not change v1.0 state roots. The scheduled research track is governed by
+`docs/adr/ADR-007-uc-mja-cascade-track.md`. In particular:
+
+- SM3 remains a 256-bit primitive; any 512-bit SM3 output must be built through
+  explicit domain separation.
+- GF(2^512) MACs, Argon2id, and memory-hard functions are rejected for Domain A.
+- ZK proving and verifier backends remain Domain B / shard-aggregation work.
+- Any future UC-MJA commitment rule must ship new KAT vectors, cross-ISA parity,
+  constant-time evidence, and proof obligations before it can affect consensus.
+
 ---
 
 ## §4 — Cascade Blinding (Context-Keyed Variant)

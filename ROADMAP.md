@@ -54,6 +54,20 @@ QASH has evolved from a deterministic consensus prototype into a **kernel-reduce
 | Documentation hygiene | Raw transcript and ad hoc root-spec rejection is automated | Keep canonical protocol material in `docs/spec`, `docs/adr`, traceability, tests, and proofs |
 | Genesis | `genesis_status = "provisional"`, `deployment_authoritative = false` | Keep unlocked until traceability, normative PDF, and release evidence are reconciled |
 
+### Performance Targets
+
+These targets are acceptance gates for production claims, not claims about the
+current scaffold. Any change that cites one of these numbers must archive the
+exact benchmark artifact under `artifacts/benchmarks/` and preserve TH-7
+cross-ISA replay invariance.
+
+| Metric | Target | Measurement method | Current gate |
+|--------|--------|--------------------|--------------|
+| Envelope admission plus state update | <2ms P99 | Criterion tx-heavy epoch benchmarks on x86_64 and aarch64 | Scheduled in Phase 2-R |
+| Epoch finality decision | <50ms P99 | End-to-end replay corpus timing with EFB roots pinned | Blocked until Phase 6 production EFB verifier |
+| State-root commitment | Byte-identical before/after optimization | Buffered-vs-streaming canonical preimage parity test | Required before Phase 2-R merge |
+| Cross-ISA determinism | Bit-identical state roots | x86_64/aarch64/riscv64gc CI replay gates | Required on every PR |
+
 ---
 
 ## Repository orientation
@@ -982,6 +996,49 @@ git diff crates/consensus/ # must be empty after feature toggle
 
 ---
 
+### 2-Q: UC-MJA Cascade Research Track - SCHEDULED
+
+**Source:** Latest PR #93 multi-jurisdictional cascade review.
+**Branch:** `codex/v1.1-uc-mja-cascade`
+**Depends on:** 2-O, Phase 2-R performance gates, Phase 6 sharding/ZK boundary
+
+**Intent:** Explore a Universally Composable Multi-Jurisdictional Anchor
+(UC-MJA) that combines sovereign hash paths, SHAKE256 XOF binding, a compact
+GF(2^256) MAC, and Domain B ZK compliance proofs without changing current
+consensus bytes.
+
+**Accepted scope:**
+- 512-bit path outputs through fixed-size Domain A arrays only.
+- SM3 double-width construction only as `SM3(0x01 || input) || SM3(0x02 || input)`.
+- SHAKE256 XOF binding with fixed output layout: public commitment, MAC key
+  material, and MAC pad material.
+- GF(2^256) polynomial MAC only if constant-time arithmetic, KATs, and
+  benchmarks preserve the sub-2ms envelope target.
+- ZK-QASH compliance proofs only in Domain B / shard aggregation; Domain A may
+  commit to public roots but never generates proofs or ingests prover state.
+
+**Rejected scope:**
+- No GF(2^512) MAC in the Domain A hot path.
+- No Argon2id, scrypt, or memory-hard cross-binding in Domain A.
+- No per-envelope or per-epoch STARK proving in Domain A.
+- No hardware-specific intrinsics that weaken cross-ISA determinism.
+- No replacement of `H_domain` or the current `H_cascade` without a separate
+  genesis/network-definition decision.
+
+**Required gates before implementation merge:**
+- ADR: `docs/adr/ADR-007-uc-mja-cascade-track.md`.
+- Normative spec delta for path order, domain separators, XOF output layout,
+  MAC input blocks, and public transcript binding.
+- KAT corpus for all enabled sovereign paths and the final XOF/MAC output.
+- Criterion benchmarks proving the Domain A anchor remains within the published
+  performance targets.
+- Cross-ISA parity on x86_64, aarch64, and riscv64gc.
+- Constant-time audit evidence for GF(2^256) arithmetic.
+- Coq/Rocq proof obligations for XOF binding assumptions and MAC unforgeability.
+- Domain B verifier KATs for any ZK-QASH compliance proof backend.
+
+---
+
 ### 2-P: Certification Artifacts
 
 **Branch:** `codex/v1.1-cert-artifacts`  
@@ -1829,6 +1886,36 @@ ordering.
   EFB batch-root verification.
 - Adversarial shard-capture simulation using configured bond weights.
 
+## Phase 6 — Sharding & Horizontal Scaling (Post-Genesis)
+
+**Source:** PR #93 sharding review, promoted from scaffold to scheduled delivery
+track.
+
+**Status:** Scheduled. The v1.2 scaffold proves shape and replay plumbing; this
+phase is the production delivery track needed before any 10K-100K TPS claim.
+
+| Item | Branch | Depends on | Goal | Required evidence |
+|------|--------|------------|------|-------------------|
+| 6-A: Deterministic shard assignment | `codex/v1.2-sharding-core` | 2-B, 2-K, 5-A | Fix `assign_shard(epoch_seed, validator_id) -> shard_id` as replayable protocol structure | Cross-ISA KATs, adversarial shard-capture simulation |
+| 6-B: Epoch Finality Beacon production gate | `codex/v1.2-efb-production` | 6-A | Commit one deterministic EFB checkpoint per epoch | EFB root parity corpus, malformed-shard rejection tests |
+| 6-C: ZK-STARK batching pipeline | `codex/v1.2-zk-batching` | 6-B | Plonky3 FRI-STARK proof-bundle verifier behind Domain B with Poseidon inner circuit and QASH-native public commitment | Transparent proof statement, verifier KATs, feature-gated PAL backend, prover sizing artifact |
+| 6-D: Cross-shard receipt proofs | `codex/v1.2-cross-shard` | 6-B, 6-C | Merkle inclusion and epoch-bound replay rejection for inter-shard messages | Receipt inclusion corpus, stale-epoch rejection proof/test |
+| 6-E: Domain B receipt indexing | `codex/v1.2-domain-b-indexing` | 6-D, 4-C | Optional LEANN or equivalent indexing for encrypted receipts and auditor metadata only | No Domain A dependency, no PII emission, no public graph topology |
+
+**Non-goals for Phase 6:**
+- No Domain A proof bytes or prover nondeterminism.
+- No public publication of raw shard transactions, receipt leaves, or graph
+  topology.
+- No LEANN, vector database, or RAG index in consensus or sharding logic.
+- No finality-latency claim until benchmark artifacts show the EFB decision path
+  meeting the performance targets above.
+
+**ZK prover sizing gate:** Before Phase 6 claims 10K+ TPS or sub-50ms global
+finality, `docs/benchmarks/zk_prover_sizing.md` must archive warm-up,
+progressive load, realistic traffic, and Pareto-frontier measurements. Capacity
+planning must include circuit size, trace buffer, per-proof overhead, replica
+count, GPU count, and 20 percent memory headroom.
+
 ### 4-B: PublicTranscript Type-System Enforcement
 
 **Branch:** `codex/privacy/public-transcript-enforcement`  
@@ -1997,6 +2084,41 @@ cavp-vectors:
 
 ---
 
+### 4-E: Sovereign Storage Tiers and Shred Commitments
+
+**Source:** Latest PR #93 storage architecture review.
+**Branch:** `codex/storage/sovereign-vault`
+**Depends on:** 4-A, 4-C, 2-O, 2-P
+
+**Intent:** Make storage compliance a protocol-adjacent Domain B primitive
+rather than an infrastructure note.
+
+**Planned work:**
+- Define jurisdiction-bound storage tiers:
+  - Tier 0: Domain A state roots, receipt roots, and EFB roots in the node DB.
+  - Tier 1: PII, KYC, and decryption keys in in-country encrypted vaults.
+  - Tier 2: encrypted receipt blobs in geo-fenced object storage, private IPFS,
+    or regulated Flux usage.
+  - Tier 3: public proofs and public transcript archives in global public
+    storage.
+- Add a `SovereignVault` PAL trait for Tier 1 storage and profile-bound endpoint
+  rejection.
+- Add `ErasureRequest` and `ShredCommitment` as auditable Domain B operations.
+- Bind regulated Tier 1 and Tier 2 keys to FIPS 140-3 L3 HSM/TPM boundaries or
+  the deployment's sovereign equivalent.
+- Add policy checks so Flux/IPFS is never used for raw PII, unencrypted
+  receipts, signing keys, or sovereign-regulated Tier 1 data.
+- Add storage-rent retention rules through T-5 blinded fee commitments.
+
+**Required gates:**
+- ADR: `docs/adr/ADR-008-sovereign-storage-tiers.md`.
+- PAL tests for storage-profile endpoint rejection.
+- Shred commitment privacy review before any public transcript extension.
+- HSM/TPM attestation evidence for regulated storage profiles.
+- Cross-border transfer log for any Tier 1 to Tier 2 export.
+
+---
+
 ## Phase 5 — Genesis Lock Preparation
 
 **Preconditions (all must be green before tag):**
@@ -2121,7 +2243,7 @@ Deploying QASH in regulated jurisdictions requires support for nationally mandat
 
 ## Global Expansion Strategy — Sovereign Cryptographic Profiles
 
-### 6-A: Profile Mechanism
+### G-1: Profile Mechanism
 
 Sovereign Cryptographic Profiles are **genesis-time configuration**, not runtime-switchable options. A node selects its cipher suite at build time via Cargo features. Changing the suite defines a new network (new genesis hash).
 
@@ -2138,7 +2260,7 @@ Genesis flag (append-only to `GENESIS_CONSTANTS.toml`):
 is_consortium_mode = false    # true → tokenless consortium mode (Guomi profile only)
 ```
 
-### 6-B: Three Deployment Flavors
+### G-2: Three Deployment Flavors
 
 | Profile | Target Jurisdictions | Key Primitives | Special Features |
 |---------|---------------------|----------------|-----------------|
@@ -2146,7 +2268,7 @@ is_consortium_mode = false    # true → tokenless consortium mode (Guomi profil
 | **Guomi** | China, SEA | SM2, SM3, SM4 | Tokenless consortium mode; `is_consortium_mode = true` genesis flag |
 | **Sovereign Hardened** | UAE, KSA, Defense | SoftTRR/CATT, Hancke-Kuhn distance-bounding, TPM measured boot | Hardware attestation mandatory |
 
-### 6-C: Implementation Steps
+### G-3: Implementation Steps
 
 **Phase 1 — Trait abstraction (`crates/pal/src/crypto/`):**
 ```
@@ -2174,7 +2296,7 @@ deploy/kernel-modules/    → softtrr.c, catt.c
 scripts/attest_release.sh → SLSA provenance
 ```
 
-### 6-D: Risk Mitigation
+### G-4: Risk Mitigation
 
 | Risk | Mitigation |
 |------|-----------|
@@ -2182,7 +2304,7 @@ scripts/attest_release.sh → SLSA provenance
 | Upgrade Paradox: sovereign suite changes protocol | Suites are genesis-profile configuration; upgrade = new genesis, not mutation |
 | Sovereign key material side-channels | `subtle` crate for constant-time comparisons; `dudect-bencher` CI audit |
 
-### 6-E: Global Value Proposition
+### G-5: Global Value Proposition
 
 | Region | Value Proposition | Key Compliance Target |
 |--------|------------------|-----------------------|
@@ -2274,6 +2396,24 @@ This is implemented in Domain B (PAL layer) and is transparent to Domain A.
 Domain A only sees: epoch_seed (a [u8; 32] input), not the keys derived from it.
 ```
 
+### T-5: Storage Rent and Retention
+
+**Design:**
+```
+Storage is paid through blinded fee commitments, not inflation.
+
+Each encrypted receipt commits to a retention window:
+  storage_commitment = H_domain(StorageRent, receipt_hash || epochs_prepaid || fee_commitment)
+
+Domain B stores Tier 2 receipt blobs until the prepaid window expires. After the
+retention window, receipts become eligible for archival or deletion, but Domain A
+roots and public transcript entries remain immutable.
+```
+
+This item depends on `ADR-008-sovereign-storage-tiers.md` and T-3 blinded fees.
+It is a Domain B economics and retention policy. It must not add minting,
+validator rewards, or governance-controlled storage subsidies.
+
 ---
 
 ## Implementation order summary
@@ -2297,6 +2437,7 @@ v1.1 Feature Migration (in progress):
   → 2-I (formal proofs)             ← after 2-B..2-F stable
   → 2-J (semantic closure)          ← after 2-B
   → 2-K (replay corpus)             ← after all Domain A changes merged
+  → 2-Q (UC-MJA cascade research)   ← after 2-O + Phase 2-R gates
 
 Semantic Kernel Closure (after 2-J, can overlap late v1.1 work):
   → 1-A (effect-capability tokens)  ← after 2-J
@@ -2316,10 +2457,18 @@ Privacy and Compliance (after v1.1 Domain A is stable):
   → 4-B (PublicTranscript enforcement) ← after 4-A
   → 4-C (receipt encryption)        ← after 2-G + 4-A
   → 4-D (certification artifacts)   ← after 4-A + 4-B + 4-C
+  → 4-E (sovereign storage tiers)   ← after 4-A + 4-C + 2-O
+
+Sharding and horizontal scaling (post-genesis, after scaffold evidence):
+  → 6-A (deterministic shard assignment) ← after 2-B + 2-K + 5-A
+  → 6-B (EFB production gate)            ← after 6-A
+  → 6-C (ZK-STARK batching pipeline)     ← after 6-B
+  → 6-D (cross-shard receipt proofs)     ← after 6-B + 6-C
+  → 6-E (Domain B receipt indexing)      ← after 6-D + 4-C
 
 → Phase 5: Genesis Lock (all above green)
 
-Post-genesis: T-1 through T-4 (tokonomics, no genesis change)
+Post-genesis: T-1 through T-5 (tokonomics/storage economics, no genesis change)
 ```
 
 ---
@@ -2393,6 +2542,13 @@ Before the v1.1 cutover at epoch 101, all of the following must be green:
 - [ ] Benchmark artifacts archived for every performance-sensitive change,
       including Phase 2-R tx-heavy and commit-path Criterion reports under
       `artifacts/benchmarks/`
+- [ ] UC-MJA research remains non-consensus until ADR-007 evidence is complete:
+      KATs, cross-ISA parity, constant-time audit, and Coq/Rocq obligations.
+- [ ] Sovereign storage remains Domain B until ADR-008 evidence is complete:
+      `SovereignVault`, `ShredCommitment`, HSM/TPM evidence, and transfer logs.
+- [ ] Domain B indexing and ZK prover sizing remain non-consensus until ADR-009
+      evidence is complete: no Domain A dependency, no PII emission, and
+      archived prover sizing artifacts.
 
 ---
 

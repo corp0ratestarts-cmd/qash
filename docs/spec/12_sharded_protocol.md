@@ -222,6 +222,18 @@ Plonky3/FRI/Poseidon/QASH profile above. Other engines, deeper recursion, KZG
 SNARKs, Bulletproofs, or alternate aggregation factors are separate protocol
 extensions and must not be accepted under this profile ID.
 
+### Prover sizing and indexing non-goals
+
+ZK prover sizing is a Domain B capacity-planning problem. Before this profile
+can support a throughput or latency claim, the deployment must archive warm-up,
+progressive load, realistic traffic, and Pareto-frontier benchmark evidence in
+`docs/benchmarks/zk_prover_sizing.md` or an equivalent release artifact.
+
+LEANN, vector databases, and RAG indexes are not sharding mechanisms. They may
+index encrypted receipts or compliance metadata behind Domain B storage
+interfaces, but they must not influence shard assignment, EFB construction,
+proof acceptance, replay roots, or public transcript contents.
+
 ---
 
 ## §12.7 — Public Transcript

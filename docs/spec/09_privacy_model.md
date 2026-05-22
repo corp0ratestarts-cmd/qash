@@ -99,6 +99,23 @@ proof batch root. It is permitted in `PublicTranscript` because it does not
 publish raw receipt leaves, transaction envelopes, admission transport metadata,
 or edge topology.
 
+## §P3a — Storage privacy boundary
+
+Storage backends are Domain B operational infrastructure and do not define
+consensus semantics. QASH storage is split by data class:
+
+| Tier | Data | Privacy rule |
+|------|------|--------------|
+| Tier 0 | `state_root`, `receipt_root`, `efb_root` | Public commitment data only. |
+| Tier 1 | PII, KYC, disclosure keys, viewing keys | Sovereign vault only; never Flux/IPFS/global DHT. |
+| Tier 2 | encrypted receipt blobs | May use geo-fenced object storage, private IPFS, or regulated Flux only while keys remain in Tier 1. |
+| Tier 3 | public proofs and public transcript archives | Public storage allowed because these artifacts contain no raw graph data. |
+
+`SovereignVault`, `ErasureRequest`, and `ShredCommitment` are scheduled Domain B
+interfaces in `docs/adr/ADR-008-sovereign-storage-tiers.md`. Publishing a
+shred commitment is allowed only if it does not reveal the shredded key, receipt
+payload, user identity, storage endpoint, or graph edge.
+
 ---
 
 ## §P4 — Observer classes

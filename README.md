@@ -182,7 +182,25 @@ aggregation, and Layer 2 EFB verification.
 The latest runtime-performance review is scheduled as `Phase 2-R: Core Runtime
 Optimization` in `ROADMAP.md` and `docs/adr/ADR-006-runtime-optimization-track.md`.
 It is not implemented in this detour; it is constrained to consensus-byte-
-preserving refactors with parity and benchmark gates.
+preserving refactors with parity and benchmark gates. `ROADMAP.md` now also
+names the performance targets that require archived benchmark artifacts and the
+post-genesis `Phase 6 — Sharding & Horizontal Scaling` delivery track that turns
+the current EFB/ZK scaffold into production work.
+
+The latest PR #93 multi-jurisdictional cascade comment is scheduled as a
+UC-MJA research track in `ROADMAP.md` and
+`docs/adr/ADR-007-uc-mja-cascade-track.md`. The accepted direction is fixed-size
+Domain A XOF/MAC work plus Domain B ZK compliance proofs; GF(2^512) hot-path
+MACs, Argon2id/memory-hard functions in Domain A, and Domain A STARK proving are
+explicitly rejected.
+
+The latest PR #93 storage and sharding operations comments are scheduled in
+`docs/adr/ADR-008-sovereign-storage-tiers.md` and
+`docs/adr/ADR-009-domain-b-indexing-and-zk-prover-sizing.md`. Storage is split
+into jurisdiction-bound Domain B tiers with auditable shred commitments; LEANN
+or any vector index is allowed only for Domain B receipt/auditor indexing, never
+for consensus or sharding. ZK prover sizing must be benchmarked before any
+10K+ TPS or sub-50ms finality claim.
 
 ---
 
