@@ -55,6 +55,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Reject raw transcripts and ad hoc root specs
         run: bash scripts/check_document_hygiene.sh
+      - name: Privacy admission checklist lint (P5/P7/P8)
+        run: bash scripts/check_privacy_admission.sh
 
   supply-chain:
     runs-on: ubuntu-latest

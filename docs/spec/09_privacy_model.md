@@ -153,6 +153,13 @@ TX-2+ spec document), not post-genesis.
 A TX-type spec that fails any checklist item is inadmissible.  No post-genesis
 governance process may waive these requirements.
 
+**CI auditability hook (normative):** The GitHub Actions check
+`document-hygiene / Privacy admission checklist lint (P5/P7/P8)` MUST pass before
+release-readiness sign-off. The check executes
+`scripts/check_privacy_admission.sh`, which fails if any TX-2+ spec section omits
+`epoch_unlinkable_identity_scheme`, `receipt_privacy.body_encryption`,
+`receipt_privacy.disclosure_domain`, or `receipt_privacy.plaintext_at_halt: false`.
+
 ---
 
 ## §P6 — Leaf obfuscation

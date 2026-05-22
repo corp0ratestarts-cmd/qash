@@ -17,6 +17,7 @@ For the current pre-genesis integration snapshot, use
 | P0-4 | Coq formal proofs CI fully green | Formal Methods | ☐ Pending / ☐ Pass / ☐ Fail | Coq CI run URL + `proofs/STATUS.md` snapshot | No skipped mandatory proofs. |
 | P0-5 | Genesis constants finalization and fingerprint lock | Release | ☐ Pending / ☐ Pass / ☐ Fail | `GENESIS_CONSTANTS.toml` hash + config fingerprint artifact | Hash/fingerprint must match release manifest. |
 | P0-6 | Change-freeze policy active and enforced | Release | ☐ Pending / ☐ Pass / ☐ Fail | Freeze announcement URL + exception log | Only critical-fix exceptions allowed. |
+| P0-7 | Privacy admission checklist lint for TX-type specs (P5/P7/P8) | Spec/Release | ☐ Pending / ☐ Pass / ☐ Fail | CI `document-hygiene` job → `Privacy admission checklist lint (P5/P7/P8)` (`bash scripts/check_privacy_admission.sh`) | Blocks RC if any TX-2+ spec omits required privacy declarations. |
 
 ---
 

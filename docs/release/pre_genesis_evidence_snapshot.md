@@ -28,6 +28,7 @@ review on the current integration branch:
 
 ```bash
 bash scripts/check_document_hygiene.sh
+bash scripts/check_privacy_admission.sh
 git diff --check
 cargo fmt --all -- --check
 cargo test -p qash-consensus --test phase2r_preconditions
@@ -68,6 +69,7 @@ The following claims are supported by current repo artifacts:
 - Hosted PAL replay and whole-protocol sharded replay are scaffolded.
 - PR #93 sharding/ZK design feedback is represented in canonical docs and code.
 - Raw transcript and ad hoc root-spec additions are rejected by CI.
+- TX-type privacy admission fields for §P5/§P7/§P8 are linted by CI via `bash scripts/check_privacy_admission.sh`.
 
 ## Claims Not Yet Allowed
 
