@@ -41,8 +41,12 @@ all: no-admitted $(VOFILES)
 %.vo: %.v
 	$(COQC) -Q . QASH $<
 
-model/Extract.vo: model/Extract.v model/Model.vo
-	$(COQC) -Q . QASH $< > /tmp/qash-model-extracted.ml
+extract: model/Extract.vo
+	@echo "Extraction complete: proofs/model_extracted.ml"
+
+harness: extract
+	ocamlc -i model_extracted.ml > model_extracted.mli
+	ocamlopt model_extracted.mli model_extracted.ml model/harness.ml -o rocq-qash
 
 no-admitted:
 	@if grep -R --include='*.v' -n 'Admitted\.' .; then \

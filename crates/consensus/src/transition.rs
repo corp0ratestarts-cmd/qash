@@ -67,13 +67,14 @@ impl HaltReason {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValidatorUpdate {
     pub divergence_new: FixedPoint,
     pub conflict_new: FixedPoint,
     pub slash_accum_new: FixedPoint, // absolute, monotone
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EpochInput {
     pub updates: [Option<ValidatorUpdate>; MAX_VALIDATORS],
     pub update_count: u32,
@@ -93,7 +94,7 @@ impl EpochInput {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EpochState {
     pub epoch: u64,
     pub halt_reason: HaltReason,

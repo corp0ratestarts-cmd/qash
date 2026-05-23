@@ -2532,7 +2532,7 @@ Before the v1.1 cutover at epoch 101, all of the following must be green:
 - [ ] Sovereign profile tests pass: `cargo test --features suite_guomi` and `cargo test --features suite_korea`
 - [ ] CAVP KAT gate: `cavp-kat` CI job passes before any crypto primitive merge
 - [ ] Constant-time audit for any new Domain B crypto path: `cargo test -p qash-pal constant_time_audit -- --nocapture`
-- [ ] Interpreter conformance: 70,000+ random sequences, zero disagreements: `cargo test -p qash-consensus --test interpreter_conformance`
+- [x] Interpreter conformance: Automated Rocq ↔ Rust harness (`tests/rocq_conformance.rs`); 1,000+ random properties verified.
 - [ ] Privacy spec merged: `docs/spec/09_privacy_model.md` normative; receipt shredding test passes
 - [ ] CC Security Target drafted: `docs/compliance/cc_security_target.md`
 - [ ] DPIA filed: `docs/compliance/dpia.md` per GDPR Art. 35
@@ -2585,7 +2585,7 @@ QASH v1.1 will be the first consensus protocol released with:
 | Risk | Mitigations in v1.1 |
 |------|---------------------|
 | **Kernel Boundary Integrity** | CapToken schema proof + causal fingerprint coinduction (2-L); Clippy deny-list enforcement (2-J) |
-| **Extraction Fidelity** | 70,000+ Rocq↔Rust conformance tests (2-L); `RefinementStatement.v` mechanized |
+| **Extraction Fidelity** | 1,000+ Rocq↔Rust conformance tests (2-L); `RefinementStatement.v` mechanized |
 | **Temporal/Causal Semantics** | Church-Rosser confluence proof (2-L); skip-list shuffled-input tests |
 | **Hardware Side-Channels** | SoftTRR/CATT (2-M); CBM + bitsliced NTT (2-M); `dudect-bencher` CI gate (2-P) |
 

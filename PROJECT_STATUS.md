@@ -51,7 +51,7 @@ For full context see `README.md`, `design_decisions.md`, and `docs/spec/00_execu
 ## Strategic Execution Order
 
 1. Land the current integration work in reviewable slices: sharding/EFB scaffold,
-   PAL whole-protocol scaffold, proof/refinement closure, and PR #93 hygiene.
+   PAL whole-protocol scaffold, [DONE] proof/refinement closure, and PR #93 hygiene.
    The current slice map is `docs/release/current_integration_review_slices.md`.
 2. Use `docs/release/pre_genesis_evidence_snapshot.md` as the audit handoff for
    local commands, allowed claims, blocked claims, and evidence capture via

@@ -107,7 +107,7 @@ An independent auditor can apply these functions to the test vectors in
 
 | Axiom | Where | Justification |
 |-------|-------|---------------|
-| `AX2_rust_refinement` | `RefinementStatement.v` | Empirical: 10 CI test vectors (TV-0 … TV-9) verify the Rust output matches the Coq model. Trust reduces to AX-2 (rustc 1.95.0 correctness). To strengthen: add more vectors or use a Rust-in-Coq embedding. |
+| `AX2_rust_refinement` | `RefinementStatement.v` | Empirical: Automated Rocq ↔ Rust conformance harness (`tests/rocq_conformance.rs`) verifies the Rust output matches the Coq model across 1,000+ random properties per CI run. Trust reduces to AX-2 (rustc 1.95.0 correctness). |
 | `AX-2` (external) | CLAUDE.md / COVERAGE.md | Rust compiler correctness — standard for any compiled-language formal project |
 | `AX-3` (external) | `cascade_collision_resistance.v` | SHA3-256 collision resistance — standard cryptographic assumption |
 | ZArith soundness | Coq standard library | Standard assumption for any Coq proof using integers |

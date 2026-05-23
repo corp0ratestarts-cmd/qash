@@ -16,6 +16,7 @@ streebog    = { version = "0.10",   default-features = false }
 kupyna = { version = "0.1.0", default-features = false }
 
 [dev-dependencies]
+once_cell = "1.19"
 sha3 = { version = "0.10.8", default-features = false }
 proptest = { version = "1", default-features = false, features = ["std"] }
 serde_json = { version = "1", default-features = false, features = ["std"] }
@@ -27,6 +28,7 @@ harness = false
 
 [features]
 default = []
+conformance-tests = []
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }

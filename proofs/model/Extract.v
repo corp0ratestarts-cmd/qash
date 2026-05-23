@@ -29,6 +29,8 @@
 
 Require Import QASH.model.Model.
 Require Extraction.
+Require Import ExtrOcamlBasic.
+Require Import ExtrOcamlZInt.
 
 Extraction Language OCaml.
 
@@ -48,5 +50,5 @@ Extract Inductive nat => "int"
   is correct for arbitrary Z.
 *)
 
-(** Extract the core state machine functions. *)
-Recursive Extraction step run evaluate.
+(** Extract the core state machine functions to a file. *)
+Extraction "model_extracted.ml" step run evaluate advance_epoch_observation is_halted.
