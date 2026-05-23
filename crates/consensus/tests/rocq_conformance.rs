@@ -6,6 +6,7 @@
 //! equivalent to the Coq formal model by running 1,000+ random property-based
 //! cases against the extracted OCaml interpreter.
 
+use once_cell::sync::Lazy;
 use proptest::prelude::*;
 use qash_consensus::fixed_point::FixedPoint;
 use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
@@ -15,7 +16,6 @@ use qash_consensus::transition::{
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::Mutex;
-use once_cell::sync::Lazy;
 
 const SCALE_RAW: i128 = 1_000_000;
 
@@ -134,13 +134,16 @@ fn serialize_halt_reason(h: HaltReason) -> u8 {
 // ---------------------------------------------------------------------------
 
 fn arb_validator_metrics() -> impl Strategy<Value = ValidatorMetrics> {
-    (0..=SCALE_RAW as i64, 0..=SCALE_RAW as i64, 0..=10_000_000i64).prop_map(|(d, c, s)| {
-        ValidatorMetrics {
+    (
+        0..=SCALE_RAW as i64,
+        0..=SCALE_RAW as i64,
+        0..=10_000_000i64,
+    )
+        .prop_map(|(d, c, s)| ValidatorMetrics {
             divergence: FixedPoint::from_raw(d as i128),
             conflict: FixedPoint::from_raw(c as i128),
             slash_accum: FixedPoint::from_raw(s as i128),
-        }
-    })
+        })
 }
 
 const I62_MAX: u64 = 4_611_686_018_427_387_903;
@@ -208,7 +211,7 @@ proptest! {
     #[test]
     fn rocq_rust_conformance((state, input) in (1..=4u32).prop_flat_map(arb_epoch_state_with_vc)) {
         let mut harness = HARNESS.lock().unwrap();
-        
+
         // 1. Calculate what the observation SHOULD be (even if it halts)
         // We need to apply the updates to get the metrics for the NEXT epoch's evaluation
         let mut projected_validators = state.validators;
@@ -219,10 +222,10 @@ proptest! {
                 projected_validators[i].slash_accum = u.slash_accum_new;
             }
         }
-        
+
         let mut rust_state = state;
         let rust_res = advance_epoch(&mut rust_state, &input, &[]);
-        
+
         let lyap_res = match rust_res {
             Ok(ref res) => res.lyapunov,
             Err(HaltReason::LyapunovViolation) => {
@@ -250,7 +253,7 @@ proptest! {
         };
 
         let rocq_obs = harness.query(&state, &input);
-        
+
         let rust_obs = RocqObservation {
             epoch: rust_state.epoch,
             halted: rust_res.is_err(),
