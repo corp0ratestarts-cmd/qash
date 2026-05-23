@@ -33,6 +33,23 @@ jobs:
       - name: Verify genesis artifact-set hash
         run: ./scripts/verify_genesis_hash.sh
 
+  formal-conformance:
+    runs-on: ubuntu-latest
+    env:
+      RUST_MIN_STACK: 8388608
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Install Coq and OCaml
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y coq ocaml ocaml-findlib libzarith-ocaml-dev
+      - name: Build formal harness
+        run: make -C proofs harness
+      - name: Run Rocq ↔ Rust conformance test
+        run: cargo test -p qash-consensus --test rocq_conformance --features conformance-tests
+
   clippy-lint:
     runs-on: ubuntu-latest
     env:

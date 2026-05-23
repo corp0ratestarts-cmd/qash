@@ -1,3 +1,5 @@
+#![cfg(feature = "conformance-tests")]
+
 //! Rocq ↔ Rust Conformance Test
 //!
 //! Verifies that the Rust implementation of `advance_epoch` is observationally
