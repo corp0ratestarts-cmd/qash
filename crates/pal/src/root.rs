@@ -7,6 +7,7 @@ pub mod ingress;
 pub mod receipt;
 pub mod recovery_wal;
 pub mod zero_wal;
+pub mod zk;
 
 // The legacy hosted PAL contains replay-scaffold machinery, including raw
 // fixture handling used by tests and golden-vector generation. Production
