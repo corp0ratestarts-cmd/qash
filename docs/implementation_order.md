@@ -14,9 +14,9 @@ Hardware-backed tools are optional local OpSec only.
 
 1. **Consolidate gates before new protocol work.**
    - Keep the trustless-genesis / vendor-agnostic hardware OpSec invariant merged.
-   - Land privacy admission lint for TX-2+ specs.
-   - Land slice evidence freshness manifests for review-critical work.
-   - Normalize PR #93 follow-through into roadmap and this file.
+   - Keep privacy admission lint for TX-2+ specs green.
+   - Keep slice evidence freshness manifests for review-critical work green.
+   - Treat PR #93 follow-through as scheduled roadmap work, not current implementation.
 
 2. **Expand CI into security and compliance preflight.**
    - CodeQL Rust analysis.
@@ -52,6 +52,7 @@ Hardware-backed tools are optional local OpSec only.
    - Keep proof bytes out of Domain A.
    - Add malformed-proof rejection and profile-lock tests.
    - Preserve v1.2 sharded replay parity.
+   - Produce prover-sizing evidence before throughput or finality claims.
 
 7. **Execute Phase 2-R runtime optimization.**
    - Benchmark current baseline first.
@@ -69,7 +70,17 @@ Hardware-backed tools are optional local OpSec only.
    - zero-persistence summary.
    - OSCAL-style assessment output.
 
-9. **Make genesis-lock decision only after evidence reconciliation.**
+9. **Schedule PR #93 research and production follow-through without blocking genesis.**
+   - `ADR-007`: UC-MJA cascade remains research only until KATs, benchmarks,
+     constant-time evidence, cross-ISA parity, and proof obligations exist.
+   - `ADR-008`: sovereign storage tiers remain Domain B deployment policy;
+     raw PII, unencrypted receipts, and keys never go to public/decentralized storage.
+   - `ADR-009`: LEANN/vector indexing remains Domain B-only; it cannot drive
+     consensus, sharding, finality, or public transcript semantics.
+   - Phase 6 sharding/horizontal scaling is post-genesis production delivery,
+     not a pre-genesis lock dependency unless explicitly promoted by a future decision.
+
+10. **Make genesis-lock decision only after evidence reconciliation.**
    - Normative PDF committed and reconciled.
    - Traceability complete.
    - Cross-ISA replay evidence current.
