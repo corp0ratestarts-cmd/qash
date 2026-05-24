@@ -1,10 +1,9 @@
-#[path = "../src/admission.rs"]
-mod admission;
-#[path = "../src/zero_wal.rs"]
-mod zero_wal;
+#![cfg(feature = "std")]
 
-use admission::{process_envelope, EphemeralEnvelope};
-use zero_wal::{InMemoryZeroPersistenceWal, ZeroPersistenceWal, ZeroPersistenceWalRecord};
+use qash_pal::admission::{process_envelope, EphemeralEnvelope};
+use qash_pal::zero_wal::{
+    InMemoryZeroPersistenceWal, ZeroPersistenceWal, ZeroPersistenceWalRecord,
+};
 
 fn valid_envelope(epoch: u64) -> [u8; 80] {
     let mut bytes = [0u8; 80];
@@ -36,7 +35,7 @@ fn admission_to_wal_persists_commitment_only() {
 
 #[test]
 fn zero_persistence_wal_has_no_payload_record_shape() {
-    let variants = ["EffectCommitment", "StateRoot", "BlindAudit"];
+    let variants = ["EffectCommitment", "StateRoot", "BlindAudit", "ShredCommitment"];
     for variant in variants {
         assert!(!variant.contains("Raw"));
         assert!(!variant.contains("Payload"));
