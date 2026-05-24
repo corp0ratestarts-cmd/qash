@@ -1,0 +1,137 @@
+{
+  "oscal-version": "1.1.1",
+  "schema": "https://csrc.nist.gov/projects/risk-management/oscal",
+  "note": "Initial OSCAL-style mapping — not a certified assessment. Maps CI gates and formal proofs to NIST SP 800-53 Rev5 control families as evidence of protocol-level compliance posture. Deployment-level, operator-level, and jurisdiction-specific controls are out of scope here.",
+  "metadata": {
+    "title": "QASH Protocol — Pre-Genesis Evidence Assessment",
+    "version": "0.1.0",
+    "last-modified": "2026-05-24T00:00:00Z",
+    "parties": [
+      { "type": "organization", "name": "QASH Protocol Authors" }
+    ]
+  },
+  "assessment-results": {
+    "controls": [
+      {
+        "control-id": "SA-11",
+        "title": "Developer Testing and Evaluation",
+        "findings": [
+          {
+            "description": "Deterministic unit test suite (176+ tests) run on every commit across x86_64/aarch64/riscv64gc",
+            "evidence": "CI: test-determinism job; artifacts/replay_equivalence/"
+          },
+          {
+            "description": "70,000 proptest interpreter conformance assertions (7 properties x 10k)",
+            "evidence": "crates/consensus/tests/interpreter_conformance.rs; CI: Interpreter conformance gate"
+          },
+          {
+            "description": "6 fuzz targets run 30s each on every push (fuzz-smoke CI gate)",
+            "evidence": "CI: fuzz-smoke job"
+          },
+          {
+            "description": "23 adversarial simulation scenarios",
+            "evidence": "crates/consensus/tests/adversarial_simulation.rs"
+          }
+        ]
+      },
+      {
+        "control-id": "SA-17",
+        "title": "Developer Security Architecture and Design",
+        "findings": [
+          {
+            "description": "Domain A / Domain B hard partition enforced by type system and CI tripwires",
+            "evidence": "crates/consensus/src/domain.rs; scripts/check_domain_a_tripwires.sh; CI: QASH domain boundary tripwires"
+          },
+          {
+            "description": "EffectToken<T> boundary type for all Domain B → Domain A crossings",
+            "evidence": "crates/consensus/src/capability.rs; proofs/capability/cap_token_schema.v"
+          },
+          {
+            "description": "Zero-persistence PAL: only commitment roots persisted, no raw tx/peer/graph data",
+            "evidence": "crates/pal/src/; scripts/check_zero_persistence_boundary.sh; CI: zero-persistence-boundary"
+          }
+        ]
+      },
+      {
+        "control-id": "SC-28",
+        "title": "Protection of Information at Rest",
+        "findings": [
+          {
+            "description": "Receipt privacy enforced by DisclosureDomain::may_disclose_to() gate; PublicNetwork never permitted",
+            "evidence": "crates/pal/src/receipt.rs; crates/pal/tests/receipt_privacy_negative.rs"
+          },
+          {
+            "description": "WAL records contain only state_root commitments; no plaintext receipt or tx bodies",
+            "evidence": "crates/pal/src/recovery_wal.rs; crates/pal/src/ingress.rs"
+          }
+        ]
+      },
+      {
+        "control-id": "SC-8",
+        "title": "Transmission Confidentiality and Integrity",
+        "findings": [
+          {
+            "description": "PQC signature verifier trait (Dilithium5 primary, Falcon512 fallback, SLH-DSA anchor)",
+            "evidence": "crates/pal/src/crypto/sig.rs; mock_signatures feature gate for testing"
+          },
+          {
+            "description": "ZK verifier boundary: proof bytes never enter Domain A; only 32-byte batch root crosses",
+            "evidence": "crates/pal/src/zk.rs; crates/pal/tests/zk_profile_lock.rs"
+          }
+        ]
+      },
+      {
+        "control-id": "AU-9",
+        "title": "Protection of Audit Information",
+        "findings": [
+          {
+            "description": "Public transcript privacy guard: no raw tx bodies, no graph-shaped metadata",
+            "evidence": "crates/consensus/tests/public_transcript_privacy.rs"
+          },
+          {
+            "description": "Causal fingerprint chains full epoch history; bisimulation proof (CF-4)",
+            "evidence": "proofs/safety/causal_fingerprint.v; crates/consensus/src/transition.rs"
+          }
+        ]
+      },
+      {
+        "control-id": "SI-7",
+        "title": "Software, Firmware, and Information Integrity",
+        "findings": [
+          {
+            "description": "18+ Coq formal theorems (0 Admitted); compiled on every push",
+            "evidence": "proofs/; CI: proofs job; proof-hashes.txt"
+          },
+          {
+            "description": "Reproducible builds via two-stage determinism pipeline (SOURCE_DATE_EPOCH=0)",
+            "evidence": "scripts/verify_two_stage_build.sh; CI: test-determinism"
+          },
+          {
+            "description": "Supply chain: cargo deny advisory/license checks on every push",
+            "evidence": "deny.toml; CI: supply-chain"
+          }
+        ]
+      },
+      {
+        "control-id": "SC-13",
+        "title": "Cryptographic Protection",
+        "findings": [
+          {
+            "description": "Post-quantum cascade: SHA3-256 (FIPS 202), Dilithium5 (FIPS 204), SLH-DSA (FIPS 205)",
+            "evidence": "GENESIS_CONSTANTS.toml; crates/consensus/src/hash.rs; crates/consensus/src/cascade.rs"
+          },
+          {
+            "description": "FIPS 140-3 compliance mapping for Domain B cryptographic primitives",
+            "evidence": "docs/compliance/fips_compliance.md"
+          }
+        ]
+      }
+    ],
+    "gaps": [
+      "CAVP KAT CI job: SHA3-256, ML-KEM-768, SM3 (planned: Stage 7d)",
+      "Production Dilithium5/Falcon512/SLH-DSA verifier backend (Stage 4 — PQC signature)",
+      "CC EAL4+ formal evaluation (Stage 9 — post genesis lock)",
+      "DPIA Article 35 assessment for operator deployments (docs/compliance/dpia.md — Stage 7e)"
+    ]
+  }
+}

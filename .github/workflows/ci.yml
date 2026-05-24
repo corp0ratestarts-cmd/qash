@@ -202,3 +202,29 @@ jobs:
         run: cargo kani setup
       - name: Verify consensus Kani harnesses
         run: scripts/run_kani_consensus.sh
+
+  cavp-kat:
+    name: CAVP KAT — SHA3-256 and SM3
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+      - name: SHA3-256 CAVP KAT (FIPS 202)
+        run: cargo test -p qash-consensus sha3_256_known_vector --no-default-features
+      - name: SM3 cascade determinism KAT
+        run: cargo test -p qash-consensus cascade_determinism --no-default-features
+      - name: Hash domain-separation KAT
+        run: cargo test -p qash-consensus h_domain_state_root_hello_known_vector --no-default-features
+      - name: Generate compliance index artifact
+        run: bash scripts/generate_compliance_index.sh
+      - name: Upload compliance index
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-index-${{ github.sha }}
+          path: artifacts/compliance/
+          if-no-files-found: warn
+          retention-days: 90
