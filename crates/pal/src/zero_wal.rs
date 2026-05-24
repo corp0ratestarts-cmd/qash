@@ -1,6 +1,7 @@
 //! Commitment-only WAL records for zero-persistence production mode.
 
 use crate::admission::ValidatedEffectCommitment;
+use crate::receipt::ShredCommitment;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ZeroPersistenceWalRecord {
@@ -17,6 +18,11 @@ pub enum ZeroPersistenceWalRecord {
         epoch: u64,
         event_root: [u8; 32],
     },
+    ShredCommitment {
+        epoch: u64,
+        key_id_commitment: [u8; 32],
+        event_root: [u8; 32],
+    },
 }
 
 impl From<ValidatedEffectCommitment> for ZeroPersistenceWalRecord {
@@ -25,6 +31,16 @@ impl From<ValidatedEffectCommitment> for ZeroPersistenceWalRecord {
             epoch: value.epoch,
             effect_root: value.effect_root,
             receipt_root: value.receipt_root,
+        }
+    }
+}
+
+impl From<ShredCommitment> for ZeroPersistenceWalRecord {
+    fn from(value: ShredCommitment) -> Self {
+        Self::ShredCommitment {
+            epoch: value.epoch,
+            key_id_commitment: value.key_id_commitment,
+            event_root: value.event_root,
         }
     }
 }
@@ -78,6 +94,23 @@ mod tests {
                 epoch: 7,
                 effect_root: [1u8; 32],
                 receipt_root: [2u8; 32],
+            }
+        );
+    }
+
+    #[test]
+    fn shred_commitment_maps_to_dedicated_record() {
+        let shred = ShredCommitment {
+            epoch: 11,
+            key_id_commitment: [8u8; 32],
+            event_root: [9u8; 32],
+        };
+        assert_eq!(
+            ZeroPersistenceWalRecord::from(shred),
+            ZeroPersistenceWalRecord::ShredCommitment {
+                epoch: 11,
+                key_id_commitment: [8u8; 32],
+                event_root: [9u8; 32],
             }
         );
     }

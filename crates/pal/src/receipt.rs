@@ -2,7 +2,9 @@
 //!
 //! This module deliberately models durable receipt evidence as commitments, not
 //! receipt bodies. Encrypted receipt blobs may live in a local vault, but the
-//! protocol-facing surface is limited to fixed-width roots and shred evidence.
+//! protocol-facing surface is limited to fixed-width roots and atomic shred evidence.
+
+use crate::zero_wal::{ZeroPersistenceWal, ZeroPersistenceWalRecord};
 
 /// Deployment-scoped disclosure policy for an encrypted receipt commitment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,7 +24,19 @@ pub struct EncryptedReceiptCommitment {
     pub ciphertext_len: u64,
 }
 
-/// Public/durable evidence that a local receipt key was destroyed or revoked.
+/// Request to atomically erase/revoke a local receipt key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShredRequest {
+    pub key_id_commitment: [u8; 32],
+    pub epoch: u64,
+    pub event_root: [u8; 32],
+}
+
+/// Public/durable evidence that a local receipt key erase/revocation completed.
+///
+/// A `ShredCommitment` MUST be returned only after the vault has completed the
+/// local key erase/revocation and crossed its own durability boundary. It is a
+/// completion receipt, not an intent record.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ShredCommitment {
     pub key_id_commitment: [u8; 32],
@@ -35,6 +49,13 @@ pub enum ReceiptVaultError {
     DuplicateReceipt,
     MissingReceipt,
     InvalidCommitment,
+    ShredIncomplete,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AtomicShredError<VaultError, WalError> {
+    Vault(VaultError),
+    EvidenceAppend(WalError),
 }
 
 /// Local Domain B vault interface.
@@ -49,18 +70,50 @@ pub trait ReceiptVault {
         commitment: EncryptedReceiptCommitment,
     ) -> Result<(), Self::Error>;
 
-    fn shred_key(
-        &mut self,
-        key_id_commitment: [u8; 32],
-        epoch: u64,
-        event_root: [u8; 32],
-    ) -> Result<ShredCommitment, Self::Error>;
+    /// Atomically complete local key erase/revocation and return durable evidence.
+    ///
+    /// Implementations MUST NOT return `Ok(ShredCommitment)` until the key is no
+    /// longer recoverable through the local vault's normal recovery path and the
+    /// corresponding evidence boundary has been committed.
+    fn commit_shred(&mut self, request: ShredRequest) -> Result<ShredCommitment, Self::Error>;
 }
 
 impl EncryptedReceiptCommitment {
     pub fn public_root(&self) -> [u8; 32] {
         fold_roots(self.receipt_id, self.ciphertext_root, self.key_commitment)
     }
+}
+
+impl From<ShredRequest> for ShredCommitment {
+    fn from(request: ShredRequest) -> Self {
+        Self {
+            key_id_commitment: request.key_id_commitment,
+            epoch: request.epoch,
+            event_root: request.event_root,
+        }
+    }
+}
+
+/// Commit a shred in the vault and append its completion evidence to the WAL.
+///
+/// This helper prevents callers from appending a shred intent. It obtains the
+/// `ShredCommitment` only from `ReceiptVault::commit_shred`, then persists that
+/// completion receipt. If WAL append fails, the returned error identifies an
+/// evidence-append failure after vault completion; callers must treat the vault
+/// as authoritative for the completed shred boundary.
+pub fn commit_shred_with_evidence<V, W>(
+    vault: &mut V,
+    wal: &mut W,
+    request: ShredRequest,
+) -> Result<ShredCommitment, AtomicShredError<V::Error, W::Error>>
+where
+    V: ReceiptVault,
+    W: ZeroPersistenceWal,
+{
+    let completed = vault.commit_shred(request).map_err(AtomicShredError::Vault)?;
+    wal.append_commitment(ZeroPersistenceWalRecord::from(completed))
+        .map_err(AtomicShredError::EvidenceAppend)?;
+    Ok(completed)
 }
 
 fn fold_roots(a: [u8; 32], b: [u8; 32], c: [u8; 32]) -> [u8; 32] {
@@ -88,12 +141,13 @@ mod tests {
     }
 
     #[test]
-    fn shred_commitment_contains_no_receipt_body() {
-        let shred = ShredCommitment {
+    fn shred_commitment_is_completion_of_request() {
+        let request = ShredRequest {
             key_id_commitment: [3u8; 32],
             epoch: 9,
             event_root: [5u8; 32],
         };
+        let shred = ShredCommitment::from(request);
         assert_eq!(shred.epoch, 9);
         assert_eq!(shred.key_id_commitment, [3u8; 32]);
     }
