@@ -490,4 +490,36 @@ QASH build, regardless of whether its output passes test vectors.
 
 ---
 
+## §E8 — Epoch Timing: Simulation vs. Deployment
+
+The epoch timing constants in `GENESIS_CONSTANTS.toml [epoch.timing]` are marked
+`timing_status = "simulation"` and are intentionally calibrated for local simulation
+and automated test environments:
+
+| Constant | Value | Meaning |
+|----------|-------|---------|
+| `duration_ms` | 500 | Epoch wall-clock budget |
+| `max_control_loop_latency_ms` | 450 | Max allowed Domain B scheduling jitter |
+| `sync_tolerance_ms` | 50 | Max clock-sync slack between validators |
+
+**These values are NOT production deployment constants.** A production network operator
+MUST derive timing constants from:
+
+1. Measured peer round-trip latency across the validator set (p99, not median)
+2. Geographic distribution of validators and anticipated WAN latency
+3. Clock synchronization accuracy achievable by the deployment (NTP, PTP, GPS-disciplined)
+4. Hardware attestation and Domain B scheduling overhead on the target platform
+5. Network-condition profiling under adversarial conditions (jitter, packet loss)
+
+Any deployment presenting these simulation constants as production-safe without
+the above evidence violates the QASH no-false-compliance invariant. Operators must
+conduct their own timing validation and document results before claiming the protocol
+is production-ready for their deployment topology.
+
+Genesis lock (Stage 9) requires explicit resolution of timing constants — either
+evidence-backed production values, or a formal declaration that the deployment scope
+is limited to simulation environments.
+
+---
+
 *End of `docs/spec/00_execution_model.md`*

@@ -93,6 +93,12 @@ impl EpochInput {
     }
 }
 
+// EpochState is ~107 KB on the stack (1024 validators × 48 bytes for ValidatorMetrics
+// using i128 FixedPoint, plus 1024 × 48 for validator_ids, plus 1024 × 8 for nonces).
+// Domain B callers MUST NOT allocate this on the stack in functions with deep call chains.
+// Embed in Box<EpochState> or a static slot. Minimum stack budget for a function that
+// holds two EpochState values (prev + next): ~214 KB plus call-frame overhead.
+// The compile-time size assertion below tracks this invariant.
 #[derive(Clone, Copy)]
 pub struct EpochState {
     pub epoch: u64,
@@ -118,6 +124,15 @@ pub struct EpochState {
     /// Not included in the state_root commitment — parallel divergence-detection chain.
     pub causal_fingerprint: [u8; 32],
 }
+
+// Stack-size guard: fails at compile time if EpochState grows beyond 128 KB.
+// Current expected size ≈ 107 KB with 1024 validators (validators[] and validator_ids[]
+// each hold i128-based FixedPoint fields → 48 bytes/validator × 1024 = 49 KB each).
+// Domain B callers must box this struct. Raise the limit only with updated stack budget docs.
+const _: () = {
+    let sz = core::mem::size_of::<EpochState>();
+    assert!(sz <= 131_072, "EpochState exceeds 128 KB — update Domain B stack budget docs");
+};
 
 impl EpochState {
     #[inline]

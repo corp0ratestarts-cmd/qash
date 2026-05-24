@@ -24,6 +24,14 @@ evaluation_window = 3
 max_queries_per_epoch = 1_000_000
 
 [epoch.timing]
+# SIMULATION-ONLY: These timing constants are calibrated for local simulation
+# and automated test environments. They are NOT suitable for production network
+# deployment without network-condition profiling and evidence-backed tuning.
+# A production deployment MUST replace these with values derived from measured
+# round-trip latency, validator geographic distribution, and clock-sync accuracy.
+# Represented timing budget: 500ms epoch, 450ms control loop, 50ms sync slack.
+# Deployment parameter tier: see docs/spec/00_execution_model.md §4.
+timing_status = "simulation"
 duration_ms = 500
 max_control_loop_latency_ms = 450
 sync_tolerance_ms = 50
