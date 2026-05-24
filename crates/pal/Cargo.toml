@@ -16,4 +16,7 @@ typenum = "1.20.0"
 [features]
 default = []
 std = ["getrandom"]
+replay-scaffold = ["std"]
+zero-persistence = ["std"]
+sovereign-hardened = ["zero-persistence"]
 pqc = ["ml-kem"]
