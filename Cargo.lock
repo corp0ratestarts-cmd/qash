@@ -695,7 +695,6 @@ dependencies = [
  "qash-address",
  "qash-consensus",
  "qash-model",
- "qash-pal",
 ]
 
 [[package]]

@@ -53,6 +53,11 @@ attestation_modes = ["tpm_2_0", "trustzone", "secure_enclave", "software_hash_me
 require_hardware_tee = false
 
 [consensus.receipts]
+# include_in_state_root = false applies ONLY during pre-v1.2 (when receipt_root
+# and efb_root are both zero). Once sharding activates, the code in transition.rs
+# automatically includes them when non-zero (see lines 461-463).
+# M2 formal proof that zero-exclusion preserves replay-determinism:
+#   proofs/sharding/receipt_exclusion_determinism.v (RE-1..RE-4)
 include_in_state_root = false
 
 # [clone_protocol] section removed. Clone protocol belongs in a spec document,

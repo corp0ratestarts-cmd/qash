@@ -115,6 +115,16 @@ impl FileRecoveryWal {
         Ok(Self { path })
     }
 
+    /// Open an existing WAL file for replay. Unlike `open`, this never creates a new file.
+    /// Returns `RecoveryWalError::Io` if the path does not exist.
+    pub fn open_existing(path: impl Into<std::path::PathBuf>) -> Result<Self, RecoveryWalError> {
+        let path = path.into();
+        if !path.exists() {
+            return Err(RecoveryWalError::Io);
+        }
+        Ok(Self { path })
+    }
+
     pub fn append_synced(&self, record: ZeroPersistenceWalRecord) -> Result<(), RecoveryWalError> {
         use std::io::Write;
         let mut file = std::fs::OpenOptions::new().append(true).open(&self.path).map_err(|_| RecoveryWalError::Io)?;

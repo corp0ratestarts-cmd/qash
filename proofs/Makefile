@@ -27,6 +27,7 @@ STRICT_PROOFS := \
 	model/RefinementStatement.v \
 	model/Extract.v \
 	sharding/efb_determinism.v \
+	sharding/receipt_exclusion_determinism.v \
 	capability/cap_token_schema.v
 
 VFILES := $(STRICT_PROOFS)
