@@ -1,4 +1,6 @@
+#[cfg(feature = "std")]
 use qash_pal::admission::{process_envelope, EphemeralEnvelope};
+#[cfg(feature = "std")]
 use qash_pal::zero_wal::{InMemoryZeroPersistenceWal, ZeroPersistenceWal, ZeroPersistenceWalRecord};
 
 fn valid_envelope(epoch: u64) -> [u8; 80] {
@@ -10,6 +12,7 @@ fn valid_envelope(epoch: u64) -> [u8; 80] {
     bytes
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn production_profile_uses_commitment_only_path() {
     let envelope = valid_envelope(88);

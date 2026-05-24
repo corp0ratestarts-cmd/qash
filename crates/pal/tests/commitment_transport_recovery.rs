@@ -1,3 +1,5 @@
+#![cfg(feature = "std")]
+
 use qash_pal::commitment_transport::{
     CommitmentFrame, CommitmentTransport, InMemoryCommitmentTransport,
 };

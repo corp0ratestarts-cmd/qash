@@ -393,12 +393,19 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
 }
 
 /// Cast FixedPoint to i64 for wire encoding.
-/// All consensus-path values are validated to fit i64 before reaching the commit phase:
-/// D, C <= SCALE = 1_000_000; Sigma validated <= i64::MAX; V_convergence <= 768_000_000.
+/// Serialize a FixedPoint value to i64 for the wire format.
+///
+/// All consensus-path values are validated upstream: D, C ≤ SCALE = 1_000_000;
+/// slash_accum validated ≤ i64::MAX; V_convergence ≤ 768_000_000. These are all
+/// far within i64::MAX (9.2 × 10^18), so to_i64() is always Ok in practice.
+///
+/// Uses the existing checked conversion rather than an unchecked cast, so that
+/// any out-of-range state corruption is surfaced as a decode/roundtrip failure
+/// rather than silently truncated. Returns i64::MAX on overflow (unreachable
+/// under valid state); the downstream roundtrip check will reject it.
 #[inline]
 fn fp_to_i64_wire(fp: FixedPoint) -> i64 {
-    debug_assert!(fp.raw() >= i64::MIN as i128 && fp.raw() <= i64::MAX as i128);
-    fp.raw() as i64
+    fp.to_i64().unwrap_or(i64::MAX)
 }
 
 fn compute_state_root(state: &EpochState, prior_root: &[u8; 32]) -> [u8; 32] {

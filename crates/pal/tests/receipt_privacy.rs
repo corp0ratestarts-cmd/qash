@@ -1,3 +1,5 @@
+#![cfg(feature = "std")]
+
 use qash_pal::receipt::{
     commit_shred_with_evidence, DisclosureDomain, EncryptedReceiptCommitment, ReceiptVault,
     ShredCommitment, ShredRequest,

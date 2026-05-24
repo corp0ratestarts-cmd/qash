@@ -61,16 +61,27 @@ use sha3::{Digest, Sha3_256};
 // and the hash inputs are recovered in reverse order).
 // ---------------------------------------------------------------------------
 
+// Domain-separation tags for F4Jumble. Tags are long ASCII strings in the
+// "QASH_ADDR" namespace, distinct from the 4-byte big-endian numeric DomainTag
+// values used by qash-consensus::hash::h_domain (which range 0x01..0x40).
+// The byte representations cannot collide: numeric tags start with 0x00 bytes,
+// while these ASCII tags start with 0x51 ('Q'). This crate is Domain B and
+// never flows into Domain A state.
+const F4J_TAG_R0: &[u8] = b"QASH_ADDR_F4J_ROUND0";
+const F4J_TAG_R1: &[u8] = b"QASH_ADDR_F4J_ROUND1";
+const F4J_TAG_R2: &[u8] = b"QASH_ADDR_F4J_ROUND2";
+const F4J_TAG_R3: &[u8] = b"QASH_ADDR_F4J_ROUND3";
+
 /// Apply the F4Jumble permutation (encoding direction) in-place.
 /// Call `f4jumble_inv` to invert.
 pub fn f4jumble(payload: &mut [u8; 48]) {
     let l: [u8; 32] = payload[..32].try_into().unwrap();
     let r: [u8; 16] = payload[32..].try_into().unwrap();
 
-    let a = xor16(r, &h_f4j_16(b"F4J:0", &l));
-    let b = xor32(l, &h_f4j_32(b"F4J:1", &a));
-    let c = xor16(a, &h_f4j_16(b"F4J:2", &b));
-    let d = xor32(b, &h_f4j_32(b"F4J:3", &c));
+    let a = xor16(r, &h_f4j_16(F4J_TAG_R0, &l));
+    let b = xor32(l, &h_f4j_32(F4J_TAG_R1, &a));
+    let c = xor16(a, &h_f4j_16(F4J_TAG_R2, &b));
+    let d = xor32(b, &h_f4j_32(F4J_TAG_R3, &c));
 
     payload[..32].copy_from_slice(&d);
     payload[32..].copy_from_slice(&c);
@@ -81,10 +92,10 @@ pub fn f4jumble_inv(payload: &mut [u8; 48]) {
     let d: [u8; 32] = payload[..32].try_into().unwrap();
     let c: [u8; 16] = payload[32..].try_into().unwrap();
 
-    let b = xor32(d, &h_f4j_32(b"F4J:3", &c));
-    let a = xor16(c, &h_f4j_16(b"F4J:2", &b));
-    let l = xor32(b, &h_f4j_32(b"F4J:1", &a));
-    let r = xor16(a, &h_f4j_16(b"F4J:0", &l));
+    let b = xor32(d, &h_f4j_32(F4J_TAG_R3, &c));
+    let a = xor16(c, &h_f4j_16(F4J_TAG_R2, &b));
+    let l = xor32(b, &h_f4j_32(F4J_TAG_R1, &a));
+    let r = xor16(a, &h_f4j_16(F4J_TAG_R0, &l));
 
     payload[..32].copy_from_slice(&l);
     payload[32..].copy_from_slice(&r);

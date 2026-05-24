@@ -36,11 +36,10 @@ sparse_merkle_depth = 384
 hash_cascade = ["SHA3-256", "BLAKE3", "KangarooTwelve"]
 
 [hardware]
+# Only platforms with Rust tier-1/2 support and CI-verified determinism.
+# Removed fictional/unsupported targets (Elbrus VLIW, arm_loongson, ITRON).
 authorized_platforms = [
-  "x86_64_avx2", "aarch64_neon", "riscv64_vector",
-  "loongarch_loongson", "arm_loongson", "vliw_elbrus",
-  "itron_renesas_rx", "itron_renesas_rl78", "itron_arm_cortex_m",
-  "esp32_s3", "snapdragon_arm64", "apple_silicon_arm64"
+  "x86_64_avx2", "aarch64_neon", "riscv64_vector"
 ]
 attestation_modes = ["tpm_2_0", "trustzone", "secure_enclave", "software_hash_merkle"]
 require_hardware_tee = false
@@ -48,28 +47,19 @@ require_hardware_tee = false
 [consensus.receipts]
 include_in_state_root = false
 
-[clone_protocol]
-enabled = true
-version = "v1.2"
-channels = ["QR_code", "NFC", "BLE", "WiFi_Direct", "LoRa", "Ultrasonic"]
-petn_crcs_integration = "BLE_only"
-qr_mode = "chunked_self_authenticated"
-nfc_mode = "direct_apdu"
-ble_mode = "dual"                     # "dual" = concurrent peripheral + central roles
-ultrasonic_mode = "fsk_24khz"         # FSK at 24 kHz carrier; inaudible to humans
-max_offline_epochs = 12
-store_and_forward = true              # relay nodes buffer chunks for absent peers
-cover_traffic = true                  # constant-rate dummy emissions for timing obfuscation
-packet_compression = "LZ4"           # applied to clone-chunk payloads before signing
-bloom_filter_dedup = true             # Bloom filter prevents redundant chunk relay
-emergency_wipe_signal = true          # validator may broadcast signed wipe command
+# [clone_protocol] section removed. Clone protocol belongs in a spec document,
+# not in immutable genesis constants. Emergency wipe signals, cover traffic,
+# and unimplemented channel transports (LoRa, Ultrasonic) are excluded by design:
+# a signed network-wide wipe with no formal proof obligation and no implementing code
+# has no place in a zero-governance deterministic consensus protocol.
 
 [crypto.cascade]
 primary_signature = "Dilithium5"
 anchor_signature = "SLH-DSA-SHA3-256"
 fallback_signature = "Falcon-512"
 hash_primitives = ["SHA3-256", "BLAKE3", "KangarooTwelve", "SM3", "Streebog"]
-pqc_agility_epoch = 10000
+# pqc_agility_epoch removed: no agility mechanism is implemented.
+# Algorithm rotation is a post-genesis protocol change that requires a new genesis.
 
 [validation]
 interval_precision_digits = 12
