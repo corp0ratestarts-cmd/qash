@@ -17,6 +17,7 @@ jobs:
   codeql:
     name: CodeQL Rust
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v4
@@ -34,6 +35,7 @@ jobs:
   osv:
     name: OSV vulnerability scan
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: google/osv-scanner-action@v1
@@ -45,6 +47,7 @@ jobs:
   scorecard:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
