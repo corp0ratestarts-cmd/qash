@@ -115,7 +115,7 @@ proptest! {
         // Run WINDOW_SIZE+1 epochs: window fills then we verify no halt on the epoch after.
         for _ in 0..=WINDOW_SIZE {
             let input = uniform_input(n, d, c, slash);
-            let result = advance_epoch(&mut state, &input, &[]);
+            let result = advance_epoch(&mut state, input.as_effect(), &[]);
             if let Err(e) = result {
                 prop_assert!(
                     false,
@@ -146,13 +146,13 @@ proptest! {
         // Fill the window with high metrics.
         for _ in 0..WINDOW_SIZE {
             let input = uniform_input(n, d_hi, c_hi, 0);
-            let r = advance_epoch(&mut state, &input, &[]);
+            let r = advance_epoch(&mut state, input.as_effect(), &[]);
             prop_assume!(r.is_ok()); // skip degenerate cases that overflow
         }
 
         // Now apply lower (or equal) metrics: δ_window = V_lo - V_hi ≤ 0 ≤ ε.
         let input = uniform_input(n, d_lo, c_lo, 0);
-        let result = advance_epoch(&mut state, &input, &[]);
+        let result = advance_epoch(&mut state, input.as_effect(), &[]);
         if let Err(e) = result {
             prop_assert!(
                 false,
@@ -190,7 +190,7 @@ proptest! {
         // Advance once to establish a non-zero slash base.
         let base_slash = 50_000i128;
         let input1 = uniform_input(n, d, c, base_slash);
-        let r1 = advance_epoch(&mut state, &input1, &[]);
+        let r1 = advance_epoch(&mut state, input1.as_effect(), &[]);
         prop_assume!(r1.is_ok());
 
         // Record actual slash after epoch 1.
@@ -199,7 +199,7 @@ proptest! {
         // Advance again with slash_accum_new = slash_after_1 + delta (monotone).
         let new_slash = slash_after_1.saturating_add(slash_delta);
         let input2 = uniform_input(n, d, c, new_slash);
-        let r2 = advance_epoch(&mut state, &input2, &[]);
+        let r2 = advance_epoch(&mut state, input2.as_effect(), &[]);
         prop_assume!(r2.is_ok());
 
         // Φ_safety must not decrease.
@@ -231,7 +231,7 @@ proptest! {
         // Attempt to decrease slash_accum.
         let bad_slash = base_slash.saturating_sub(decrease).max(0);
         let input = uniform_input(n, d, c, bad_slash);
-        let result = advance_epoch(&mut state, &input, &[]);
+        let result = advance_epoch(&mut state, input.as_effect(), &[]);
 
         prop_assert_eq!(
             result,
@@ -279,7 +279,7 @@ proptest! {
         let frozen_root  = state.state_root;
 
         for _ in 0..extra_epochs {
-            let r = advance_epoch(&mut state, &idle_input_n(n), &[]);
+            let r = advance_epoch(&mut state, idle_input_n(n).as_effect(), &[]);
             prop_assert_eq!(r, Err(halt), "TH-6: expected Err({:?})", halt);
             prop_assert_eq!(state.halt_reason, halt, "TH-6: halt_reason must not change");
             prop_assert_eq!(state.epoch, frozen_epoch, "TH-6: epoch must not advance after halt");
@@ -300,14 +300,14 @@ proptest! {
         // Fill the window completely with V=0 (WINDOW_SIZE epochs).
         // evaluate() only checks halt when window.is_full() (filled==WINDOW_SIZE).
         for _ in 0..WINDOW_SIZE {
-            let r = advance_epoch(&mut state, &uniform_input(n, 0, 0, 0), &[]);
+            let r = advance_epoch(&mut state, uniform_input(n, 0, 0, 0).as_effect(), &[]);
             prop_assume!(r.is_ok());
         }
 
         // Now the window is full with all-zero entries. Apply large metrics:
         // δ_window = V_large - min([0,0,0]) = V_large >> EPSILON → LyapunovViolation.
         let input_large = uniform_input(n, d, c, 0);
-        let r = advance_epoch(&mut state, &input_large, &[]);
+        let r = advance_epoch(&mut state, input_large.as_effect(), &[]);
 
         prop_assert_eq!(r, Err(HaltReason::LyapunovViolation),
             "expected halt with d={} c={} n={}", d, c, n);
@@ -319,7 +319,7 @@ proptest! {
         // Now verify irreversibility across 3 more calls.
         for _ in 0..3 {
             // Even idle input (which would normally produce no halt) must be rejected.
-            let r2 = advance_epoch(&mut state, &idle_input_n(n), &[]);
+            let r2 = advance_epoch(&mut state, idle_input_n(n).as_effect(), &[]);
             prop_assert_eq!(r2, Err(HaltReason::LyapunovViolation));
             prop_assert_eq!(state.epoch, frozen_epoch);
             prop_assert_eq!(state.state_root, frozen_root);
@@ -351,14 +351,14 @@ proptest! {
 
         let input = uniform_input(n, d, c, slash);
 
-        let r_no_tx = advance_epoch(&mut state_no_tx, &input, &[]);
+        let r_no_tx = advance_epoch(&mut state_no_tx, input.clone().as_effect(), &[]);
         prop_assume!(r_no_tx.is_ok());
 
         // Build TX-0 for validator 0.
         let author_id = state_with_tx.validator_ids[0];
         let tx0 = make_tx0_bytes(author_id, 0);
 
-        let r_with_tx = advance_epoch(&mut state_with_tx, &input, &[tx0.as_slice()]);
+        let r_with_tx = advance_epoch(&mut state_with_tx, input.as_effect(), &[tx0.as_slice()]);
         prop_assume!(r_with_tx.is_ok());
 
         let v_no_tx   = r_no_tx.unwrap().lyapunov.v_convergence.raw();

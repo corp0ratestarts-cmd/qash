@@ -117,7 +117,7 @@ fn single_validator_spike(vc: u32, slot: usize, d_raw: i128) -> EpochInput {
 /// Fill the convergence window with WINDOW_SIZE idle epochs (V=0 each).
 fn fill_window_idle(s: &mut EpochState) {
     for _ in 0..WINDOW_SIZE {
-        advance_epoch(s, &idle(s.validator_count), &[]).expect("idle epoch must succeed");
+        advance_epoch(s, idle(s.validator_count).as_effect(), &[]).expect("idle epoch must succeed");
     }
     assert!(
         s.convergence_window.is_full(),
@@ -136,7 +136,7 @@ fn sim1_minimum_halt_d_triggers_h1_one_validator() {
     fill_window_idle(&mut s);
 
     let spike = uniform_spike(1, MIN_HALT_D_1V, 0);
-    let result = advance_epoch(&mut s, &spike, &[]);
+    let result = advance_epoch(&mut s, spike.as_effect(), &[]);
     assert_eq!(
         result,
         Err(HaltReason::LyapunovViolation),
@@ -151,7 +151,7 @@ fn sim1_one_below_minimum_d_does_not_halt() {
     fill_window_idle(&mut s);
 
     let spike = uniform_spike(1, MIN_HALT_D_1V - 1, 0);
-    let result = advance_epoch(&mut s, &spike, &[]);
+    let result = advance_epoch(&mut s, spike.as_effect(), &[]);
     assert!(
         result.is_ok(),
         "D={} must not trigger H1 (below threshold)",
@@ -193,7 +193,7 @@ fn grief_cost_check(vc: u32, expected_min_d: i128) {
     fill_window_idle(&mut s_ok);
     let below_spike = uniform_spike(vc, expected_min_d - 1, 0);
     assert!(
-        advance_epoch(&mut s_ok, &below_spike, &[]).is_ok(),
+        advance_epoch(&mut s_ok, below_spike.as_effect(), &[]).is_ok(),
         "vc={vc}: D={} should not halt",
         expected_min_d - 1
     );
@@ -203,7 +203,7 @@ fn grief_cost_check(vc: u32, expected_min_d: i128) {
     fill_window_idle(&mut s_halt);
     let at_spike = uniform_spike(vc, expected_min_d, 0);
     assert_eq!(
-        advance_epoch(&mut s_halt, &at_spike, &[]),
+        advance_epoch(&mut s_halt, at_spike.as_effect(), &[]),
         Err(HaltReason::LyapunovViolation),
         "vc={vc}: D={expected_min_d} should trigger H1"
     );
@@ -256,7 +256,7 @@ fn single_validator_liveness_suppression(vc: u32) {
 
     // Only slot 0 spikes; all others are idle (None).
     let spike = single_validator_spike(vc, 0, MIN_HALT_D_1V);
-    let result = advance_epoch(&mut s, &spike, &[]);
+    let result = advance_epoch(&mut s, spike.as_effect(), &[]);
     assert_eq!(
         result,
         Err(HaltReason::LyapunovViolation),
@@ -317,7 +317,7 @@ fn sim4_coalition_of_3_at_epsilon_each_triggers_halt() {
             slash_accum_new: FixedPoint::ZERO,
         });
     }
-    let result = advance_epoch(&mut s, &input, &[]);
+    let result = advance_epoch(&mut s, input.as_effect(), &[]);
     assert_eq!(
         result,
         Err(HaltReason::LyapunovViolation),
@@ -333,7 +333,7 @@ fn sim4_single_validator_at_epsilon_does_not_halt() {
 
     let spike = single_validator_spike(4, 0, D_AT_EPSILON);
     assert!(
-        advance_epoch(&mut s, &spike, &[]).is_ok(),
+        advance_epoch(&mut s, spike.as_effect(), &[]).is_ok(),
         "single validator at D_AT_EPSILON should not halt (V = EPSILON, not > EPSILON)"
     );
 }
@@ -356,7 +356,7 @@ fn sim5_joint_v_at_epsilon_does_not_halt() {
     // Joint V = 4 * 5_000 = 20_000 = EPSILON → strictly-greater check fails → no halt
     let spike = uniform_spike(vc, 12_500, 0);
     assert!(
-        advance_epoch(&mut s, &spike, &[]).is_ok(),
+        advance_epoch(&mut s, spike.as_effect(), &[]).is_ok(),
         "joint V = EPSILON must not trigger halt (strict > check)"
     );
 }
@@ -386,7 +386,7 @@ fn sim6_spike_before_window_full_does_not_halt() {
     let mut s = state(1);
     // Only 2 idle epochs — window not yet full (WINDOW_SIZE = 3).
     for _ in 0..WINDOW_SIZE - 1 {
-        advance_epoch(&mut s, &idle(1), &[]).expect("idle must succeed");
+        advance_epoch(&mut s, idle(1).as_effect(), &[]).expect("idle must succeed");
     }
     assert!(
         !s.convergence_window.is_full(),
@@ -397,7 +397,7 @@ fn sim6_spike_before_window_full_does_not_halt() {
     // Before the window fills, the delta_window check is disabled → no halt.
     let spike = uniform_spike(1, MIN_HALT_D_1V, 0);
     assert!(
-        advance_epoch(&mut s, &spike, &[]).is_ok(),
+        advance_epoch(&mut s, spike.as_effect(), &[]).is_ok(),
         "spike before window full must not trigger halt (delta_window check disabled)"
     );
 }
@@ -409,7 +409,7 @@ fn sim6_spike_after_exactly_window_size_idle_halts() {
     fill_window_idle(&mut s); // exactly WINDOW_SIZE epochs
     let spike = uniform_spike(1, MIN_HALT_D_1V, 0);
     assert_eq!(
-        advance_epoch(&mut s, &spike, &[]),
+        advance_epoch(&mut s, spike.as_effect(), &[]),
         Err(HaltReason::LyapunovViolation)
     );
 }
@@ -424,8 +424,8 @@ fn sim6_spike_after_exactly_window_size_idle_halts() {
 fn sim7_stale_epoch_input_rejected() {
     let mut s = state(4);
     // Advance to epoch 2.
-    advance_epoch(&mut s, &idle(4), &[]).unwrap();
-    advance_epoch(&mut s, &idle(4), &[]).unwrap();
+    advance_epoch(&mut s, idle(4).as_effect(), &[]).unwrap();
+    advance_epoch(&mut s, idle(4).as_effect(), &[]).unwrap();
     assert_eq!(s.epoch, 2);
 
     // Build an input explicitly claiming epoch 0 (stale).
@@ -434,7 +434,7 @@ fn sim7_stale_epoch_input_rejected() {
     // At Domain A, we test that the update_count mismatch path is absorbing.
     let wrong_vc = EpochInput::new(2);
     assert_eq!(
-        advance_epoch(&mut s, &wrong_vc, &[]),
+        advance_epoch(&mut s, wrong_vc.as_effect(), &[]),
         Err(HaltReason::DecodeInvalid),
         "mismatched update_count must trigger DecodeInvalid"
     );
@@ -451,14 +451,14 @@ fn sim7_stale_epoch_input_rejected() {
 fn sim7_post_decode_invalid_halt_absorbs() {
     let mut s = state(4);
     let bad = EpochInput::new(3);
-    let _ = advance_epoch(&mut s, &bad, &[]);
+    let _ = advance_epoch(&mut s, bad.as_effect(), &[]);
     assert_eq!(s.halt_reason, HaltReason::DecodeInvalid);
 
     let root_frozen = s.state_root;
     let epoch_frozen = s.epoch;
 
     for _ in 0..5 {
-        let r = advance_epoch(&mut s, &idle(4), &[]);
+        let r = advance_epoch(&mut s, idle(4).as_effect(), &[]);
         assert_eq!(r, Err(HaltReason::DecodeInvalid));
         assert_eq!(s.epoch, epoch_frozen);
         assert_eq!(s.state_root, root_frozen);
@@ -481,14 +481,14 @@ fn sim8_entropy_seed_does_not_affect_lyapunov_halt_decision() {
 
     // Fill both windows identically.
     for _ in 0..WINDOW_SIZE {
-        advance_epoch(&mut s_a, &idle(1), &[]).unwrap();
-        advance_epoch(&mut s_b, &idle(1), &[]).unwrap();
+        advance_epoch(&mut s_a, idle(1).as_effect(), &[]).unwrap();
+        advance_epoch(&mut s_b, idle(1).as_effect(), &[]).unwrap();
     }
 
     let spike_a = uniform_spike(1, MIN_HALT_D_1V, 0);
     let spike_b = uniform_spike(1, MIN_HALT_D_1V, 0);
-    let r_a = advance_epoch(&mut s_a, &spike_a, &[]);
-    let r_b = advance_epoch(&mut s_b, &spike_b, &[]);
+    let r_a = advance_epoch(&mut s_a, spike_a.as_effect(), &[]);
+    let r_b = advance_epoch(&mut s_b, spike_b.as_effect(), &[]);
 
     assert_eq!(r_a, Err(HaltReason::LyapunovViolation));
     assert_eq!(
@@ -516,7 +516,7 @@ fn sim9_halt_finality_under_varied_attacks() {
     // Trigger H1 via a spike that exceeds the per-validator halt threshold.
     // All 4 validators spike → V_sum = 4 * 20_001 = 80_004 >> EPSILON → H1.
     let spike = uniform_spike(4, MIN_HALT_D_1V, 0);
-    let r = advance_epoch(&mut s, &spike, &[]);
+    let r = advance_epoch(&mut s, spike.as_effect(), &[]);
     assert_eq!(
         r,
         Err(HaltReason::LyapunovViolation),
@@ -537,7 +537,7 @@ fn sim9_halt_finality_under_varied_attacks() {
     ];
 
     for (i, attack) in attacks.iter().enumerate() {
-        let r = advance_epoch(&mut s, attack, &[]);
+        let r = advance_epoch(&mut s, attack.clone().as_effect(), &[]);
         assert!(
             r.is_err(),
             "attack {}: halted state must reject all inputs",
@@ -574,42 +574,50 @@ fn sim9_halt_finality_under_varied_attacks() {
 #[test]
 fn sim10_minimum_attack_duration_is_window_size_plus_one() {
     // Attempt: 0 idle + 1 spike → must NOT halt (window not full).
-    let mut s0 = state(1);
-    let spike = uniform_spike(1, MIN_HALT_D_1V * 10, 0);
-    assert!(
-        advance_epoch(&mut s0, &spike, &[]).is_ok(),
-        "0 idle + spike must not halt (window not full)"
-    );
+    {
+        let mut s = state(1);
+        let spike = uniform_spike(1, MIN_HALT_D_1V * 10, 0);
+        assert!(
+            advance_epoch(&mut s, spike.as_effect(), &[]).is_ok(),
+            "0 idle + spike must not halt (window not full)"
+        );
+    }
 
     // Attempt: 1 idle + 1 spike → must NOT halt.
-    let mut s1 = state(1);
-    advance_epoch(&mut s1, &idle(1), &[]).unwrap();
-    let spike = uniform_spike(1, MIN_HALT_D_1V * 10, 0);
-    assert!(
-        advance_epoch(&mut s1, &spike, &[]).is_ok(),
-        "1 idle + spike must not halt (window not full)"
-    );
+    {
+        let mut s = state(1);
+        advance_epoch(&mut s, idle(1).as_effect(), &[]).unwrap();
+        let spike = uniform_spike(1, MIN_HALT_D_1V * 10, 0);
+        assert!(
+            advance_epoch(&mut s, spike.as_effect(), &[]).is_ok(),
+            "1 idle + spike must not halt (window not full)"
+        );
+    }
 
     // Attempt: 2 idle + 1 spike → must NOT halt.
-    let mut s2 = state(1);
-    for _ in 0..2 {
-        advance_epoch(&mut s2, &idle(1), &[]).unwrap();
+    {
+        let mut s = state(1);
+        for _ in 0..2 {
+            advance_epoch(&mut s, idle(1).as_effect(), &[]).unwrap();
+        }
+        let spike = uniform_spike(1, MIN_HALT_D_1V * 10, 0);
+        assert!(
+            advance_epoch(&mut s, spike.as_effect(), &[]).is_ok(),
+            "2 idle + spike must not halt (window not full, WINDOW_SIZE=3)"
+        );
     }
-    let spike = uniform_spike(1, MIN_HALT_D_1V * 10, 0);
-    assert!(
-        advance_epoch(&mut s2, &spike, &[]).is_ok(),
-        "2 idle + spike must not halt (window not full, WINDOW_SIZE=3)"
-    );
 
     // WINDOW_SIZE idle + 1 spike → MUST halt.
-    let mut s3 = state(1);
-    fill_window_idle(&mut s3);
-    let spike = uniform_spike(1, MIN_HALT_D_1V, 0);
-    assert_eq!(
-        advance_epoch(&mut s3, &spike, &[]),
-        Err(HaltReason::LyapunovViolation),
-        "WINDOW_SIZE ({WINDOW_SIZE}) idle + spike must halt"
-    );
+    {
+        let mut s = state(1);
+        fill_window_idle(&mut s);
+        let spike = uniform_spike(1, MIN_HALT_D_1V, 0);
+        assert_eq!(
+            advance_epoch(&mut s, spike.as_effect(), &[]),
+            Err(HaltReason::LyapunovViolation),
+            "WINDOW_SIZE ({WINDOW_SIZE}) idle + spike must halt"
+        );
+    }
 }
 
 /// The window rolls, so an attacker cannot avoid contributing honest idle epochs.
@@ -637,21 +645,21 @@ fn sim10_rolling_window_raises_required_divergence() {
     // Fill window with sub-threshold divergence.
     let warm_input = uniform_spike(vc, d_low, 0);
     for _ in 0..WINDOW_SIZE {
-        advance_epoch(&mut s, &warm_input, &[]).expect("sub-threshold input must succeed");
+        advance_epoch(&mut s, warm_input.clone().as_effect(), &[]).expect("sub-threshold input must succeed");
     }
     assert!(s.convergence_window.is_full());
 
     // Now MIN_HALT_D_1V (50_003) must NOT trigger halt (V_new=20_001, delta=10_001 ≤ EPSILON).
     let old_min_spike = uniform_spike(vc, MIN_HALT_D_1V, 0);
     assert!(
-        advance_epoch(&mut s.clone(), &old_min_spike, &[]).is_ok(),
+        advance_epoch(&mut s.clone(), old_min_spike.as_effect(), &[]).is_ok(),
         "old minimum D should not halt when window is pre-warmed"
     );
 
     // min_d_after_warm_window (75_003) MUST trigger halt.
     let new_min_spike = uniform_spike(vc, min_d_after_warm_window, 0);
     assert_eq!(
-        advance_epoch(&mut s, &new_min_spike, &[]),
+        advance_epoch(&mut s, new_min_spike.as_effect(), &[]),
         Err(HaltReason::LyapunovViolation),
         "raised minimum D must trigger halt after pre-warmed window"
     );

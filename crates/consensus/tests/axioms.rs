@@ -75,8 +75,8 @@ fn axiom_a1_determinism_with_updates() {
             conflict_new: FixedPoint::from_raw(5_000),
             slash_accum_new: FixedPoint::ZERO,
         });
-        advance_epoch(&mut s1, &input, &[]).unwrap();
-        advance_epoch(&mut s2, &input, &[]).unwrap();
+        advance_epoch(&mut s1, input.clone().as_effect(), &[]).unwrap();
+        advance_epoch(&mut s2, input.as_effect(), &[]).unwrap();
 
         assert_eq!(
             s1.state_root, s2.state_root,
@@ -100,8 +100,8 @@ fn axiom_a1_distinct_inputs_produce_distinct_roots() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    advance_epoch(&mut s_a, &input_a, &[]).unwrap();
-    advance_epoch(&mut s_b, &input_b, &[]).unwrap();
+    advance_epoch(&mut s_a, input_a.as_effect(), &[]).unwrap();
+    advance_epoch(&mut s_b, input_b.as_effect(), &[]).unwrap();
 
     assert_ne!(
         s_a.state_root, s_b.state_root,
@@ -175,7 +175,7 @@ fn axiom_a4_encoding_preservation_multi_epoch() {
                 slash_accum_new: FixedPoint::ZERO,
             });
         }
-        advance_epoch(&mut state, &input, &[]).unwrap();
+        advance_epoch(&mut state, input.as_effect(), &[]).unwrap();
 
         // Encode.
         let n = encode_full_state_into(&state, &mut buf);
@@ -210,7 +210,7 @@ fn axiom_a5_replay_invariance_identical_sequence() {
                 conflict_new: FixedPoint::ZERO,
                 slash_accum_new: FixedPoint::ZERO,
             });
-            advance_epoch(&mut state, &input, &[]).unwrap();
+            advance_epoch(&mut state, input.as_effect(), &[]).unwrap();
         }
         state
     }
@@ -235,12 +235,12 @@ fn axiom_a6_halt_flag_never_clears() {
 
     // Force halt via bad update_count.
     let bad_input = EpochInput::new(3);
-    let r = advance_epoch(&mut state, &bad_input, &[]);
+    let r = advance_epoch(&mut state, bad_input.as_effect(), &[]);
     assert_eq!(r, Err(HaltReason::DecodeInvalid));
     assert!(state.is_halted(), "§A6: must be halted after first trigger");
 
     for attempt in 0..5 {
-        let result = advance_epoch(&mut state, &idle_input(4), &[]);
+        let result = advance_epoch(&mut state, idle_input(4).as_effect(), &[]);
         assert!(
             result.is_err(),
             "§A6: attempt {} must also be halted",
@@ -265,7 +265,7 @@ fn axiom_a6_tx0_does_not_clear_halt() {
 
     let id0 = state.validator_ids[0];
     let tx = make_tx0(id0, 0);
-    let r = advance_epoch(&mut state, &idle_input(4), &[tx.as_slice()]);
+    let r = advance_epoch(&mut state, idle_input(4).as_effect(), &[tx.as_slice()]);
     assert_eq!(r, Err(HaltReason::LyapunovViolation));
     assert_eq!(state.halt_reason as u8, HaltReason::LyapunovViolation as u8);
     assert_eq!(state.nonces[0], 0, "nonce must not advance in halted state");
@@ -293,7 +293,7 @@ fn axiom_a8_form_a_tx0_zero_perturbation() {
         });
         i
     };
-    advance_epoch(&mut state, &input, &[]).unwrap();
+    advance_epoch(&mut state, input.as_effect(), &[]).unwrap();
 
     let metrics_before = state.validators;
     let id0 = state.validator_ids[0];
@@ -332,7 +332,7 @@ fn axiom_consensus_max_validators_accepted() {
     state.validator_count = MAX_VALIDATORS as u32; // 1024
 
     // All validators have zero metrics → idle input is valid.
-    let result = advance_epoch(&mut state, &idle_input(MAX_VALIDATORS as u32), &[]);
+    let result = advance_epoch(&mut state, idle_input(MAX_VALIDATORS as u32).as_effect(), &[]);
     // Either succeeds (preferred) or halts — must NOT panic.
     match result {
         Ok(_) => {}
@@ -348,7 +348,7 @@ fn axiom_consensus_max_validators_accepted() {
 fn axiom_consensus_zero_validators_accepted() {
     let mut state = genesis_state();
     state.validator_count = 0;
-    let result = advance_epoch(&mut state, &idle_input(0), &[]);
+    let result = advance_epoch(&mut state, idle_input(0).as_effect(), &[]);
     // Must succeed or halt cleanly — must NOT panic.
     let _ = result;
 }
@@ -362,7 +362,7 @@ fn axiom_consensus_zero_validators_accepted() {
 fn axiom_entropy_advances_nonzero() {
     let mut state = genesis_state();
     assert_eq!(state.entropy_seed, [0u8; 32]);
-    advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+    advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
     assert_ne!(state.entropy_seed, [0u8; 32], "entropy_seed must advance");
 }
 
@@ -372,8 +372,8 @@ fn axiom_entropy_chain_is_deterministic() {
     let mut a = genesis_state();
     let mut b = genesis_state();
     for _ in 0..5 {
-        advance_epoch(&mut a, &idle_input(4), &[]).unwrap();
-        advance_epoch(&mut b, &idle_input(4), &[]).unwrap();
+        advance_epoch(&mut a, idle_input(4).as_effect(), &[]).unwrap();
+        advance_epoch(&mut b, idle_input(4).as_effect(), &[]).unwrap();
         assert_eq!(a.entropy_seed, b.entropy_seed, "entropy chains must match");
     }
 }
@@ -385,8 +385,8 @@ fn axiom_entropy_seed_binding() {
     let mut b = genesis_state();
     b.entropy_seed[0] = 1; // differ at byte 0
 
-    advance_epoch(&mut a, &idle_input(4), &[]).unwrap();
-    advance_epoch(&mut b, &idle_input(4), &[]).unwrap();
+    advance_epoch(&mut a, idle_input(4).as_effect(), &[]).unwrap();
+    advance_epoch(&mut b, idle_input(4).as_effect(), &[]).unwrap();
     assert_ne!(
         a.entropy_seed, b.entropy_seed,
         "different seeds must produce different chains"
@@ -416,7 +416,7 @@ fn axiom_delta_window_at_epsilon_does_not_halt() {
             conflict_new: FixedPoint::ZERO,
             slash_accum_new: FixedPoint::ZERO,
         });
-        let r = advance_epoch(&mut state, &input, &[]);
+        let r = advance_epoch(&mut state, input.as_effect(), &[]);
         assert!(r.is_ok(), "at-epsilon fill must not halt");
     }
     // One more epoch at the same level: δ = epsilon - epsilon = 0, must not halt.
@@ -426,7 +426,7 @@ fn axiom_delta_window_at_epsilon_does_not_halt() {
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
     });
-    let r = advance_epoch(&mut state, &input, &[]);
+    let r = advance_epoch(&mut state, input.as_effect(), &[]);
     assert!(r.is_ok(), "stable at-epsilon must not halt");
     assert!(
         !state.is_halted(),
@@ -441,7 +441,7 @@ fn axiom_delta_window_above_epsilon_halts() {
 
     // Fill window at zero so window min = 0.
     for _ in 0..WINDOW_SIZE {
-        advance_epoch(&mut state, &idle_input(4), &[]).expect("fill must succeed");
+        advance_epoch(&mut state, idle_input(4).as_effect(), &[]).expect("fill must succeed");
     }
     // Spike validator 0 well above ε.
     let mut spike = idle_input(4);
@@ -450,7 +450,7 @@ fn axiom_delta_window_above_epsilon_halts() {
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
     });
-    let r = advance_epoch(&mut state, &spike, &[]);
+    let r = advance_epoch(&mut state, spike.as_effect(), &[]);
     assert_eq!(
         r,
         Err(HaltReason::LyapunovViolation),
@@ -503,7 +503,7 @@ fn axiom_nonce_sequential_chain() {
 
     for expected_nonce in 0u64..10 {
         let tx = make_tx0(id, expected_nonce);
-        let r = advance_epoch(&mut state, &idle_input(4), &[tx.as_slice()]);
+        let r = advance_epoch(&mut state, idle_input(4).as_effect(), &[tx.as_slice()]);
         assert!(r.is_ok(), "epoch {} must succeed", expected_nonce);
         assert_eq!(
             state.nonces[0],
@@ -680,7 +680,7 @@ fn axiom_model_runtime_parity_nominal() {
             slash_accum_new: FixedPoint::ZERO,
         });
 
-        let rt_res = advance_epoch(&mut runtime, &input, &[]);
+        let rt_res = advance_epoch(&mut runtime, input.clone().as_effect(), &[]);
         let mo_res = model_apply(&mut model, &input);
 
         assert_eq!(
@@ -717,7 +717,7 @@ fn axiom_model_runtime_parity_boundary_epsilon() {
     let input = idle_input(4);
 
     for _ in 0..WINDOW_SIZE + 1 {
-        let rt_res = advance_epoch(&mut runtime, &input, &[]);
+        let rt_res = advance_epoch(&mut runtime, input.clone().as_effect(), &[]);
         let mo_res = model_apply(&mut model, &input);
         assert_eq!(
             rt_res.is_ok(),
@@ -738,7 +738,7 @@ fn axiom_model_runtime_parity_halt_triggering() {
 
     // Fill window with zero epochs first so window.is_full() == true.
     for _ in 0..WINDOW_SIZE {
-        advance_epoch(&mut runtime, &idle_input(4), &[]).unwrap();
+        advance_epoch(&mut runtime, idle_input(4).as_effect(), &[]).unwrap();
         model_apply(&mut model, &idle_input(4)).unwrap();
     }
 
@@ -750,7 +750,7 @@ fn axiom_model_runtime_parity_halt_triggering() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    let rt_res = advance_epoch(&mut runtime, &spike, &[]);
+    let rt_res = advance_epoch(&mut runtime, spike.clone().as_effect(), &[]);
     let mo_res = model_apply(&mut model, &spike);
 
     assert!(rt_res.is_err(), "runtime must halt on spike");

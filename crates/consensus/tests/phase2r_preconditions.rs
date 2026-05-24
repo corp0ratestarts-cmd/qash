@@ -114,8 +114,8 @@ fn phase2r_max_validator_epoch_replay_is_repeatable() {
     let mut left = state_with_validators(MAX_VALIDATORS as u32);
     let mut right = state_with_validators(MAX_VALIDATORS as u32);
 
-    let left_result = advance_epoch(&mut left, &input, &[]).unwrap();
-    let right_result = advance_epoch(&mut right, &input, &[]).unwrap();
+    let left_result = advance_epoch(&mut left, input.clone().as_effect(), &[]).unwrap();
+    let right_result = advance_epoch(&mut right, input.as_effect(), &[]).unwrap();
 
     assert_eq!(left_result.state_root, right_result.state_root);
     assert_eq!(
@@ -132,7 +132,7 @@ fn phase2r_max_validator_epoch_replay_is_repeatable() {
 fn phase2r_state_root_commitment_matches_buffered_preimage() {
     let mut state = state_with_validators(4);
     let prior_root = state.state_root;
-    let result = advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+    let result = advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
 
     let mut commitment_state = state;
     commitment_state.state_root = prior_root;

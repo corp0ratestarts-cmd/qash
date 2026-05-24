@@ -70,7 +70,7 @@ fn run_corpus() -> std::vec::Vec<(u64, [u8; 32])> {
 
     for step in 0..CORPUS_EPOCHS {
         let input = corpus_input(step);
-        let _ = advance_epoch(&mut state, &input, &[]);
+        let _ = advance_epoch(&mut state, input.as_effect(), &[]);
         out.push((state.epoch, state.state_root));
     }
 

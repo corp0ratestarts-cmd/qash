@@ -63,11 +63,11 @@ fn adversarial_replay_corpus_decode_invalid_is_deterministic() {
     });
 
     assert_eq!(
-        advance_epoch(&mut a, &bad, &[]),
+        advance_epoch(&mut a, bad.as_effect(), &[]),
         Err(HaltReason::DecodeInvalid)
     );
     assert_eq!(
-        advance_epoch(&mut b, &bad, &[]),
+        advance_epoch(&mut b, bad.as_effect(), &[]),
         Err(HaltReason::DecodeInvalid)
     );
     assert_eq!(a.epoch, b.epoch);
@@ -89,7 +89,7 @@ fn adversarial_replay_corpus_epsilon_boundary_is_accepted() {
         slash_accum_new: FixedPoint::ZERO,
     });
 
-    let result = advance_epoch(&mut state, &input, &[]).expect("delta == epsilon accepted");
+    let result = advance_epoch(&mut state, input.as_effect(), &[]).expect("delta == epsilon accepted");
 
     assert_eq!(state.halt_reason, HaltReason::None);
     assert_eq!(result.lyapunov.delta_window.raw(), 20_000);
@@ -105,9 +105,9 @@ fn adversarial_replay_corpus_tx1_valid_and_invalid_paths_are_deterministic() {
     let invalid = tx1(a.validator_ids[0], 1, 200);
     let valid = tx1(a.validator_ids[0], 1, 40);
 
-    let result_a = advance_epoch(&mut a, &idle(2), &[invalid.as_slice(), valid.as_slice()])
+    let result_a = advance_epoch(&mut a, idle(2).as_effect(), &[invalid.as_slice(), valid.as_slice()])
         .expect("epoch accepts with one valid TX-1");
-    let result_b = advance_epoch(&mut b, &idle(2), &[valid.as_slice(), invalid.as_slice()])
+    let result_b = advance_epoch(&mut b, idle(2).as_effect(), &[valid.as_slice(), invalid.as_slice()])
         .expect("epoch accepts with one valid TX-1");
 
     assert_eq!(a.validators[1].divergence.raw(), 60);

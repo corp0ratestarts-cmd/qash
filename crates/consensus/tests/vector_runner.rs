@@ -255,7 +255,7 @@ fn run_state_root_commitment(name: &str, v: &serde_json::Value) {
     );
 
     let mut state = genesis_state(validator_count);
-    let result = advance_epoch(&mut state, &idle_input(validator_count), &[])
+    let result = advance_epoch(&mut state, idle_input(validator_count).as_effect(), &[])
         .unwrap_or_else(|h| panic!("[{}] advance_epoch failed: {:?}", name, h));
 
     // Reconstruct Encode_for_commitment(S_1, prior_root) exactly: the wire encoder
@@ -353,7 +353,7 @@ fn run_genesis_noop_epochs(name: &str, v: &serde_json::Value) {
         );
 
         let input = idle_input(state.validator_count);
-        let result = advance_epoch(&mut state, &input, &[])
+        let result = advance_epoch(&mut state, input.as_effect(), &[])
             .unwrap_or_else(|h| panic!("[{}] advance_epoch failed: {:?}", name, h));
 
         assert_eq!(
@@ -424,7 +424,7 @@ fn regen() {
     // genesis_noop_epochs (4 validators)
     let mut state = genesis_state(4);
     for epoch in 1..=2u64 {
-        let r = advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+        let r = advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
         println!(
             "genesis_noop_epochs epoch {}: root={}, lyapunov={}, phi={}",
             epoch,
@@ -436,7 +436,7 @@ fn regen() {
 
     // state_root_commitment: preimage SHA3-256 for 4-validator genesis after epoch 1
     let mut sc_state = genesis_state(4);
-    advance_epoch(&mut sc_state, &idle_input(4), &[]).unwrap();
+    advance_epoch(&mut sc_state, idle_input(4).as_effect(), &[]).unwrap();
     let prior_root = [0u8; 32];
     let mut commitment_state = sc_state;
     commitment_state.state_root.copy_from_slice(&prior_root);

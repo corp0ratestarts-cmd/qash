@@ -1,5 +1,6 @@
 //! Epoch transition (atomic, infallible commit phase).
 
+use crate::capability::{EffectToken, ValidatedEffect};
 use crate::encoding::EncodeError;
 use crate::envelope::{PROTOCOL_VERSION_V1_1, PROTOCOL_VERSION_V1_2};
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
@@ -40,14 +41,15 @@ pub const FULL_STATE_MAX_BYTES: usize = FULL_STATE_BASE_MAX_BYTES + FULL_STATE_R
 #[repr(u8)]
 pub enum HaltReason {
     None = 0x00,
-    LyapunovViolation = 0x01,   // H1
-    ArithOverflow = 0x02,       // H2
-    EpochOverflow = 0x03,       // H3
-    DecodeInvalid = 0x04,       // H4
-    RoundtripFailure = 0x05,    // H5
-    HaltFlagSet = 0x06,         // H6 (explicit external halt; reserved)
-    PhiSafetyViolation = 0x07,  // H7
-    IncompatibleVersion = 0x08, // H8: v1.0 envelope rejected after compatibility window
+    LyapunovViolation = 0x01,     // H1
+    ArithOverflow = 0x02,         // H2
+    EpochOverflow = 0x03,         // H3
+    DecodeInvalid = 0x04,         // H4
+    RoundtripFailure = 0x05,      // H5
+    HaltFlagSet = 0x06,           // H6 (explicit external halt; reserved)
+    PhiSafetyViolation = 0x07,    // H7
+    IncompatibleVersion = 0x08,   // H8: v1.0 envelope rejected after compatibility window
+    FingerprintDivergence = 0x09, // H9: causal fingerprint mismatch during cross-replica check
 }
 
 impl HaltReason {
@@ -62,6 +64,7 @@ impl HaltReason {
             0x06 => Ok(HaltReason::HaltFlagSet),
             0x07 => Ok(HaltReason::PhiSafetyViolation),
             0x08 => Ok(HaltReason::IncompatibleVersion),
+            0x09 => Ok(HaltReason::FingerprintDivergence),
             _ => Err(EncodeError::InvalidHaltCode),
         }
     }
@@ -74,6 +77,7 @@ pub struct ValidatorUpdate {
     pub slash_accum_new: FixedPoint, // absolute, monotone
 }
 
+#[derive(Clone, Copy)]
 pub struct EpochInput {
     pub updates: [Option<ValidatorUpdate>; MAX_VALIDATORS],
     pub update_count: u32,
@@ -90,6 +94,14 @@ impl EpochInput {
             update_count,
             protocol_version: PROTOCOL_VERSION_V1_1,
         }
+    }
+
+    /// Borrow this input as an `EffectToken<&ValidatedEffect>` for use at the
+    /// `advance_epoch` boundary. The token is move-only (no Clone/Copy) and proves
+    /// Domain B pre-validation is complete. Holding a reference (not ownership)
+    /// avoids copying the ~64 KB `EpochInput` onto the stack on every call.
+    pub fn as_effect(&self) -> EffectToken<&ValidatedEffect> {
+        EffectToken::new(self)
     }
 }
 
@@ -531,13 +543,15 @@ pub struct EpochShardingInput<'a> {
 
 pub fn advance_epoch(
     state: &mut EpochState,
-    input: &EpochInput,
+    effect: EffectToken<&ValidatedEffect>,
     raw_txs: &[&[u8]],
 ) -> Result<TransitionResult, HaltReason> {
     if state.is_halted() {
         return Err(state.halt_reason);
     }
 
+    // `into_inner()` returns `&EpochInput` — no copy of the 64 KB input struct.
+    let input = effect.into_inner();
     match run_pipeline(state, input, raw_txs, None) {
         Ok(r) => Ok(r),
         Err(h) => {
@@ -549,7 +563,7 @@ pub fn advance_epoch(
 
 pub fn advance_epoch_sharded(
     state: &mut EpochState,
-    input: &EpochInput,
+    effect: EffectToken<&ValidatedEffect>,
     raw_txs: &[&[u8]],
     sharding: &EpochShardingInput<'_>,
 ) -> Result<TransitionResult, HaltReason> {
@@ -557,6 +571,8 @@ pub fn advance_epoch_sharded(
         return Err(state.halt_reason);
     }
 
+    // `into_inner()` returns `&EpochInput` — no copy of the 64 KB input struct.
+    let input = effect.into_inner();
     match run_pipeline(state, input, raw_txs, Some(sharding)) {
         Ok(r) => Ok(r),
         Err(h) => {
@@ -564,6 +580,25 @@ pub fn advance_epoch_sharded(
             Err(h.reason)
         }
     }
+}
+
+/// Verify that the current state's causal fingerprint matches the expected value.
+///
+/// If they diverge, record an absorbing halt and return `Err(HaltReason::FingerprintDivergence)`.
+/// Called by Domain B when a cross-replica consistency check fails.
+///
+/// After this call, the state is halted (`halt_reason == HaltReason::FingerprintDivergence`).
+/// The halt is irreversible: subsequent calls to `advance_epoch` on the same state will
+/// return `Err(HaltReason::FingerprintDivergence)` immediately.
+pub fn check_causal_fingerprint(
+    state: &mut EpochState,
+    expected: &[u8; 32],
+) -> Result<(), HaltReason> {
+    if state.causal_fingerprint == *expected {
+        return Ok(());
+    }
+    state.halt_reason = HaltReason::FingerprintDivergence;
+    Err(HaltReason::FingerprintDivergence)
 }
 
 fn run_pipeline(
@@ -924,8 +959,48 @@ mod tests {
     #[test]
     fn entropy_seed_advances_nonzero() {
         let mut state = genesis_state_vc4();
-        advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+        advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
         assert_ne!(state.entropy_seed, [0u8; 32]);
+    }
+
+    // ------------------------------------------------------------------
+    // Task 6b: check_causal_fingerprint tests
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn fingerprint_match_returns_ok() {
+        let mut state = genesis_state_vc4();
+        advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
+        let fp = state.causal_fingerprint;
+        assert_eq!(check_causal_fingerprint(&mut state, &fp), Ok(()));
+        assert_eq!(state.halt_reason, HaltReason::None);
+    }
+
+    #[test]
+    fn fingerprint_mismatch_halts_state() {
+        let mut state = genesis_state_vc4();
+        advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
+        let wrong = [0xFFu8; 32];
+        assert_eq!(
+            check_causal_fingerprint(&mut state, &wrong),
+            Err(HaltReason::FingerprintDivergence)
+        );
+        assert_eq!(state.halt_reason, HaltReason::FingerprintDivergence);
+    }
+
+    #[test]
+    fn fingerprint_mismatch_is_irreversible() {
+        // After a fingerprint divergence halt, advance_epoch must also halt immediately.
+        let mut state = genesis_state_vc4();
+        advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
+        let wrong = [0xAAu8; 32];
+        let _ = check_causal_fingerprint(&mut state, &wrong);
+        assert_eq!(state.halt_reason, HaltReason::FingerprintDivergence);
+        // Any subsequent advance_epoch call must return the halt immediately.
+        let result = advance_epoch(&mut state, idle_input(4).as_effect(), &[]);
+        assert_eq!(result, Err(HaltReason::FingerprintDivergence));
+        // State must be unchanged.
+        assert_eq!(state.halt_reason, HaltReason::FingerprintDivergence);
     }
 
     #[test]
@@ -938,7 +1013,7 @@ mod tests {
             slash_accum_new: FixedPoint::ZERO,
         });
         assert_eq!(
-            advance_epoch(&mut state, &input, &[]),
+            advance_epoch(&mut state, input.as_effect(), &[]),
             Err(HaltReason::DecodeInvalid)
         );
     }
@@ -953,7 +1028,7 @@ mod tests {
             slash_accum_new: FixedPoint::ZERO,
         });
         assert_eq!(
-            advance_epoch(&mut state, &input, &[]),
+            advance_epoch(&mut state, input.as_effect(), &[]),
             Err(HaltReason::DecodeInvalid)
         );
     }
@@ -969,7 +1044,7 @@ mod tests {
             slash_accum_new: FixedPoint::from_raw(500), // decrease -> invalid
         });
         assert_eq!(
-            advance_epoch(&mut state, &input, &[]),
+            advance_epoch(&mut state, input.as_effect(), &[]),
             Err(HaltReason::DecodeInvalid)
         );
     }
@@ -979,7 +1054,7 @@ mod tests {
         let mut state = genesis_state_vc4(); // validator_count = 4
         let input = idle_input(3); // update_count = 3 != 4
         assert_eq!(
-            advance_epoch(&mut state, &input, &[]),
+            advance_epoch(&mut state, input.as_effect(), &[]),
             Err(HaltReason::DecodeInvalid)
         );
     }
@@ -995,7 +1070,7 @@ mod tests {
             slash_accum_new: FixedPoint::ZERO,
         });
         assert_eq!(
-            advance_epoch(&mut state, &input, &[]),
+            advance_epoch(&mut state, input.as_effect(), &[]),
             Err(HaltReason::DecodeInvalid)
         );
     }
@@ -1015,7 +1090,7 @@ mod tests {
                 slash_accum_new: FixedPoint::ZERO,
             });
         }
-        let result = advance_epoch(&mut state, &input, &[]).unwrap();
+        let result = advance_epoch(&mut state, input.as_effect(), &[]).unwrap();
         assert_eq!(result.lyapunov.v_convergence.raw(), 1_150_000);
         assert_eq!(result.lyapunov.phi_safety.raw(), 0);
     }
@@ -1035,7 +1110,7 @@ mod tests {
             slash_accum_new: FixedPoint::from_raw(400_000_000),
         });
 
-        let result = advance_epoch(&mut state, &input, &[]).unwrap();
+        let result = advance_epoch(&mut state, input.as_effect(), &[]).unwrap();
 
         assert_eq!(result.lyapunov.phi_safety.raw(), 200_000_000);
         assert!(!result.lyapunov.phi_halt_triggered);
@@ -1056,7 +1131,7 @@ mod tests {
             slash_accum_new: FixedPoint::from_raw(1_000_000_000),
         });
 
-        let result = advance_epoch(&mut state, &input, &[]);
+        let result = advance_epoch(&mut state, input.as_effect(), &[]);
 
         assert_eq!(result, Err(HaltReason::PhiSafetyViolation));
         assert_eq!(state.halt_reason, HaltReason::PhiSafetyViolation);
@@ -1075,7 +1150,7 @@ mod tests {
             slash_accum_new: FixedPoint::from_raw(2_000_000_004),
         });
 
-        let result = advance_epoch(&mut state, &input, &[]);
+        let result = advance_epoch(&mut state, input.as_effect(), &[]);
 
         assert_eq!(result, Err(HaltReason::PhiSafetyViolation));
         assert_eq!(state.halt_reason, HaltReason::PhiSafetyViolation);
@@ -1095,7 +1170,7 @@ mod tests {
             slash_accum_new: FixedPoint::ZERO,
         });
 
-        let result = advance_epoch(&mut state, &input, &[]).unwrap();
+        let result = advance_epoch(&mut state, input.as_effect(), &[]).unwrap();
 
         assert_eq!(result.lyapunov.delta_window.raw(), lyapunov::EPSILON.raw());
         assert!(!result.lyapunov.halt_triggered);
@@ -1114,7 +1189,7 @@ mod tests {
             slash_accum_new: FixedPoint::ZERO,
         });
 
-        let result = advance_epoch(&mut state, &input, &[]);
+        let result = advance_epoch(&mut state, input.as_effect(), &[]);
 
         assert_eq!(result, Err(HaltReason::LyapunovViolation));
         assert_eq!(state.halt_reason, HaltReason::LyapunovViolation);
@@ -1129,7 +1204,7 @@ mod tests {
         let tx = make_tx0_raw(author_id(0), u64::MAX);
 
         assert_eq!(
-            advance_epoch(&mut state, &idle_input(4), &[tx.as_slice()]),
+            advance_epoch(&mut state, idle_input(4).as_effect(), &[tx.as_slice()]),
             Err(HaltReason::ArithOverflow)
         );
         assert_state_unchanged_except_halt(&before, &state, HaltReason::ArithOverflow);
@@ -1143,7 +1218,7 @@ mod tests {
 
         advance_epoch(
             &mut state,
-            &idle_input(4),
+            idle_input(4).as_effect(),
             &[tx0.as_slice(), tx1.as_slice()],
         )
         .unwrap();
@@ -1163,7 +1238,7 @@ mod tests {
         assert_eq!(
             advance_epoch(
                 &mut state,
-                &idle_input(4),
+                idle_input(4).as_effect(),
                 &[tx0.as_slice(), overflow_tx.as_slice()]
             ),
             Err(HaltReason::ArithOverflow)
@@ -1178,8 +1253,8 @@ mod tests {
         let mut state_b = genesis_state_vc4();
         state_b.state_root[0] = 0x01; // differ only in initial root
 
-        advance_epoch(&mut state_a, &idle_input(4), &[]).unwrap();
-        advance_epoch(&mut state_b, &idle_input(4), &[]).unwrap();
+        advance_epoch(&mut state_a, idle_input(4).as_effect(), &[]).unwrap();
+        advance_epoch(&mut state_b, idle_input(4).as_effect(), &[]).unwrap();
 
         assert_ne!(
             state_a.state_root, state_b.state_root,
@@ -1242,7 +1317,7 @@ mod tests {
     fn cascade_health_increments_on_clean_epochs() {
         let mut state = genesis_state_vc4(); // all divergence = 0
         for expected in 1..=CASCADE_DEPTH {
-            advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+            advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
             assert_eq!(state.cascade_health, expected, "epoch {}", state.epoch);
         }
     }
@@ -1252,7 +1327,7 @@ mod tests {
         let mut state = genesis_state_vc4();
         // advance past CASCADE_DEPTH epochs
         for _ in 0..=(CASCADE_DEPTH + 2) {
-            advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+            advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
         }
         assert_eq!(state.cascade_health, CASCADE_DEPTH);
     }
@@ -1262,7 +1337,7 @@ mod tests {
         let mut state = genesis_state_vc4();
         // Run 4 clean epochs to build health
         for _ in 0..4 {
-            advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+            advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
         }
         assert_eq!(state.cascade_health, 4);
 
@@ -1273,7 +1348,7 @@ mod tests {
             conflict_new: FixedPoint::ZERO,
             slash_accum_new: FixedPoint::ZERO,
         });
-        advance_epoch(&mut state, &input, &[]).unwrap();
+        advance_epoch(&mut state, input.as_effect(), &[]).unwrap();
         assert_eq!(
             state.cascade_health, 0,
             "cascade health must reset on any divergence"
@@ -1287,8 +1362,8 @@ mod tests {
         let mut state_b = genesis_state_vc4();
         state_b.cascade_health = 1; // differs only in cascade_health
 
-        advance_epoch(&mut state_a, &idle_input(4), &[]).unwrap();
-        advance_epoch(&mut state_b, &idle_input(4), &[]).unwrap();
+        advance_epoch(&mut state_a, idle_input(4).as_effect(), &[]).unwrap();
+        advance_epoch(&mut state_b, idle_input(4).as_effect(), &[]).unwrap();
 
         assert_ne!(
             state_a.state_root, state_b.state_root,
@@ -1313,7 +1388,7 @@ mod tests {
         let mut input = idle_input(4);
         // protocol_version defaults to V1_1 via EpochInput::new; explicit for clarity.
         input.protocol_version = crate::envelope::PROTOCOL_VERSION_V1_1;
-        assert!(advance_epoch(&mut state, &input, &[]).is_ok());
+        assert!(advance_epoch(&mut state, input.as_effect(), &[]).is_ok());
     }
 
     #[test]
@@ -1323,7 +1398,7 @@ mod tests {
         state.epoch = COMPATIBILITY_WINDOW;
         let mut input = idle_input(4);
         input.protocol_version = crate::envelope::PROTOCOL_VERSION_V1_0;
-        let result = advance_epoch(&mut state, &input, &[]);
+        let result = advance_epoch(&mut state, input.as_effect(), &[]);
         assert_eq!(result, Err(HaltReason::IncompatibleVersion));
         assert_eq!(state.halt_reason, HaltReason::IncompatibleVersion);
     }
@@ -1335,7 +1410,7 @@ mod tests {
         state.epoch = COMPATIBILITY_WINDOW - 1;
         let mut input = idle_input(4);
         input.protocol_version = crate::envelope::PROTOCOL_VERSION_V1_0;
-        assert!(advance_epoch(&mut state, &input, &[]).is_ok());
+        assert!(advance_epoch(&mut state, input.as_effect(), &[]).is_ok());
     }
 
     #[test]
@@ -1360,7 +1435,7 @@ mod tests {
             zk_batch_root: [9u8; 32],
         };
 
-        let result = advance_epoch_sharded(&mut state, &input, &[], &sharding).unwrap();
+        let result = advance_epoch_sharded(&mut state, input.as_effect(), &[], &sharding).unwrap();
         let efb = result.efb.expect("v1.2 sharded transition must return EFB");
 
         assert_eq!(state.receipt_root, efb.aggregate_receipt_root);
@@ -1422,7 +1497,7 @@ mod tests {
         };
 
         assert_eq!(
-            advance_epoch_sharded(&mut state, &input, &[], &sharding),
+            advance_epoch_sharded(&mut state, input.as_effect(), &[], &sharding),
             Err(HaltReason::IncompatibleVersion)
         );
         assert_eq!(state.efb_root, [0u8; 32]);
@@ -1447,10 +1522,9 @@ mod tests {
     fn streaming_state_root_matches_buffered_after_epoch_advance() {
         let mut state = genesis_state_vc4();
         set_distinct_validator_ids(&mut state);
-        let input = idle_input(4);
-        advance_epoch(&mut state, &input, &[]).unwrap();
+        advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
         let prior = state.state_root;
-        advance_epoch(&mut state, &input, &[]).unwrap();
+        advance_epoch(&mut state, idle_input(4).as_effect(), &[]).unwrap();
         assert_eq!(
             compute_state_root_streaming(&state, &prior),
             compute_state_root_buffered(&state, &prior),
@@ -1474,7 +1548,7 @@ mod tests {
             shard_commitments: &shards,
             zk_batch_root: [0x33u8; 32],
         };
-        advance_epoch_sharded(&mut state, &input, &[], &sharding).unwrap();
+        advance_epoch_sharded(&mut state, input.as_effect(), &[], &sharding).unwrap();
         let prior = [0xCCu8; 32];
         assert_ne!(
             state.receipt_root, [0u8; 32],

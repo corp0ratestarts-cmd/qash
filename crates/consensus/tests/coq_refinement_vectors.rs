@@ -116,11 +116,20 @@ fn coq_encoding_vectors_match_rust_encoding_identifiers() {
 
 #[test]
 fn coq_lyapunov_transition_observations_match_advance_epoch() {
+    std::thread::Builder::new()
+        .stack_size(4 * 1024 * 1024)
+        .spawn(coq_lyapunov_inner)
+        .expect("failed to spawn test thread")
+        .join()
+        .expect("coq_lyapunov_inner panicked");
+}
+
+fn coq_lyapunov_inner() {
     let json = include_str!("../../../proofs/model/transition_observations.json");
 
     let idle_vec = vector_block(json, "LYAP-IDLE-4");
     let mut idle_state = genesis(4);
-    let idle_result = advance_epoch(&mut idle_state, &idle(4), &[]).expect("idle advance");
+    let idle_result = advance_epoch(&mut idle_state, idle(4).as_effect(), &[]).expect("idle advance");
     let (idle_filled, idle_window) = idle_state.convergence_window.raw_parts();
     assert_eq!(idle_state.epoch as i64, extract_i64(idle_vec, "epoch"));
     assert_eq!(
@@ -141,7 +150,7 @@ fn coq_lyapunov_transition_observations_match_advance_epoch() {
     let halt_vec = vector_block(json, "LYAP-HALT-4-900K");
     let mut halt_state = genesis(4);
     for _ in 0..WINDOW_SIZE {
-        advance_epoch(&mut halt_state, &idle(4), &[]).expect("fill zero window");
+        advance_epoch(&mut halt_state, idle(4).as_effect(), &[]).expect("fill zero window");
     }
     let mut spike = idle(4);
     for slot in spike.updates.iter_mut().take(4) {
@@ -152,7 +161,7 @@ fn coq_lyapunov_transition_observations_match_advance_epoch() {
         });
     }
     assert_eq!(
-        advance_epoch(&mut halt_state, &spike, &[]),
+        advance_epoch(&mut halt_state, spike.as_effect(), &[]),
         Err(HaltReason::LyapunovViolation)
     );
     let (halt_filled, halt_window) = halt_state.convergence_window.raw_parts();
@@ -187,7 +196,7 @@ fn coq_lyapunov_transition_observations_match_advance_epoch() {
         slash_accum_new: FixedPoint::ZERO,
     });
     let epsilon_result =
-        advance_epoch(&mut epsilon_state, &epsilon_input, &[]).expect("epsilon advance");
+        advance_epoch(&mut epsilon_state, epsilon_input.as_effect(), &[]).expect("epsilon advance");
     let (epsilon_filled, epsilon_window) = epsilon_state.convergence_window.raw_parts();
     assert_eq!(
         epsilon_state.epoch as i64,
@@ -225,7 +234,7 @@ fn coq_lyapunov_transition_observations_match_advance_epoch() {
     )
     .expect("invalid baseline eval");
     assert_eq!(
-        advance_epoch(&mut invalid_state, &invalid_input, &[]),
+        advance_epoch(&mut invalid_state, invalid_input.as_effect(), &[]),
         Err(HaltReason::DecodeInvalid)
     );
     let (invalid_filled, _) = invalid_state.convergence_window.raw_parts();
@@ -274,7 +283,7 @@ fn coq_lyapunov_transition_observations_match_advance_epoch() {
     let absorb_eval =
         evaluate(&projected, &absorb_state.convergence_window).expect("absorbing eval");
     assert_eq!(
-        advance_epoch(&mut absorb_state, &absorb_input, &[]),
+        advance_epoch(&mut absorb_state, absorb_input.as_effect(), &[]),
         Err(HaltReason::LyapunovViolation)
     );
     let (absorb_filled, absorb_window) = absorb_state.convergence_window.raw_parts();
@@ -297,3 +306,4 @@ fn coq_lyapunov_transition_observations_match_advance_epoch() {
         vec![1, 2, 3]
     );
 }
+

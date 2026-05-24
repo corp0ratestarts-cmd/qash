@@ -148,7 +148,7 @@ fn replay_binary_corpus() {
 
     // epoch 1 — after one idle epoch
     let mut state1 = genesis_4();
-    advance_epoch(&mut state1, &idle(4), &[]).unwrap();
+    advance_epoch(&mut state1, idle(4).as_effect(), &[]).unwrap();
     let mut buf1 = [0u8; FULL_STATE_MAX_BYTES];
     let len1 = encode_full_state_into(&mut state1, &mut buf1);
     let pinned1 = hex_to_bytes(SNAPSHOT_EPOCH_1_HEX);
@@ -161,7 +161,7 @@ fn replay_binary_corpus() {
     // epoch 3 — after three idle epochs
     let mut state3 = genesis_4();
     for _ in 0..3 {
-        advance_epoch(&mut state3, &idle(4), &[]).unwrap();
+        advance_epoch(&mut state3, idle(4).as_effect(), &[]).unwrap();
     }
     let mut buf3 = [0u8; FULL_STATE_MAX_BYTES];
     let len3 = encode_full_state_into(&mut state3, &mut buf3);

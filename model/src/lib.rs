@@ -147,7 +147,7 @@ pub fn step(state: &mut EpochState, input: &EpochInput) -> StepOutput {
         };
     }
 
-    match advance_epoch(state, input, &[]) {
+    match advance_epoch(state, input.clone().as_effect(), &[]) {
         Ok(result) => StepOutput {
             epoch: state.epoch,
             state_root: result.state_root,

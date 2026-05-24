@@ -82,7 +82,7 @@ fn adversarial_tx0_replay_rejected() {
 
     // First submission: nonce 0 → succeeds, nonce advances to 1.
     let tx = make_tx0(id0, 0);
-    let r = advance_epoch(&mut state, &idle_input(4), &[tx.as_slice()]);
+    let r = advance_epoch(&mut state, idle_input(4).as_effect(), &[tx.as_slice()]);
     assert!(r.is_ok(), "first TX-0 must succeed");
     assert_eq!(state.nonces[0], 1, "nonce must advance to 1");
 
@@ -150,7 +150,7 @@ fn adversarial_tx_batch_order_is_irrelevant() {
     let mut roots: Vec<[u8; 32]> = Vec::new();
     for &batch in orderings {
         let mut state = base;
-        advance_epoch(&mut state, &idle_input(4), batch).expect("must succeed");
+        advance_epoch(&mut state, idle_input(4).as_effect(), batch).expect("must succeed");
         roots.push(state.state_root);
     }
 
@@ -276,7 +276,7 @@ fn adversarial_non_validator_tx_end_to_end_rejected() {
 
     let stranger = [0xAB; 48];
     let raw = make_tx0(stranger, 0);
-    let r = advance_epoch(&mut state, &idle_input(4), &[raw.as_slice()]);
+    let r = advance_epoch(&mut state, idle_input(4).as_effect(), &[raw.as_slice()]);
     assert!(
         r.is_ok(),
         "epoch must still advance (unknown author TX is skipped)"
@@ -296,7 +296,7 @@ fn adversarial_non_validator_tx_end_to_end_rejected() {
 fn adversarial_update_count_mismatch_halts() {
     let mut state = genesis_state(); // validator_count = 4
     let bad = EpochInput::new(3);
-    let r = advance_epoch(&mut state, &bad, &[]);
+    let r = advance_epoch(&mut state, bad.as_effect(), &[]);
     assert_eq!(r, Err(HaltReason::DecodeInvalid));
     assert_eq!(state.halt_reason, HaltReason::DecodeInvalid);
 }
@@ -312,7 +312,7 @@ fn adversarial_slash_decrease_halts() {
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::from_raw(500), // decrease → invalid
     });
-    let r = advance_epoch(&mut state, &input, &[]);
+    let r = advance_epoch(&mut state, input.as_effect(), &[]);
     assert_eq!(r, Err(HaltReason::DecodeInvalid));
 }
 
@@ -326,7 +326,7 @@ fn adversarial_negative_divergence_halts() {
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
     });
-    let r = advance_epoch(&mut state, &input, &[]);
+    let r = advance_epoch(&mut state, input.as_effect(), &[]);
     assert_eq!(r, Err(HaltReason::DecodeInvalid));
 }
 
@@ -340,7 +340,7 @@ fn adversarial_negative_conflict_halts() {
         conflict_new: FixedPoint::from_raw(-1),
         slash_accum_new: FixedPoint::ZERO,
     });
-    let r = advance_epoch(&mut state, &input, &[]);
+    let r = advance_epoch(&mut state, input.as_effect(), &[]);
     assert_eq!(r, Err(HaltReason::DecodeInvalid));
 }
 
@@ -390,7 +390,7 @@ fn check_halt_absorption(reason: HaltReason) {
     let root_before = state.state_root;
 
     // Any advance must return the same halt.
-    let r1 = advance_epoch(&mut state, &idle_input(4), &[]);
+    let r1 = advance_epoch(&mut state, idle_input(4).as_effect(), &[]);
     assert_eq!(
         r1,
         Err(reason),
@@ -403,7 +403,7 @@ fn check_halt_absorption(reason: HaltReason) {
     assert_eq!(state.state_root, root_before, "state_root must not change");
 
     // Second advance: still frozen.
-    let r2 = advance_epoch(&mut state, &idle_input(4), &[]);
+    let r2 = advance_epoch(&mut state, idle_input(4).as_effect(), &[]);
     assert_eq!(
         r2,
         Err(reason),
@@ -475,8 +475,8 @@ fn adversarial_tx0_state_locality() {
 fn adversarial_encoding_injectivity_epoch() {
     let mut a = genesis_state();
     let mut b = genesis_state();
-    advance_epoch(&mut a, &idle_input(4), &[]).unwrap();
-    advance_epoch(&mut b, &idle_input(4), &[]).unwrap();
+    advance_epoch(&mut a, idle_input(4).as_effect(), &[]).unwrap();
+    advance_epoch(&mut b, idle_input(4).as_effect(), &[]).unwrap();
     assert_eq!(
         a.state_root, b.state_root,
         "same inputs must produce same root"
@@ -484,7 +484,7 @@ fn adversarial_encoding_injectivity_epoch() {
     // Manually corrupt epoch in b after advance — root must differ when recomputed.
     // (We can't recompute without re-running advance_epoch, so we test a simpler form:
     //  two epochs of advancement vs one — roots must differ.)
-    advance_epoch(&mut b, &idle_input(4), &[]).unwrap();
+    advance_epoch(&mut b, idle_input(4).as_effect(), &[]).unwrap();
     assert_ne!(
         a.state_root, b.state_root,
         "different epochs must produce different roots"
@@ -502,8 +502,8 @@ fn adversarial_encoding_injectivity_nonce() {
     let id0 = s_a.validator_ids[0];
     let tx = make_tx0(id0, 0);
     // Advance s_a with TX-0 (nonce becomes 1), s_b without.
-    advance_epoch(&mut s_a, &idle_input(4), &[tx.as_slice()]).unwrap();
-    advance_epoch(&mut s_b, &idle_input(4), &[]).unwrap();
+    advance_epoch(&mut s_a, idle_input(4).as_effect(), &[tx.as_slice()]).unwrap();
+    advance_epoch(&mut s_b, idle_input(4).as_effect(), &[]).unwrap();
 
     assert_ne!(
         s_a.state_root, s_b.state_root,
@@ -522,8 +522,8 @@ fn adversarial_encoding_injectivity_validator_id() {
     // s_b: validator_ids[0] = [2, 0, ...]
     s_b.validator_ids[0][0] = 2;
 
-    advance_epoch(&mut s_a, &idle_input(4), &[]).unwrap();
-    advance_epoch(&mut s_b, &idle_input(4), &[]).unwrap();
+    advance_epoch(&mut s_a, idle_input(4).as_effect(), &[]).unwrap();
+    advance_epoch(&mut s_b, idle_input(4).as_effect(), &[]).unwrap();
 
     assert_ne!(
         s_a.state_root, s_b.state_root,
@@ -545,8 +545,8 @@ fn adversarial_encoding_injectivity_slash_accum() {
         slash_accum_new: FixedPoint::from_raw(1_000),
     });
 
-    advance_epoch(&mut s_a, &idle_input(4), &[]).unwrap();
-    advance_epoch(&mut s_b, &input_b, &[]).unwrap();
+    advance_epoch(&mut s_a, idle_input(4).as_effect(), &[]).unwrap();
+    advance_epoch(&mut s_b, input_b.as_effect(), &[]).unwrap();
 
     assert_ne!(
         s_a.state_root, s_b.state_root,
@@ -567,13 +567,13 @@ fn adversarial_encoding_injectivity_slash_accum() {
 fn adversarial_partition_same_inputs_same_root() {
     // "Partition A" processes 2 idle epochs, then merges.
     let mut partition_a = genesis_state();
-    advance_epoch(&mut partition_a, &idle_input(4), &[]).unwrap();
-    advance_epoch(&mut partition_a, &idle_input(4), &[]).unwrap();
+    advance_epoch(&mut partition_a, idle_input(4).as_effect(), &[]).unwrap();
+    advance_epoch(&mut partition_a, idle_input(4).as_effect(), &[]).unwrap();
 
     // "Partition B" processes 2 idle epochs independently (same inputs).
     let mut partition_b = genesis_state();
-    advance_epoch(&mut partition_b, &idle_input(4), &[]).unwrap();
-    advance_epoch(&mut partition_b, &idle_input(4), &[]).unwrap();
+    advance_epoch(&mut partition_b, idle_input(4).as_effect(), &[]).unwrap();
+    advance_epoch(&mut partition_b, idle_input(4).as_effect(), &[]).unwrap();
 
     // After the same deterministic inputs, both must agree.
     assert_eq!(
@@ -591,7 +591,7 @@ fn adversarial_partition_halt_is_deterministic() {
     fn advance_to_halt(state: &mut EpochState) {
         // Fill window with zero-divergence epochs so halt check activates.
         for _ in 0..WINDOW_SIZE {
-            let _ = advance_epoch(state, &idle_input(state.validator_count), &[]);
+            let _ = advance_epoch(state, idle_input(state.validator_count).as_effect(), &[]);
         }
         // Spike validator 0 above ε to trigger H1.
         let mut spike = idle_input(state.validator_count);
@@ -600,7 +600,7 @@ fn adversarial_partition_halt_is_deterministic() {
             conflict_new: FixedPoint::ZERO,
             slash_accum_new: FixedPoint::ZERO,
         });
-        let _ = advance_epoch(state, &spike, &[]);
+        let _ = advance_epoch(state, spike.as_effect(), &[]);
     }
 
     let mut a = genesis_state();
@@ -632,7 +632,7 @@ fn adversarial_lyapunov_violation_triggers_halt() {
 
     // Fill window with zero-divergence epochs.
     for _ in 0..WINDOW_SIZE {
-        advance_epoch(&mut state, &idle_input(4), &[]).expect("idle epoch must succeed");
+        advance_epoch(&mut state, idle_input(4).as_effect(), &[]).expect("idle epoch must succeed");
     }
     assert!(state.convergence_window.is_full(), "window must be full");
 
@@ -643,7 +643,7 @@ fn adversarial_lyapunov_violation_triggers_halt() {
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
     });
-    let r = advance_epoch(&mut state, &spike, &[]);
+    let r = advance_epoch(&mut state, spike.as_effect(), &[]);
     assert_eq!(
         r,
         Err(HaltReason::LyapunovViolation),
@@ -667,7 +667,7 @@ fn adversarial_divergence_exceeds_scale() {
         slash_accum_new: FixedPoint::ZERO,
     });
     assert_eq!(
-        advance_epoch(&mut state, &input, &[]),
+        advance_epoch(&mut state, input.as_effect(), &[]),
         Err(HaltReason::DecodeInvalid),
         "D > SCALE must trigger DecodeInvalid"
     );
@@ -684,7 +684,7 @@ fn adversarial_conflict_exceeds_scale() {
         slash_accum_new: FixedPoint::ZERO,
     });
     assert_eq!(
-        advance_epoch(&mut state, &input, &[]),
+        advance_epoch(&mut state, input.as_effect(), &[]),
         Err(HaltReason::DecodeInvalid),
         "C > SCALE must trigger DecodeInvalid"
     );
@@ -703,7 +703,7 @@ fn adversarial_update_beyond_validator_count() {
         slash_accum_new: FixedPoint::ZERO,
     });
     assert_eq!(
-        advance_epoch(&mut state, &input, &[]),
+        advance_epoch(&mut state, input.as_effect(), &[]),
         Err(HaltReason::DecodeInvalid),
         "update at slot >= validator_count must trigger DecodeInvalid"
     );
@@ -725,7 +725,7 @@ fn adversarial_max_slash_boundary_is_valid() {
         slash_accum_new: FixedPoint::from_raw(large),
     });
     assert!(
-        advance_epoch(&mut state, &input, &[]).is_ok(),
+        advance_epoch(&mut state, input.as_effect(), &[]).is_ok(),
         "large slash below phi threshold must be accepted"
     );
 
@@ -737,7 +737,7 @@ fn adversarial_max_slash_boundary_is_valid() {
         slash_accum_new: FixedPoint::from_raw(large),
     });
     assert!(
-        advance_epoch(&mut state, &input2, &[]).is_ok(),
+        advance_epoch(&mut state, input2.as_effect(), &[]).is_ok(),
         "same slash (no-op) must be accepted"
     );
 }
@@ -756,7 +756,7 @@ fn adversarial_phi_safety_halt_triggers_at_threshold() {
         slash_accum_new: FixedPoint::from_raw(at_threshold),
     });
     assert_eq!(
-        advance_epoch(&mut state, &input, &[]),
+        advance_epoch(&mut state, input.as_effect(), &[]),
         Err(HaltReason::PhiSafetyViolation),
         "slash at phi threshold must trigger PhiSafetyViolation"
     );

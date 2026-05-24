@@ -33,7 +33,7 @@ pub mod blinding;
 pub mod cascade;
 
 // Re-exports (ergonomic public API)
-pub use capability::{validate_capability, Capability};
+pub use capability::{validate_capability, Capability, EffectToken, ValidatedEffect};
 pub use causal_order::{compute_sort_key, sort_key_from_payload};
 pub use derive::{derive_leaf_index, verify_leaf_index};
 pub use domain::{CapToken, DomainA};

@@ -434,13 +434,13 @@ pub mod hosted {
                     };
                     advance_epoch_sharded(
                         &mut next_state,
-                        &epoch_input,
+                        epoch_input.into_effect(),
                         &raw_refs,
                         &epoch_sharding,
                     )
                     .map_err(HostedError::ConsensusHalt)?
                 }
-                None => advance_epoch(&mut next_state, &epoch_input, &raw_refs)
+                None => advance_epoch(&mut next_state, epoch_input.into_effect(), &raw_refs)
                     .map_err(HostedError::ConsensusHalt)?,
             };
             append_record(&self.log_path, input)?;
@@ -461,11 +461,11 @@ pub mod hosted {
                             shard_commitments: &shards,
                             zk_batch_root: sharding.zk_batch_root,
                         };
-                        advance_epoch_sharded(&mut state, &epoch_input, &raw_refs, &epoch_sharding)
+                        advance_epoch_sharded(&mut state, epoch_input.into_effect(), &raw_refs, &epoch_sharding)
                             .map_err(HostedError::ConsensusHalt)?;
                     }
                     None => {
-                        advance_epoch(&mut state, &epoch_input, &raw_refs)
+                        advance_epoch(&mut state, epoch_input.into_effect(), &raw_refs)
                             .map_err(HostedError::ConsensusHalt)?;
                     }
                 }

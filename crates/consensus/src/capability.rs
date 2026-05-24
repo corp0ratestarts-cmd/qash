@@ -91,29 +91,19 @@ pub enum CapabilityError {
 
 /// A validated effect bundle ready to cross the Domain B → Domain A boundary.
 ///
-/// `ValidatedEffect` wraps all inputs that `advance_epoch` needs from Domain B:
-/// - `update_count` and `updates` (validator metric deltas, pre-validated)
-/// - `protocol_version` (already version-checked against the compatibility window)
-/// - `raw_txs_count` (number of raw envelopes; actual bytes stay in Domain B until admission)
+/// `ValidatedEffect` is a type alias for [`crate::transition::EpochInput`].
+/// Using the name `ValidatedEffect` at the `EffectToken` boundary documents that
+/// Domain B has completed all pre-validation checks (signature verification,
+/// nonce anti-replay, admission gate) before wrapping a reference to the input.
 ///
-/// Domain B must construct this type only after completing all pre-validation
-/// checks (signature verification, nonce anti-replay, admission gate). An
-/// `EffectToken<ValidatedEffect>` at the `advance_epoch` boundary proves that
-/// the pre-validation pass has completed and its result is the sole input.
+/// `advance_epoch` accepts `EffectToken<&ValidatedEffect>` — the token wraps a
+/// reference (8 bytes), not an owned copy. This avoids a ~64 KB stack copy of the
+/// `updates` array on every epoch transition. The token is still move-only, which
+/// proves Domain B holds the pre-validation obligation and cannot accidentally
+/// double-unwrap the same crossing-point value.
 ///
-/// # Relationship to `EpochInput`
-///
-/// `ValidatedEffect` parallels `EpochInput` structurally. The migration from
-/// `EpochInput` to `EffectToken<ValidatedEffect>` in the `advance_epoch`
-/// signature is tracked by proof obligation cap_token_schema.v
-/// (`proofs/capability/cap_token_schema.v`).
-#[derive(Debug, Clone, Copy)]
-pub struct ValidatedEffect {
-    /// Protocol version of the originating envelope (validated by Domain B).
-    pub protocol_version: u32,
-    /// Number of active validators this epoch.
-    pub update_count: u32,
-}
+/// Proof obligation: `proofs/capability/cap_token_schema.v` (CT-1 through CT-3).
+pub type ValidatedEffect = crate::transition::EpochInput;
 
 /// A Domain B → Domain A capability token wrapping a value of type `T`.
 ///

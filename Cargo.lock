@@ -712,6 +712,7 @@ dependencies = [
  "criterion",
  "kupyna",
  "proptest",
+ "qash-model",
  "serde_json",
  "sha3 0.10.9",
  "sm3",

@@ -62,7 +62,7 @@ fn gen_coq_vectors() {
     {
         let mut s = genesis(4);
         let steps = vec![emit_step_idle(4)];
-        advance_epoch(&mut s, &idle(4), &[]).unwrap();
+        advance_epoch(&mut s, idle(4).as_effect(), &[]).unwrap();
         records.push(format!(
             r#"  {{"id":"TV-1","desc":"1 idle epoch","vc":4,"steps":[{}],"expect":{{"epoch":{},"halt":false,"halt_reason":{},"state_root":"{}"}}}}"#,
             steps.join(","), s.epoch, hr(s.halt_reason), root_hex(&s.state_root)
@@ -74,7 +74,7 @@ fn gen_coq_vectors() {
         let mut s = genesis(4);
         let steps: Vec<String> = (0..3).map(|_| emit_step_idle(4)).collect();
         for _ in 0..3 {
-            advance_epoch(&mut s, &idle(4), &[]).unwrap();
+            advance_epoch(&mut s, idle(4).as_effect(), &[]).unwrap();
         }
         records.push(format!(
             r#"  {{"id":"TV-2","desc":"3 idle epochs, window full","vc":4,"steps":[{}],"expect":{{"epoch":{},"halt":false,"halt_reason":{},"state_root":"{}"}}}}"#,
@@ -93,7 +93,7 @@ fn gen_coq_vectors() {
             slash_accum_new: FixedPoint::ZERO,
         });
         let steps = vec![emit_step_spike(4, 0, spike_raw, 0, 0)];
-        advance_epoch(&mut s, &input, &[]).unwrap();
+        advance_epoch(&mut s, input.as_effect(), &[]).unwrap();
         records.push(format!(
             r#"  {{"id":"TV-3","desc":"sub-epsilon spike, window empty, no halt","vc":4,"steps":[{}],"expect":{{"epoch":{},"halt":false,"halt_reason":{},"state_root":"{}"}}}}"#,
             steps.join(","), s.epoch, hr(s.halt_reason), root_hex(&s.state_root)
@@ -105,7 +105,7 @@ fn gen_coq_vectors() {
         let mut s = genesis(4);
         let mut steps: Vec<String> = (0..WINDOW_SIZE).map(|_| emit_step_idle(4)).collect();
         for _ in 0..WINDOW_SIZE {
-            advance_epoch(&mut s, &idle(4), &[]).unwrap();
+            advance_epoch(&mut s, idle(4).as_effect(), &[]).unwrap();
         }
 
         let spike_raw = 900_000i64;
@@ -119,7 +119,7 @@ fn gen_coq_vectors() {
         }
         steps.push(emit_step_spike(4, 0, spike_raw, spike_raw, 0));
         let epoch_before = s.epoch;
-        let res = advance_epoch(&mut s, &spike_input, &[]);
+        let res = advance_epoch(&mut s, spike_input.as_effect(), &[]);
         assert_eq!(res, Err(HaltReason::LyapunovViolation));
         records.push(format!(
             r#"  {{"id":"TV-4","desc":"window full then spike → LyapunovViolation halt","vc":4,"steps":[{}],"expect":{{"epoch":{},"halt":true,"halt_reason":{},"state_root":"{}"}}}}"#,
@@ -131,7 +131,7 @@ fn gen_coq_vectors() {
     {
         let mut s = genesis(4);
         for _ in 0..WINDOW_SIZE {
-            advance_epoch(&mut s, &idle(4), &[]).unwrap();
+            advance_epoch(&mut s, idle(4).as_effect(), &[]).unwrap();
         }
         let mut spike_input = idle(4);
         for i in 0..4 {
@@ -141,12 +141,12 @@ fn gen_coq_vectors() {
                 slash_accum_new: FixedPoint::ZERO,
             });
         }
-        advance_epoch(&mut s, &spike_input, &[]).unwrap_err();
+        advance_epoch(&mut s, spike_input.as_effect(), &[]).unwrap_err();
         // 5 more steps — state must not change
         let root_after_halt = s.state_root;
         let epoch_after_halt = s.epoch;
         for _ in 0..5 {
-            advance_epoch(&mut s, &idle(4), &[]).unwrap_err();
+            advance_epoch(&mut s, idle(4).as_effect(), &[]).unwrap_err();
         }
         assert_eq!(s.state_root, root_after_halt);
         records.push(format!(
@@ -159,7 +159,7 @@ fn gen_coq_vectors() {
     {
         let mut s = genesis(4);
         let bad = EpochInput::new(3);
-        let res = advance_epoch(&mut s, &bad, &[]);
+        let res = advance_epoch(&mut s, bad.as_effect(), &[]);
         assert_eq!(res, Err(HaltReason::DecodeInvalid));
         records.push(format!(
             r#"  {{"id":"TV-6","desc":"DecodeInvalid via wrong update_count","vc":4,"steps":[],"expect":{{"epoch":{},"halt":true,"halt_reason":{},"state_root":"{}"}}}}"#,
@@ -177,7 +177,7 @@ fn gen_coq_vectors() {
             conflict_new: FixedPoint::ZERO,
             slash_accum_new: FixedPoint::from_raw(500), // decrease
         });
-        let res = advance_epoch(&mut s, &input, &[]);
+        let res = advance_epoch(&mut s, input.as_effect(), &[]);
         assert_eq!(res, Err(HaltReason::DecodeInvalid));
         records.push(format!(
             r#"  {{"id":"TV-7","desc":"DecodeInvalid via slash_accum decrease","vc":4,"steps":[],"expect":{{"epoch":{},"halt":true,"halt_reason":{},"state_root":"{}"}}}}"#,
@@ -189,7 +189,7 @@ fn gen_coq_vectors() {
     {
         let mut s = genesis(4);
         for _ in 0..3 {
-            advance_epoch(&mut s, &idle(4), &[]).unwrap();
+            advance_epoch(&mut s, idle(4).as_effect(), &[]).unwrap();
         }
         let seed_is_nonzero = s.entropy_seed != [0u8; 32];
         let seed_hex: String = s
@@ -208,7 +208,7 @@ fn gen_coq_vectors() {
         let mut s = genesis(1);
         let steps: Vec<String> = (0..2).map(|_| emit_step_idle(1)).collect();
         for _ in 0..2 {
-            advance_epoch(&mut s, &idle(1), &[]).unwrap();
+            advance_epoch(&mut s, idle(1).as_effect(), &[]).unwrap();
         }
         records.push(format!(
             r#"  {{"id":"TV-9","desc":"single validator, 2 idle epochs","vc":1,"steps":[{}],"expect":{{"epoch":{},"halt":false,"halt_reason":{},"state_root":"{}"}}}}"#,
@@ -227,7 +227,7 @@ fn gen_replay_snapshots() {
     fn snap(label: &str, vc: u32, epochs: usize) {
         let mut s = genesis(vc);
         for _ in 0..epochs {
-            advance_epoch(&mut s, &idle(vc), &[]).unwrap();
+            advance_epoch(&mut s, idle(vc).as_effect(), &[]).unwrap();
         }
         let mut buf = [0u8; FULL_STATE_MAX_BYTES];
         let len = encode_full_state_into(&mut s, &mut buf);
@@ -266,7 +266,7 @@ fn _scratch_check_v1_vectors() {
         causal_fingerprint: [0u8; 32],
     };
     let input = EpochInput::new(4);
-    advance_epoch(&mut state, &input, &[]).unwrap();
+    advance_epoch(&mut state, input.as_effect(), &[]).unwrap();
     eprintln!(
         "4-validator epoch 1 root: {}",
         hex_encode(&state.state_root)
@@ -289,7 +289,7 @@ fn _scratch_check_v1_vectors() {
         causal_fingerprint: [0u8; 32],
     };
     let input0 = EpochInput::new(0);
-    let r0 = advance_epoch(&mut state0, &input0, &[]);
+    let r0 = advance_epoch(&mut state0, input0.as_effect(), &[]);
     eprintln!("0-validator epoch 1 result: {:?}", r0);
     if r0.is_ok() {
         eprintln!(
@@ -333,7 +333,7 @@ fn _scratch_epoch2_root() {
     };
     for epoch in 1..=2u64 {
         let input = EpochInput::new(4);
-        let r = advance_epoch(&mut state, &input, &[]).unwrap();
+        let r = advance_epoch(&mut state, input.as_effect(), &[]).unwrap();
         let bytes: Vec<String> = state
             .state_root
             .iter()

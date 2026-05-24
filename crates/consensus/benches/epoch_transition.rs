@@ -113,7 +113,7 @@ fn bench_epoch_transition(c: &mut Criterion) {
             let input = idle_input(vc);
             b.iter(|| {
                 let mut state = state_init;
-                let _ = advance_epoch(black_box(&mut state), black_box(&input), black_box(&[]));
+                let _ = advance_epoch(black_box(&mut state), black_box(input.as_effect()), black_box(&[]));
                 black_box(state.state_root)
             });
         });
@@ -126,7 +126,7 @@ fn bench_epoch_transition(c: &mut Criterion) {
             let input = max_divergence_input(vc);
             b.iter(|| {
                 let mut state = state_init;
-                let _ = advance_epoch(black_box(&mut state), black_box(&input), black_box(&[]));
+                let _ = advance_epoch(black_box(&mut state), black_box(input.as_effect()), black_box(&[]));
                 black_box(state.state_root)
             });
         });
@@ -185,7 +185,7 @@ fn bench_replay(c: &mut Criterion) {
                     let mut state = make_state(4);
                     let input = idle_input(4);
                     for _ in 0..epochs {
-                        let _ = advance_epoch(&mut state, &input, &[]);
+                        let _ = advance_epoch(&mut state, input.as_effect(), &[]);
                     }
                     black_box(state.state_root)
                 });
@@ -199,7 +199,7 @@ fn bench_replay(c: &mut Criterion) {
             let mut state = make_state(1024);
             let input = idle_input(1024);
             for _ in 0..10 {
-                let _ = advance_epoch(&mut state, &input, &[]);
+                let _ = advance_epoch(&mut state, input.as_effect(), &[]);
             }
             black_box(state.state_root)
         });
@@ -313,7 +313,7 @@ fn bench_phase2r_epoch_advancement_baseline(c: &mut Criterion) {
             b.iter(|| {
                 let mut state = state_init;
                 let result =
-                    advance_epoch(black_box(&mut state), black_box(&input), black_box(&[]));
+                    advance_epoch(black_box(&mut state), black_box(input.as_effect()), black_box(&[]));
                 black_box(result.is_ok())
             });
         });

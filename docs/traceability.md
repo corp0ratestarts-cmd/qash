@@ -143,12 +143,12 @@
 |-------|-------|
 | **PDF §** | §5 (hosted/platform abstraction, provisional) |
 | **PDF quote** | `PDF-SILENT`: the provisional PDF does not define the hosted crash-recovery log format or Domain B → Domain A ingress allow-list. |
-| **Code** | `crates/pal/src/lib.rs` implements `hosted::Host`, canonical input records, accepted-input persistence, replay from genesis, and Domain-B-only time/network/attestation/reset helpers. |
-| **Test / Vector** | `crates/pal/tests/hosted_replay.rs` replays the same persisted input log from genesis after a simulated crash/restart and checks identical state roots. |
+| **Code** | `crates/pal/src/lib.rs` implements `hosted::Host`, canonical input records, accepted-input persistence, replay from genesis, and Domain-B-only time/network/attestation/reset helpers. Stage 1 additions: `crates/pal/src/recovery_wal.rs` (commitment-only recovery WAL with truncation policy and `replay_into_evidence()`), `crates/pal/src/ingress.rs` (`CommitmentIngress` facade: backpressure → inbox → WAL, roots only), `crates/pal/src/attestation.rs` (`LocalAttestationEvidence` + `LocalAttestationVerifier` trait; attestation result cannot alter Domain A transition input). Stage 2: `crates/pal/src/receipt.rs` (`ReceiptEncryptionProfile`, `DisclosureDomain::may_disclose_to(Observer)` enforcement gate, vault recovery semantics). Stage 3: `crates/pal/src/zk.rs` (`ZkVerifier` trait, `ZkProfileId`, `ZkBatchRoot` — proof bytes never returned to Domain A). Stage 4: `crates/pal/src/crypto/sig.rs` (`PqcSignatureVerifier` trait, `MockPqcVerifier` gated behind `feature = "mock_signatures"`). |
+| **Test / Vector** | `crates/pal/tests/hosted_replay.rs` replays the same persisted input log from genesis after a simulated crash/restart and checks identical state roots. Stage 1: 11 WAL tests, 8 ingress tests, 9 attestation boundary tests. Stage 2: 11 receipt privacy negative tests (`crates/pal/tests/receipt_privacy_negative.rs`). Stage 3: 10 ZK profile-lock tests (`crates/pal/tests/zk_profile_lock.rs`). Stage 4: PQC verifier trait tests (mock_signatures feature-gated). |
 | **Threat Model** | `docs/threat_model/nondeterminism.md` defines the Domain B → Domain A boundary and the minimal hosted runtime milestone. |
 | **Proof** | — |
 | **Status** | ⚠️ |
-| **Gap** | Hosted PAL replay determinism has integration coverage on the native test target; cross-ISA hosted replay artifacts and corrupt-log fuzzing remain future work. |
+| **Gap** | Hosted PAL replay determinism has integration coverage on the native test target; cross-ISA hosted replay artifacts, corrupt-log fuzzing, and production PQC signature verifier (Dilithium5 backend) remain future work. Receipt-privacy cross-ISA evidence and ZK proof-byte non-entry guard are deferred to Stage 3d. |
 
 ## P1+ — Deferred Work Items
 
@@ -157,10 +157,12 @@
 | P1-1 | §3.1 (pp. 5–6, provisional) | Multi-primitive cascade verification | Crypto integration phase. |
 | P1-2 | §4.3 (p. 10, provisional) | Dual-path verification | Requires cascade verification. |
 | P1-3 | §3.5 (pp. 8–9, provisional) | Crypto agility schedule | Requires cascade selection and vector coverage. |
-| P1-4 | §5 | Hardware abstraction and deployment tiers | PAL implementation phase. |
-| P1-5 | §5 | Hosted PAL nondeterminism boundary | Minimal hosted runtime now implemented; cross-ISA replay artifacts deferred. |
+| P1-4 | §5 | Hardware abstraction and deployment tiers | Local attestation evidence boundary implemented (Stage 1d); hardware bytes excluded from public transcript by design. Cross-TEE deployment tiers deferred. |
+| P1-5 | §5 | Hosted PAL nondeterminism boundary | Stage 1–4 PAL hardening complete (recovery WAL, ingress facade, attestation boundary, receipt privacy, ZK verifier trait, PQC sig trait). Cross-ISA hosted replay artifacts and production Dilithium5 backend deferred. |
 | P1-6 | §6 | Obfuscation VM | Later subsystem phase. |
-| P1-7 | §7 | Clone protocol | Later subsystem phase. |
-| P1-8 | PDF-SILENT | Runtime optimization track | Scheduled by `docs/adr/ADR-006-runtime-optimization-track.md`; implementation is deferred until parity and benchmark gates exist. |
+| P1-7 | §7 | Clone protocol | Removed from genesis constants (C2 fix); belongs in a separate spec document. |
+| P1-8 | PDF-SILENT | Runtime optimization track | Scheduled as Stage 5; gates on benchmark baseline archive and parity test coverage. |
+| P1-9 | PDF-SILENT | ZK proof backend (Plonky3 FRI-STARK) | `zk.rs` trait scaffold in place (Stage 3d); production Plonky3 backend deferred to Stage 10. |
+| P1-10 | PDF-SILENT | PQC signature verification (Dilithium5) | `PqcSignatureVerifier` trait in place (Stage 4a); production backend deferred pending Stage 3 stability. |
 | P2-1 | §9.1 (pp. 24–25, provisional) | `vm_correctness` proof | Depends on obfuscation VM. |
 | P2-2 | §9.1 (pp. 24–25, provisional) | `decoy_state_identity` proof | Depends on obfuscation VM. |

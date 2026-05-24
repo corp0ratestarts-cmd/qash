@@ -79,7 +79,7 @@ fn run_corpus() -> std::vec::Vec<(u64, [u8; 32], [u8; 32], [u8; 32])> {
             shard_commitments: &shards,
             zk_batch_root: zk_batch_root(step),
         };
-        let result = advance_epoch_sharded(&mut state, &input(), &[], &sharding).unwrap();
+        let result = advance_epoch_sharded(&mut state, input().as_effect(), &[], &sharding).unwrap();
         assert_eq!(result.public_transcript.efb_root, state.efb_root);
         assert_eq!(result.public_transcript.receipt_root, state.receipt_root);
         out.push((

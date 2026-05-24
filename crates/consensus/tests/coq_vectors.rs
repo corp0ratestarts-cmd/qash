@@ -111,7 +111,7 @@ fn run_tv0(vc: u32) -> EpochState {
 fn run_idle_epochs(vc: u32, n: usize) -> EpochState {
     let mut s = genesis(vc);
     for _ in 0..n {
-        advance_epoch(&mut s, &idle_input(vc), &[]).unwrap();
+        advance_epoch(&mut s, idle_input(vc).as_effect(), &[]).unwrap();
     }
     s
 }
@@ -124,7 +124,7 @@ fn run_sub_epsilon_spike(vc: u32, divergence: i128) -> EpochState {
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::ZERO,
     });
-    advance_epoch(&mut s, &input, &[]).unwrap();
+    advance_epoch(&mut s, input.as_effect(), &[]).unwrap();
     s
 }
 
@@ -132,7 +132,7 @@ fn run_window_fill_then_spike(vc: u32) -> EpochState {
     use qash_consensus::lyapunov::WINDOW_SIZE;
     let mut s = genesis(vc);
     for _ in 0..WINDOW_SIZE {
-        advance_epoch(&mut s, &idle_input(vc), &[]).unwrap();
+        advance_epoch(&mut s, idle_input(vc).as_effect(), &[]).unwrap();
     }
     let mut spike = idle_input(vc);
     for i in 0..vc as usize {
@@ -142,14 +142,14 @@ fn run_window_fill_then_spike(vc: u32) -> EpochState {
             slash_accum_new: FixedPoint::ZERO,
         });
     }
-    let _ = advance_epoch(&mut s, &spike, &[]);
+    let _ = advance_epoch(&mut s, spike.as_effect(), &[]);
     s
 }
 
 fn run_halt_absorbing(vc: u32) -> EpochState {
     let mut s = run_window_fill_then_spike(vc);
     for _ in 0..5 {
-        let _ = advance_epoch(&mut s, &idle_input(vc), &[]);
+        let _ = advance_epoch(&mut s, idle_input(vc).as_effect(), &[]);
     }
     s
 }
@@ -161,7 +161,7 @@ fn run_decode_invalid_update_count(vc: u32) -> EpochState {
         protocol_version: qash_consensus::envelope::PROTOCOL_VERSION_V1_1,
         update_count: vc - 1,
     };
-    let _ = advance_epoch(&mut s, &bad, &[]);
+    let _ = advance_epoch(&mut s, bad.as_effect(), &[]);
     s
 }
 
@@ -174,7 +174,7 @@ fn run_decode_invalid_slash_decrease(vc: u32) -> EpochState {
         conflict_new: FixedPoint::ZERO,
         slash_accum_new: FixedPoint::from_raw(500),
     });
-    let _ = advance_epoch(&mut s, &input, &[]);
+    let _ = advance_epoch(&mut s, input.as_effect(), &[]);
     s
 }
 
