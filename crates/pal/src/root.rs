@@ -1,4 +1,5 @@
 pub mod admission;
+pub mod commitment_inbox;
 pub mod commitment_transport;
 pub mod receipt;
 pub mod recovery_wal;
