@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Guard the production zero-persistence PAL path. The hosted replay scaffold may
 # still contain raw fixture handling, but production admission, receipt privacy,
-# WAL modules, transport/recovery, graph non-publication, and public transcript
-# surfaces must remain commitment-only.
+# WAL modules, commitment inbox/transport/recovery, graph non-publication, and
+# public transcript surfaces must remain commitment-only.
 
 cargo check -p qash-pal --features zero-persistence --no-default-features
 cargo test -p qash-pal --features zero-persistence --test zero_persistence
@@ -12,6 +12,7 @@ cargo test -p qash-pal --features zero-persistence --test zero_persistence_profi
 cargo test -p qash-pal --features zero-persistence --test ephemeral_traits
 cargo test -p qash-pal --features zero-persistence --test receipt_privacy
 cargo test -p qash-pal --features zero-persistence --test commitment_transport_recovery
+cargo test -p qash-pal --features zero-persistence --test commitment_inbox
 cargo test -p qash-consensus --test public_transcript_privacy
 bash scripts/check_graph_non_publication.sh
 
@@ -24,6 +25,7 @@ checks = [
     (
         [
             Path('crates/pal/src/admission.rs'),
+            Path('crates/pal/src/commitment_inbox.rs'),
             Path('crates/pal/src/commitment_transport.rs'),
             Path('crates/pal/src/receipt.rs'),
             Path('crates/pal/src/recovery_wal.rs'),
