@@ -58,9 +58,15 @@ impl<const N: usize> CommitmentInbox<N> {
             let mut j = i;
             while j > 0 && epoch_of(self.frames[j - 1]) > epoch_of(self.frames[j]) {
                 self.frames.swap(j - 1, j);
-                j = j.checked_sub(1).expect("j > 0 checked above");
+                match j.checked_sub(1) {
+                    Some(next) => j = next,
+                    None => break,
+                }
             }
-            i = i.checked_add(1).expect("i < self.len <= N");
+            match i.checked_add(1) {
+                Some(next) => i = next,
+                None => break,
+            }
         }
     }
 }
@@ -85,7 +91,13 @@ impl<'a, const N: usize> Iterator for DrainOrdered<'a, N> {
             return None;
         }
         let item = self.inbox.frames[self.cursor].take();
-        self.cursor = self.cursor.checked_add(1).expect("cursor < len <= N");
+        self.cursor = match self.cursor.checked_add(1) {
+            Some(next) => next,
+            None => {
+                self.inbox.len = 0;
+                return None;
+            }
+        };
         item
     }
 }
