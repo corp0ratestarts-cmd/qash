@@ -1,20 +1,22 @@
-# QASH Trustless Genesis and Local Hardware OpSec
+# QASH Trustless Genesis and Vendor-Agnostic Local Hardware OpSec
 ## `docs/spec/15_trustless_genesis_and_local_opsec.md` — Anti-Ceremony Invariant Draft
 
 > **Status:** Derived engineering specification. This document constrains future
 > Domain B hardware hardening work and clarifies that hardware security is local
-> operator OpSec, not protocol authority.
+> operator OpSec, not protocol authority or a vendor mandate.
 
 ---
 
 ## §15.1 — Purpose
 
 This document prevents QASH from drifting into enterprise PKI, foundation
-custody, trusted setup, or ceremony-based bootstrapping models.
+custody, trusted setup, ceremony-based bootstrapping, or vendor-specific hardware
+requirements.
 
 QASH is designed to be a governance-free deterministic state-transition
 substrate. Its genesis and liveness properties must not depend on private
-humans, vendor hardware, custody ceremonies, or trusted dealers.
+humans, vendor hardware, custody ceremonies, trusted dealers, or procurement
+choices.
 
 ---
 
@@ -37,7 +39,7 @@ The genesis artifact set MUST NOT require:
 - a trusted setup ceremony,
 - multi-party toxic-waste generation,
 - private validator whitelists,
-- YubiKey, YubiHSM, TPM, HSM, DPU, or TEE attestations,
+- vendor hardware attestations,
 - human quorum approval,
 - network master keys,
 - any private secret that must be trusted by later participants.
@@ -63,21 +65,33 @@ the network genesis state.
 
 ### AC-3: No protocol-critical vendor hardware
 
-No Yubico, HSM, TPM, DPU, TEE, smart card, cloud KMS, or equivalent vendor device
-may be required to run a conforming QASH node in the permissionless profile.
+No hardware authenticator, smart card, HSM, TPM, DPU, TEE, cloud KMS, sovereign
+secure element, or vendor-specific device may be required to run a conforming
+QASH node in the permissionless profile.
 
 ### AC-4: No human liveness dependency
 
 Routine transaction admission, epoch closure, finality, replay, halt handling,
 and global liveness recovery MUST NOT require physical touch, PIN entry, smart
-card insertion, human quorum, manual ceremony, or admin approval.
+card insertion, human quorum, manual ceremony, HSM-admin approval, or cloud-KMS
+approval.
 
 ### AC-5: No hardware-derived consensus semantics
 
-Hardware attestation, hardware identifiers, HSM audit logs, FIDO assertions,
-PIV certificates, TPM quotes, enclave reports, or local operator policies MUST
-NOT change Domain A state transitions, halt semantics, finality rules, or public
-transcript semantics.
+Hardware attestation, hardware identifiers, HSM/KMS audit logs, FIDO assertions,
+PIV certificates, TPM quotes, enclave reports, secure-element state, or local
+operator policies MUST NOT change Domain A state transitions, halt semantics,
+finality rules, or public transcript semantics.
+
+### AC-6: Standards before vendors
+
+Normative QASH specifications MUST describe optional hardware integration by
+standards, interface classes, and evidence classes rather than vendor-specific
+products.
+
+Vendor-specific OIDs, CLI commands, object schemas, audit-log formats, daemon
+names, and SDK assumptions belong in optional backend guides or conformance
+profiles, not in the protocol authority layer.
 
 ---
 
@@ -87,9 +101,12 @@ Hardware security is permitted as optional local node protection.
 
 Permitted Domain B uses include:
 
-- FIDO2 or PIV for operator SSH and administrative access,
-- YubiHSM or equivalent HSM for local validator key wrapping,
-- HSM-backed local audit MAC chains,
+- FIDO2/CTAP2/WebAuthn or equivalent for operator SSH and administrative access,
+- PIV/FIPS 201 or equivalent smart-card profiles for local administrative keys,
+- PKCS#11 or equivalent HSM interfaces for local validator key wrapping,
+- TPM 2.0 or equivalent measured-boot attestation for local platform evidence,
+- FIPS 140-3 or sovereign-equivalent HSMs for local custody requirements,
+- HSM-backed or KMS-backed local audit MAC chains,
 - release-signing keys for a specific distributor or maintainer,
 - local backup and disaster recovery,
 - optional threshold signing for one operator's own node key,
@@ -100,22 +117,28 @@ assumptions. Their failure affects only the local operator.
 
 ---
 
-## §15.5 — Yubico Integration Boundary
+## §15.5 — Vendor-Agnostic Hardware Boundary
 
-Yubico components may be useful in QASH deployments, but only within this local
+Hardware components may be useful in QASH deployments, but only within this local
 OpSec boundary:
 
-| Component | Permitted role | Forbidden role |
+| Capability class | Permitted role | Forbidden role |
 |---|---|---|
-| YubiKey FIDO2 | operator login, admin approval, local recovery | consensus signing, epoch finality, genesis authority |
-| YubiKey PIV | local release signing, local recovery, optional maintainer keys | protocol master key, required genesis ceremony |
-| YubiHSM 2 | local wrap keys, audit MACs, opaque local objects | network master key, PQC hot-path engine, consensus halt oracle |
-| FIDO2 Enterprise Attestation | private permissioned inventory evidence | global public transcript identity |
-| YubiHSM audit log | local custody evidence | Domain A halt trigger or global liveness condition |
+| FIDO2/CTAP2/WebAuthn authenticator | operator login, admin approval, local recovery | consensus signing, epoch finality, genesis authority |
+| PIV/FIPS 201 smart card or equivalent | local release signing, local recovery, optional maintainer keys | protocol master key, required genesis ceremony |
+| PKCS#11/FIPS/sovereign HSM | local wrap keys, audit MACs, opaque local objects | network master key, consensus halt oracle |
+| TPM 2.0 or equivalent platform attestor | local measured-boot evidence | Domain A input, permissionless validator requirement |
+| TEE/DPU | optional local hardening for admission/key handling | protocol authority, genesis dependency |
+| Hardware audit log | local custody evidence | Domain A halt trigger or global liveness condition |
 
-YubiHSM 2 is not treated as a native ML-KEM or ML-DSA execution engine. PQC
-hot-path execution belongs in software, TEE, DPU, or a future PQC-capable HSM
-profile that remains Domain B local deployment infrastructure.
+No vendor product is treated as a native requirement for QASH. Yubico, Nitrokey,
+Google Titan, Feitian, Thales, Utimaco, Entrust, Infineon, AWS CloudHSM, Azure
+Managed HSM, national/sovereign HSMs, or equivalent devices may appear in
+operator guides as backend examples only.
+
+PQC hot-path execution belongs in software, TEE, DPU, or future PQC-capable local
+hardware profiles. It remains Domain B local deployment infrastructure and must
+not become a permissionless protocol requirement.
 
 ---
 
@@ -125,11 +148,12 @@ Raw hardware identifiers are forbidden in global public transcript surfaces.
 
 Forbidden public fields include:
 
-- YubiKey serial numbers,
+- hardware-authenticator serial numbers,
 - FIDO AAGUIDs,
 - TPM endorsement keys,
-- HSM serial numbers,
+- HSM or smart-card serial numbers,
 - certificate subject names,
+- cloud KMS resource identifiers,
 - enclave measurement metadata tied to a persistent operator identity,
 - stable device fingerprints.
 
@@ -152,11 +176,11 @@ Local hardware failure must remain local.
 
 | Failure | Permitted consequence | Forbidden consequence |
 |---|---|---|
-| Lost YubiKey | operator loses local admin/recovery path | network halt |
-| YubiHSM log full | local alert/quarantine | Domain A absorbing halt |
-| TEE attestation mismatch | local node not admitted to private profile | global genesis rejection |
+| Lost authenticator or smart card | operator loses local admin/recovery path | network halt |
+| HSM/KMS log full or unavailable | local alert/quarantine | Domain A absorbing halt |
+| TEE/DPU/TPM attestation mismatch | local node not admitted to private profile | global genesis rejection |
 | Threshold signer unavailable | operator's validator may miss signing | global finality dependency |
-| HSM erased local key | local key unavailable | protocol state mutation |
+| HSM/KMS erased local key | local key unavailable | protocol state mutation |
 
 ---
 
@@ -170,7 +194,7 @@ rewritten if they introduce:
 - foundation-controlled network keys,
 - human quorums for protocol liveness,
 - vendor hardware as a protocol requirement,
-- local HSM/TEE state as a Domain A input,
+- local HSM/KMS/TEE/TPM/DPU state as a Domain A input,
 - raw hardware identifiers in public transcript surfaces.
 
 This review gate applies even when the proposal improves local security.
