@@ -42,6 +42,10 @@ jobs:
         run: ./scripts/verify_rust_toolchain.sh
       - name: Test
         run: cargo test --workspace --no-default-features
+      - name: Lyapunov confluence gate (LC-1 / LC-2)
+        run: cargo test -p qash-consensus skiplist_confluence --no-default-features
+      - name: Interpreter conformance gate (70k assertions)
+        run: cargo test -p qash-consensus --test interpreter_conformance --no-default-features
       - name: Verify deterministic build pipeline
         run: ./scripts/verify_two_stage_build.sh
       - name: Verify genesis artifact-set hash

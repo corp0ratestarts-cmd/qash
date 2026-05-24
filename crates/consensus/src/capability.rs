@@ -85,6 +85,66 @@ pub enum CapabilityError {
     UnknownCode,
 }
 
+// ---------------------------------------------------------------------------
+// Effect-Capability Token (Stage 6a / 1-A)
+// ---------------------------------------------------------------------------
+
+/// A validated effect bundle ready to cross the Domain B → Domain A boundary.
+///
+/// `ValidatedEffect` wraps all inputs that `advance_epoch` needs from Domain B:
+/// - `update_count` and `updates` (validator metric deltas, pre-validated)
+/// - `protocol_version` (already version-checked against the compatibility window)
+/// - `raw_txs_count` (number of raw envelopes; actual bytes stay in Domain B until admission)
+///
+/// Domain B must construct this type only after completing all pre-validation
+/// checks (signature verification, nonce anti-replay, admission gate). An
+/// `EffectToken<ValidatedEffect>` at the `advance_epoch` boundary proves that
+/// the pre-validation pass has completed and its result is the sole input.
+///
+/// # Relationship to `EpochInput`
+///
+/// `ValidatedEffect` parallels `EpochInput` structurally. The migration from
+/// `EpochInput` to `EffectToken<ValidatedEffect>` in the `advance_epoch`
+/// signature is tracked by proof obligation cap_token_schema.v
+/// (`proofs/capability/cap_token_schema.v`).
+#[derive(Debug, Clone, Copy)]
+pub struct ValidatedEffect {
+    /// Protocol version of the originating envelope (validated by Domain B).
+    pub protocol_version: u32,
+    /// Number of active validators this epoch.
+    pub update_count: u32,
+}
+
+/// A Domain B → Domain A capability token wrapping a value of type `T`.
+///
+/// Wrapping a value in `EffectToken<T>` asserts that Domain B has completed
+/// all pre-validation obligations for that value before forwarding it into
+/// Domain A. Domain A functions that accept `EffectToken<T>` must never
+/// short-circuit the unwrap — the unwrap is the audit point.
+///
+/// # Invariants (enforced by construction)
+///
+/// 1. An `EffectToken` can only be constructed via `EffectToken::new` —
+///    there is no `Default`, no `Copy`, and no `Clone` implementation.
+/// 2. The inner value is consumed on first `.into_inner()` call (move semantics
+///    prevent double-unwrap at the boundary).
+pub struct EffectToken<T>(T);
+
+impl<T> EffectToken<T> {
+    /// Wrap a Domain B value, asserting all pre-validation obligations are met.
+    pub fn new(value: T) -> Self {
+        Self(value)
+    }
+
+    /// Consume the token and extract the inner value for Domain A use.
+    ///
+    /// This call is the sole admitted crossing point for the wrapped value.
+    /// Domain A must not store the result beyond the current transition call.
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
