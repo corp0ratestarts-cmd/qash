@@ -15,39 +15,28 @@ pub enum RecoveryWalError {
 
 pub fn encode_record(record: ZeroPersistenceWalRecord) -> [u8; RECOVERY_RECORD_BYTES] {
     let mut out = [0u8; RECOVERY_RECORD_BYTES];
-    let mut pos = 0;
     match record {
         ZeroPersistenceWalRecord::EffectCommitment { epoch, effect_root, receipt_root } => {
             out[0] = 1;
-            pos = 8;
-            out[pos..pos + 8].copy_from_slice(&epoch.to_le_bytes());
-            pos += 8;
-            out[pos..pos + 32].copy_from_slice(&effect_root);
-            pos += 32;
-            out[pos..pos + 32].copy_from_slice(&receipt_root);
+            write_u64(&mut out, 8, epoch);
+            write_root(&mut out, 16, effect_root);
+            write_root(&mut out, 48, receipt_root);
         }
         ZeroPersistenceWalRecord::StateRoot { epoch, state_root } => {
             out[0] = 2;
-            pos = 8;
-            out[pos..pos + 8].copy_from_slice(&epoch.to_le_bytes());
-            pos += 8;
-            out[pos..pos + 32].copy_from_slice(&state_root);
+            write_u64(&mut out, 8, epoch);
+            write_root(&mut out, 16, state_root);
         }
         ZeroPersistenceWalRecord::BlindAudit { epoch, event_root } => {
             out[0] = 3;
-            pos = 8;
-            out[pos..pos + 8].copy_from_slice(&epoch.to_le_bytes());
-            pos += 8;
-            out[pos..pos + 32].copy_from_slice(&event_root);
+            write_u64(&mut out, 8, epoch);
+            write_root(&mut out, 16, event_root);
         }
         ZeroPersistenceWalRecord::ShredCommitment { epoch, key_id_commitment, event_root } => {
             out[0] = 4;
-            pos = 8;
-            out[pos..pos + 8].copy_from_slice(&epoch.to_le_bytes());
-            pos += 8;
-            out[pos..pos + 32].copy_from_slice(&key_id_commitment);
-            pos += 32;
-            out[pos..pos + 32].copy_from_slice(&event_root);
+            write_u64(&mut out, 8, epoch);
+            write_root(&mut out, 16, key_id_commitment);
+            write_root(&mut out, 48, event_root);
         }
     }
     out
@@ -69,6 +58,14 @@ pub fn decode_record(input: &[u8]) -> Result<ZeroPersistenceWalRecord, RecoveryW
         4 => Ok(ZeroPersistenceWalRecord::ShredCommitment { epoch, key_id_commitment: a, event_root: b }),
         _ => Err(RecoveryWalError::InvalidTag),
     }
+}
+
+fn write_u64(out: &mut [u8; RECOVERY_RECORD_BYTES], pos: usize, value: u64) {
+    out[pos..pos + 8].copy_from_slice(&value.to_le_bytes());
+}
+
+fn write_root(out: &mut [u8; RECOVERY_RECORD_BYTES], pos: usize, value: [u8; 32]) {
+    out[pos..pos + 32].copy_from_slice(&value);
 }
 
 fn read_u64(input: &[u8], pos: &mut usize) -> u64 {
