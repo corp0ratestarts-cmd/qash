@@ -60,14 +60,19 @@ pub mod smartcard {
     }
 
     /// Minimal in-memory adapter that models a Domain-B token provider.
-    /// This is intentionally deterministic and test-friendly until a PKCS#11
-    /// backend is wired in.
+    ///
+    /// MOCK ONLY — gated behind `feature = "mock_signatures"`.
+    /// This adapter returns a deterministic pseudo-signature and does NOT
+    /// implement any PQC algorithm. It must never be used with real key material
+    /// or in production deployments.
+    #[cfg(feature = "mock_signatures")]
     #[derive(Debug, Clone)]
     pub struct InMemoryKeyStore {
         pub descriptor: TokenDescriptor,
         pub key_label: String,
     }
 
+    #[cfg(feature = "mock_signatures")]
     impl KeyStore for InMemoryKeyStore {
         fn token_descriptor(&self) -> Result<TokenDescriptor, SmartcardError> {
             Ok(self.descriptor.clone())
@@ -305,14 +310,11 @@ pub mod hosted {
 
             let mut updates = [None; MAX_VALIDATORS];
             for (idx, update) in self.updates.iter().enumerate() {
-                updates[idx] = match update {
-                    Some(u) => Some(ValidatorUpdate {
-                        divergence_new: FixedPoint::from_raw(i128::from(u.divergence_raw)),
-                        conflict_new: FixedPoint::from_raw(i128::from(u.conflict_raw)),
-                        slash_accum_new: FixedPoint::from_raw(i128::from(u.slash_accum_raw)),
-                    }),
-                    None => None,
-                };
+                updates[idx] = update.as_ref().map(|u| ValidatorUpdate {
+                    divergence_new: FixedPoint::from_raw(i128::from(u.divergence_raw)),
+                    conflict_new: FixedPoint::from_raw(i128::from(u.conflict_raw)),
+                    slash_accum_new: FixedPoint::from_raw(i128::from(u.slash_accum_raw)),
+                });
             }
 
             Ok(EpochInput {

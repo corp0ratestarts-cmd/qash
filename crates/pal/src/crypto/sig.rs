@@ -59,6 +59,7 @@ pub struct VerifiedSignature {
 }
 
 impl VerifiedSignature {
+    #[cfg_attr(not(feature = "mock_signatures"), allow(dead_code))]
     pub(crate) fn new(algorithm: PqcAlgorithm, message_hash: [u8; 32]) -> Self {
         Self { algorithm, message_hash }
     }

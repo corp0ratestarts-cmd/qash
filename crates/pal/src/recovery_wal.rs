@@ -198,6 +198,7 @@ pub struct RecoveryEvidence {
 }
 
 impl RecoveryEvidence {
+    #[cfg_attr(not(feature = "std"), allow(dead_code))]
     fn ingest(&mut self, record: &ZeroPersistenceWalRecord) {
         match record {
             ZeroPersistenceWalRecord::StateRoot { epoch, state_root } => {
@@ -378,10 +379,8 @@ mod tests {
         file.write_all(b"BADMAGIC").unwrap();
         drop(file);
 
-        let wal = FileRecoveryWal { path: path.clone() };
+        let wal = FileRecoveryWal { path };
         assert_eq!(wal.replay(), Err(RecoveryWalError::InvalidMagic));
-
-        let _ = std::fs::remove_file(&path);
     }
 
     #[cfg(feature = "std")]

@@ -28,6 +28,10 @@ impl<const N: usize> CommitmentInbox<N> {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn ingest(&mut self, frame: CommitmentFrame) -> Result<(), CommitmentInboxError> {
         for idx in 0..self.len {
             if let Some(existing) = self.frames[idx] {
