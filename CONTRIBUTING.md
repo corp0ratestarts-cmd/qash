@@ -80,6 +80,12 @@ Rules that **must never be violated**:
 
 The `.github/PULL_REQUEST_TEMPLATE.md` contains the full checklist. Key gates:
 
+### Semantic Scope Rule
+
+- PRs should change one semantic axis at a time.
+- Avoid combining replay semantics, CI restructuring, dependency policy, crypto abstraction, infra refactors, and `no_std` migration in one PR.
+- If combining is unavoidable, include rationale and explicit reviewer acknowledgment in the PR body.
+
 1. **Deduplication** — search open and recently closed PRs before opening
 2. **Human review** — a human (not only an AI assistant) must read and understand the changes
 3. **Domain A constraints** — verify all rules above if touching `crates/consensus/`
