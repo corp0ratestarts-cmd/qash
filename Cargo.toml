@@ -12,6 +12,11 @@ members = [
   "model",
 ]
 
+[workspace.dependencies]
+serde = { version = "=1.0.228", default-features = false }
+serde_json = { version = "=1.0.145", default-features = false }
+sha3 = { version = "=0.10.8", default-features = false }
+
 [dependencies]
 qash-consensus = { path = "crates/consensus", version = "0.1.0" }
 qash-pal       = { path = "crates/pal",       version = "0.1.0" }

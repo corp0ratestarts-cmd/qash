@@ -11,13 +11,13 @@ path = "src/root.rs"
 qash-consensus = { path = "../consensus", version = "0.1.0" }
 hmac-drbg = "0.3.0"
 sha2 = "0.9"
-sha3 = "0.10"
+sha3 = { workspace = true }
 ml-kem = { version = "0.3", optional = true }
 getrandom = { version = "0.2", optional = true }
 typenum = "1.20.0"
 
 [dev-dependencies]
-serde = { version = "1", default-features = false }
+serde = { workspace = true }
 static_assertions = "1"
 
 [features]
