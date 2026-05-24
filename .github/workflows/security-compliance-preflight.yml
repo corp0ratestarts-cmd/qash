@@ -33,6 +33,8 @@ jobs:
         with:
           scan-args: |-
             --recursive
+            --experimental-offline-vulnerabilities
+            --download-offline-databases
             .
 
   scorecard:
