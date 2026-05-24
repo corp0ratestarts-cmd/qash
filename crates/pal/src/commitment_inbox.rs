@@ -40,7 +40,10 @@ impl<const N: usize> CommitmentInbox<N> {
             return Err(CommitmentInboxError::CapacityExceeded);
         }
         self.frames[self.len] = Some(frame);
-        self.len += 1;
+        self.len = self
+            .len
+            .checked_add(1)
+            .ok_or(CommitmentInboxError::CapacityExceeded)?;
         Ok(())
     }
 
@@ -50,14 +53,14 @@ impl<const N: usize> CommitmentInbox<N> {
     }
 
     fn sort_by_epoch(&mut self) {
-        let mut i = 1;
+        let mut i = 1usize;
         while i < self.len {
             let mut j = i;
             while j > 0 && epoch_of(self.frames[j - 1]) > epoch_of(self.frames[j]) {
                 self.frames.swap(j - 1, j);
-                j -= 1;
+                j = j.checked_sub(1).expect("j > 0 checked above");
             }
-            i += 1;
+            i = i.checked_add(1).expect("i < self.len <= N");
         }
     }
 }
@@ -82,7 +85,7 @@ impl<'a, const N: usize> Iterator for DrainOrdered<'a, N> {
             return None;
         }
         let item = self.inbox.frames[self.cursor].take();
-        self.cursor += 1;
+        self.cursor = self.cursor.checked_add(1).expect("cursor < len <= N");
         item
     }
 }
