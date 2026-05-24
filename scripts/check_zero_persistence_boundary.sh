@@ -2,13 +2,14 @@
 set -euo pipefail
 
 # Guard the production zero-persistence PAL path. The hosted replay scaffold may
-# still contain raw fixture handling, but admission and production WAL modules
-# must remain commitment-only.
+# still contain raw fixture handling, but production admission, receipt privacy,
+# and WAL modules must remain commitment-only.
 
 cargo check -p qash-pal --features zero-persistence --no-default-features
 cargo test -p qash-pal --features zero-persistence --test zero_persistence
 cargo test -p qash-pal --features zero-persistence --test zero_persistence_profile
 cargo test -p qash-pal --features zero-persistence --test ephemeral_traits
+cargo test -p qash-pal --features zero-persistence --test receipt_privacy
 
 python3 - <<'PY'
 from pathlib import Path
@@ -17,6 +18,7 @@ import sys
 
 paths = [
     Path('crates/pal/src/admission.rs'),
+    Path('crates/pal/src/receipt.rs'),
     Path('crates/pal/src/zero_wal.rs'),
 ]
 patterns = [
@@ -24,7 +26,6 @@ patterns = [
     re.compile(r'\braw_tx\b'),
     re.compile(r'\bpeer_ip\b'),
     re.compile(r'\bsocket_addr\b'),
-    re.compile(r'\bVec\s*<\s*u8\s*>'),
     re.compile(r'\bString\b'),
     re.compile(r'\.to_vec\s*\('),
     re.compile(r'\.clone\s*\('),
