@@ -1,4 +1,5 @@
 pub mod admission;
+pub mod receipt;
 pub mod zero_wal;
 
 // The legacy hosted PAL contains replay-scaffold machinery, including raw
