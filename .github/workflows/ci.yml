@@ -72,6 +72,17 @@ jobs:
       - name: Privacy admission checklist lint (P5/P7/P8)
         run: bash scripts/check_privacy_admission.sh
 
+  zero-persistence-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+      - name: Check zero-persistence PAL boundary
+        run: bash scripts/check_zero_persistence_boundary.sh
+
   supply-chain:
     runs-on: ubuntu-latest
     steps:
