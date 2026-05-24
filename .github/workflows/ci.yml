@@ -6,6 +6,20 @@ permissions:
   contents: read
 
 jobs:
+  slice-evidence-freshness:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert fresh slice evidence manifest for slice-critical changes
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: bash scripts/check_slice_evidence_freshness.sh
+
   build-x86_64:
     runs-on: ubuntu-latest
     steps:
@@ -55,6 +69,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Reject raw transcripts and ad hoc root specs
         run: bash scripts/check_document_hygiene.sh
+      - name: Privacy admission checklist lint (P5/P7/P8)
+        run: bash scripts/check_privacy_admission.sh
 
   supply-chain:
     runs-on: ubuntu-latest
@@ -130,17 +146,12 @@ jobs:
         working-directory: proofs
         run: make all
       - name: Record proof-object hashes
-        # Produces a reproducibility manifest: auditors can verify .vo files
-        # match a specific Coq version + source commit pair.
         working-directory: proofs
         run: |
           COQ_VER="$(coqc --version 2>&1 | head -1)"
           { echo "# coq-version: $COQ_VER"; find . -name "*.vo" | sort | xargs sha256sum; } \
             > ../proof-hashes.txt
       - name: Commit proof-hash manifest to artifact-index (main only)
-        # Permanently records proof-object hashes in the git history so auditors
-        # can verify proofs for any commit long after CI artifacts expire.
-        # [skip ci] prevents the commit from triggering another CI run.
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           git config user.name  "github-actions[bot]"

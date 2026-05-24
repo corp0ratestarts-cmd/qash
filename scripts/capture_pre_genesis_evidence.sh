@@ -6,6 +6,10 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+SLICE_DOC="docs/release/current_integration_review_slices.md"
+declare -A COMMAND_STATUS
+declare -A COMMAND_LOG
+
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 commit="$(git rev-parse --short=12 HEAD)"
 out_dir="${1:-artifacts/evidence/${timestamp}-${commit}}"
@@ -22,6 +26,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
+record_command_status() {
+    local command="$1"
+    local status="$2"
+    local log_path="$3"
+    COMMAND_STATUS["$command"]="$status"
+    COMMAND_LOG["$command"]="$log_path"
+}
+
 run_step() {
     local name="$1"
     shift
@@ -37,8 +49,10 @@ run_step() {
 
     if [ "$status" -eq 0 ]; then
         printf 'status: PASS\n\n' | tee -a "$manifest"
+        record_command_status "$*" "PASS" "$log"
     else
         printf 'status: FAIL (%s)\nlog: %s\n\n' "$status" "$log" | tee -a "$manifest"
+        record_command_status "$*" "FAIL ($status)" "$log"
         return "$status"
     fi
 }
@@ -57,10 +71,60 @@ capture_cargo_metadata() {
 
     if [ "$status" -eq 0 ]; then
         printf 'status: PASS\n\n' | tee -a "$manifest"
+        record_command_status "cargo metadata --offline --format-version 1" "PASS" "$log"
     else
         printf 'status: FAIL (%s)\nlog: %s\n\n' "$status" "$log" | tee -a "$manifest"
+        record_command_status "cargo metadata --offline --format-version 1" "FAIL ($status)" "$log"
         return "$status"
     fi
+}
+
+append_slice_command_statuses() {
+    printf '## Slice Command Statuses\n\n' >>"$manifest"
+    printf '| Slice | Command | Status | Log |\n' >>"$manifest"
+    printf '| --- | --- | --- | --- |\n' >>"$manifest"
+
+    if [ ! -f "$SLICE_DOC" ]; then
+        printf '| Slice 0 | `%s` | PASS | self |\n\n' "bash scripts/capture_pre_genesis_evidence.sh" >>"$manifest"
+        return
+    fi
+
+    python3 - "$SLICE_DOC" <<'PY' | while IFS=$'\t' read -r slice command; do
+import re
+import sys
+from pathlib import Path
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+current_slice = None
+in_required = False
+for line in text.splitlines():
+    m = re.match(r"## Slice (\d+):", line)
+    if m:
+        current_slice = f"Slice {m.group(1)}"
+        in_required = False
+        continue
+    if current_slice is None:
+        continue
+    if line.startswith("Required evidence:"):
+        in_required = True
+        continue
+    if in_required and (line.startswith("Review focus:") or line.startswith("## ")):
+        in_required = False
+        continue
+    if in_required:
+        cmd = re.match(r"- `(.+)`", line.strip())
+        if cmd:
+            print(f"{current_slice}\t{cmd.group(1)}")
+PY
+        status="${COMMAND_STATUS[$command]:-NOT RUN}"
+        log_path="${COMMAND_LOG[$command]:--}"
+        if [ "$command" = "bash scripts/capture_pre_genesis_evidence.sh" ]; then
+            status="PASS"
+            log_path="self"
+        fi
+        printf '| %s | `%s` | %s | %s |\n' "$slice" "$command" "$status" "$log_path" >>"$manifest"
+    done
+    printf '\n' >>"$manifest"
 }
 
 prepare_cargo_deny_home() {
@@ -77,7 +141,8 @@ prepare_cargo_deny_home() {
 
 {
     printf '# Pre-Genesis Evidence Bundle\n\n'
-    printf 'Captured: %s\n' "$timestamp"
+    printf 'Captured (UTC): %s\n' "$timestamp"
+    printf 'Evidence freshness timestamp (UTC): %s\n' "$timestamp"
     printf 'Commit: %s\n' "$(git rev-parse HEAD)"
     printf 'Commit short: %s\n' "$commit"
     printf 'Rust: %s\n' "$(rustc --version 2>/dev/null || printf 'not found')"
@@ -90,6 +155,7 @@ prepare_cargo_deny_home() {
 } >"$manifest"
 
 run_step document_hygiene bash scripts/check_document_hygiene.sh
+run_step privacy_admission bash scripts/check_privacy_admission.sh
 run_step diff_check git diff --check
 run_step fmt_check cargo fmt --all -- --check
 run_step phase2r_preconditions cargo test -p qash-consensus --test phase2r_preconditions
@@ -102,5 +168,6 @@ capture_cargo_metadata
 cargo_deny_home="$(prepare_cargo_deny_home)"
 run_step supply_chain env CARGO_HOME="$cargo_deny_home" cargo deny check --disable-fetch --metadata-path "$cargo_metadata_path"
 run_step kani_consensus scripts/run_kani_consensus.sh
+append_slice_command_statuses
 
 printf 'Evidence bundle written to %s\n' "$out_dir"
