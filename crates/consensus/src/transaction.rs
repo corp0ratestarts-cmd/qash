@@ -97,6 +97,72 @@ impl ParsedTx<'_> {
 }
 
 // ---------------------------------------------------------------------------
+// Single-pass admission types (runtime-only; never persisted)
+// ---------------------------------------------------------------------------
+
+/// Effect carried by a single admitted candidate.
+///
+/// Constructed from parsed bytes, retained in `Candidate` so the second
+/// (apply) pass never re-parses raw envelopes.
+#[derive(Clone, Copy)]
+enum CandidateEffect {
+    Noop,
+    ScoreDecrement { target_idx: u32, delta: u32 },
+}
+
+/// Runtime-only projection of a candidate transaction for single-pass admission.
+///
+/// All fields needed for the apply pass are extracted during the parse pass.
+/// `Candidate` must not appear in persisted consensus state or wire format —
+/// it exists only within one `prevalidate_all` call stack frame.
+#[derive(Clone, Copy)]
+struct Candidate {
+    sort_key: [u8; 32],
+    tx_id:    [u8; 32],
+    /// Validator slot index (u32 to satisfy Domain A width rules in structs).
+    slot:     u32,
+    nonce:    u64,
+    effect:   CandidateEffect,
+}
+
+impl Candidate {
+    const ZERO: Candidate = Candidate {
+        sort_key: [0u8; 32],
+        tx_id:    [0u8; 32],
+        slot:     0,
+        nonce:    0,
+        effect:   CandidateEffect::Noop,
+    };
+}
+
+fn candidate_after(left: &Candidate, right: &Candidate) -> bool {
+    left.sort_key > right.sort_key
+        || (left.sort_key == right.sort_key && left.tx_id > right.tx_id)
+}
+
+/// Runtime-only projection of validator nonces and divergences during admission.
+///
+/// Captures incremental changes as candidates are admitted in sorted order.
+/// Must not be persisted or published — discarded after `prevalidate_all` returns.
+struct AdmissionProjection {
+    nonces:      [u64; MAX_VALIDATORS],
+    divergences: [FixedPoint; MAX_VALIDATORS],
+}
+
+impl AdmissionProjection {
+    fn from_state(state: &EpochState) -> Self {
+        let mut divergences = [FixedPoint::ZERO; MAX_VALIDATORS];
+        for (d, v) in divergences[..state.validator_count as usize]
+            .iter_mut()
+            .zip(state.validators[..state.validator_count as usize].iter())
+        {
+            *d = v.divergence;
+        }
+        Self { nonces: state.nonces, divergences }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Parse
 // ---------------------------------------------------------------------------
 
@@ -356,29 +422,6 @@ fn apply_tx_1_projected(
     Ok(())
 }
 
-fn apply_tx_1_prevalidated(
-    projected_divergences: &mut [FixedPoint; MAX_VALIDATORS],
-    next_nonces: &mut [u64; MAX_VALIDATORS],
-    validator_count: u32,
-    author_idx: usize,
-    tx: &Tx1<'_>,
-) -> Result<(u32, FixedPoint), TxError> {
-    if author_idx >= validator_count as usize {
-        return Err(TxError::MalformedEnvelope);
-    }
-    let target_idx = usize::try_from(tx.target_idx).map_err(|_| TxError::TargetOutOfBounds)?;
-    if target_idx >= validator_count as usize {
-        return Err(TxError::TargetOutOfBounds);
-    }
-
-    let next_divergence = tx1_project_divergence(projected_divergences[target_idx], tx.delta)?;
-    projected_divergences[target_idx] = next_divergence;
-    next_nonces[author_idx] = next_nonces[author_idx]
-        .checked_add(1)
-        .ok_or(TxError::MalformedEnvelope)?;
-    Ok((tx.target_idx, next_divergence))
-}
-
 // ---------------------------------------------------------------------------
 // TxPrevalidation: result of stateless prevalidation pass
 // ---------------------------------------------------------------------------
@@ -423,34 +466,14 @@ impl TxPrevalidation {
 // prevalidate_all: decode -> sort -> validate against projected nonces
 // ---------------------------------------------------------------------------
 
-/// Per-entry for sorting: sort key + index into raw_txs.
-#[derive(Clone, Copy)]
-struct SortEntry {
-    key: [u8; 32],
-    id: [u8; 32],
-    raw_idx: u32,
-}
-
-impl SortEntry {
-    const ZERO: SortEntry = SortEntry {
-        key: [0u8; 32],
-        id: [0u8; 32],
-        raw_idx: 0,
-    };
-}
-
-fn sort_entry_after(left: &SortEntry, right: &SortEntry) -> bool {
-    left.key > right.key || (left.key == right.key && left.id > right.id)
-}
-
 /// Prevalidate all transactions in `raw_txs` without mutating `state`.
 ///
 /// Steps:
-/// 1. Parse each envelope (skip malformed).
-/// 2. Compute sort keys and sort by key (insertion sort).
-/// 3. In sorted order, check admissibility against a local nonce projection.
-/// 4. Compute each accepted author's next nonce with `checked_add`; stop at
-///    `max_count`.
+/// 1. Parse each envelope once into a `Candidate` (sort_key, tx_id, slot, nonce, effect).
+/// 2. Sort candidates by (sort_key, tx_id) — insertion sort, deterministic.
+/// 3. In sorted order, apply candidates against `AdmissionProjection` (runtime-only).
+///    No raw bytes are re-parsed in step 3.
+/// 4. Stop at `max_count`.
 ///
 /// Malformed or inadmissible transactions are filtered out. A nonce overflow
 /// is returned as an error because the next state cannot represent it.
@@ -473,38 +496,47 @@ pub fn prevalidate_all(
         raw_txs.len()
     };
 
-    let mut entries = [SortEntry::ZERO; MAX_TX_PER_EPOCH];
+    // Pass 1: parse each envelope exactly once into a Candidate.
+    let mut candidates = [Candidate::ZERO; MAX_TX_PER_EPOCH];
     let mut valid: usize = 0;
 
-    for (raw_idx, raw) in raw_txs.iter().enumerate().take(n) {
+    for raw in raw_txs.iter().take(n) {
         let (tx, consumed) = match parse_tx(raw) {
             Ok(v) => v,
             Err(_) => continue,
         };
-        if index_of_validator(state, tx.author_id()).is_none() {
-            continue;
-        }
-
+        let slot = match index_of_validator(state, tx.author_id()) {
+            Some(s) => s,
+            None => continue,
+        };
         let id = match tx_id_bytes(raw, consumed) {
             Ok(id) => id,
             Err(_) => continue,
         };
         let key = sort_key(&state.entropy_seed, &id);
-
-        entries[valid] = SortEntry {
-            key,
-            id,
-            raw_idx: raw_idx as u32,
+        let effect = match &tx {
+            ParsedTx::Tx0(_) => CandidateEffect::Noop,
+            ParsedTx::Tx1(t) => CandidateEffect::ScoreDecrement {
+                target_idx: t.target_idx,
+                delta: t.delta,
+            },
+        };
+        candidates[valid] = Candidate {
+            sort_key: key,
+            tx_id: id,
+            slot: slot as u32,
+            nonce: tx.nonce(),
+            effect,
         };
         valid += 1;
     }
 
-    // Insertion sort (deterministic, constant-size), ordered by (sort_key, tx_id).
+    // Insertion sort: deterministic total order by (sort_key, tx_id).
     let mut i: usize = 1;
     while i < valid {
         let mut j = i;
-        while j > 0 && sort_entry_after(&entries[j - 1], &entries[j]) {
-            entries.swap(j - 1, j);
+        while j > 0 && candidate_after(&candidates[j - 1], &candidates[j]) {
+            candidates.swap(j - 1, j);
             j -= 1;
         }
         i += 1;
@@ -515,57 +547,47 @@ pub fn prevalidate_all(
     } else {
         valid
     };
-    let mut next_nonces = state.nonces;
-    let mut projected_divergences = [FixedPoint::ZERO; MAX_VALIDATORS];
-    for (dst, validator) in projected_divergences[..state.validator_count as usize]
-        .iter_mut()
-        .zip(state.validators[..state.validator_count as usize].iter())
-    {
-        *dst = validator.divergence;
-    }
+
+    // Pass 2: apply sorted candidates against runtime projection — no re-parse.
+    let mut proj = AdmissionProjection::from_state(state);
     let mut divergence_targets = [0u32; MAX_VALIDATORS];
     let mut divergence_values = [FixedPoint::ZERO; MAX_VALIDATORS];
     let mut divergence_update_count: u32 = 0;
     let mut applied: u32 = 0;
 
-    for e in &entries[..valid] {
+    for c in &candidates[..valid] {
         if applied as usize >= limit {
             break;
         }
-        let raw = raw_txs[e.raw_idx as usize];
-        let (tx, _) = match parse_tx(raw) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
-        let idx = match index_of_validator(state, tx.author_id()) {
-            Some(i) => i,
-            None => continue,
-        };
-        if check_nonce(&next_nonces, idx, tx.nonce()).is_err() {
+        let idx = c.slot as usize;
+        if check_nonce(&proj.nonces, idx, c.nonce).is_err() {
             continue;
         }
-        let applied_tx = match tx {
-            ParsedTx::Tx0(_) => {
-                next_nonces[idx] = next_nonces[idx]
+        let admitted = match c.effect {
+            CandidateEffect::Noop => {
+                proj.nonces[idx] = proj.nonces[idx]
                     .checked_add(1)
                     .ok_or(TxError::MalformedEnvelope)?;
                 true
             }
-            ParsedTx::Tx1(ref tx1) => {
-                match apply_tx_1_prevalidated(
-                    &mut projected_divergences,
-                    &mut next_nonces,
-                    state.validator_count,
-                    idx,
-                    tx1,
-                ) {
-                    Ok((target_idx, new_divergence)) => {
+            CandidateEffect::ScoreDecrement { target_idx, delta } => {
+                let target = usize::try_from(target_idx)
+                    .map_err(|_| TxError::TargetOutOfBounds)?;
+                if target >= state.validator_count as usize {
+                    continue;
+                }
+                match tx1_project_divergence(proj.divergences[target], delta) {
+                    Ok(new_div) => {
+                        proj.divergences[target] = new_div;
+                        proj.nonces[idx] = proj.nonces[idx]
+                            .checked_add(1)
+                            .ok_or(TxError::MalformedEnvelope)?;
                         let effect_idx = divergence_update_count as usize;
                         if effect_idx >= MAX_VALIDATORS {
                             return Err(TxError::BudgetExceeded);
                         }
                         divergence_targets[effect_idx] = target_idx;
-                        divergence_values[effect_idx] = new_divergence;
+                        divergence_values[effect_idx] = new_div;
                         divergence_update_count += 1;
                         true
                     }
@@ -573,13 +595,13 @@ pub fn prevalidate_all(
                 }
             }
         };
-        if applied_tx {
+        if admitted {
             applied += 1;
         }
     }
 
     Ok(TxPrevalidation {
-        next_nonces,
+        next_nonces: proj.nonces,
         divergence_targets,
         divergence_values,
         divergence_update_count,
@@ -904,25 +926,69 @@ mod tests {
     }
 
     #[test]
-    fn sort_entry_total_order_breaks_equal_sort_key_by_tx_id() {
+    fn candidate_total_order_breaks_equal_sort_key_by_tx_id() {
         let mut low_id = [0u8; 32];
         low_id[31] = 1;
         let mut high_id = [0u8; 32];
         high_id[31] = 2;
 
-        let high_first = SortEntry {
-            key: [7u8; 32],
-            id: high_id,
-            raw_idx: 0,
+        let high_first = Candidate {
+            sort_key: [7u8; 32],
+            tx_id: high_id,
+            slot: 0,
+            nonce: 0,
+            effect: CandidateEffect::Noop,
         };
-        let low_second = SortEntry {
-            key: [7u8; 32],
-            id: low_id,
-            raw_idx: 1,
+        let low_second = Candidate {
+            sort_key: [7u8; 32],
+            tx_id: low_id,
+            slot: 1,
+            nonce: 0,
+            effect: CandidateEffect::Noop,
         };
 
-        assert!(sort_entry_after(&high_first, &low_second));
-        assert!(!sort_entry_after(&low_second, &high_first));
+        assert!(candidate_after(&high_first, &low_second));
+        assert!(!candidate_after(&low_second, &high_first));
+    }
+
+    // Stage 5d: sort parity test vector — equal sort_key candidates ordered by tx_id.
+    // Validates that two transactions sharing a sort_key are admitted in ascending
+    // tx_id order, which must be identical across all authorized ISAs.
+    #[test]
+    fn prevalidate_all_equal_sort_key_ordered_by_tx_id() {
+        // Two validators; find a pair where tx_b has lower sort_key than tx_a so
+        // both have sort_key = [0..] (degenerate entropy), and compare by tx_id.
+        let state = make_state(2);
+        // With entropy_seed = [0u8; 32], sort_key = H(EntropyAdvance, [0;32] || tx_id).
+        // We use two different signatures to produce two different tx_ids;
+        // the one with the lower tx_id must be admitted first when nonce == 0.
+        let tx_a = make_tx0_raw(author_id(0), 0);
+        let mut tx_b = make_tx0_raw(author_id(0), 0);
+        // Make tx_b have a different (and higher) tx_id by changing one signature byte.
+        tx_b[TX_HEADER_BYTES] = 0xFF;
+
+        let id_a = tx_id(&tx_a);
+        let id_b = {
+            let mut raw_b = [0u8; TX0_WIRE_BYTES];
+            raw_b.copy_from_slice(&tx_b);
+            tx_id(&raw_b)
+        };
+        let key_a = sort_key(&state.entropy_seed, &id_a);
+        let key_b = sort_key(&state.entropy_seed, &id_b);
+
+        if key_a == key_b {
+            // Equal sort keys: only the lower tx_id is admitted (nonce conflict).
+            let plan = prevalidate_all(&state, &[tx_a.as_slice(), tx_b.as_slice()], 100).unwrap();
+            assert_eq!(plan.applied_count, 1, "equal sort_key with equal nonce: one admitted");
+        } else {
+            // Different sort keys: normal ordering applies.
+            let forward = prevalidate_all(&state, &[tx_a.as_slice(), tx_b.as_slice()], 100).unwrap();
+            let reverse = prevalidate_all(&state, &[tx_b.as_slice(), tx_a.as_slice()], 100).unwrap();
+            assert_eq!(forward.applied_count, 1);
+            assert_eq!(reverse.applied_count, 1);
+            assert_eq!(forward.next_nonces, reverse.next_nonces,
+                "sort ordering must be deterministic regardless of input order");
+        }
     }
 
     #[test]

@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn profile_mismatch_rejected() {
         let root = [0x01u8; 32];
-        let v = StaticZkVerifier {
+        let _v = StaticZkVerifier {
             accepted_profile: ZkProfileId::Plonky3FriPoseidonQash,
             accepted_batch_root: root,
         };

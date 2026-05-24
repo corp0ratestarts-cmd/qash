@@ -15,6 +15,32 @@
 
 use sha3::{Digest, Sha3_256};
 
+/// Streaming domain-separated hasher.
+///
+/// Equivalent to `h_domain(tag, concat(chunks...))` when all chunks are fed
+/// before calling `finalize`. Allows large preimages to be hashed without
+/// materializing a full buffer.
+pub struct StreamHasher(Sha3_256);
+
+impl StreamHasher {
+    pub fn new(tag: DomainTag) -> Self {
+        let mut h = Sha3_256::new();
+        Digest::update(&mut h, (tag as u32).to_le_bytes());
+        Self(h)
+    }
+
+    pub fn update(&mut self, data: &[u8]) {
+        Digest::update(&mut self.0, data);
+    }
+
+    pub fn finalize(self) -> [u8; 32] {
+        let out = Digest::finalize(self.0);
+        let mut res = [0u8; 32];
+        res.copy_from_slice(&out);
+        res
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum DomainTag {

@@ -1,0 +1,30 @@
+# epoch_transition benchmark baseline — x86_64 (2026-05-24)
+# Platform: Linux x86_64 (release profile, opt-level=3, lto=true, debug-assertions=true)
+# Crate: qash-consensus v0.1.0
+# Bench: epoch_transition (criterion 0.5, 100 samples, 3s warmup)
+# Commit: 3f39d84 (branch claude/eager-ride-c29bR)
+# Note: "change" fields compare against prior Criterion baseline — no prior baseline existed;
+#       these are the authoritative pre-optimization reference values.
+
+epoch_transition/idle/1           time: [23.640 µs  23.773 µs  23.916 µs]
+epoch_transition/max_divergence/1 time: [23.698 µs  23.768 µs  23.867 µs]
+epoch_transition/idle/16          time: [27.584 µs  27.637 µs  27.703 µs]
+epoch_transition/max_divergence/16 time: [27.865 µs  27.902 µs  27.945 µs]
+epoch_transition/idle/128         time: [58.897 µs  59.151 µs  59.426 µs]
+epoch_transition/max_divergence/128 time: [59.343 µs  59.613 µs  59.925 µs]
+epoch_transition/idle/512         time: [164.50 µs  165.03 µs  165.71 µs]
+epoch_transition/max_divergence/512 time: [166.28 µs  166.47 µs  166.66 µs]
+epoch_transition/idle/1024        time: [305.67 µs  306.46 µs  307.42 µs]
+epoch_transition/max_divergence/1024 time: [312.00 µs  314.30 µs  318.09 µs]
+
+serialization/encode_full_state/1 time: [20.133 ns   20.286 ns   20.471 ns]
+
+# Scaling summary (validator count → idle µs):
+#   1 validator  :  23.8 µs  (SHA3 + state encoding dominates)
+#  16 validators :  27.6 µs
+# 128 validators :  59.2 µs
+# 512 validators : 165.0 µs
+# 1024 validators: 306.5 µs  (≈ 12.8x over single-validator baseline)
+#
+# max_divergence cases ≈ 0–1% slower than idle (sorting overhead at scale).
+# All within 500ms epoch budget (306 µs << 500 ms for 1024 validators).

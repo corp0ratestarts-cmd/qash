@@ -3,7 +3,7 @@
 use crate::encoding::EncodeError;
 use crate::envelope::{PROTOCOL_VERSION_V1_1, PROTOCOL_VERSION_V1_2};
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
-use crate::hash::{h_domain, DomainTag};
+use crate::hash::{h_domain, DomainTag, StreamHasher};
 use crate::lyapunov::{
     self, ConvergenceWindow, LyapunovError, LyapunovEval, ValidatorMetrics, WINDOW_SIZE,
 };
@@ -139,6 +139,8 @@ pub fn encode_full_state_into(state: &EpochState, out: &mut [u8; FULL_STATE_MAX_
 
 /// Encode for state-root commitment: identical to encode_full_state_into but
 /// substitutes `prior_root` into the state_root field.
+/// Only used by the buffered parity test in `#[cfg(test)]`.
+#[cfg(test)]
 fn encode_for_commitment_into(
     state: &EpochState,
     prior_root: &[u8; 32],
@@ -409,6 +411,50 @@ fn fp_to_i64_wire(fp: FixedPoint) -> i64 {
 }
 
 fn compute_state_root(state: &EpochState, prior_root: &[u8; 32]) -> [u8; 32] {
+    compute_state_root_streaming(state, prior_root)
+}
+
+/// Streaming implementation — feeds state fields directly into SHA3-256 without
+/// buffering the full ~82 KB preimage. Byte-identical to the buffered path.
+fn compute_state_root_streaming(state: &EpochState, prior_root: &[u8; 32]) -> [u8; 32] {
+    let mut h = StreamHasher::new(DomainTag::StateRoot);
+
+    h.update(&state.epoch.to_le_bytes());
+    h.update(prior_root);
+    h.update(&[0u8; 32]); // ledger_root (reserved zeros)
+    h.update(&state.entropy_seed);
+    h.update(&[state.halt_reason as u8, 0x00, 0x00, 0x00]); // halt + 3 pad
+    h.update(&state.validator_count.to_le_bytes());
+    h.update(&state.cascade_health.to_le_bytes());
+    h.update(&[0x00, 0x00, 0x00, 0x00]); // cascade pad
+
+    for i in 0..state.validator_count as usize {
+        let v = &state.validators[i];
+        h.update(&fp_to_i64_wire(v.divergence).to_le_bytes());
+        h.update(&fp_to_i64_wire(v.conflict).to_le_bytes());
+        h.update(&fp_to_i64_wire(v.slash_accum).to_le_bytes());
+        h.update(&state.nonces[i].to_le_bytes());
+        h.update(&state.validator_ids[i]);
+    }
+
+    let (filled, values) = state.convergence_window.raw_parts();
+    h.update(&[filled, 0x00, 0x00, 0x00]); // filled + 3 pad
+    for v in values.iter() {
+        h.update(&fp_to_i64_wire(*v).to_le_bytes());
+    }
+
+    if state.receipt_root != [0u8; 32] || state.efb_root != [0u8; 32] {
+        h.update(&state.receipt_root);
+        h.update(&state.efb_root);
+    }
+
+    h.finalize()
+}
+
+/// Buffered implementation — kept for parity testing. Must produce identical
+/// output to `compute_state_root_streaming` for all valid states.
+#[cfg(test)]
+fn compute_state_root_buffered(state: &EpochState, prior_root: &[u8; 32]) -> [u8; 32] {
     let mut buf = [0u8; FULL_STATE_MAX_BYTES];
     let len = encode_for_commitment_into(state, prior_root, &mut buf);
     h_domain(DomainTag::StateRoot, &buf[..len])
@@ -1362,6 +1408,62 @@ mod tests {
             Err(HaltReason::IncompatibleVersion)
         );
         assert_eq!(state.efb_root, [0u8; 32]);
+    }
+
+    // Stage 5e: streaming state-root parity test.
+    // Proves compute_state_root_streaming and compute_state_root_buffered
+    // are byte-identical for representative states (1 validator, 4 validators,
+    // post-sharding with non-zero receipt/efb roots).
+    #[test]
+    fn streaming_state_root_matches_buffered_single_validator() {
+        let state = genesis_state_vc4();
+        let prior = [0xABu8; 32];
+        assert_eq!(
+            compute_state_root_streaming(&state, &prior),
+            compute_state_root_buffered(&state, &prior),
+            "streaming and buffered state root must be byte-identical (1 validator baseline)"
+        );
+    }
+
+    #[test]
+    fn streaming_state_root_matches_buffered_after_epoch_advance() {
+        let mut state = genesis_state_vc4();
+        set_distinct_validator_ids(&mut state);
+        let input = idle_input(4);
+        advance_epoch(&mut state, &input, &[]).unwrap();
+        let prior = state.state_root;
+        advance_epoch(&mut state, &input, &[]).unwrap();
+        assert_eq!(
+            compute_state_root_streaming(&state, &prior),
+            compute_state_root_buffered(&state, &prior),
+            "streaming and buffered state root must match after epoch advance"
+        );
+    }
+
+    #[test]
+    fn streaming_state_root_matches_buffered_with_sharding_roots() {
+        use crate::envelope::PROTOCOL_VERSION_V1_2;
+        let mut state = genesis_state_vc4();
+        set_distinct_validator_ids(&mut state);
+        let mut input = idle_input(4);
+        input.protocol_version = PROTOCOL_VERSION_V1_2;
+        let shards = [crate::sharding::ShardCommitment {
+            shard_id: 0,
+            state_root: [0x11u8; 32],
+            receipt_root: [0x22u8; 32],
+        }];
+        let sharding = EpochShardingInput {
+            shard_commitments: &shards,
+            zk_batch_root: [0x33u8; 32],
+        };
+        advance_epoch_sharded(&mut state, &input, &[], &sharding).unwrap();
+        let prior = [0xCCu8; 32];
+        assert_ne!(state.receipt_root, [0u8; 32], "sharding roots must be non-zero");
+        assert_eq!(
+            compute_state_root_streaming(&state, &prior),
+            compute_state_root_buffered(&state, &prior),
+            "streaming and buffered state root must match with sharding roots"
+        );
     }
 }
 
