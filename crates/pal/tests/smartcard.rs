@@ -1,4 +1,4 @@
-#![cfg(feature = "std")]
+#![cfg(all(feature = "std", feature = "mock_signatures"))]
 
 use qash_pal::smartcard::{
     InMemoryKeyStore, KeyStore, SignRequest, SmartcardError, TokenDescriptor,

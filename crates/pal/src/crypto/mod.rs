@@ -6,8 +6,10 @@
 //! Modules:
 //! - `kem`   — ML-KEM-768 post-quantum key encapsulation (feature = "pqc")
 //! - `drbg`  — HMAC-DRBG (NIST SP 800-90A) deterministic random bit generator
+//! - `sig`   — PQC signature verifier trait (production backend TBD; mock behind mock_signatures)
 
 #[cfg(feature = "pqc")]
 pub mod kem;
 
 pub mod drbg;
+pub mod sig;

@@ -3,6 +3,7 @@
 //! Each function returns `(initial_state, inputs)` that can be fed directly
 //! to `run()`. Scenarios are deterministic and self-contained — no I/O.
 
+use alloc::vec::Vec;
 use qash_consensus::fixed_point::FixedPoint;
 use qash_consensus::lyapunov::WINDOW_SIZE;
 use qash_consensus::{EpochInput, EpochState, ValidatorUpdate, MAX_VALIDATORS};

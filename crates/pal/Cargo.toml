@@ -27,3 +27,6 @@ replay-scaffold = ["std"]
 zero-persistence = ["std"]
 sovereign-hardened = ["zero-persistence"]
 pqc = ["ml-kem"]
+# Gate InMemoryKeyStore and mock signature paths behind this feature.
+# Production builds must NOT enable mock_signatures; it is for testing only.
+mock_signatures = []

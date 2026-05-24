@@ -7,3 +7,9 @@ description = "Canonical reference execution layer — bridge between Coq proofs
 
 [dependencies]
 qash-consensus = { path = "../crates/consensus", version = "0.1.0" }
+
+[features]
+default = []
+# Enable std-based test helpers (e.g. println!, panic! with message).
+# The model is no_std + alloc by default.
+std = []

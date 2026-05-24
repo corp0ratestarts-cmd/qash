@@ -17,6 +17,10 @@
 //! `proofs/contractivity/lyapunov_stability.v` (TH-3a: δ ≤ ε → no halt).
 //! The `run` function corresponds to the iterated application of `step`
 //! over a sequence of inputs (TH-6: halted state is terminal).
+#![no_std]
+extern crate alloc;
+
+use alloc::vec::Vec;
 
 pub use qash_consensus::fixed_point::FixedPoint;
 pub use qash_consensus::lyapunov::{ConvergenceWindow, WINDOW_SIZE};
