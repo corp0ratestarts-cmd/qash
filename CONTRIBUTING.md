@@ -85,6 +85,7 @@ The `.github/PULL_REQUEST_TEMPLATE.md` contains the full checklist. Key gates:
 3. **Domain A constraints** — verify all rules above if touching `crates/consensus/`
 4. **Coq proofs** — if adding/changing `.v` files, zero `Admitted` markers allowed outside `_wip/`; add to CI Tier 2 list in `ci.yml`; add row to `proofs/COVERAGE.md`
 5. **Genesis constants** — any change to `GENESIS_CONSTANTS.toml` requires `[genesis-change-acknowledged]` token in the PR body; this defines a new network
+6. **Replay entrypoints** — `scripts/replay_test.sh` is the canonical replay orchestration entrypoint. If introducing any new replay entrypoint/wrapper, include explicit justification and a deprecation/removal plan for superseded wrapper(s).
 
 ## Adding a new hash primitive to the cascade
 

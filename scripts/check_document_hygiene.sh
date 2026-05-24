@@ -58,12 +58,39 @@ TRANSCRIPT_MARKER = re.compile(
 
 failures = []
 
+CANONICAL_REPLAY_ENTRYPOINT = "scripts/replay_test.sh"
+
 tracked = subprocess.run(
     ["git", "ls-files"],
     check=True,
     capture_output=True,
     text=True,
 ).stdout.splitlines()
+
+changed = subprocess.run(
+    ["git", "diff", "--name-status", "--cached"],
+    check=True,
+    capture_output=True,
+    text=True,
+).stdout.splitlines()
+
+for row in changed:
+    if not row:
+        continue
+    cols = row.split("\t")
+    status = cols[0]
+    if status != "A" or len(cols) < 2:
+        continue
+    rel = cols[1]
+    if not rel.startswith("scripts/") or not rel.endswith(".sh"):
+        continue
+    if rel == CANONICAL_REPLAY_ENTRYPOINT:
+        continue
+    name = pathlib.PurePosixPath(rel).name
+    if "replay" in name:
+        failures.append(
+            f"{rel}: new replay wrapper script detected; consolidate under {CANONICAL_REPLAY_ENTRYPOINT} or document deprecation/removal of superseded wrappers"
+        )
 
 for rel in tracked:
     path = pathlib.Path(rel)
