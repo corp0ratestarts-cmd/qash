@@ -106,6 +106,10 @@ The 8-family cascade in `crates/consensus/src/derive.rs` follows a strict patter
 4. Add a row to `proofs/COVERAGE.md`
 5. Update `proofs/STATUS.md`
 
+## Stabilization governance
+
+For ownership boundaries, CI tiering, PR semantic-scope, dependency pinning expectations, and replay-critical boundary rules, see `docs/engineering/stabilization_governance.md`.
+
 ## Commit style
 
 - One logical change per commit

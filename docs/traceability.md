@@ -5,6 +5,10 @@
 > section and page references below are provisional and must be verified against
 > the committed PDF.
 
+## Related governance
+
+- Stabilization policy reference: `docs/engineering/stabilization_governance.md`.
+
 ## Rules
 
 1. The **PDF quote** field must contain verbatim PDF text with section and page.
