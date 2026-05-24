@@ -106,6 +106,27 @@ The 8-family cascade in `crates/consensus/src/derive.rs` follows a strict patter
 4. Add a row to `proofs/COVERAGE.md`
 5. Update `proofs/STATUS.md`
 
+
+## Stabilization governance
+
+Repository-wide stabilization policy is defined in `docs/engineering/stabilization_governance.md`.
+
+## Semantic Scope Rule
+
+PRs should change one semantic axis at a time whenever possible.
+
+Avoid combining:
+- replay semantics
+- CI restructuring
+- dependency policy
+- cryptographic abstraction
+- infrastructure changes
+- `no_std` migration
+
+in one PR whenever possible.
+
+If a multi-axis PR is unavoidable, include explicit rationale and reviewer acknowledgment in the PR description.
+
 ## Commit style
 
 - One logical change per commit
