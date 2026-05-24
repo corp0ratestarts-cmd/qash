@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# replay_test.sh — Run the v1.1 replay corpus on all authorized ISAs.
+# replay_test.sh — Run canonical CI replay-gate tests on authorized ISAs.
 #
 # Usage:
 #   ./scripts/replay_test.sh [--native-only]
 #
-# Runs the `v1_1_corpus_matches_pinned` test which asserts the 50-epoch
-# state_root sequence in tests/vectors/vectors.v1.1.json is produced
-# bit-identically.  With --native-only (or when cross-compilation tools
-# are absent) only the native x86_64 target is tested.
+# Runs the canonical replay gate tests (`v1_1_corpus_matches_pinned` and
+# `v1_2_sharded_corpus_matches_pinned`) which assert pinned vector outputs are
+# produced bit-identically across targets. With --native-only (or when
+# cross-compilation tools are absent) only the native x86_64 target is tested.
 #
 # For cross-ISA CI: call without --native-only in the platform-determinism
 # GitHub Actions workflow, which provides QEMU user-static binfmt_misc
@@ -40,6 +40,9 @@ for target in "${TARGETS[@]}"; do
         # Native: run directly.
         if cargo test -p qash-consensus --no-default-features \
                --test v1_1_replay v1_1_corpus_matches_pinned \
+               2>&1 \
+           && cargo test -p qash-consensus --no-default-features \
+               --test v1_2_sharded_replay v1_2_sharded_corpus_matches_pinned \
                2>&1; then
             echo "  PASS $target"
             ((PASS++)) || true
@@ -57,6 +60,10 @@ for target in "${TARGETS[@]}"; do
         if cross test -p qash-consensus --no-default-features \
                --target "$target" \
                --test v1_1_replay v1_1_corpus_matches_pinned \
+               2>&1 \
+           && cross test -p qash-consensus --no-default-features \
+               --target "$target" \
+               --test v1_2_sharded_replay v1_2_sharded_corpus_matches_pinned \
                2>&1; then
             echo "  PASS $target"
             ((PASS++)) || true

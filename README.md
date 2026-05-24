@@ -117,6 +117,10 @@ cross-ISA replay lanes:
 scripts/install_test_dependencies.sh
 ```
 
+Replay/vector execution canonicalization:
+- **CI replay gate:** `cargo test -p qash-consensus --no-default-features --test v1_1_replay v1_1_corpus_matches_pinned` (and the v1.2 sharded companion) is the normative deterministic gate.
+- **Local diagnostics/generation:** `cargo run -p qash-vector-runner -- --vectors tests/vectors/vectors.v1.json --out out.native.json` uses the canonical runner crate at `crates/vector-runner/` for operator diagnostics and vector materialization.
+
 The installer provisions the apt packages, pinned Rust toolchain targets, and
 Cargo tools mirrored from CI (`cargo-deny`, `honggfuzz`, and Kani 0.67.0). It is
 intended for Debian/Ubuntu-style hosts and uses `sudo apt-get` when it is not

@@ -9,6 +9,7 @@ members = [
   "crates/consensus",
   "crates/pal",
   "crates/address",
+  "crates/vector-runner",
   "model",
 ]
 

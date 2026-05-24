@@ -98,3 +98,11 @@ bash scripts/capture_pre_genesis_evidence.sh
 
 Use the newest timestamped `manifest.txt` under `artifacts/evidence/` as the
 current passing bundle.
+
+## Canonical Vector Runner Path
+
+- Canonical runner location: `crates/vector-runner/` (`qash-vector-runner`).
+- Purpose split:
+  - **CI gate:** replay determinism is enforced by `qash-consensus` replay tests (`v1_1_replay`, `v1_2_sharded_replay`) in CI.
+  - **Local diagnostics:** `cargo run -p qash-vector-runner -- --vectors tests/vectors/vectors.v1.json --out out.native.json` for emitting and checking executable vector outputs.
+- `tests/vector-runner/` is deprecated and removed so a single workspace dependency graph governs replay-vector execution logic.
