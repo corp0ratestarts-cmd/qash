@@ -54,7 +54,7 @@ struct ExtremeInput {
 
 fn run_and_verify(mut state: EpochState, input: EpochInput, vc: u32) {
     let prior_epoch = state.epoch;
-    let result = advance_epoch(&mut state, input.into_effect(), &[]);
+    let result = advance_epoch(&mut state, input.as_effect(), &[]);
 
     match result {
         Ok(_) => {
@@ -67,7 +67,7 @@ fn run_and_verify(mut state: EpochState, input: EpochInput, vc: u32) {
             let frozen_root = state.state_root;
 
             let idle = EpochInput::new(vc);
-            let r2 = advance_epoch(&mut state, idle.into_effect(), &[]);
+            let r2 = advance_epoch(&mut state, idle.as_effect(), &[]);
             assert_eq!(r2, Err(halt));
             assert_eq!(state.epoch, frozen_epoch);
             assert_eq!(state.state_root, frozen_root);
