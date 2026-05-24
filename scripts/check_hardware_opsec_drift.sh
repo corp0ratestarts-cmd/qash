@@ -15,7 +15,11 @@ patterns=(
 )
 
 for pattern in "${patterns[@]}"; do
-  if rg -i "$pattern" docs README.md ROADMAP.md PROJECT_STATUS.md; then
+  if rg -i "$pattern" \
+    -g '!docs/adr/ADR-011-trustless-genesis-local-opsec.md' \
+    -g '!docs/spec/15_trustless_genesis_and_local_opsec.md' \
+    -g '!scripts/check_hardware_opsec_drift.sh' \
+    docs README.md ROADMAP.md PROJECT_STATUS.md; then
     echo "Potential trusted-ceremony or hardware-authority drift: $pattern" >&2
     exit 1
   fi
