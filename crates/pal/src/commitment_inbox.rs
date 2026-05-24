@@ -47,7 +47,7 @@ impl<const N: usize> CommitmentInbox<N> {
         Ok(())
     }
 
-    pub fn drain_ordered(&mut self) -> DrainOrdered<N> {
+    pub fn drain_ordered(&mut self) -> DrainOrdered<'_, N> {
         self.sort_by_epoch();
         DrainOrdered { inbox: self, cursor: 0 }
     }
