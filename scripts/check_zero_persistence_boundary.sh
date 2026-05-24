@@ -7,6 +7,7 @@ set -euo pipefail
 
 cargo check -p qash-pal --features zero-persistence --no-default-features
 cargo test -p qash-pal --features zero-persistence --test zero_persistence
+cargo test -p qash-pal --features zero-persistence --test zero_persistence_profile
 
 python3 - <<'PY'
 from pathlib import Path
