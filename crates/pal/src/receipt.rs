@@ -4,6 +4,8 @@
 //! receipt bodies. Encrypted receipt blobs may live in a local vault, but the
 //! protocol-facing surface is limited to fixed-width roots and atomic shred evidence.
 
+use crate::zero_wal::{ZeroPersistenceWal, ZeroPersistenceWalRecord};
+
 /// Deployment-scoped disclosure policy for an encrypted receipt commitment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DisclosureDomain {
@@ -50,6 +52,12 @@ pub enum ReceiptVaultError {
     ShredIncomplete,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AtomicShredError<VaultError, WalError> {
+    Vault(VaultError),
+    EvidenceAppend(WalError),
+}
+
 /// Local Domain B vault interface.
 ///
 /// Implementations may store encrypted blobs, but this trait exposes only
@@ -84,6 +92,28 @@ impl From<ShredRequest> for ShredCommitment {
             event_root: request.event_root,
         }
     }
+}
+
+/// Commit a shred in the vault and append its completion evidence to the WAL.
+///
+/// This helper prevents callers from appending a shred intent. It obtains the
+/// `ShredCommitment` only from `ReceiptVault::commit_shred`, then persists that
+/// completion receipt. If WAL append fails, the returned error identifies an
+/// evidence-append failure after vault completion; callers must treat the vault
+/// as authoritative for the completed shred boundary.
+pub fn commit_shred_with_evidence<V, W>(
+    vault: &mut V,
+    wal: &mut W,
+    request: ShredRequest,
+) -> Result<ShredCommitment, AtomicShredError<V::Error, W::Error>>
+where
+    V: ReceiptVault,
+    W: ZeroPersistenceWal,
+{
+    let completed = vault.commit_shred(request).map_err(AtomicShredError::Vault)?;
+    wal.append_commitment(ZeroPersistenceWalRecord::from(completed))
+        .map_err(AtomicShredError::EvidenceAppend)?;
+    Ok(completed)
 }
 
 fn fold_roots(a: [u8; 32], b: [u8; 32], c: [u8; 32]) -> [u8; 32] {
