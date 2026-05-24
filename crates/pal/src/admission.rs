@@ -6,6 +6,8 @@
 
 use core::marker::PhantomData;
 
+const MIN_ENVELOPE_BYTES: usize = 80;
+
 /// Fixed-width effect admitted across the Domain B -> Domain A boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValidatedEffectCommitment {
@@ -91,7 +93,7 @@ pub fn process_envelope<const N: usize>(
 }
 
 fn parse_in_place(view: EnvelopeView<'_>) -> Result<EnvelopeView<'_>, AdmissionError> {
-    if view.bytes.len() < 72 {
+    if view.bytes.len() < MIN_ENVELOPE_BYTES {
         return Err(AdmissionError {
             class: AdmissionErrorClass::DecodeInvalid,
         });
@@ -137,12 +139,12 @@ fn read_u64(bytes: &[u8], pos: &mut usize) -> Result<u64, AdmissionError> {
 mod tests {
     use super::*;
 
-    fn valid_envelope(epoch: u64) -> [u8; 72] {
-        let mut bytes = [0u8; 72];
+    fn valid_envelope(epoch: u64) -> [u8; MIN_ENVELOPE_BYTES] {
+        let mut bytes = [0u8; MIN_ENVELOPE_BYTES];
         bytes[0] = 1;
         bytes[8..16].copy_from_slice(&epoch.to_le_bytes());
         bytes[16..48].copy_from_slice(&[7u8; 32]);
-        bytes[48..72].copy_from_slice(&[9u8; 24]);
+        bytes[48..80].copy_from_slice(&[9u8; 32]);
         bytes
     }
 
@@ -153,6 +155,7 @@ mod tests {
         let commitment = process_envelope(slot).unwrap();
         assert_eq!(commitment.epoch, 42);
         assert_eq!(commitment.effect_root, [7u8; 32]);
+        assert_eq!(commitment.receipt_root, [9u8; 32]);
     }
 
     #[test]
