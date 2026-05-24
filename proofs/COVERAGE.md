@@ -132,16 +132,38 @@ the full three-layer correspondence chain and extraction pipeline.
 
 ---
 
+## Domain Boundary Properties (Stage 6a)
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| EffectToken wrapping is injective: wrap(a) = wrap(b) → a = b (CT-1) | §E0, capability.rs | **PROVED** | `effect_token_wrap_injective` in `capability/cap_token_schema.v` | `src/capability.rs` | — |
+| into_inner is left inverse of wrap: into_inner(wrap(x)) = x (CT-2) | §E0 | **PROVED** | `effect_token_roundtrip` in `capability/cap_token_schema.v` | `src/capability.rs` | — |
+| Constructor uniqueness: every EffectToken was made by wrap (CT-3) | §E0 | **PROVED** | `effect_token_constructor_unique` in `capability/cap_token_schema.v` | `src/capability.rs` | — |
+| into_inner is surjective (CT-4) | §E0 | **PROVED** | `effect_token_into_inner_surjective` in `capability/cap_token_schema.v` | `src/capability.rs` | — |
+
+---
+
+## Sharding / Receipt Properties (M2)
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| Zero receipt root exclusion is replay-deterministic (RE-1 / RE-4) | GENESIS [consensus.receipts], transition.rs:461-463 | **PROVED** | `re1_zero_receipt_root_deterministic`, `re4_replay_invariant` in `sharding/receipt_exclusion_determinism.v` | `src/transition.rs` | streaming state root parity tests |
+| Distinct receipt roots imply distinct states (RE-3) | GENESIS | **PROVED** | `re3_distinct_receipt_roots_distinct_states` in `sharding/receipt_exclusion_determinism.v` | `src/transition.rs` | — |
+| EFB root computation is deterministic | §sharding | **PROVED** | `efb_root_deterministic`, `same_efb_input_same_root` in `sharding/efb_determinism.v` | `src/transition.rs` | — |
+| Receipt epoch mismatch rejected | §sharding | **PROVED** | `receipt_epoch_mismatch_rejected` in `sharding/efb_determinism.v` | `src/transition.rs` | — |
+
+---
+
 ## Coverage Summary
 
 | Status | Count |
 |--------|-------|
-| **PROVED** | 35 |
+| **PROVED** | 43 |
 | **CI-VERIFIED** | 4 |
 | **AXIOM** | 3 |
 | **PLACEHOLDER** | 2 |
 | **MISSING** | 0 |
-| **Total** | 37 |
+| **Total** | 52 |
 
 ---
 
