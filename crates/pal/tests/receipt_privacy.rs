@@ -1,5 +1,6 @@
 use qash_pal::receipt::{
-    DisclosureDomain, EncryptedReceiptCommitment, ReceiptVault, ShredCommitment, ShredRequest,
+    commit_shred_with_evidence, DisclosureDomain, EncryptedReceiptCommitment, ReceiptVault,
+    ShredCommitment, ShredRequest,
 };
 use qash_pal::zero_wal::{InMemoryZeroPersistenceWal, ZeroPersistenceWal, ZeroPersistenceWalRecord};
 
@@ -73,21 +74,23 @@ fn receipt_roots_can_be_persisted_without_receipt_body() {
 }
 
 #[test]
-fn shred_commitment_is_persisted_only_after_commit_shred_returns() {
+fn atomic_shred_helper_persists_only_completed_commitment() {
     let mut vault = MemoryReceiptVault::default();
     let mut wal = InMemoryZeroPersistenceWal::new();
 
-    let completed = vault
-        .commit_shred(ShredRequest {
+    let completed = commit_shred_with_evidence(
+        &mut vault,
+        &mut wal,
+        ShredRequest {
             key_id_commitment: [10u8; 32],
             epoch: 45,
             event_root: [11u8; 32],
-        })
-        .unwrap();
+        },
+    )
+    .unwrap();
 
-    wal.append_commitment(ZeroPersistenceWalRecord::from(completed))
-        .unwrap();
-
+    assert_eq!(completed.epoch, 45);
+    assert_eq!(vault.shreds.len(), 1);
     assert_eq!(
         wal.records(),
         &[ZeroPersistenceWalRecord::ShredCommitment {
