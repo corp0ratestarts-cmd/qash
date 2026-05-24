@@ -261,7 +261,7 @@ interfaces, wire formats, hash preimages, or Domain A invariants.
 
 ### 2-C: Epoch Skew Validation
 
-**Branch:** `codex/v1.1-epoch-semantics`  
+**Branch:** `codex/v1.1-epoch-semantics` → **IMPLEMENTED** (commit 99b59c5, `claude/eager-ride-c29bR`)  
 **Depends on:** 2-B (needs `Envelope` struct)
 
 **Goal:** Reject envelopes with epochs too far in the past or future. Prevents time-based
@@ -312,7 +312,7 @@ epoch_skew_bound = 1     # Δ: max future epochs to accept
 
 ### 2-D: Cascade Health Tracking
 
-**Branch:** `codex/v1.1-cascade-health`  
+**Branch:** `codex/v1.1-cascade-health` → **IMPLEMENTED** (commit 99b59c5, `claude/eager-ride-c29bR`)  
 **Depends on:** 2-B (needs `Envelope.cascade_health` field)
 
 **Goal:** Track protocol health across consecutive epochs; gate finality on
@@ -388,7 +388,7 @@ cascade_health_factor = 50000  # Lyapunov weight coefficient (FixedPoint raw)
 
 ### 2-E: Lineage Compression (Skip-List)
 
-**Branch:** `codex/v1.1-lineage-skiplist`  
+**Branch:** `codex/v1.1-lineage-skiplist` → **IMPLEMENTED** (commit 99b59c5, `crates/consensus/src/lineage.rs`)  
 **Depends on:** 2-B
 
 **Goal:** Replace unbounded parent-list history with a bounded O(log N) skip-list.
@@ -450,7 +450,7 @@ Wire format: 10 × 32 = 320 bytes per epoch state.
 
 ### 2-F: Version Gating and Compatibility Window
 
-**Branch:** `codex/v1.1-version-gating`  
+**Branch:** `codex/v1.1-version-gating` → **IMPLEMENTED** (commit 99b59c5, `crates/consensus/src/transition.rs`)  
 **Depends on:** 2-D (needs `compatibility_window` constant), 2-B (needs `Envelope.version`)
 
 **Changes in `crates/consensus/src/transition.rs`:**
@@ -799,7 +799,7 @@ pub fn check_state_invariants(state: &EpochState) -> Result<(), HaltReason> {
 
 ### 2-K: Replay Corpus and v1.1 Conformance Tests
 
-**Branch:** `codex/v1.1-replay-corpus`  
+**Branch:** `codex/v1.1-replay-corpus` → **IMPLEMENTED** (commit 99b59c5, `tests/vectors/vectors.v1.1.json` + `crates/consensus/tests/v1_1_replay.rs`)  
 **Depends on:** all Domain A changes (2-B through 2-F) merged
 
 **Deliverables:**

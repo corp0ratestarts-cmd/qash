@@ -32,6 +32,8 @@ QASH is a post-quantum, zero-governance, deterministic consensus protocol implem
 
 - **`crates/consensus`** (`qash-consensus`) — `no_std`, no-alloc consensus core. The only logic that is proof-eligible and replay-invariant. It includes substantive transition, encoding, fixed-point, hashing, Lyapunov, and parameter-fingerprint modules; all code here must satisfy the Domain A constraints below.
 - **`crates/pal`** (`qash-pal`) — Platform Abstraction Layer. Defines `Time`, `Net`, `Attest`, and `Halt` traits. The `std` feature gates a `hosted::Host` stub implementation. PAL code is Domain B and may use `unsafe` under audit.
+- **`crates/address`** (`qash-address`) — Domain B address encoding (Bech32m + F4Jumble). Uses SHA3-256 with `QASH_ADDR` domain-separated tags. Never feeds into Domain A transition inputs.
+- **`model/`** (`qash-model`) — `no_std + alloc` canonical reference execution layer. Bridge between Coq proofs and production runtime. Provides `genesis()`, `step()`, and `run()` as deterministic multi-epoch executor. Corresponds to Coq's `step` in `proofs/contractivity/lyapunov_stability.v`.
 - **`src/`** — Hosted binary (`qash`) plus stub modules (`consensus`, `crypto`, `hardware`, `obfuscation`, `offline`). Most module files are currently empty stubs. `main.rs` is a thin entrypoint that calls `qash_consensus::consensus_hash`.
 - **`GENESIS_CONSTANTS.toml`** — Immutable genesis parameters (fixed-point scale, Lyapunov weights, epoch timing, crypto cascade, hardware attestation modes, clone-protocol settings). Modifying this file defines a new network — treat it as append-only.
 - **`proofs/`** — Coq/formal proofs: `contractivity/lyapunov_stability.v`, `safety/absorbing_halt.v`, and `cascade/` (TH-9, TH-10, TH-11 targets).

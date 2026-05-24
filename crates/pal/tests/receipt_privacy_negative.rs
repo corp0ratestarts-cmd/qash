@@ -8,6 +8,7 @@
 //!
 //! Each test is written as a structural or type-level check that can be audited
 //! without running a real vault backend.
+#![cfg(feature = "std")]
 
 use qash_pal::receipt::{
     algorithm_ids, DisclosureDomain, EncryptedReceiptCommitment, Observer,

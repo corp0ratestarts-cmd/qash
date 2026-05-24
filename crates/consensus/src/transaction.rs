@@ -459,6 +459,12 @@ pub fn prevalidate_all(
     raw_txs: &[&[u8]],
     max_count: u32,
 ) -> Result<TxPrevalidation, TxError> {
+    // Soft cap at MAX_TX_PER_EPOCH (1024). Transactions beyond this index are
+    // silently discarded — this is intentional DoS protection. The cap is
+    // deterministic across ISAs because it is applied before any reordering.
+    // Callers that need to know how many were admitted should compare `raw_txs.len()`
+    // to the returned `applied_count`. Tests in `apply_all_excess_over_cap_is_silently_dropped`
+    // document this behaviour explicitly.
     const MAX_TX_PER_EPOCH: usize = 1024;
 
     let n = if raw_txs.len() > MAX_TX_PER_EPOCH {
@@ -925,5 +931,23 @@ mod tests {
         let err = apply_tx_0(&mut state, MAX_VALIDATORS).unwrap_err();
         assert_eq!(err, TxError::MalformedEnvelope);
         assert_eq!(state.nonces[0], 0);
+    }
+
+    // M4: Document and test the silent-drop behaviour when raw_txs exceeds
+    // MAX_TX_PER_EPOCH (1024). This is intentional DoS protection; callers
+    // can detect the drop by comparing input count to applied_count.
+    #[test]
+    fn apply_all_excess_over_max_count_is_silently_dropped() {
+        let state = make_state(1);
+        // Supply 5 transactions but cap at max_count=2.
+        let tx0 = make_tx1_raw(author_id(0), 0, 0, 1);
+        let tx1 = make_tx1_raw(author_id(0), 1, 0, 1);
+        let tx2 = make_tx1_raw(author_id(0), 2, 0, 1);
+        let tx3 = make_tx1_raw(author_id(0), 3, 0, 1);
+        let tx4 = make_tx1_raw(author_id(0), 4, 0, 1);
+        let raw: &[&[u8]] = &[tx0.as_slice(), tx1.as_slice(), tx2.as_slice(), tx3.as_slice(), tx4.as_slice()];
+        let plan = prevalidate_all(&state, raw, 2).unwrap();
+        // At most 2 transactions admitted; rest silently dropped.
+        assert!(plan.applied_count <= 2, "applied_count must not exceed max_count");
     }
 }

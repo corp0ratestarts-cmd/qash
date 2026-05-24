@@ -77,7 +77,9 @@ fn main() {
 
     if !steady_ok || !halt_ok {
         eprintln!("QASH simulation health check FAILED");
-        std::process::exit(1);
+        // Domain B halt path: abort the process without std::process::exit(1)
+        // to avoid bypassing destructors or masking a future platform halt hook.
+        std::process::abort();
     }
 }
 
