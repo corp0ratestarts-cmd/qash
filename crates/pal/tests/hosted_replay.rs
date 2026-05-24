@@ -8,13 +8,12 @@ use qash_pal::hosted::{CanonicalInput, CanonicalValidatorUpdate, Host};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn genesis_state(validator_count: u32) -> EpochState {
+fn genesis_state(validator_count: u32) -> Box<EpochState> {
     let mut validator_ids = [[0u8; 48]; MAX_VALIDATORS];
     for i in 0..validator_count as usize {
         validator_ids[i][0..8].copy_from_slice(&(i as u64).to_le_bytes());
     }
-
-    EpochState {
+    Box::new(EpochState {
         epoch: 0,
         halt_reason: HaltReason::None,
         entropy_seed: [0u8; 32],
@@ -28,7 +27,7 @@ fn genesis_state(validator_count: u32) -> EpochState {
         state_root: [0u8; 32],
         receipt_root: [0u8; 32],
         efb_root: [0u8; 32],
-    }
+    })
 }
 
 fn unique_log_path(name: &str) -> PathBuf {
@@ -56,7 +55,7 @@ fn updated_input(epoch: u64, validator_count: u32, raw: i64) -> CanonicalInput {
 fn replaying_persisted_input_log_from_genesis_matches_crashed_state_root() {
     let path = unique_log_path("crash-restart");
     let genesis = genesis_state(4);
-    let mut pre_crash_state = genesis;
+    let mut pre_crash_state = genesis.clone();
 
     {
         let mut host = Host::new(&path).expect("host log can be created");
@@ -84,7 +83,7 @@ fn replaying_persisted_input_log_from_genesis_matches_crashed_state_root() {
 
     let restarted = Host::new(&path).expect("host log can be reopened");
     let replayed_state = restarted
-        .replay_from_genesis(genesis)
+        .replay_from_genesis(*genesis)
         .expect("persisted canonical log replays from genesis");
 
     assert_eq!(replayed_state.epoch, pre_crash_state.epoch);
@@ -98,7 +97,7 @@ fn replaying_persisted_input_log_from_genesis_matches_crashed_state_root() {
 fn replaying_same_persisted_log_twice_from_genesis_is_identical() {
     let path = unique_log_path("deterministic-replay");
     let genesis = genesis_state(3);
-    let mut state = genesis;
+    let mut state = genesis.clone();
 
     let mut host = Host::new(&path).expect("host log can be created");
     for raw in [3_000, 4_000, 5_000] {
@@ -108,10 +107,10 @@ fn replaying_same_persisted_log_twice_from_genesis_is_identical() {
     }
 
     let replayed_once = host
-        .replay_from_genesis(genesis)
+        .replay_from_genesis(*genesis.clone())
         .expect("first replay succeeds");
     let replayed_twice = host
-        .replay_from_genesis(genesis)
+        .replay_from_genesis(*genesis)
         .expect("second replay succeeds");
 
     assert_eq!(replayed_once.state_root, state.state_root);

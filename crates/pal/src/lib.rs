@@ -423,7 +423,8 @@ pub mod hosted {
             // accepted record is made durable before publishing the resulting
             // Domain A state to the caller, so an append failure cannot leave
             // in-memory state ahead of the recoverable log.
-            let mut next_state = *state;
+            // Box the scratch copy to avoid a 107 KB stack allocation (EpochState M5).
+            let mut next_state = Box::new(*state);
             let result = match &input.sharding {
                 Some(sharding) => {
                     let shards = sharding.to_epoch_sharding_input()?;
@@ -431,14 +432,19 @@ pub mod hosted {
                         shard_commitments: &shards,
                         zk_batch_root: sharding.zk_batch_root,
                     };
-                    advance_epoch_sharded(&mut next_state, &epoch_input, &raw_refs, &epoch_sharding)
-                        .map_err(HostedError::ConsensusHalt)?
+                    advance_epoch_sharded(
+                        &mut next_state,
+                        &epoch_input,
+                        &raw_refs,
+                        &epoch_sharding,
+                    )
+                    .map_err(HostedError::ConsensusHalt)?
                 }
                 None => advance_epoch(&mut next_state, &epoch_input, &raw_refs)
                     .map_err(HostedError::ConsensusHalt)?,
             };
             append_record(&self.log_path, input)?;
-            *state = next_state;
+            *state = *next_state;
             Ok(result)
         }
 
