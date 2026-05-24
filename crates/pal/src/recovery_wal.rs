@@ -16,7 +16,11 @@ pub enum RecoveryWalError {
 pub fn encode_record(record: ZeroPersistenceWalRecord) -> [u8; RECOVERY_RECORD_BYTES] {
     let mut out = [0u8; RECOVERY_RECORD_BYTES];
     match record {
-        ZeroPersistenceWalRecord::EffectCommitment { epoch, effect_root, receipt_root } => {
+        ZeroPersistenceWalRecord::EffectCommitment {
+            epoch,
+            effect_root,
+            receipt_root,
+        } => {
             out[0] = 1;
             write_u64(&mut out, 8, epoch);
             write_root(&mut out, 16, effect_root);
@@ -32,7 +36,11 @@ pub fn encode_record(record: ZeroPersistenceWalRecord) -> [u8; RECOVERY_RECORD_B
             write_u64(&mut out, 8, epoch);
             write_root(&mut out, 16, event_root);
         }
-        ZeroPersistenceWalRecord::ShredCommitment { epoch, key_id_commitment, event_root } => {
+        ZeroPersistenceWalRecord::ShredCommitment {
+            epoch,
+            key_id_commitment,
+            event_root,
+        } => {
             out[0] = 4;
             write_u64(&mut out, 8, epoch);
             write_root(&mut out, 16, key_id_commitment);
@@ -52,10 +60,24 @@ pub fn decode_record(input: &[u8]) -> Result<ZeroPersistenceWalRecord, RecoveryW
     let a = read_root(input, &mut pos);
     let b = read_root(input, &mut pos);
     match tag {
-        1 => Ok(ZeroPersistenceWalRecord::EffectCommitment { epoch, effect_root: a, receipt_root: b }),
-        2 => Ok(ZeroPersistenceWalRecord::StateRoot { epoch, state_root: a }),
-        3 => Ok(ZeroPersistenceWalRecord::BlindAudit { epoch, event_root: a }),
-        4 => Ok(ZeroPersistenceWalRecord::ShredCommitment { epoch, key_id_commitment: a, event_root: b }),
+        1 => Ok(ZeroPersistenceWalRecord::EffectCommitment {
+            epoch,
+            effect_root: a,
+            receipt_root: b,
+        }),
+        2 => Ok(ZeroPersistenceWalRecord::StateRoot {
+            epoch,
+            state_root: a,
+        }),
+        3 => Ok(ZeroPersistenceWalRecord::BlindAudit {
+            epoch,
+            event_root: a,
+        }),
+        4 => Ok(ZeroPersistenceWalRecord::ShredCommitment {
+            epoch,
+            key_id_commitment: a,
+            event_root: b,
+        }),
         _ => Err(RecoveryWalError::InvalidTag),
     }
 }
@@ -107,9 +129,14 @@ impl FileRecoveryWal {
     pub fn open(path: impl Into<std::path::PathBuf>) -> Result<Self, RecoveryWalError> {
         let path = path.into();
         if !path.exists() {
-            let mut file = std::fs::OpenOptions::new().create_new(true).write(true).open(&path).map_err(|_| RecoveryWalError::Io)?;
+            let mut file = std::fs::OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(&path)
+                .map_err(|_| RecoveryWalError::Io)?;
             use std::io::Write;
-            file.write_all(&RECOVERY_WAL_MAGIC).map_err(|_| RecoveryWalError::Io)?;
+            file.write_all(&RECOVERY_WAL_MAGIC)
+                .map_err(|_| RecoveryWalError::Io)?;
             file.sync_all().map_err(|_| RecoveryWalError::Io)?;
         }
         Ok(Self { path })
@@ -127,8 +154,12 @@ impl FileRecoveryWal {
 
     pub fn append_synced(&self, record: ZeroPersistenceWalRecord) -> Result<(), RecoveryWalError> {
         use std::io::Write;
-        let mut file = std::fs::OpenOptions::new().append(true).open(&self.path).map_err(|_| RecoveryWalError::Io)?;
-        file.write_all(&encode_record(record)).map_err(|_| RecoveryWalError::Io)?;
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&self.path)
+            .map_err(|_| RecoveryWalError::Io)?;
+        file.write_all(&encode_record(record))
+            .map_err(|_| RecoveryWalError::Io)?;
         file.sync_all().map_err(|_| RecoveryWalError::Io)?;
         Ok(())
     }
@@ -172,12 +203,12 @@ impl FileRecoveryWal {
             record[0] = first[0];
             match file.read_exact(&mut record[1..]) {
                 Ok(()) => out.push(decode_record(&record)?),
-                Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
-                    match policy {
-                        TruncationPolicy::IgnoreTruncatedTail => break,
-                        TruncationPolicy::RejectTruncatedTail => return Err(RecoveryWalError::InvalidLength),
+                Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => match policy {
+                    TruncationPolicy::IgnoreTruncatedTail => break,
+                    TruncationPolicy::RejectTruncatedTail => {
+                        return Err(RecoveryWalError::InvalidLength)
                     }
-                }
+                },
                 Err(_) => return Err(RecoveryWalError::Io),
             }
         }
@@ -255,17 +286,35 @@ mod tests {
 
     #[test]
     fn record_round_trips() {
-        let record = ZeroPersistenceWalRecord::ShredCommitment { epoch: 3, key_id_commitment: [4u8; 32], event_root: [5u8; 32] };
+        let record = ZeroPersistenceWalRecord::ShredCommitment {
+            epoch: 3,
+            key_id_commitment: [4u8; 32],
+            event_root: [5u8; 32],
+        };
         assert_eq!(decode_record(&encode_record(record)).unwrap(), record);
     }
 
     #[test]
     fn all_record_variants_round_trip() {
         let variants = [
-            ZeroPersistenceWalRecord::EffectCommitment { epoch: 1, effect_root: [1u8; 32], receipt_root: [2u8; 32] },
-            ZeroPersistenceWalRecord::StateRoot { epoch: 2, state_root: [3u8; 32] },
-            ZeroPersistenceWalRecord::BlindAudit { epoch: 3, event_root: [4u8; 32] },
-            ZeroPersistenceWalRecord::ShredCommitment { epoch: 4, key_id_commitment: [5u8; 32], event_root: [6u8; 32] },
+            ZeroPersistenceWalRecord::EffectCommitment {
+                epoch: 1,
+                effect_root: [1u8; 32],
+                receipt_root: [2u8; 32],
+            },
+            ZeroPersistenceWalRecord::StateRoot {
+                epoch: 2,
+                state_root: [3u8; 32],
+            },
+            ZeroPersistenceWalRecord::BlindAudit {
+                epoch: 3,
+                event_root: [4u8; 32],
+            },
+            ZeroPersistenceWalRecord::ShredCommitment {
+                epoch: 4,
+                key_id_commitment: [5u8; 32],
+                event_root: [6u8; 32],
+            },
         ];
         for v in &variants {
             assert_eq!(&decode_record(&encode_record(*v)).unwrap(), v);
@@ -274,8 +323,14 @@ mod tests {
 
     #[test]
     fn decode_invalid_length_returns_error() {
-        assert_eq!(decode_record(&[0u8; 10]), Err(RecoveryWalError::InvalidLength));
-        assert_eq!(decode_record(&[0u8; RECOVERY_RECORD_BYTES + 1]), Err(RecoveryWalError::InvalidLength));
+        assert_eq!(
+            decode_record(&[0u8; 10]),
+            Err(RecoveryWalError::InvalidLength)
+        );
+        assert_eq!(
+            decode_record(&[0u8; RECOVERY_RECORD_BYTES + 1]),
+            Err(RecoveryWalError::InvalidLength)
+        );
     }
 
     #[test]
@@ -321,8 +376,15 @@ mod tests {
         let _ = std::fs::remove_file(&path);
 
         let wal = FileRecoveryWal::open(&path).unwrap();
-        let r1 = ZeroPersistenceWalRecord::StateRoot { epoch: 10, state_root: [0xAA; 32] };
-        let r2 = ZeroPersistenceWalRecord::EffectCommitment { epoch: 11, effect_root: [0xBB; 32], receipt_root: [0xCC; 32] };
+        let r1 = ZeroPersistenceWalRecord::StateRoot {
+            epoch: 10,
+            state_root: [0xAA; 32],
+        };
+        let r2 = ZeroPersistenceWalRecord::EffectCommitment {
+            epoch: 11,
+            effect_root: [0xBB; 32],
+            receipt_root: [0xCC; 32],
+        };
         wal.append_synced(r1).unwrap();
         wal.append_synced(r2).unwrap();
 
@@ -337,20 +399,31 @@ mod tests {
     #[test]
     fn replay_ignore_truncated_tail_succeeds() {
         let mut path = std::env::temp_dir();
-        path.push(format!("qash-wal-test-trunc-ignore-{}.wal", std::process::id()));
+        path.push(format!(
+            "qash-wal-test-trunc-ignore-{}.wal",
+            std::process::id()
+        ));
         let _ = std::fs::remove_file(&path);
 
         let wal = FileRecoveryWal::open(&path).unwrap();
-        let r1 = ZeroPersistenceWalRecord::StateRoot { epoch: 5, state_root: [0x11; 32] };
+        let r1 = ZeroPersistenceWalRecord::StateRoot {
+            epoch: 5,
+            state_root: [0x11; 32],
+        };
         wal.append_synced(r1).unwrap();
 
         // Append a partial record (corruption: only half of a record)
         use std::io::Write;
-        let mut file = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap();
         file.write_all(&[0u8; RECOVERY_RECORD_BYTES / 2]).unwrap();
         drop(file);
 
-        let records = wal.replay_with_policy(TruncationPolicy::IgnoreTruncatedTail).unwrap();
+        let records = wal
+            .replay_with_policy(TruncationPolicy::IgnoreTruncatedTail)
+            .unwrap();
         assert_eq!(records, vec![r1]);
 
         let _ = std::fs::remove_file(&path);
@@ -360,15 +433,24 @@ mod tests {
     #[test]
     fn replay_reject_truncated_tail_returns_error() {
         let mut path = std::env::temp_dir();
-        path.push(format!("qash-wal-test-trunc-reject-{}.wal", std::process::id()));
+        path.push(format!(
+            "qash-wal-test-trunc-reject-{}.wal",
+            std::process::id()
+        ));
         let _ = std::fs::remove_file(&path);
 
         let wal = FileRecoveryWal::open(&path).unwrap();
-        let r1 = ZeroPersistenceWalRecord::StateRoot { epoch: 5, state_root: [0x22; 32] };
+        let r1 = ZeroPersistenceWalRecord::StateRoot {
+            epoch: 5,
+            state_root: [0x22; 32],
+        };
         wal.append_synced(r1).unwrap();
 
         use std::io::Write;
-        let mut file = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap();
         file.write_all(&[0u8; RECOVERY_RECORD_BYTES / 2]).unwrap();
         drop(file);
 
@@ -401,12 +483,38 @@ mod tests {
         let _ = std::fs::remove_file(&path);
 
         let wal = FileRecoveryWal::open(&path).unwrap();
-        wal.append_synced(ZeroPersistenceWalRecord::StateRoot { epoch: 1, state_root: [0x01; 32] }).unwrap();
-        wal.append_synced(ZeroPersistenceWalRecord::StateRoot { epoch: 5, state_root: [0x05; 32] }).unwrap();
-        wal.append_synced(ZeroPersistenceWalRecord::StateRoot { epoch: 3, state_root: [0x03; 32] }).unwrap();
-        wal.append_synced(ZeroPersistenceWalRecord::EffectCommitment { epoch: 2, effect_root: [0xEE; 32], receipt_root: [0xFF; 32] }).unwrap();
-        wal.append_synced(ZeroPersistenceWalRecord::BlindAudit { epoch: 4, event_root: [0xAA; 32] }).unwrap();
-        wal.append_synced(ZeroPersistenceWalRecord::ShredCommitment { epoch: 5, key_id_commitment: [0xBB; 32], event_root: [0xCC; 32] }).unwrap();
+        wal.append_synced(ZeroPersistenceWalRecord::StateRoot {
+            epoch: 1,
+            state_root: [0x01; 32],
+        })
+        .unwrap();
+        wal.append_synced(ZeroPersistenceWalRecord::StateRoot {
+            epoch: 5,
+            state_root: [0x05; 32],
+        })
+        .unwrap();
+        wal.append_synced(ZeroPersistenceWalRecord::StateRoot {
+            epoch: 3,
+            state_root: [0x03; 32],
+        })
+        .unwrap();
+        wal.append_synced(ZeroPersistenceWalRecord::EffectCommitment {
+            epoch: 2,
+            effect_root: [0xEE; 32],
+            receipt_root: [0xFF; 32],
+        })
+        .unwrap();
+        wal.append_synced(ZeroPersistenceWalRecord::BlindAudit {
+            epoch: 4,
+            event_root: [0xAA; 32],
+        })
+        .unwrap();
+        wal.append_synced(ZeroPersistenceWalRecord::ShredCommitment {
+            epoch: 5,
+            key_id_commitment: [0xBB; 32],
+            event_root: [0xCC; 32],
+        })
+        .unwrap();
 
         let evidence = replay_into_evidence(&wal, TruncationPolicy::IgnoreTruncatedTail).unwrap();
 

@@ -347,8 +347,10 @@ mod tests {
         let hdr3r = SkipListHeader::advance(3, &roots[2], &hdr2r);
         let hdr4_replay = SkipListHeader::advance(4, &roots[3], &hdr3r);
 
-        assert_eq!(hdr4_step, hdr4_replay,
-            "LC-2 confluence: replay of the same epoch sequence must reach identical header");
+        assert_eq!(
+            hdr4_step, hdr4_replay,
+            "LC-2 confluence: replay of the same epoch sequence must reach identical header"
+        );
     }
 
     /// Slot-0 commitment at epoch N records the previous epoch's root.
@@ -359,7 +361,9 @@ mod tests {
         let genesis_hdr = SkipListHeader::genesis();
         let hdr = SkipListHeader::advance(1, &root_prev, &genesis_hdr);
         let expected = SkipListHeader::commit(1, &root_prev);
-        assert_eq!(hdr.commitment_hashes[0], expected,
-            "slot-0 must commit to the previous epoch's root");
+        assert_eq!(
+            hdr.commitment_hashes[0], expected,
+            "slot-0 must commit to the previous epoch's root"
+        );
     }
 }

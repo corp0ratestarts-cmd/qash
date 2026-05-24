@@ -207,7 +207,9 @@ where
     V: ReceiptVault,
     W: ZeroPersistenceWal,
 {
-    let completed = vault.commit_shred(request).map_err(AtomicShredError::Vault)?;
+    let completed = vault
+        .commit_shred(request)
+        .map_err(AtomicShredError::Vault)?;
     wal.append_commitment(ZeroPersistenceWalRecord::from(completed))
         .map_err(AtomicShredError::EvidenceAppend)?;
     Ok(completed)
@@ -293,7 +295,10 @@ mod tests {
             disclosure_domain: DisclosureDomain::HolderOnly,
             ciphertext_root: [0xCDu8; 32],
         };
-        let other = ReceiptEncryptionProfile { algorithm_id: algorithm_ids::CHACHA20_POLY1305, ..base };
+        let other = ReceiptEncryptionProfile {
+            algorithm_id: algorithm_ids::CHACHA20_POLY1305,
+            ..base
+        };
         assert_ne!(base.public_root(), other.public_root());
     }
 
@@ -305,7 +310,10 @@ mod tests {
             disclosure_domain: DisclosureDomain::HolderOnly,
             ciphertext_root: [0x02u8; 32],
         };
-        let other = ReceiptEncryptionProfile { key_commitment: [0x03u8; 32], ..base };
+        let other = ReceiptEncryptionProfile {
+            key_commitment: [0x03u8; 32],
+            ..base
+        };
         assert_ne!(base.public_root(), other.public_root());
     }
 

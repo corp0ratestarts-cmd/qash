@@ -11,10 +11,11 @@
 #![cfg(feature = "std")]
 
 use qash_pal::receipt::{
-    algorithm_ids, DisclosureDomain, EncryptedReceiptCommitment, Observer,
-    ReceiptEncryptionProfile,
+    algorithm_ids, DisclosureDomain, EncryptedReceiptCommitment, Observer, ReceiptEncryptionProfile,
 };
-use qash_pal::zero_wal::{InMemoryZeroPersistenceWal, ZeroPersistenceWal, ZeroPersistenceWalRecord};
+use qash_pal::zero_wal::{
+    InMemoryZeroPersistenceWal, ZeroPersistenceWal, ZeroPersistenceWalRecord,
+};
 
 // ---------------------------------------------------------------------------
 // WAL record shape — no raw body fields
@@ -50,7 +51,11 @@ fn wal_effect_commitment_has_no_raw_transaction_body() {
     })
     .unwrap();
     match wal.records()[0] {
-        ZeroPersistenceWalRecord::EffectCommitment { effect_root, receipt_root, .. } => {
+        ZeroPersistenceWalRecord::EffectCommitment {
+            effect_root,
+            receipt_root,
+            ..
+        } => {
             // Both fields are 32-byte roots, not variable-length blobs.
             assert_eq!(effect_root.len(), 32);
             assert_eq!(receipt_root.len(), 32);
@@ -69,7 +74,11 @@ fn wal_shred_commitment_excludes_key_material() {
     })
     .unwrap();
     match wal.records()[0] {
-        ZeroPersistenceWalRecord::ShredCommitment { key_id_commitment, event_root, .. } => {
+        ZeroPersistenceWalRecord::ShredCommitment {
+            key_id_commitment,
+            event_root,
+            ..
+        } => {
             // key_id_commitment is a hash of the key ID, not the key itself.
             // event_root is a root hash, not raw event data.
             assert_eq!(key_id_commitment.len(), 32);
@@ -113,7 +122,10 @@ fn encrypted_receipt_public_root_does_not_leak_ciphertext_len() {
         disclosure_domain: DisclosureDomain::HolderAndAuditor,
         ciphertext_len: 512,
     };
-    let other = EncryptedReceiptCommitment { ciphertext_len: 1024, ..base };
+    let other = EncryptedReceiptCommitment {
+        ciphertext_len: 1024,
+        ..base
+    };
     // ciphertext_len is not in the root — the root matches.
     assert_eq!(base.public_root(), other.public_root());
 }
@@ -153,7 +165,12 @@ fn receipt_encryption_profile_has_no_plaintext_body_field() {
         disclosure_domain,
         ciphertext_root,
     } = p;
-    let _ = (algorithm_id, key_commitment, disclosure_domain, ciphertext_root);
+    let _ = (
+        algorithm_id,
+        key_commitment,
+        disclosure_domain,
+        ciphertext_root,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -202,7 +219,10 @@ fn operator_policy_cannot_escalate_to_public() {
 fn state_root_wal_record_has_no_operator_identity_fields() {
     // ZeroPersistenceWalRecord::StateRoot carries only epoch and state_root.
     // No validator ID, no hardware serial, no operator string.
-    let r = ZeroPersistenceWalRecord::StateRoot { epoch: 10, state_root: [0x55u8; 32] };
+    let r = ZeroPersistenceWalRecord::StateRoot {
+        epoch: 10,
+        state_root: [0x55u8; 32],
+    };
     match r {
         ZeroPersistenceWalRecord::StateRoot { epoch, state_root } => {
             assert_eq!(epoch, 10);

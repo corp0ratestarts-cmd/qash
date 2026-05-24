@@ -118,26 +118,25 @@ enum CandidateEffect {
 #[derive(Clone, Copy)]
 struct Candidate {
     sort_key: [u8; 32],
-    tx_id:    [u8; 32],
+    tx_id: [u8; 32],
     /// Validator slot index (u32 to satisfy Domain A width rules in structs).
-    slot:     u32,
-    nonce:    u64,
-    effect:   CandidateEffect,
+    slot: u32,
+    nonce: u64,
+    effect: CandidateEffect,
 }
 
 impl Candidate {
     const ZERO: Candidate = Candidate {
         sort_key: [0u8; 32],
-        tx_id:    [0u8; 32],
-        slot:     0,
-        nonce:    0,
-        effect:   CandidateEffect::Noop,
+        tx_id: [0u8; 32],
+        slot: 0,
+        nonce: 0,
+        effect: CandidateEffect::Noop,
     };
 }
 
 fn candidate_after(left: &Candidate, right: &Candidate) -> bool {
-    left.sort_key > right.sort_key
-        || (left.sort_key == right.sort_key && left.tx_id > right.tx_id)
+    left.sort_key > right.sort_key || (left.sort_key == right.sort_key && left.tx_id > right.tx_id)
 }
 
 /// Runtime-only projection of validator nonces and divergences during admission.
@@ -145,7 +144,7 @@ fn candidate_after(left: &Candidate, right: &Candidate) -> bool {
 /// Captures incremental changes as candidates are admitted in sorted order.
 /// Must not be persisted or published — discarded after `prevalidate_all` returns.
 struct AdmissionProjection {
-    nonces:      [u64; MAX_VALIDATORS],
+    nonces: [u64; MAX_VALIDATORS],
     divergences: [FixedPoint; MAX_VALIDATORS],
 }
 
@@ -158,7 +157,10 @@ impl AdmissionProjection {
         {
             *d = v.divergence;
         }
-        Self { nonces: state.nonces, divergences }
+        Self {
+            nonces: state.nonces,
+            divergences,
+        }
     }
 }
 
@@ -571,8 +573,7 @@ pub fn prevalidate_all(
                 true
             }
             CandidateEffect::ScoreDecrement { target_idx, delta } => {
-                let target = usize::try_from(target_idx)
-                    .map_err(|_| TxError::TargetOutOfBounds)?;
+                let target = usize::try_from(target_idx).map_err(|_| TxError::TargetOutOfBounds)?;
                 if target >= state.validator_count as usize {
                     continue;
                 }
@@ -979,15 +980,22 @@ mod tests {
         if key_a == key_b {
             // Equal sort keys: only the lower tx_id is admitted (nonce conflict).
             let plan = prevalidate_all(&state, &[tx_a.as_slice(), tx_b.as_slice()], 100).unwrap();
-            assert_eq!(plan.applied_count, 1, "equal sort_key with equal nonce: one admitted");
+            assert_eq!(
+                plan.applied_count, 1,
+                "equal sort_key with equal nonce: one admitted"
+            );
         } else {
             // Different sort keys: normal ordering applies.
-            let forward = prevalidate_all(&state, &[tx_a.as_slice(), tx_b.as_slice()], 100).unwrap();
-            let reverse = prevalidate_all(&state, &[tx_b.as_slice(), tx_a.as_slice()], 100).unwrap();
+            let forward =
+                prevalidate_all(&state, &[tx_a.as_slice(), tx_b.as_slice()], 100).unwrap();
+            let reverse =
+                prevalidate_all(&state, &[tx_b.as_slice(), tx_a.as_slice()], 100).unwrap();
             assert_eq!(forward.applied_count, 1);
             assert_eq!(reverse.applied_count, 1);
-            assert_eq!(forward.next_nonces, reverse.next_nonces,
-                "sort ordering must be deterministic regardless of input order");
+            assert_eq!(
+                forward.next_nonces, reverse.next_nonces,
+                "sort ordering must be deterministic regardless of input order"
+            );
         }
     }
 
@@ -1011,9 +1019,18 @@ mod tests {
         let tx2 = make_tx1_raw(author_id(0), 2, 0, 1);
         let tx3 = make_tx1_raw(author_id(0), 3, 0, 1);
         let tx4 = make_tx1_raw(author_id(0), 4, 0, 1);
-        let raw: &[&[u8]] = &[tx0.as_slice(), tx1.as_slice(), tx2.as_slice(), tx3.as_slice(), tx4.as_slice()];
+        let raw: &[&[u8]] = &[
+            tx0.as_slice(),
+            tx1.as_slice(),
+            tx2.as_slice(),
+            tx3.as_slice(),
+            tx4.as_slice(),
+        ];
         let plan = prevalidate_all(&state, raw, 2).unwrap();
         // At most 2 transactions admitted; rest silently dropped.
-        assert!(plan.applied_count <= 2, "applied_count must not exceed max_count");
+        assert!(
+            plan.applied_count <= 2,
+            "applied_count must not exceed max_count"
+        );
     }
 }

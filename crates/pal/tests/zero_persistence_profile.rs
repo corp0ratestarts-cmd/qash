@@ -1,7 +1,9 @@
 #[cfg(feature = "std")]
 use qash_pal::admission::{process_envelope, EphemeralEnvelope};
 #[cfg(feature = "std")]
-use qash_pal::zero_wal::{InMemoryZeroPersistenceWal, ZeroPersistenceWal, ZeroPersistenceWalRecord};
+use qash_pal::zero_wal::{
+    InMemoryZeroPersistenceWal, ZeroPersistenceWal, ZeroPersistenceWalRecord,
+};
 
 fn valid_envelope(epoch: u64) -> [u8; 80] {
     let mut bytes = [0u8; 80];
@@ -19,7 +21,8 @@ fn production_profile_uses_commitment_only_path() {
     let slot = EphemeralEnvelope::<128>::new(&envelope).unwrap();
     let effect = process_envelope(slot).unwrap();
     let mut wal = InMemoryZeroPersistenceWal::new();
-    wal.append_commitment(ZeroPersistenceWalRecord::from(effect)).unwrap();
+    wal.append_commitment(ZeroPersistenceWalRecord::from(effect))
+        .unwrap();
 
     assert_eq!(wal.records().len(), 1);
     assert_eq!(

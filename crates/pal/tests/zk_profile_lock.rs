@@ -46,9 +46,15 @@ fn known_profile_id_round_trips() {
 
 #[test]
 fn profile_constants_are_locked_to_domain_a_values() {
-    assert_eq!(ZkProfileId::Plonky3FriPoseidonQash.profile_id(), 0x0001_0001);
+    assert_eq!(
+        ZkProfileId::Plonky3FriPoseidonQash.profile_id(),
+        0x0001_0001
+    );
     assert_eq!(ZkProfileId::Plonky3FriPoseidonQash.recursion_depth(), 2);
-    assert_eq!(ZkProfileId::Plonky3FriPoseidonQash.layer1_aggregation_factor(), 16);
+    assert_eq!(
+        ZkProfileId::Plonky3FriPoseidonQash.layer1_aggregation_factor(),
+        16
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -88,7 +94,10 @@ fn zero_aggregation_count_rejected() {
     let v = static_verifier(root);
     let mut b = bundle(root);
     b.aggregation_proof_count = 0;
-    assert_eq!(v.verify(&b).unwrap_err(), ZkVerifyError::ZeroAggregationProofs);
+    assert_eq!(
+        v.verify(&b).unwrap_err(),
+        ZkVerifyError::ZeroAggregationProofs
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -124,5 +133,8 @@ fn large_proof_bytes_do_not_appear_in_result() {
 #[test]
 fn reject_all_verifier_blocks_all_bundles() {
     let b = bundle([0x70u8; 32]);
-    assert_eq!(RejectAllZkVerifier.verify(&b).unwrap_err(), ZkVerifyError::BackendError);
+    assert_eq!(
+        RejectAllZkVerifier.verify(&b).unwrap_err(),
+        ZkVerifyError::BackendError
+    );
 }

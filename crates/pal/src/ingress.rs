@@ -5,7 +5,9 @@
 //! Counter/root-only. No raw payloads, peer identities, or graph edges cross
 //! this boundary.
 
-use crate::commitment_backpressure::{BackpressureDecision, BackpressureError, CommitmentBackpressure};
+use crate::commitment_backpressure::{
+    BackpressureDecision, BackpressureError, CommitmentBackpressure,
+};
 use crate::commitment_inbox::{CommitmentInbox, CommitmentInboxError};
 use crate::commitment_transport::CommitmentFrame;
 use crate::recovery_wal::RecoveryWalError;
@@ -53,7 +55,11 @@ impl From<RecoveryWalError> for IngressError {
 /// Allows the ingress to work with both `FileRecoveryWal` (std) and
 /// in-memory sinks (tests, no_std stubs).
 pub trait IngressWal {
-    fn append_state_root(&mut self, epoch: u64, state_root: [u8; 32]) -> Result<(), RecoveryWalError>;
+    fn append_state_root(
+        &mut self,
+        epoch: u64,
+        state_root: [u8; 32],
+    ) -> Result<(), RecoveryWalError>;
 }
 
 /// In-memory WAL sink for tests — records appended roots in order.
@@ -63,15 +69,24 @@ pub struct InMemoryIngressWal {
 }
 
 impl IngressWal for InMemoryIngressWal {
-    fn append_state_root(&mut self, epoch: u64, state_root: [u8; 32]) -> Result<(), RecoveryWalError> {
-        self.records.push(ZeroPersistenceWalRecord::StateRoot { epoch, state_root });
+    fn append_state_root(
+        &mut self,
+        epoch: u64,
+        state_root: [u8; 32],
+    ) -> Result<(), RecoveryWalError> {
+        self.records
+            .push(ZeroPersistenceWalRecord::StateRoot { epoch, state_root });
         Ok(())
     }
 }
 
 #[cfg(feature = "std")]
 impl IngressWal for crate::recovery_wal::FileRecoveryWal {
-    fn append_state_root(&mut self, epoch: u64, state_root: [u8; 32]) -> Result<(), RecoveryWalError> {
+    fn append_state_root(
+        &mut self,
+        epoch: u64,
+        state_root: [u8; 32],
+    ) -> Result<(), RecoveryWalError> {
         self.append_synced(ZeroPersistenceWalRecord::StateRoot { epoch, state_root })
     }
 }
@@ -154,16 +169,28 @@ mod tests {
     fn admit_writes_state_root_to_wal() {
         let wal = InMemoryIngressWal::default();
         let mut ingress = CommitmentIngress::<_, 8>::new(4, 8, wal).unwrap();
-        assert_eq!(ingress.receive(frame(1)).unwrap(), IngressDecision::Admitted);
-        assert_eq!(ingress.receive(frame(2)).unwrap(), IngressDecision::Admitted);
+        assert_eq!(
+            ingress.receive(frame(1)).unwrap(),
+            IngressDecision::Admitted
+        );
+        assert_eq!(
+            ingress.receive(frame(2)).unwrap(),
+            IngressDecision::Admitted
+        );
         assert_eq!(ingress.wal.records.len(), 2);
         assert_eq!(
             ingress.wal.records[0],
-            ZeroPersistenceWalRecord::StateRoot { epoch: 1, state_root: [1u8; 32] }
+            ZeroPersistenceWalRecord::StateRoot {
+                epoch: 1,
+                state_root: [1u8; 32]
+            }
         );
         assert_eq!(
             ingress.wal.records[1],
-            ZeroPersistenceWalRecord::StateRoot { epoch: 2, state_root: [2u8; 32] }
+            ZeroPersistenceWalRecord::StateRoot {
+                epoch: 2,
+                state_root: [2u8; 32]
+            }
         );
     }
 
@@ -171,8 +198,14 @@ mod tests {
     fn throttle_still_persists_to_wal() {
         let wal = InMemoryIngressWal::default();
         let mut ingress = CommitmentIngress::<_, 8>::new(1, 4, wal).unwrap();
-        assert_eq!(ingress.receive(frame(1)).unwrap(), IngressDecision::Admitted);
-        assert_eq!(ingress.receive(frame(2)).unwrap(), IngressDecision::Throttled);
+        assert_eq!(
+            ingress.receive(frame(1)).unwrap(),
+            IngressDecision::Admitted
+        );
+        assert_eq!(
+            ingress.receive(frame(2)).unwrap(),
+            IngressDecision::Throttled
+        );
         assert_eq!(ingress.wal.records.len(), 2);
     }
 
@@ -182,7 +215,10 @@ mod tests {
         let mut ingress = CommitmentIngress::<_, 8>::new(1, 2, wal).unwrap();
         ingress.receive(frame(1)).unwrap();
         ingress.receive(frame(2)).unwrap();
-        assert_eq!(ingress.receive(frame(3)).unwrap(), IngressDecision::Rejected);
+        assert_eq!(
+            ingress.receive(frame(3)).unwrap(),
+            IngressDecision::Rejected
+        );
         // WAL only has 2 records; the rejected frame was not persisted.
         assert_eq!(ingress.wal.records.len(), 2);
         // Inbox only has 2 frames.
@@ -194,10 +230,19 @@ mod tests {
     fn reset_window_allows_further_admission() {
         let wal = InMemoryIngressWal::default();
         let mut ingress = CommitmentIngress::<_, 8>::new(1, 1, wal).unwrap();
-        assert_eq!(ingress.receive(frame(1)).unwrap(), IngressDecision::Admitted);
-        assert_eq!(ingress.receive(frame(2)).unwrap(), IngressDecision::Rejected);
+        assert_eq!(
+            ingress.receive(frame(1)).unwrap(),
+            IngressDecision::Admitted
+        );
+        assert_eq!(
+            ingress.receive(frame(2)).unwrap(),
+            IngressDecision::Rejected
+        );
         ingress.reset_window();
-        assert_eq!(ingress.receive(frame(3)).unwrap(), IngressDecision::Admitted);
+        assert_eq!(
+            ingress.receive(frame(3)).unwrap(),
+            IngressDecision::Admitted
+        );
         assert_eq!(ingress.admitted_in_window(), 1);
     }
 
@@ -207,7 +252,7 @@ mod tests {
         let mut ingress = CommitmentIngress::<_, 8>::new(10, 20, wal).unwrap();
         ingress.receive(frame(5)).unwrap();
         ingress.receive(frame(5)).unwrap(); // dup; inbox deduplicates but WAL still gets it
-        // WAL sees both attempts (dedup is at inbox level, not WAL level; idempotent on replay).
+                                            // WAL sees both attempts (dedup is at inbox level, not WAL level; idempotent on replay).
         assert_eq!(ingress.wal.records.len(), 2);
         // Inbox has only one frame for epoch 5.
         let epochs: Vec<u64> = ingress.drain_ordered().map(|f| f.epoch).collect();
@@ -240,7 +285,10 @@ mod tests {
         // WAL record is StateRoot only — no receipt_root, efb_root, or evidence_root.
         assert_eq!(
             ingress.wal.records[0],
-            ZeroPersistenceWalRecord::StateRoot { epoch: 42, state_root: [0xAB; 32] }
+            ZeroPersistenceWalRecord::StateRoot {
+                epoch: 42,
+                state_root: [0xAB; 32]
+            }
         );
     }
 }

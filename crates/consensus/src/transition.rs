@@ -131,7 +131,10 @@ pub struct EpochState {
 // Domain B callers must box this struct. Raise the limit only with updated stack budget docs.
 const _: () = {
     let sz = core::mem::size_of::<EpochState>();
-    assert!(sz <= 131_072, "EpochState exceeds 128 KB — update Domain B stack budget docs");
+    assert!(
+        sz <= 131_072,
+        "EpochState exceeds 128 KB — update Domain B stack budget docs"
+    );
 };
 
 impl EpochState {
@@ -1473,7 +1476,10 @@ mod tests {
         };
         advance_epoch_sharded(&mut state, &input, &[], &sharding).unwrap();
         let prior = [0xCCu8; 32];
-        assert_ne!(state.receipt_root, [0u8; 32], "sharding roots must be non-zero");
+        assert_ne!(
+            state.receipt_root, [0u8; 32],
+            "sharding roots must be non-zero"
+        );
         assert_eq!(
             compute_state_root_streaming(&state, &prior),
             compute_state_root_buffered(&state, &prior),

@@ -49,7 +49,13 @@ impl CommitmentFrame {
         let receipt_root = read_root(input, &mut pos);
         let efb_root = read_root(input, &mut pos);
         let evidence_root = read_root(input, &mut pos);
-        Ok(Self { epoch, state_root, receipt_root, efb_root, evidence_root })
+        Ok(Self {
+            epoch,
+            state_root,
+            receipt_root,
+            efb_root,
+            evidence_root,
+        })
     }
 }
 

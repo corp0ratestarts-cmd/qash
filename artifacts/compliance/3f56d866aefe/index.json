@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0",
+  "commit": "3f56d866aefec5e1adb56ef5530fafe1207756c6",
+  "commit_short": "3f56d866aefe",
+  "generated_at": "2026-05-24T08:21:11Z",
+  "claims": {
+    "audit_readiness": "pre-genesis integration RC — not certified",
+    "certification_scope": "Domain A (qash-consensus) — CC EAL4+ target of evaluation",
+    "not_covered": [
+      "HIPAA", "FIPS 140-3 module certification",
+      "SOC2", "ISO 27001", "GDPR standalone certification"
+    ]
+  },
+  "evidence": {
+    "proof_hashes": null,
+    "proof_files_active": 27,
+    "proof_admitted_count": 0,
+    "benchmark_baseline": "artifacts/benchmarks/2026-05-24T-epoch-transition-x86_64.txt",
+    "replay_equivalence": null
+  },
+  "ci_gates": {
+    "build_x86_64": "required",
+    "test_determinism": "required",
+    "clippy_lint": "required",
+    "cross_verify_aarch64": "required",
+    "cross_verify_riscv64gc": "required",
+    "proofs": "required",
+    "zero_persistence_boundary": "required",
+    "supply_chain": "required",
+    "fuzz_smoke": "required",
+    "adversarial_sim": "required",
+    "kani_advisory": "advisory",
+    "rust_hygiene": "advisory",
+    "cavp_kat": "planned"
+  },
+  "formal_proofs": {
+    "coq_theorems": "22+",
+    "key_theorems": [
+      "lyapunov_stability (contractivity)",
+      "absorbing_halt (safety)",
+      "causal_fingerprint (bisimulation)",
+      "lyapunov_confluence (Church-Rosser)",
+      "th3_system_closure",
+      "cascade_health_bounded",
+      "cascade_determinism",
+      "cap_token_schema (EffectToken CT-1..CT-4)"
+    ],
+    "admitted_theorems": "0"
+  },
+  "domain_partition": {
+    "domain_a": "crates/consensus/ — deterministic, no_std, proof-eligible",
+    "domain_b": "crates/pal/ — PAL layer, std, hardware abstraction"
+  }
+}

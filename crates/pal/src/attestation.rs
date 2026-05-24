@@ -129,7 +129,9 @@ mod tests {
     #[test]
     fn trusted_nonce_produces_root() {
         let nonce = [0x42u8; 32];
-        let verifier = StaticNonceVerifier { expected_nonce: nonce };
+        let verifier = StaticNonceVerifier {
+            expected_nonce: nonce,
+        };
         let ev = evidence(7, nonce);
         let (verdict, root) = verifier.verify(&ev);
         assert_eq!(verdict, AttestationVerdict::Trusted);
@@ -138,7 +140,9 @@ mod tests {
 
     #[test]
     fn wrong_nonce_is_rejected() {
-        let verifier = StaticNonceVerifier { expected_nonce: [0x01u8; 32] };
+        let verifier = StaticNonceVerifier {
+            expected_nonce: [0x01u8; 32],
+        };
         let ev = evidence(7, [0x02u8; 32]);
         let (verdict, root) = verifier.verify(&ev);
         assert_eq!(verdict, AttestationVerdict::Rejected);
@@ -184,7 +188,9 @@ mod tests {
         let mut ev2 = evidence(3, nonce);
         ev1.quote_bytes = vec![0x11; 64];
         ev2.quote_bytes = vec![0x22; 64]; // different hardware quote
-        let verifier = StaticNonceVerifier { expected_nonce: nonce };
+        let verifier = StaticNonceVerifier {
+            expected_nonce: nonce,
+        };
         let (_, root1) = verifier.verify(&ev1);
         let (_, root2) = verifier.verify(&ev2);
         // Roots are equal — hardware identity is excluded.

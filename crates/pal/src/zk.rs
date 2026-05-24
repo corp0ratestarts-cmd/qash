@@ -221,7 +221,10 @@ mod tests {
         let v = verifier(root);
         let mut bundle = good_bundle(root);
         bundle.shard_proof_count = 0;
-        assert_eq!(v.verify(&bundle).unwrap_err(), ZkVerifyError::ZeroShardProofs);
+        assert_eq!(
+            v.verify(&bundle).unwrap_err(),
+            ZkVerifyError::ZeroShardProofs
+        );
     }
 
     #[test]
@@ -230,7 +233,10 @@ mod tests {
         let v = verifier(root);
         let mut bundle = good_bundle(root);
         bundle.aggregation_proof_count = 0;
-        assert_eq!(v.verify(&bundle).unwrap_err(), ZkVerifyError::ZeroAggregationProofs);
+        assert_eq!(
+            v.verify(&bundle).unwrap_err(),
+            ZkVerifyError::ZeroAggregationProofs
+        );
     }
 
     #[test]
@@ -239,22 +245,34 @@ mod tests {
         let v = verifier(root);
         let mut bundle = good_bundle(root);
         bundle.claimed_batch_root = [0x06u8; 32];
-        assert_eq!(v.verify(&bundle).unwrap_err(), ZkVerifyError::BatchRootMismatch);
+        assert_eq!(
+            v.verify(&bundle).unwrap_err(),
+            ZkVerifyError::BatchRootMismatch
+        );
     }
 
     #[test]
     fn reject_all_verifier_always_errors() {
         let bundle = good_bundle([0xFF; 32]);
-        assert_eq!(RejectAllZkVerifier.verify(&bundle).unwrap_err(), ZkVerifyError::BackendError);
+        assert_eq!(
+            RejectAllZkVerifier.verify(&bundle).unwrap_err(),
+            ZkVerifyError::BackendError
+        );
     }
 
     #[test]
     fn profile_id_constants_match_domain_a_values() {
         // ZkProfileId must stay in sync with Domain A's sharding constants.
         // If these change, both Domain A and Domain B must be updated together.
-        assert_eq!(ZkProfileId::Plonky3FriPoseidonQash.profile_id(), 0x0001_0001u32);
+        assert_eq!(
+            ZkProfileId::Plonky3FriPoseidonQash.profile_id(),
+            0x0001_0001u32
+        );
         assert_eq!(ZkProfileId::Plonky3FriPoseidonQash.recursion_depth(), 2u8);
-        assert_eq!(ZkProfileId::Plonky3FriPoseidonQash.layer1_aggregation_factor(), 16u16);
+        assert_eq!(
+            ZkProfileId::Plonky3FriPoseidonQash.layer1_aggregation_factor(),
+            16u16
+        );
     }
 
     #[test]
