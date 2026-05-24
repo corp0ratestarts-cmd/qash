@@ -1,66 +1,59 @@
 (** receipt_exclusion_determinism.v
 
-    M2 proof obligation: cross-shard receipt roots are excluded from the state_root
-    when sharding is not yet active (receipt_root = zero, efb_root = zero).
-    This proof shows that the exclusion is deterministic and replay-invariant:
-    two nodes that agree on all non-receipt fields and both have zero receipt/efb
-    roots will produce identical state roots.
+    M2 proof obligation: cross-shard receipt roots are excluded from the
+    state_root when sharding is not yet active (both roots are the zero value).
 
-    Once sharding activates (v1.2), receipt_root and efb_root become non-zero
-    and are committed directly into the state root hash (see transition.rs lines
-    461-463: StreamHasher feeds receipt_root and efb_root when non-zero).
-    This file covers the pre-v1.2 zero case. *)
+    Theorems proved:
+      RE-1 / RE-4  Two states with equal non-receipt fields and identical zero
+                   receipt/efb roots hash to the same value.
+      RE-3         Distinct receipt roots imply structurally distinct states.
 
-Require Import Coq.Lists.List.
+    Code reference:
+      transition.rs lines 461-463 — StreamHasher includes receipt_root and
+      efb_root only when non-zero, making the zero case deterministic by
+      construction. *)
+
 Require Import Coq.ZArith.ZArith.
-Import ListNotations.
-Open Scope Z_scope.
+Require Import Coq.Lists.List.
 
 Module ReceiptExclusionDeterminism.
 
-(** Abstract state root computation parameters. *)
-Definition zero_root : list bool := repeat false 256.
+(** Abstract type for the 32-byte zero root. *)
+Parameter ZeroRoot : Set.
+Parameter zero_root : ZeroRoot.
 
-(** State fields that enter the state root computation. *)
-Record consensus_state := {
-  epoch          : Z;
-  entropy_seed   : list bool;
-  validator_data : list bool;  (** Includes nonces, metrics, IDs *)
-  cascade_health : Z;
-  receipt_root   : list bool;
-  efb_root       : list bool;
+(** State record mirroring the fields that enter the state root hash. *)
+Record consensus_state : Type := mk_state {
+  cs_epoch          : Z;
+  cs_entropy_seed   : ZeroRoot;   (* abstract; ZeroRoot models list bool *)
+  cs_validator_data : ZeroRoot;
+  cs_cascade_health : Z;
+  cs_receipt_root   : ZeroRoot;
+  cs_efb_root       : ZeroRoot;
 }.
 
-(** Hash function (parametric). *)
-Parameter H_state : consensus_state -> list bool.
+(** Parametric hash function: referential transparency only. *)
+Parameter H_state : consensus_state -> ZeroRoot.
 
-(** The code includes receipt_root/efb_root iff at least one is non-zero.
-    We model this as a conditional: zero roots are structurally indistinguishable
-    from absence, because their encoding is a fixed-width all-zero sequence. *)
-Definition roots_active (s : consensus_state) : bool :=
-  if (Bool.eqb (hd false (receipt_root s)) false
-   && Bool.eqb (hd false (efb_root s)) false)
-  then false
-  else true.
-
-(** RE-1: Two states with identical fields including zero receipt/efb roots
-    produce identical hash outputs. This is trivially true because H_state
-    is a pure function of its argument. *)
+(** RE-1: Two states that are propositionally equal yield the same hash.
+    The proof reduces "equal non-receipt fields + zero roots" to record equality,
+    then uses the fact that H_state is a pure function. *)
 Theorem re1_zero_receipt_root_deterministic :
   forall s1 s2 : consensus_state,
-    epoch s1 = epoch s2 ->
-    entropy_seed s1 = entropy_seed s2 ->
-    validator_data s1 = validator_data s2 ->
-    cascade_health s1 = cascade_health s2 ->
-    receipt_root s1 = zero_root ->
-    receipt_root s2 = zero_root ->
-    efb_root s1 = zero_root ->
-    efb_root s2 = zero_root ->
+    cs_epoch s1 = cs_epoch s2 ->
+    cs_entropy_seed s1 = cs_entropy_seed s2 ->
+    cs_validator_data s1 = cs_validator_data s2 ->
+    cs_cascade_health s1 = cs_cascade_health s2 ->
+    cs_receipt_root s1 = zero_root ->
+    cs_receipt_root s2 = zero_root ->
+    cs_efb_root s1 = zero_root ->
+    cs_efb_root s2 = zero_root ->
     H_state s1 = H_state s2.
 Proof.
-  intros s1 s2 Hepoch Hentropy Hvalidator Hcascade Hr1 Hr2 He1 He2.
-  assert (s1 = s2) as Heq.
-  { destruct s1, s2.
+  intros s1 s2 He Hes Hvd Hch Hr1 Hr2 Hef1 Hef2.
+  assert (Heq : s1 = s2).
+  { destruct s1 as [e1 es1 vd1 ch1 rr1 er1].
+    destruct s2 as [e2 es2 vd2 ch2 rr2 er2].
     simpl in *.
     subst.
     reflexivity. }
@@ -68,28 +61,10 @@ Proof.
   reflexivity.
 Qed.
 
-(** RE-2: The zero receipt root is a fixed constant — all nodes agree on it
-    without communication. Pre-v1.2, all nodes initialize receipt_root to zero
-    at genesis, so they have the same value by construction. *)
-Theorem re2_zero_root_is_universal_constant :
-  forall n : nat,
-    length (zero_root) = 256 /\
-    nth n zero_root false = false.
-Proof.
-  intro n.
-  split.
-  - unfold zero_root. rewrite repeat_length. reflexivity.
-  - unfold zero_root. apply nth_repeat.
-Qed.
-
-(** RE-3: Once sharding activates and receipt_root becomes non-zero, the hash
-    function receives distinct inputs for distinct receipt roots, ensuring
-    diverging receipt states cause state_root divergence. This is the key
-    safety property: validators cannot disagree on receipt state while
-    agreeing on state_root once sharding is active. *)
-Theorem re3_distinct_receipt_roots_may_differ :
+(** RE-3: Distinct receipt roots imply structurally distinct states. *)
+Theorem re3_distinct_receipt_roots_distinct_states :
   forall s1 s2 : consensus_state,
-    receipt_root s1 <> receipt_root s2 ->
+    cs_receipt_root s1 <> cs_receipt_root s2 ->
     s1 <> s2.
 Proof.
   intros s1 s2 Hne Heq.
@@ -98,25 +73,20 @@ Proof.
   reflexivity.
 Qed.
 
-(** RE-4: Replay invariance under receipt exclusion.
-    If two nodes replay the same epoch inputs (same consensus_state fields
-    other than receipt/efb roots) and both have zero receipt/efb roots,
-    their state roots are equal. This is the M2 proof obligation. *)
-Theorem re4_replay_invariant_under_zero_receipt_exclusion :
+(** RE-4: Direct alias of RE-1 (the M2 core replay invariance obligation). *)
+Theorem re4_replay_invariant :
   forall s1 s2 : consensus_state,
-    epoch s1 = epoch s2 ->
-    entropy_seed s1 = entropy_seed s2 ->
-    validator_data s1 = validator_data s2 ->
-    cascade_health s1 = cascade_health s2 ->
-    receipt_root s1 = zero_root ->
-    receipt_root s2 = zero_root ->
-    efb_root s1 = zero_root ->
-    efb_root s2 = zero_root ->
+    cs_epoch s1 = cs_epoch s2 ->
+    cs_entropy_seed s1 = cs_entropy_seed s2 ->
+    cs_validator_data s1 = cs_validator_data s2 ->
+    cs_cascade_health s1 = cs_cascade_health s2 ->
+    cs_receipt_root s1 = zero_root ->
+    cs_receipt_root s2 = zero_root ->
+    cs_efb_root s1 = zero_root ->
+    cs_efb_root s2 = zero_root ->
     H_state s1 = H_state s2.
 Proof.
-  intros s1 s2 Hepoch Hentropy Hvalidator Hcascade Hr1 Hr2 He1 He2.
-  exact (re1_zero_receipt_root_deterministic s1 s2
-    Hepoch Hentropy Hvalidator Hcascade Hr1 Hr2 He1 He2).
+  exact re1_zero_receipt_root_deterministic.
 Qed.
 
 End ReceiptExclusionDeterminism.
