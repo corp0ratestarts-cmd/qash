@@ -599,7 +599,9 @@ mod tests {
         let mut data = fs::read(&wal_path).unwrap();
         // Offset: WAL_MAGIC (8) + WAL_RECORD_MAGIC (8) = 16 bytes header,
         // then flip a byte in the middle of the TX payload.
-        let corrupt_offset = 16 + 20;
+        let header_size = 16;
+        let corrupt_offset = header_size + 20;
+        assert!(data.len() > corrupt_offset, "WAL too short for corruption test");
         data[corrupt_offset] ^= 0xAB;
         fs::write(&wal_path, &data).unwrap();
         assert!(
