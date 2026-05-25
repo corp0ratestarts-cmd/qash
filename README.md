@@ -87,6 +87,10 @@ GENESIS_CONSTANTS.toml   Immutable genesis parameters (not yet locked)
 > **Evidence handoff:** current pre-genesis claims, blocked claims, and local
 > verification commands are tracked in
 > `docs/release/pre_genesis_evidence_snapshot.md`.
+>
+> **MVP claim boundary:** the offline incident-receipt commit demonstrator is a
+> local Domain B MVP only. Allowed and blocked claims are governed by
+> [`docs/mvp/claims_register.md`](docs/mvp/claims_register.md).
 
 The relationship between layers:
 
