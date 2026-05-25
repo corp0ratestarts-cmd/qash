@@ -70,7 +70,9 @@ impl fmt::Display for DemoCliError {
 struct DemoOptions {
     dir: PathBuf,
     peer_dir: Option<PathBuf>,
+    import: Option<PathBuf>,
     out: Option<PathBuf>,
+    report: Option<PathBuf>,
     epoch: u64,
     nonce: Option<[u8; 32]>,
     body: Vec<u8>,
@@ -83,7 +85,9 @@ impl Default for DemoOptions {
         Self {
             dir: PathBuf::from(DEFAULT_DIR),
             peer_dir: None,
+            import: None,
             out: None,
+            report: None,
             epoch: 0,
             nonce: None,
             body: DEFAULT_BODY.as_bytes().to_vec(),
@@ -130,7 +134,8 @@ pub fn print_demo_help() {
     println!("  qash-demo init [--dir PATH]");
     println!("  qash-demo issue-receipt [--dir PATH] [--epoch N] [--nonce-hex HEX] [--body TEXT]");
     println!("  qash-demo sync [--dir PATH] [--out PATH] [--peer-dir PATH]");
-    println!("  qash-demo replay [--dir PATH]");
+    println!("  qash-demo sync --import FILE [--dir PATH]");
+    println!("  qash-demo replay [--dir PATH] [--report PATH]");
     println!("  qash-demo disclose --receipt-id HEX [--dir PATH] [--out PATH]");
     println!();
     println!("Claim boundary:");
@@ -172,6 +177,18 @@ fn cmd_issue_receipt(options: &DemoOptions) -> Result<(), DemoCliError> {
 }
 
 fn cmd_sync(options: &DemoOptions) -> Result<(), DemoCliError> {
+    if let Some(import_path) = &options.import {
+        let data = fs::read(import_path).map_err(|err| DemoCliError::Io(err.to_string()))?;
+        let vault = MvpReceiptVault::open(&options.dir)
+            .or_else(|_| MvpReceiptVault::init(&options.dir))
+            .map_err(vault_error)?;
+        let count = vault.import_public_commitments(&data).map_err(vault_error)?;
+        println!("imported {} public commitment records", count);
+        println!("workspace: {}", options.dir.display());
+        println!("source: {}", import_path.display());
+        println!("note: imported records support replay but not disclosure (no private body)");
+        return Ok(());
+    }
     let vault = MvpReceiptVault::open(&options.dir).map_err(vault_error)?;
     let public = vault.export_public_commitments().map_err(vault_error)?;
     let out_path = options
@@ -192,16 +209,25 @@ fn cmd_sync(options: &DemoOptions) -> Result<(), DemoCliError> {
 
 fn cmd_replay(options: &DemoOptions) -> Result<(), DemoCliError> {
     let vault = MvpReceiptVault::open(&options.dir).map_err(vault_error)?;
-    let records = vault.read_commitments().map_err(vault_error)?;
+    let exports = vault.read_all_public_exports().map_err(vault_error)?;
     let mut root = [0u8; 32];
-    for record in &records {
-        root = replay_root_step(root, &record.public_export.encode());
+    for export in &exports {
+        root = replay_root_step(root, &export.encode());
     }
     println!("QASH MVP replay report");
     println!("workspace: {}", options.dir.display());
-    println!("records: {}", records.len());
+    println!("records: {}", exports.len());
     println!("commitment_root: {}", hex32(root));
     println!("status: deterministic local replay completed");
+    if let Some(report_path) = &options.report {
+        let report = format!(
+            "{{\n  \"profile\": \"TX-MVP-ReceiptCommit\",\n  \"records\": {},\n  \"commitment_root\": \"{}\",\n  \"public_transcript_only\": true,\n  \"private_payloads_seen\": false,\n  \"status\": \"ok\"\n}}\n",
+            exports.len(),
+            hex32(root)
+        );
+        fs::write(report_path, report.as_bytes()).map_err(|err| DemoCliError::Io(err.to_string()))?;
+        println!("report: {}", report_path.display());
+    }
     Ok(())
 }
 
@@ -233,8 +259,16 @@ fn parse_options(args: &[String]) -> Result<DemoOptions, DemoCliError> {
                 options.peer_dir = Some(PathBuf::from(required_value(args, i + 1, "--peer-dir")?.as_str()));
                 i += 2;
             }
+            "--import" => {
+                options.import = Some(PathBuf::from(required_value(args, i + 1, "--import")?.as_str()));
+                i += 2;
+            }
             "--out" => {
                 options.out = Some(PathBuf::from(required_value(args, i + 1, "--out")?.as_str()));
+                i += 2;
+            }
+            "--report" => {
+                options.report = Some(PathBuf::from(required_value(args, i + 1, "--report")?.as_str()));
                 i += 2;
             }
             "--epoch" => {

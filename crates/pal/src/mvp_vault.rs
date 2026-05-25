@@ -20,6 +20,8 @@ const MANIFEST_FILE: &str = "manifest.txt";
 const VAULT_DIR: &str = "vault";
 const DISCLOSURE_DIR: &str = "disclosures";
 const COMMITMENT_WAL_FILE: &str = "commitments.wal";
+const IMPORTED_COMMITMENTS_FILE: &str = "imported_commitments.bin";
+const PUBLIC_COMMITMENTS_HEADER: &[u8] = b"QASH-MVP-PUBLIC-COMMITMENTS\0";
 const MANIFEST_MAGIC: &str = "QASH-MVP-INCIDENT-RECEIPT-DEMO\n";
 const WAL_MAGIC: &[u8; 8] = b"QMVPWAL\0";
 const WAL_RECORD_MAGIC: &[u8; 8] = b"QMVPREC\0";
@@ -172,11 +174,56 @@ impl MvpReceiptVault {
 
     pub fn export_public_commitments(&self) -> Result<Vec<u8>, MvpVaultError> {
         let mut out = Vec::new();
-        out.extend_from_slice(b"QASH-MVP-PUBLIC-COMMITMENTS\0");
+        out.extend_from_slice(PUBLIC_COMMITMENTS_HEADER);
         for record in self.read_commitments()? {
             out.extend_from_slice(&record.public_export.encode());
         }
         Ok(out)
+    }
+
+    pub fn import_public_commitments(&self, data: &[u8]) -> Result<usize, MvpVaultError> {
+        if data.len() < PUBLIC_COMMITMENTS_HEADER.len()
+            || &data[..PUBLIC_COMMITMENTS_HEADER.len()] != PUBLIC_COMMITMENTS_HEADER
+        {
+            return Err(MvpVaultError::InvalidWal("invalid public commitments header"));
+        }
+        let records_data = &data[PUBLIC_COMMITMENTS_HEADER.len()..];
+        if !records_data.len().is_multiple_of(TX_MVP_PUBLIC_EXPORT_BYTES) {
+            return Err(MvpVaultError::InvalidWal("truncated public commitments record"));
+        }
+        let count = records_data.len() / TX_MVP_PUBLIC_EXPORT_BYTES;
+        for i in 0..count {
+            let start = i * TX_MVP_PUBLIC_EXPORT_BYTES;
+            TxMvpReceiptCommitPublicExport::decode(&records_data[start..start + TX_MVP_PUBLIC_EXPORT_BYTES])?;
+        }
+        fs::write(self.root.join(IMPORTED_COMMITMENTS_FILE), data)?;
+        Ok(count)
+    }
+
+    pub fn read_all_public_exports(&self) -> Result<Vec<TxMvpReceiptCommitPublicExport>, MvpVaultError> {
+        let mut exports: Vec<TxMvpReceiptCommitPublicExport> = self
+            .read_commitments()?
+            .into_iter()
+            .map(|r| r.public_export)
+            .collect();
+        let import_path = self.root.join(IMPORTED_COMMITMENTS_FILE);
+        if import_path.exists() {
+            let data = fs::read(&import_path)?;
+            if data.len() >= PUBLIC_COMMITMENTS_HEADER.len()
+                && &data[..PUBLIC_COMMITMENTS_HEADER.len()] == PUBLIC_COMMITMENTS_HEADER
+            {
+                let records_data = &data[PUBLIC_COMMITMENTS_HEADER.len()..];
+                let n = records_data.len() / TX_MVP_PUBLIC_EXPORT_BYTES;
+                for i in 0..n {
+                    let start = i * TX_MVP_PUBLIC_EXPORT_BYTES;
+                    let export = TxMvpReceiptCommitPublicExport::decode(
+                        &records_data[start..start + TX_MVP_PUBLIC_EXPORT_BYTES],
+                    )?;
+                    exports.push(export);
+                }
+            }
+        }
+        Ok(exports)
     }
 
     pub fn disclose_receipt(&self, receipt_id: [u8; 32]) -> Result<Vec<u8>, MvpVaultError> {
@@ -403,5 +450,105 @@ mod tests {
         assert!(disclosure.windows(b"first synthetic incident".len()).any(|w| w == b"first synthetic incident"));
         assert!(!disclosure.windows(b"second synthetic incident".len()).any(|w| w == b"second synthetic incident"));
         let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn disclosure_of_unknown_receipt_is_rejected() {
+        let path = temp_workspace("unknown-receipt");
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        let unknown_id = fixture_bytes(FixtureKind::FirstNonce);
+        assert!(matches!(vault.disclose_receipt(unknown_id), Err(MvpVaultError::ReceiptNotFound)));
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn truncated_wal_record_is_rejected() {
+        let path = temp_workspace("truncated-wal");
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        vault
+            .issue_receipt(
+                10,
+                fixture_bytes(FixtureKind::FirstNonce),
+                b"synthetic body",
+                fixture_bytes(FixtureKind::DisclosureCommitment),
+            )
+            .unwrap();
+        let wal_path = path.join(super::COMMITMENT_WAL_FILE);
+        let mut data = fs::read(&wal_path).unwrap();
+        data.truncate(data.len() - 10);
+        fs::write(&wal_path, &data).unwrap();
+        assert!(matches!(MvpReceiptVault::open(&path), Err(MvpVaultError::InvalidWal(_))));
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn wrong_wal_header_magic_is_rejected() {
+        let path = temp_workspace("wrong-magic");
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        drop(vault);
+        let wal_path = path.join(super::COMMITMENT_WAL_FILE);
+        let mut data = fs::read(&wal_path).unwrap();
+        data[0] ^= 0xff;
+        fs::write(&wal_path, &data).unwrap();
+        assert!(matches!(MvpReceiptVault::open(&path), Err(MvpVaultError::InvalidWal(_))));
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn wrong_wal_record_magic_is_rejected() {
+        let path = temp_workspace("wrong-record-magic");
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        vault
+            .issue_receipt(
+                10,
+                fixture_bytes(FixtureKind::FirstNonce),
+                b"synthetic body",
+                fixture_bytes(FixtureKind::DisclosureCommitment),
+            )
+            .unwrap();
+        let wal_path = path.join(super::COMMITMENT_WAL_FILE);
+        let mut data = fs::read(&wal_path).unwrap();
+        let header_len = super::WAL_MAGIC.len();
+        data[header_len] ^= 0xff;
+        fs::write(&wal_path, &data).unwrap();
+        assert!(matches!(
+            MvpReceiptVault::open(&path),
+            Err(MvpVaultError::InvalidWal(_))
+        ));
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn import_allows_replay_but_not_disclosure() {
+        let node_a = temp_workspace("import-node-a");
+        let node_b = temp_workspace("import-node-b");
+
+        let vault_a = MvpReceiptVault::init(&node_a).unwrap();
+        let receipt = vault_a
+            .issue_receipt(
+                10,
+                fixture_bytes(FixtureKind::FirstNonce),
+                b"synthetic import body",
+                fixture_bytes(FixtureKind::DisclosureCommitment),
+            )
+            .unwrap();
+        let public = vault_a.export_public_commitments().unwrap();
+
+        let vault_b = MvpReceiptVault::init(&node_b).unwrap();
+        let count = vault_b.import_public_commitments(&public).unwrap();
+        assert_eq!(count, 1);
+
+        let exports_a = vault_a.read_all_public_exports().unwrap();
+        let exports_b = vault_b.read_all_public_exports().unwrap();
+        assert_eq!(exports_a.len(), exports_b.len());
+        assert_eq!(exports_a[0].encode(), exports_b[0].encode());
+
+        assert!(matches!(
+            vault_b.disclose_receipt(receipt.receipt_id),
+            Err(MvpVaultError::ReceiptNotFound)
+        ));
+
+        let _ = fs::remove_dir_all(&node_a);
+        let _ = fs::remove_dir_all(&node_b);
     }
 }
