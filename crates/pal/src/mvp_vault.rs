@@ -116,13 +116,18 @@ impl MvpReceiptVault {
         receipt_file.write_all(body)?;
         receipt_file.sync_all()?;
 
-        append_wal_record(
+        let append_result = append_wal_record(
             &self.wal_path(),
             &CommitmentWalRecord {
                 tx,
                 public_export: tx.public_export()?,
             },
-        )?;
+        );
+        
+        if let Err(e) = append_result {
+            let _ = fs::remove_file(&receipt_path);
+            return Err(e);
+        }
 
         Ok(PrivateIncidentReceipt {
             receipt_id,
