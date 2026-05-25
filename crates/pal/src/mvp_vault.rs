@@ -17,11 +17,13 @@ use std::io::{self, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 
 const MANIFEST_FILE: &str = "manifest.txt";
+const VAULT_SALT_FILE: &str = "vault_salt.bin";
 const VAULT_DIR: &str = "vault";
 const DISCLOSURE_DIR: &str = "disclosures";
 const COMMITMENT_WAL_FILE: &str = "commitments.wal";
 const IMPORTED_COMMITMENTS_FILE: &str = "imported_commitments.bin";
 const PUBLIC_COMMITMENTS_HEADER: &[u8] = b"QASH-MVP-PUBLIC-COMMITMENTS\0";
+const VAULT_SALT_BYTES: usize = 32;
 const MANIFEST_MAGIC: &str = "QASH-MVP-INCIDENT-RECEIPT-DEMO\n";
 const WAL_MAGIC: &[u8; 8] = b"QMVPWAL\0";
 const WAL_RECORD_MAGIC: &[u8; 8] = b"QMVPREC\0";
@@ -90,6 +92,12 @@ impl MvpReceiptVault {
         fs::create_dir_all(root.join(DISCLOSURE_DIR))?;
         fs::write(root.join(MANIFEST_FILE), MANIFEST_MAGIC.as_bytes())?;
         ensure_wal_header(&root.join(COMMITMENT_WAL_FILE))?;
+        let salt_path = root.join(VAULT_SALT_FILE);
+        if !salt_path.exists() {
+            let mut salt = [0u8; VAULT_SALT_BYTES];
+            getrandom::getrandom(&mut salt).map_err(|err| MvpVaultError::Io(io::Error::other(err.to_string())))?;
+            fs::write(salt_path, salt)?;
+        }
         Ok(Self {
             root,
             epoch_nonce_index: RefCell::new(BTreeSet::new()),
@@ -224,6 +232,24 @@ impl MvpReceiptVault {
             }
         }
         Ok(exports)
+    }
+
+    /// Derive a nonce from the workspace salt + current WAL record count + epoch.
+    /// Produces a unique, deterministic-within-workspace nonce without exposing
+    /// raw entropy; keeps `--nonce-hex` for deterministic test mode.
+    pub fn fresh_nonce(&self, epoch: u64) -> Result<[u8; 32], MvpVaultError> {
+        let salt_bytes = fs::read(self.root.join(VAULT_SALT_FILE))?;
+        if salt_bytes.len() != VAULT_SALT_BYTES {
+            return Err(MvpVaultError::InvalidWorkspace("vault salt has wrong size"));
+        }
+        let counter = u64::try_from(self.read_commitments()?.len())
+            .unwrap_or(u64::MAX);
+        let mut hasher = Sha3_256::new();
+        hasher.update(b"QASH-MVP-NONCE-DERIVE\0");
+        hasher.update(&salt_bytes);
+        hasher.update(counter.to_le_bytes());
+        hasher.update(epoch.to_le_bytes());
+        Ok(hasher.finalize().into())
     }
 
     pub fn disclose_receipt(&self, receipt_id: [u8; 32]) -> Result<Vec<u8>, MvpVaultError> {

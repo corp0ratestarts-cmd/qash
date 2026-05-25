@@ -157,7 +157,7 @@ fn cmd_issue_receipt(options: &DemoOptions) -> Result<(), DemoCliError> {
         .map_err(vault_error)?;
     let nonce = match options.nonce {
         Some(nonce) => nonce,
-        None => random_bytes()?,
+        None => vault.fresh_nonce(options.epoch).map_err(vault_error)?,
     };
     let disclosure_key_commitment = match options.disclosure_key_commitment {
         Some(commitment) => commitment,
