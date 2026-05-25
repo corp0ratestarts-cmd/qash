@@ -7,7 +7,7 @@ use sha3::{Digest, Sha3_256};
 
 pub const TX_MVP_RECEIPT_COMMIT_VERSION: u32 = 0x4d565001;
 pub const TX_MVP_RECEIPT_COMMIT_BYTES: usize = 140;
-pub const TX_MVP_PUBLIC_EXPORT_BYTES: usize = 136;
+pub const TX_MVP_PUBLIC_EXPORT_BYTES: usize = 140;
 
 pub const TX_MVP_RECEIPT_COMMIT_DOMAIN_TAG: [u8; 32] = [
     b'Q', b'A', b'S', b'H', b'-', b'M', b'V', b'P', b'-', b'R', b'E', b'C', b'E', b'I', b'P',
