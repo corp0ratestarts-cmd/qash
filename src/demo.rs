@@ -73,23 +73,23 @@ impl fmt::Display for DemoCliError {
 }
 
 pub fn run_demo_cli(args: &[String]) -> Result<(), DemoCliError> {
-    let Some(command) = args.first() else {
+    let Some(command_arg) = args.first() else {
         print_demo_help();
         return Err(DemoCliError::MissingCommand);
     };
 
-    if command == "--help" || command == "-h" || command == "help" {
+    if command_arg == "--help" || command_arg == "-h" || command_arg == "help" {
         print_demo_help();
         return Ok(());
     }
 
-    let Some(command) = DemoCommand::parse(command) else {
+    let Some(parsed_command) = DemoCommand::parse(command_arg) else {
         print_demo_help();
-        return Err(DemoCliError::UnknownCommand(command.clone()));
+        return Err(DemoCliError::UnknownCommand(command_arg.clone()));
     };
 
-    print_placeholder(command);
-    Err(DemoCliError::Placeholder(command))
+    print_placeholder(parsed_command);
+    Err(DemoCliError::Placeholder(parsed_command))
 }
 
 pub fn print_demo_help() {
