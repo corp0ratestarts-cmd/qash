@@ -719,6 +719,6 @@ mod tests {
         let end = report[start..].find('"').unwrap() + start;
         let root_hex = &report[start..end];
         assert_eq!(root_hex.len(), 64, "commitment_root must be 64 hex chars");
-        assert!(root_hex.chars().all(|c| c.is_ascii_hexdigit()), "commitment_root must be lowercase hex");
+        assert!(root_hex.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()), "commitment_root must be lowercase hex");
     }
 }
