@@ -3,6 +3,8 @@ pub mod commitment_backpressure;
 pub mod commitment_inbox;
 pub mod commitment_transport;
 pub mod mvp;
+#[cfg(feature = "std")]
+pub mod mvp_vault;
 pub mod receipt;
 pub mod recovery_wal;
 pub mod zero_wal;
