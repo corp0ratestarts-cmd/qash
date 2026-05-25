@@ -51,7 +51,9 @@ fn bench_issue_receipt(c: &mut Criterion) {
                 )
                 .unwrap();
             seq += 1;
+            seq - 1  // Return value for black_box
         });
+    });
     });
 
     group.finish();
