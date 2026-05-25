@@ -371,7 +371,8 @@ fn apply_tx_1_prevalidated(
         return Err(TxError::TargetOutOfBounds);
     }
 
-    let next_divergence = tx1_project_divergence(projected_divergences[target_idx], tx.delta)?;
+    let next_divergence =
+        tx1_project_divergence(projected_divergences[target_idx], tx.delta)?;
     projected_divergences[target_idx] = next_divergence;
     next_nonces[author_idx] = next_nonces[author_idx]
         .checked_add(1)
@@ -423,12 +424,15 @@ impl TxPrevalidation {
 // prevalidate_all: decode -> sort -> validate against projected nonces
 // ---------------------------------------------------------------------------
 
-/// Per-entry for sorting: sort key + index into raw_txs.
+/// Per-entry for sorting. `author_slot` is pre-resolved in pass 1 to avoid a
+/// second O(N) `index_of_validator` scan in the admission pass. `raw_idx` is
+/// retained so pass 2 can re-read the envelope for nonce and type fields.
 #[derive(Clone, Copy)]
 struct SortEntry {
     key: [u8; 32],
     id: [u8; 32],
     raw_idx: u32,
+    author_slot: u32,
 }
 
 impl SortEntry {
@@ -436,6 +440,7 @@ impl SortEntry {
         key: [0u8; 32],
         id: [0u8; 32],
         raw_idx: 0,
+        author_slot: 0,
     };
 }
 
@@ -470,25 +475,29 @@ pub fn prevalidate_all(
     let mut entries = [SortEntry::ZERO; MAX_TX_PER_EPOCH];
     let mut valid: usize = 0;
 
+    // Pass 1: parse each envelope, resolve author slot, build sort entries.
+    // Caching `author_slot` avoids a second O(N) `index_of_validator` scan in
+    // the admission pass. The raw bytes are still re-read in pass 2 for nonce
+    // and type-specific fields.
     for (raw_idx, raw) in raw_txs.iter().enumerate().take(n) {
         let (tx, consumed) = match parse_tx(raw) {
             Ok(v) => v,
             Err(_) => continue,
         };
-        if index_of_validator(state, tx.author_id()).is_none() {
-            continue;
-        }
-
+        let slot = match index_of_validator(state, tx.author_id()) {
+            Some(s) => s,
+            None => continue,
+        };
         let id = match tx_id_bytes(raw, consumed) {
             Ok(id) => id,
             Err(_) => continue,
         };
         let key = sort_key(&state.entropy_seed, &id);
-
         entries[valid] = SortEntry {
             key,
             id,
             raw_idx: raw_idx as u32,
+            author_slot: slot as u32,
         };
         valid += 1;
     }
@@ -522,6 +531,9 @@ pub fn prevalidate_all(
     let mut divergence_update_count: u32 = 0;
     let mut applied: u32 = 0;
 
+    // Pass 2: admit in sorted order.
+    // Re-parses each envelope for nonce/type fields; uses the cached author
+    // slot to skip the O(N) `index_of_validator` scan done in pass 1.
     for e in &entries[..valid] {
         if applied as usize >= limit {
             break;
@@ -531,10 +543,7 @@ pub fn prevalidate_all(
             Ok(v) => v,
             Err(_) => continue,
         };
-        let idx = match index_of_validator(state, tx.author_id()) {
-            Some(i) => i,
-            None => continue,
-        };
+        let idx = e.author_slot as usize;
         if check_nonce(&next_nonces, idx, tx.nonce()).is_err() {
             continue;
         }
@@ -908,11 +917,13 @@ mod tests {
             key: [7u8; 32],
             id: high_id,
             raw_idx: 0,
+            author_slot: 0,
         };
         let low_second = SortEntry {
             key: [7u8; 32],
             id: low_id,
             raw_idx: 1,
+            author_slot: 0,
         };
 
         assert!(sort_entry_after(&high_first, &low_second));

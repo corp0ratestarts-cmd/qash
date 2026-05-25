@@ -143,3 +143,79 @@ fn phase2r_state_root_commitment_matches_buffered_preimage() {
 
     assert_eq!(result.state_root, recomputed);
 }
+
+/// Phase 2-R streaming preimage equivalence: advance_epoch (streaming path) must
+/// produce the same state root as manually encoding to a buffer and hashing it.
+/// Covers validator counts that trigger the sharding-roots branch (non-zero roots).
+#[test]
+fn phase2r_streaming_state_root_matches_buffered_for_varied_states() {
+    for vc in [1u32, 4, 16, 128] {
+        for epoch_steps in [0u32, 1, 5] {
+            let mut state = state_with_validators(vc);
+            for _ in 0..epoch_steps {
+                advance_epoch(&mut state, &idle_input(vc), &[]).unwrap();
+            }
+            let prior_root = state.state_root;
+            let result = advance_epoch(&mut state, &idle_input(vc), &[]).unwrap();
+
+            let mut commitment_state = state;
+            commitment_state.state_root = prior_root;
+
+            let mut preimage = [0u8; FULL_STATE_MAX_BYTES];
+            let preimage_len = encode_full_state_into(&commitment_state, &mut preimage);
+            let buffered = h_domain(DomainTag::StateRoot, &preimage[..preimage_len]);
+
+            assert_eq!(
+                result.state_root, buffered,
+                "streaming path must match buffered path for vc={vc} after {epoch_steps} steps"
+            );
+        }
+    }
+}
+
+/// Phase 2-R single-pass admission parity: prevalidate_all with forward and
+/// reversed input order must produce identical next_nonces (order-independence
+/// of the single-pass path under the total-order sort).
+#[test]
+fn phase2r_single_pass_admission_is_order_independent_with_tx1() {
+    use qash_consensus::transaction::{
+        prevalidate_all, TX1_WIRE_BYTES, TX_TYPE_SCORE_DECREMENT,
+    };
+    use qash_consensus::fixed_point::FixedPoint;
+
+    let mut state = state_with_validators(4);
+    // Give validator 1 some divergence so TX-1 can decrement it.
+    state.validators[1].divergence = FixedPoint::from_raw(500_000);
+
+    // TX-0 from slot 0, TX-1 from slot 2 targeting slot 1.
+    let tx0 = make_tx0_raw(state.validator_ids[0], 0, 0);
+    let tx1 = {
+        let mut raw = [0u8; TX1_WIRE_BYTES];
+        raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
+        raw[2..4].copy_from_slice(&TX_TYPE_SCORE_DECREMENT.to_le_bytes());
+        raw[4..12].copy_from_slice(&0u64.to_le_bytes()); // nonce 0
+        raw[12..60].copy_from_slice(&state.validator_ids[2]);
+        raw[60..64].copy_from_slice(&8u32.to_le_bytes()); // payload_len=8
+        raw[64..68].copy_from_slice(&1u32.to_le_bytes()); // target_idx=1
+        raw[68..72].copy_from_slice(&100u32.to_le_bytes()); // delta=100
+        raw
+    };
+
+    let fwd = prevalidate_all(
+        &state,
+        &[tx0.as_slice(), tx1.as_slice()],
+        MAX_VALIDATORS as u32,
+    )
+    .unwrap();
+    let rev = prevalidate_all(
+        &state,
+        &[tx1.as_slice(), tx0.as_slice()],
+        MAX_VALIDATORS as u32,
+    )
+    .unwrap();
+
+    assert_eq!(fwd.applied_count, 2);
+    assert_eq!(rev.applied_count, 2);
+    assert_eq!(fwd.next_nonces, rev.next_nonces);
+    assert_eq!(fwd.divergence_update_count, rev.divergence_update_count);
+}
