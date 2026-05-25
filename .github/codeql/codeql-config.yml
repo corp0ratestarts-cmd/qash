@@ -1,0 +1,14 @@
+name: "QASH CodeQL Configuration"
+
+# The rust/hardcoded-credentials query fires on protocol domain-tag constants
+# (e.g. b"QASH-SIGNATURE\0", b"QASH_ATTEST_ROOT_V1") and on test helper
+# functions that produce deterministic byte arrays for fields whose names
+# contain "key" (key_commitment, key_id_commitment). Neither class represents
+# an actual hardcoded credential.
+#
+# Real secret exposure is covered by gitleaks and trufflehog in
+# security-compliance-preflight.yml, which run on every push and PR and
+# detect actual credentials committed to the repository.
+query-filters:
+  - exclude:
+      id: rust/hardcoded-credentials
