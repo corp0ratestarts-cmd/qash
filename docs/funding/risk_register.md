@@ -8,7 +8,7 @@
 ## Risk table
 
 | ID | Risk | Likelihood | Impact | Severity | Mitigation |
-|----|------|-----------|--------|----------|------------|
+|----|------|-----------|--------|----------|-----------|
 | R1 | Security review identifies P0/P1 vulnerability in WAL format or commitment scheme | Medium | High | **High** | WP1 external review planned for months 1–3; WAL format is fixed-size with magic headers, reducing attack surface; existing fuzz corpus covers truncation and corruption cases |
 | R2 | Partner organisation is unable to provide representative incident data for WP2 pilot | Medium | Medium | **Medium** | Two fallback partners identified in outreach pipeline; synthetic log corpus can substitute for TRL 5 validation if necessary |
 | R3 | Cross-ISA determinism breaks under a new compiler or toolchain update | Low | High | **Medium** | Pinned Rust toolchain (`rust-toolchain.toml`); CI gates on x86-64/AArch64/RISC-V replay-root equality; any divergence halts CI immediately |
@@ -19,6 +19,7 @@
 | R8 | Key personnel unavailability during WP1–WP2 overlap (months 2–4) | Low | Medium | **Low** | WP1 external reviewer is independent; WP2 tasks are documented in sufficient detail for handover |
 | R9 | Fuzz campaign (WP1.3) exposes parser crash with no straightforward fix | Low | High | **Medium** | WAL parser has no recursion and processes fixed-size records only; worst case is a WAL truncation detection path, which already triggers a non-fatal error |
 | R10 | Funding programme requires open publication of partner incident data | Low | High | **Medium** | Demonstrator is designed for anonymised synthetic data at pilot stage; real incident data is never required; public transcript contains only commitments |
+| R11 | Coq proof compilation exceeds CI job time limit, blocking auto-merge | Low | Medium | **Low** | Proofs CI job is scheduled separately; incremental build caching reduces compile time; `timeout-minutes` cap planned to fail-fast rather than block for 6 hours |
 
 ---
 
