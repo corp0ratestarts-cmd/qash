@@ -1,10 +1,24 @@
 # MVP Claims Register
 
 **Transaction type:** `TX-MVP-ReceiptCommit`  
-**Domain:** B (demonstrator only — not a production Domain A transaction)  
+**Boundary:** unlocked Domain A demo profile may be used; locked/genesis Domain A remains blocked  
 **Status:** MVP baseline
 
 This register defines the precise boundary of claims that are and are not supported by the QASH MVP offline incident receipt commit demonstrator. It exists to prevent scope creep, funding misrepresentation, and accidental admission of the MVP as a production system.
+
+---
+
+## Domain Boundary
+
+Use the following terminology in all MVP and funding material:
+
+| Term | Meaning | MVP status |
+|------|---------|------------|
+| Locked Domain A | Genesis-admitted production consensus transition and constants | Blocked for MVP |
+| Unlocked Domain A demo profile | Non-genesis sandbox/admission profile for receipt admission, replay, and commitment-root evidence | Allowed and likely needed |
+| Domain B | Private/demo material: receipt bodies, local vault, disclosure bodies, tooling artifacts | Present |
+
+The MVP must not claim entry into locked or genesis-admitted Domain A. It may use an explicitly unlocked Domain A demo profile to make admission and replay evidence fundable and testable without changing production consensus rules.
 
 ---
 
@@ -20,7 +34,7 @@ The following claims are accurate and may be made about the MVP demonstrator:
 | One-receipt selective disclosure | `disclose` exports a single receipt body keyed by receipt ID without revealing other receipts |
 | No stable public user identity in the MVP transaction type | `TxMvpReceiptCommit` has no validator ID, public key, or account field |
 | Offline-first design | The full `init` → `issue-receipt` → `sync` → `replay` → `disclose` flow requires no network connectivity |
-| Domain B demonstrator with no Domain A admission | The MVP type is not wired into `advance_epoch`; it cannot influence consensus state |
+| Non-genesis demonstrator admission path | An unlocked Domain A demo profile may be used for evidence, but the MVP type is not genesis-admitted and must not alter locked consensus rules |
 
 ---
 
@@ -36,6 +50,7 @@ The following claims are **not** supported by the MVP and must not be made:
 | Production hardware attestation | TPM/TEE attestation paths are stubs; no certified attestation chain exists |
 | Production ZK verification | No ZK proof verifier is wired; `ZkProofBundle` and related types are Domain B scaffolding |
 | Genesis-admitted transaction | `TX-MVP-ReceiptCommit` has not undergone genesis admission review; it is not in `GENESIS_CONSTANTS.toml` |
+| Locked Domain A consensus admission | The MVP may use an unlocked demo profile only; it must not change locked consensus transition rules or production constants |
 | Full privacy proof for arbitrary transaction classes | Selective disclosure applies only to `TX-MVP-ReceiptCommit`; no general privacy proof exists |
 | Production critical-infrastructure deployment | No security certification, operational runbook, or incident-response procedure exists |
 | Stable public identity or credential system | No identity binding, revocation, or credential issuance is present in the MVP |
@@ -48,6 +63,8 @@ The following claims are **not** supported by the MVP and must not be made:
 When describing the MVP in funding applications (Innovate UK, EU Horizon, SBRI, etc.), use language from the allowed claims column only. The recommended framing is:
 
 > QASH demonstrates a local cyber-resilience substrate for deterministic replay and selective disclosure of offline incident-log commitments without publishing a transaction graph.
+
+If admission or replay semantics are discussed, describe them as an **unlocked Domain A demo profile**. Do not describe them as locked/genesis Domain A admission.
 
 Avoid the following terms in funding documents unless accompanied by the blocked-claims caveat above:
 
