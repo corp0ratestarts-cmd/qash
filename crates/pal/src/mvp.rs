@@ -186,19 +186,32 @@ fn ct_eq_32(left: &[u8; 32], right: &[u8; 32]) -> bool {
 mod tests {
     use super::*;
 
-    fn fixture_bytes(salt: u8) -> [u8; 32] {
+    #[derive(Clone, Copy)]
+    enum FixtureKind {
+        Nonce,
+        PayloadCommitment,
+        DisclosureCommitment,
+        InvalidDomainTag,
+    }
+
+    fn fixture_bytes(kind: FixtureKind) -> [u8; 32] {
         core::array::from_fn(|idx| {
-            let idx = idx as u8;
-            idx.wrapping_mul(37).wrapping_add(salt).rotate_left(1)
+            let base = idx as u8;
+            match kind {
+                FixtureKind::Nonce => base,
+                FixtureKind::PayloadCommitment => !base,
+                FixtureKind::DisclosureCommitment => base.reverse_bits(),
+                FixtureKind::InvalidDomainTag => (!base).reverse_bits(),
+            }
         })
     }
 
     fn sample_tx() -> TxMvpReceiptCommit {
         TxMvpReceiptCommit::new(
             7,
-            fixture_bytes(11),
-            fixture_bytes(23),
-            fixture_bytes(31),
+            fixture_bytes(FixtureKind::Nonce),
+            fixture_bytes(FixtureKind::PayloadCommitment),
+            fixture_bytes(FixtureKind::DisclosureCommitment),
         )
     }
 
@@ -213,7 +226,7 @@ mod tests {
     #[test]
     fn invalid_domain_tag_is_rejected() {
         let mut tx = sample_tx();
-        tx.domain_tag = fixture_bytes(41);
+        tx.domain_tag = fixture_bytes(FixtureKind::InvalidDomainTag);
         assert_eq!(tx.validate(), Err(TxMvpReceiptCommitError::InvalidDomainTag));
     }
 
@@ -231,9 +244,9 @@ mod tests {
         assert_eq!(tx.validate_epoch_nonce_unused(prior.iter()), Err(TxMvpReceiptCommitError::DuplicateEpochNonce));
         let different_epoch = TxMvpReceiptCommit::new(
             8,
-            fixture_bytes(11),
-            fixture_bytes(23),
-            fixture_bytes(31),
+            fixture_bytes(FixtureKind::Nonce),
+            fixture_bytes(FixtureKind::PayloadCommitment),
+            fixture_bytes(FixtureKind::DisclosureCommitment),
         );
         assert_eq!(different_epoch.validate_epoch_nonce_unused(prior.iter()), Ok(()));
     }
