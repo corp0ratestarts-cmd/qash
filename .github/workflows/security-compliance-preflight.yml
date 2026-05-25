@@ -26,16 +26,21 @@ jobs:
   osv:
     name: OSV vulnerability scan
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - uses: google/osv-scanner-action/osv-scanner-action@v2
+      - name: OSV recursive scan (advisory)
+        id: osv-scan
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@v2.3.8
         with:
           scan-args: |-
             --recursive
-            --experimental-offline-vulnerabilities
-            --download-offline-databases
             .
+      - name: Record advisory OSV result
+        if: steps.osv-scan.outcome == 'failure'
+        run: |
+          echo "OSV advisory scan reported findings or a scanner error."
+          echo "Security review should inspect the OSV log, but this advisory job is not merge-blocking."
 
   scorecard:
     name: OpenSSF Scorecard
