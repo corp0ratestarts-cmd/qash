@@ -32,16 +32,6 @@ impl DemoCommand {
             _ => None,
         }
     }
-
-    fn name(self) -> &'static str {
-        match self {
-            Self::Init => "init",
-            Self::IssueReceipt => "issue-receipt",
-            Self::Sync => "sync",
-            Self::Replay => "replay",
-            Self::Disclose => "disclose",
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -237,59 +227,57 @@ fn parse_options(args: &[String]) -> Result<DemoOptions, DemoCliError> {
         match args[i].as_str() {
             "--dir" => {
                 i += 1;
-                options.dir = PathBuf::from(args.get(i).ok_or(DemoCliError::MissingValue("--dir"))?);
+                options.dir = PathBuf::from(required_value(args, i, "--dir")?.as_str());
             }
             "--peer-dir" => {
                 i += 1;
                 options.peer_dir = Some(PathBuf::from(
-                    args.get(i).ok_or(DemoCliError::MissingValue("--peer-dir"))?,
+                    required_value(args, i, "--peer-dir")?.as_str(),
                 ));
             }
             "--out" => {
                 i += 1;
-                options.out = Some(PathBuf::from(args.get(i).ok_or(DemoCliError::MissingValue("--out"))?));
+                options.out = Some(PathBuf::from(required_value(args, i, "--out")?.as_str()));
             }
             "--epoch" => {
                 i += 1;
-                let value = args.get(i).ok_or(DemoCliError::MissingValue("--epoch"))?;
+                let value = required_value(args, i, "--epoch")?;
                 options.epoch = value
                     .parse::<u64>()
                     .map_err(|_| DemoCliError::InvalidEpoch(value.clone()))?;
             }
             "--nonce-hex" => {
                 i += 1;
-                options.nonce = parse_hex32(
-                    args.get(i).ok_or(DemoCliError::MissingValue("--nonce-hex"))?,
-                    "--nonce-hex",
-                )?;
+                options.nonce = parse_hex32(required_value(args, i, "--nonce-hex")?, "--nonce-hex")?;
             }
             "--body" => {
                 i += 1;
-                options.body = args
-                    .get(i)
-                    .ok_or(DemoCliError::MissingValue("--body"))?
-                    .as_bytes()
-                    .to_vec();
+                options.body = required_value(args, i, "--body")?.as_bytes().to_vec();
             }
             "--disclosure-key-commitment-hex" => {
                 i += 1;
                 options.disclosure_key_commitment = parse_hex32(
-                    args.get(i).ok_or(DemoCliError::MissingValue("--disclosure-key-commitment-hex"))?,
+                    required_value(args, i, "--disclosure-key-commitment-hex")?,
                     "--disclosure-key-commitment-hex",
                 )?;
             }
             "--receipt-id" => {
                 i += 1;
-                options.receipt_id = Some(parse_hex32(
-                    args.get(i).ok_or(DemoCliError::MissingValue("--receipt-id"))?,
-                    "--receipt-id",
-                )?);
+                options.receipt_id = Some(parse_hex32(required_value(args, i, "--receipt-id")?, "--receipt-id")?);
             }
             other => return Err(DemoCliError::UnknownCommand(other.to_string())),
         }
         i += 1;
     }
     Ok(options)
+}
+
+fn required_value<'a>(
+    args: &'a [String],
+    index: usize,
+    flag: &'static str,
+) -> Result<&'a String, DemoCliError> {
+    args.get(index).ok_or(DemoCliError::MissingValue(flag))
 }
 
 fn replay_root_step(previous: [u8; 32], public_record: &[u8]) -> [u8; 32] {
