@@ -305,7 +305,7 @@ pub mod hosted {
 
             let mut updates = [None; MAX_VALIDATORS];
             for (idx, update) in self.updates.iter().enumerate() {
-                updates[idx] = update.as_ref().map(|u| ValidatorUpdate {
+                updates[idx] = update.map(|u| ValidatorUpdate {
                     divergence_new: FixedPoint::from_raw(i128::from(u.divergence_raw)),
                     conflict_new: FixedPoint::from_raw(i128::from(u.conflict_raw)),
                     slash_accum_new: FixedPoint::from_raw(i128::from(u.slash_accum_raw)),
