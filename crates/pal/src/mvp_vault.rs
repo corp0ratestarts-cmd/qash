@@ -10,6 +10,8 @@ use crate::mvp::{
     TX_MVP_PUBLIC_EXPORT_BYTES, TX_MVP_RECEIPT_COMMIT_BYTES,
 };
 use sha3::{Digest, Sha3_256};
+use std::cell::RefCell;
+use std::collections::BTreeSet;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
@@ -58,9 +60,25 @@ pub struct CommitmentWalRecord {
     pub public_export: TxMvpReceiptCommitPublicExport,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct EpochNonceKey {
+    epoch: u64,
+    nonce: [u8; 32],
+}
+
+impl EpochNonceKey {
+    fn from_tx(tx: &TxMvpReceiptCommit) -> Self {
+        Self {
+            epoch: tx.epoch,
+            nonce: tx.nonce,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct MvpReceiptVault {
     root: PathBuf,
+    epoch_nonce_index: RefCell<BTreeSet<EpochNonceKey>>,
 }
 
 impl MvpReceiptVault {
@@ -70,7 +88,10 @@ impl MvpReceiptVault {
         fs::create_dir_all(root.join(DISCLOSURE_DIR))?;
         fs::write(root.join(MANIFEST_FILE), MANIFEST_MAGIC.as_bytes())?;
         ensure_wal_header(&root.join(COMMITMENT_WAL_FILE))?;
-        Ok(Self { root })
+        Ok(Self {
+            root,
+            epoch_nonce_index: RefCell::new(BTreeSet::new()),
+        })
     }
 
     pub fn open(root: impl Into<PathBuf>) -> Result<Self, MvpVaultError> {
@@ -79,8 +100,17 @@ impl MvpReceiptVault {
         if manifest != MANIFEST_MAGIC {
             return Err(MvpVaultError::InvalidWorkspace("invalid MVP manifest"));
         }
-        ensure_wal_header(&root.join(COMMITMENT_WAL_FILE))?;
-        Ok(Self { root })
+        let wal_path = root.join(COMMITMENT_WAL_FILE);
+        ensure_wal_header(&wal_path)?;
+        let records = read_wal_records(&wal_path)?;
+        let epoch_nonce_index = records
+            .iter()
+            .map(|record| EpochNonceKey::from_tx(&record.tx))
+            .collect();
+        Ok(Self {
+            root,
+            epoch_nonce_index: RefCell::new(epoch_nonce_index),
+        })
     }
 
     pub fn root(&self) -> &Path {
@@ -96,12 +126,11 @@ impl MvpReceiptVault {
     ) -> Result<PrivateIncidentReceipt, MvpVaultError> {
         let payload_commitment = payload_commitment(body);
         let tx = TxMvpReceiptCommit::new(epoch, nonce, payload_commitment, disclosure_key_commitment);
-        let existing: Vec<TxMvpReceiptCommit> = self
-            .read_commitments()?
-            .into_iter()
-            .map(|record| record.tx)
-            .collect();
-        tx.validate_epoch_nonce_unused(existing.iter())?;
+        tx.validate()?;
+        let epoch_nonce_key = EpochNonceKey::from_tx(&tx);
+        if self.epoch_nonce_index.borrow().contains(&epoch_nonce_key) {
+            return Err(MvpVaultError::Tx(TxMvpReceiptCommitError::DuplicateEpochNonce));
+        }
 
         let receipt_id = tx.tx_commitment()?;
         let receipt_path = self.receipt_path(receipt_id);
@@ -123,12 +152,13 @@ impl MvpReceiptVault {
                 public_export: tx.public_export()?,
             },
         );
-        
-        if let Err(e) = append_result {
+
+        if let Err(err) = append_result {
             let _ = fs::remove_file(&receipt_path);
-            return Err(e);
+            return Err(err);
         }
 
+        self.epoch_nonce_index.borrow_mut().insert(epoch_nonce_key);
         Ok(PrivateIncidentReceipt {
             receipt_id,
             body: body.to_vec(),
@@ -242,7 +272,7 @@ fn read_wal_records(path: &Path) -> Result<Vec<CommitmentWalRecord>, MvpVaultErr
 
         let mut payload = [0u8; WAL_RECORD_BYTES];
         match file.read_exact(&mut payload) {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(err) if err.kind() == ErrorKind::UnexpectedEof => {
                 return Err(MvpVaultError::InvalidWal("truncated WAL record"));
             }
@@ -329,6 +359,21 @@ mod tests {
         let disclosure = fixture_bytes(FixtureKind::DisclosureCommitment);
         vault.issue_receipt(10, nonce, b"first synthetic body", disclosure).unwrap();
         let duplicate = vault.issue_receipt(10, nonce, b"second synthetic body", disclosure);
+        assert!(matches!(duplicate, Err(MvpVaultError::Tx(_))));
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn reopened_vault_rebuilds_epoch_nonce_index() {
+        let path = temp_workspace("reopen-index");
+        let nonce = fixture_bytes(FixtureKind::FirstNonce);
+        let disclosure = fixture_bytes(FixtureKind::DisclosureCommitment);
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        vault.issue_receipt(10, nonce, b"first synthetic body", disclosure).unwrap();
+        drop(vault);
+
+        let reopened = MvpReceiptVault::open(&path).unwrap();
+        let duplicate = reopened.issue_receipt(10, nonce, b"second synthetic body", disclosure);
         assert!(matches!(duplicate, Err(MvpVaultError::Tx(_))));
         let _ = fs::remove_dir_all(&path);
     }
