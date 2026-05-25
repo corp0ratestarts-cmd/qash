@@ -74,3 +74,5 @@ These rules apply to every session, without needing to be asked:
 3. **Subscribe to PR activity on creation**: After creating a PR, offer to subscribe to it with `mcp__github__subscribe_pr_activity` so CI failures and review comments are auto-fixed.
 
 4. **Auto-merge on ready**: Whenever a PR is undrafted (marked ready for review), immediately call `mcp__github__enable_pr_auto_merge` with `mergeMethod: "SQUASH"`. If that fails (e.g. branch protection rules not configured), note it but do not block. Do not ask for confirmation — this is standing authorization.
+
+5. **Do not wait for CI after pushing**: After pushing to a branch, continue immediately with the next task. Do not poll or wait for CI results. Only return to investigate and fix a CI failure when a `<github-webhook-activity>` event arrives reporting a failed check.
