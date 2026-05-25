@@ -42,7 +42,7 @@ pub fn decode_public_exports(
     if bytes.is_empty() {
         return Err(MvpDemoProfileError::EmptyInput);
     }
-    if bytes.len() % TX_MVP_PUBLIC_EXPORT_BYTES != 0 {
+    if !bytes.len().is_multiple_of(TX_MVP_PUBLIC_EXPORT_BYTES) {
         return Err(TxMvpReceiptCommitError::InvalidLength.into());
     }
 
