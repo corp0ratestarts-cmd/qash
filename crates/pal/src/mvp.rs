@@ -172,6 +172,32 @@ impl TxMvpReceiptCommitPublicExport {
         out[pos..pos + 32].copy_from_slice(&self.disclosure_key_commitment);
         out
     }
+
+    pub fn decode(bytes: &[u8]) -> Result<Self, TxMvpReceiptCommitError> {
+        if bytes.len() != TX_MVP_PUBLIC_EXPORT_BYTES {
+            return Err(TxMvpReceiptCommitError::InvalidLength);
+        }
+        let mut pos = 0;
+        let version = u32::from_le_bytes(bytes[pos..pos + 4].try_into().unwrap());
+        pos += 4;
+        let epoch = u64::from_le_bytes(bytes[pos..pos + 8].try_into().unwrap());
+        pos += 8;
+        let mut tx_commitment = [0u8; 32];
+        tx_commitment.copy_from_slice(&bytes[pos..pos + 32]);
+        pos += 32;
+        let mut nonce_commitment = [0u8; 32];
+        nonce_commitment.copy_from_slice(&bytes[pos..pos + 32]);
+        pos += 32;
+        let mut payload_commitment = [0u8; 32];
+        payload_commitment.copy_from_slice(&bytes[pos..pos + 32]);
+        pos += 32;
+        let mut disclosure_key_commitment = [0u8; 32];
+        disclosure_key_commitment.copy_from_slice(&bytes[pos..pos + 32]);
+        if version != TX_MVP_RECEIPT_COMMIT_VERSION {
+            return Err(TxMvpReceiptCommitError::InvalidVersion);
+        }
+        Ok(Self { version, epoch, tx_commitment, nonce_commitment, payload_commitment, disclosure_key_commitment })
+    }
 }
 
 fn ct_eq_32(left: &[u8; 32], right: &[u8; 32]) -> bool {
