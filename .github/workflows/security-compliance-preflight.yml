@@ -118,18 +118,30 @@ jobs:
       - name: cargo geiger unsafe report
         continue-on-error: true
         run: |
-          cargo install cargo-geiger --locked || exit 0
-          cargo geiger --all-features --output-format GitHubMarkdown || true
+          if cargo install cargo-geiger --locked; then
+            cargo geiger --all-features --output-format GitHubMarkdown || \
+              echo "cargo-geiger scan reported findings or failed; advisory result recorded"
+          else
+            echo "cargo-geiger installation failed, skipping advisory scan"
+          fi
       - name: cargo machete unused dependency check
         continue-on-error: true
         run: |
-          cargo install cargo-machete --locked || exit 0
-          cargo machete || true
+          if cargo install cargo-machete --locked; then
+            cargo machete || \
+              echo "cargo-machete reported unused dependencies or failed; advisory result recorded"
+          else
+            echo "cargo-machete installation failed, skipping advisory scan"
+          fi
       - name: cargo semver checks advisory
         continue-on-error: true
         run: |
-          cargo install cargo-semver-checks --locked || exit 0
-          cargo semver-checks check-release || true
+          if cargo install cargo-semver-checks --locked; then
+            cargo semver-checks check-release || \
+              echo "cargo-semver-checks reported compatibility findings or failed; advisory result recorded"
+          else
+            echo "cargo-semver-checks installation failed, skipping advisory scan"
+          fi
 
   domain-boundary-tripwires:
     name: QASH domain boundary tripwires
