@@ -178,8 +178,22 @@ impl TxMvpReceiptCommitPublicExport {
 mod tests {
     use super::*;
 
+    fn test_bytes(label: &[u8]) -> [u8; 32] {
+        let mut hasher = Sha3_256::new();
+        hasher.update(label);
+        let digest = hasher.finalize();
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&digest);
+        out
+    }
+
     fn sample_tx() -> TxMvpReceiptCommit {
-        TxMvpReceiptCommit::new(7, [1u8; 32], [2u8; 32], [3u8; 32])
+        TxMvpReceiptCommit::new(
+            7,
+            test_bytes(b"sample-nonce"),
+            test_bytes(b"sample-payload-commitment"),
+            test_bytes(b"sample-disclosure-key-commitment"),
+        )
     }
 
     #[test]
@@ -193,7 +207,7 @@ mod tests {
     #[test]
     fn invalid_domain_tag_is_rejected() {
         let mut tx = sample_tx();
-        tx.domain_tag = [9u8; 32];
+        tx.domain_tag = test_bytes(b"invalid-domain-tag");
         assert_eq!(tx.validate(), Err(TxMvpReceiptCommitError::InvalidDomainTag));
     }
 
@@ -209,7 +223,12 @@ mod tests {
         let tx = sample_tx();
         let prior = [tx];
         assert_eq!(tx.validate_epoch_nonce_unused(prior.iter()), Err(TxMvpReceiptCommitError::DuplicateEpochNonce));
-        let different_epoch = TxMvpReceiptCommit::new(8, [1u8; 32], [2u8; 32], [3u8; 32]);
+        let different_epoch = TxMvpReceiptCommit::new(
+            8,
+            test_bytes(b"sample-nonce"),
+            test_bytes(b"sample-payload-commitment"),
+            test_bytes(b"sample-disclosure-key-commitment"),
+        );
         assert_eq!(different_epoch.validate_epoch_nonce_unused(prior.iter()), Ok(()));
     }
 
