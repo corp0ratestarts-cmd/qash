@@ -644,7 +644,7 @@ dependencies = [
 name = "plotters-backend"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df42e13c12958a16b3f7f4386b9ab1f3e7933914ecea48da7139435263a4172a"
+checksum = "df42e13c12958a16b3f7f4386b9ab1f3e7978b64f8b5e62aab6b68ecf8a2c2ab"
 
 [[package]]
 name = "plotters-svg"
@@ -733,6 +733,7 @@ dependencies = [
 name = "qash-pal"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "getrandom 0.2.17",
  "hmac-drbg",
  "ml-kem",
