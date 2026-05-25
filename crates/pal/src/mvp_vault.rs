@@ -241,7 +241,13 @@ fn read_wal_records(path: &Path) -> Result<Vec<CommitmentWalRecord>, MvpVaultErr
         }
 
         let mut payload = [0u8; WAL_RECORD_BYTES];
-        file.read_exact(&mut payload)?;
+        match file.read_exact(&mut payload) {
+            Ok(()) => {},
+            Err(err) if err.kind() == ErrorKind::UnexpectedEof => {
+                return Err(MvpVaultError::InvalidWal("truncated WAL record"));
+            }
+            Err(err) => return Err(MvpVaultError::Io(err)),
+        }
         let tx = TxMvpReceiptCommit::decode(&payload[..TX_MVP_RECEIPT_COMMIT_BYTES])?;
         let public_export = tx.public_export()?;
         let expected = public_export.encode();
