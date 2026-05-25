@@ -1,0 +1,11 @@
+name: "QASH CodeQL Configuration"
+
+# The rust/hardcoded-credentials query fires on protocol domain-tag constants
+# and deterministic test fixtures whose field names include "key". These are
+# not committed credentials.
+#
+# Real secret exposure is covered by gitleaks and trufflehog in
+# security-compliance-preflight.yml.
+query-filters:
+  - exclude:
+      id: rust/hardcoded-credentials
