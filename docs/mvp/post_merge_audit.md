@@ -7,9 +7,25 @@
 
 ## Summary
 
-The MVP remains bounded as a local Domain B demonstrator. The audit found no evidence that `TX-MVP-ReceiptCommit` is admitted into Domain A consensus, genesis constants, or `advance_epoch`.
+The MVP remains bounded as a local demonstrator, but the correct boundary is more precise than "Domain B only." The MVP may require an **unlocked Domain A demo profile** to exercise admission, replay, and commitment-root behavior in a fundable way. That is acceptable only if it remains explicitly non-genesis, non-production, and not admitted into locked Domain A consensus rules.
+
+The audit found no evidence that `TX-MVP-ReceiptCommit` is admitted into locked Domain A consensus, genesis constants, or the production `advance_epoch` path. This is the correct current state. A follow-up design slice should define the unlocked Domain A demo adapter/profile explicitly rather than implying that all MVP behavior must remain entirely outside Domain A.
 
 The public transcript path remains commitment-only. Private receipt bodies are stored under the local vault and appear only in selected disclosure outputs. Imported public commitments can be replayed but cannot be disclosed because the importing workspace does not hold private receipt bodies.
+
+## Domain model clarification
+
+For post-MVP work, use the following terminology:
+
+| Term | Meaning | MVP status |
+|------|---------|------------|
+| Locked Domain A | Genesis-admitted, production consensus transition and constants | Blocked for MVP |
+| Unlocked Domain A demo profile | Non-genesis sandbox/admission profile used to exercise receipt admission and replay semantics | Likely needed for MVP hardening |
+| Domain B | Private/demo material: receipt bodies, local vault, disclosure bodies, tooling artifacts | Present |
+
+The MVP should therefore avoid the claim "no Domain A path is needed." The stronger and more accurate claim is:
+
+> The MVP must not enter locked/genesis Domain A, but may use an explicitly unlocked Domain A demo profile for demonstrator admission and replay evidence.
 
 ## Audited files
 
@@ -25,11 +41,12 @@ The public transcript path remains commitment-only. Private receipt bodies are s
 
 ### Domain boundary
 
-**Status:** Pass
+**Status:** Pass with clarification required
 
 - `src/main.rs` routes `qash demo ...` to the local demo CLI before the existing health-demo path.
-- `TX-MVP-ReceiptCommit` remains in `crates/pal/src/mvp.rs`, documented as Domain B demonstrator material and not as a genesis-admitted Domain A transaction.
-- Repository search for `TX-MVP-ReceiptCommit`, `advance_epoch`, and `GENESIS_CONSTANTS` did not show MVP admission into the Domain A transition path.
+- `TX-MVP-ReceiptCommit` remains in `crates/pal/src/mvp.rs`, documented as demonstrator material and not as a genesis-admitted Domain A transaction.
+- Repository search for `TX-MVP-ReceiptCommit`, `advance_epoch`, and `GENESIS_CONSTANTS` did not show MVP admission into the locked Domain A transition path.
+- The MVP likely needs a future unlocked Domain A demo profile so admission/replay behavior can be demonstrated without promoting the transaction class into genesis-locked production consensus.
 
 ### Public transcript and privacy boundary
 
@@ -65,21 +82,24 @@ The public transcript path remains commitment-only. Private receipt bodies are s
 
 ### Claims boundary
 
-**Status:** Pass
+**Status:** Pass with wording update recommended
 
-- `docs/mvp/claims_register.md` correctly states allowed and blocked MVP claims.
+- `docs/mvp/claims_register.md` correctly blocks genesis-admitted production claims.
+- It should be updated to distinguish locked Domain A from an unlocked Domain A demo profile.
 - Funding documents should continue to treat the claims register as governing language.
 
 ## Follow-up items
 
-1. Reference `docs/mvp/claims_register.md` from the top-level README and ROADMAP.
-2. Add JSON schema validation for replay reports.
-3. Add a deterministic fixture pack under `examples/mvp/`.
-4. Add benchmark-lite evidence for MVP replay/import/disclosure timings.
-5. Add an operator runbook for local demo execution and artifact interpretation.
-6. Add a passive-observability threat model for public commitments and replay reports.
-7. Add ADR-006 Phase 2-R evidence notes because current `main` includes consensus-path runtime optimizations after the clean MVP tag.
+1. Define an explicit unlocked Domain A demo profile/admission adapter for `TX-MVP-ReceiptCommit`.
+2. Reference `docs/mvp/claims_register.md` from the top-level README and ROADMAP.
+3. Update the claims register to distinguish locked Domain A from unlocked Domain A demo mode.
+4. Add JSON schema validation for replay reports.
+5. Add a deterministic fixture pack under `examples/mvp/`.
+6. Add benchmark-lite evidence for MVP replay/import/disclosure timings.
+7. Add an operator runbook for local demo execution and artifact interpretation.
+8. Add a passive-observability threat model for public commitments and replay reports.
+9. Add ADR-006 Phase 2-R evidence notes because current `main` includes consensus-path runtime optimizations after the clean MVP tag.
 
 ## Audit conclusion
 
-The MVP baseline is suitable for bounded funding and pilot discussions using the claims register language. It should not be described as a production payment system, settlement rail, identity system, production ZK verifier, hardware attestation system, or genesis-admitted transaction class.
+The MVP baseline is suitable for bounded funding and pilot discussions using the claims register language, provided the Domain A boundary is described precisely: unlocked Domain A demo mode is acceptable and likely needed; locked/genesis Domain A admission remains blocked. The MVP should not be described as a production payment system, settlement rail, identity system, production ZK verifier, hardware attestation system, or genesis-admitted transaction class.
