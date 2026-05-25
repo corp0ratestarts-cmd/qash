@@ -63,7 +63,7 @@ impl TxMvpReceiptCommit {
         if self.version != TX_MVP_RECEIPT_COMMIT_VERSION {
             return Err(TxMvpReceiptCommitError::InvalidVersion);
         }
-        if self.domain_tag != TX_MVP_RECEIPT_COMMIT_DOMAIN_TAG {
+        if !ct_eq_32(&self.domain_tag, &TX_MVP_RECEIPT_COMMIT_DOMAIN_TAG) {
             return Err(TxMvpReceiptCommitError::InvalidDomainTag);
         }
         Ok(())
@@ -75,7 +75,7 @@ impl TxMvpReceiptCommit {
     ) -> Result<(), TxMvpReceiptCommitError> {
         self.validate()?;
         for existing in prior {
-            if existing.epoch == self.epoch && existing.nonce == self.nonce {
+            if existing.epoch == self.epoch && ct_eq_32(&existing.nonce, &self.nonce) {
                 return Err(TxMvpReceiptCommitError::DuplicateEpochNonce);
             }
         }
@@ -174,25 +174,31 @@ impl TxMvpReceiptCommitPublicExport {
     }
 }
 
+fn ct_eq_32(left: &[u8; 32], right: &[u8; 32]) -> bool {
+    let mut diff = 0u8;
+    for idx in 0..32 {
+        diff |= left[idx] ^ right[idx];
+    }
+    diff == 0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn test_bytes(label: &[u8]) -> [u8; 32] {
-        let mut hasher = Sha3_256::new();
-        hasher.update(label);
-        let digest = hasher.finalize();
-        let mut out = [0u8; 32];
-        out.copy_from_slice(&digest);
-        out
+    fn fixture_bytes(salt: u8) -> [u8; 32] {
+        core::array::from_fn(|idx| {
+            let idx = idx as u8;
+            idx.wrapping_mul(37).wrapping_add(salt).rotate_left(1)
+        })
     }
 
     fn sample_tx() -> TxMvpReceiptCommit {
         TxMvpReceiptCommit::new(
             7,
-            test_bytes(b"sample-nonce"),
-            test_bytes(b"sample-payload-commitment"),
-            test_bytes(b"sample-disclosure-key-commitment"),
+            fixture_bytes(11),
+            fixture_bytes(23),
+            fixture_bytes(31),
         )
     }
 
@@ -207,7 +213,7 @@ mod tests {
     #[test]
     fn invalid_domain_tag_is_rejected() {
         let mut tx = sample_tx();
-        tx.domain_tag = test_bytes(b"invalid-domain-tag");
+        tx.domain_tag = fixture_bytes(41);
         assert_eq!(tx.validate(), Err(TxMvpReceiptCommitError::InvalidDomainTag));
     }
 
@@ -225,9 +231,9 @@ mod tests {
         assert_eq!(tx.validate_epoch_nonce_unused(prior.iter()), Err(TxMvpReceiptCommitError::DuplicateEpochNonce));
         let different_epoch = TxMvpReceiptCommit::new(
             8,
-            test_bytes(b"sample-nonce"),
-            test_bytes(b"sample-payload-commitment"),
-            test_bytes(b"sample-disclosure-key-commitment"),
+            fixture_bytes(11),
+            fixture_bytes(23),
+            fixture_bytes(31),
         );
         assert_eq!(different_epoch.validate_epoch_nonce_unused(prior.iter()), Ok(()));
     }
