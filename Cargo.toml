@@ -17,6 +17,8 @@ qash-consensus = { path = "crates/consensus", version = "0.1.0" }
 qash-pal       = { path = "crates/pal",       version = "0.1.0", features = ["std"] }
 qash-model     = { path = "model",            version = "0.1.0" }
 qash-address   = { path = "crates/address",   version = "0.1.0" }
+getrandom      = "0.2"
+sha3           = "0.10"
 
 [profile.release]
 opt-level = 3
