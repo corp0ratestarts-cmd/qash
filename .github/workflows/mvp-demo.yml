@@ -1,0 +1,24 @@
+name: MVP Demo
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  mvp-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+
+      - name: Test workspace (with std)
+        run: cargo test --workspace
+
+      - name: Test workspace (no-default-features)
+        run: cargo test --workspace --no-default-features
+
+      - name: Run MVP demo end-to-end
+        run: bash scripts/run_mvp_demo.sh --clean
