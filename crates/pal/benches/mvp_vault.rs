@@ -144,15 +144,14 @@ fn bench_import_public_commitments(c: &mut Criterion) {
         let public = src_vault.export_public_commitments().unwrap();
 
         let dst_path = temp_workspace(&format!("import-dst-{record_count}"));
+        let dst = MvpReceiptVault::init(&dst_path).unwrap();
 
         group.bench_with_input(
             BenchmarkId::from_parameter(record_count),
             &record_count,
             |b, _| {
                 b.iter(|| {
-                    let dst = MvpReceiptVault::init(&dst_path).unwrap();
-                    dst.import_public_commitments(&public).unwrap();
-                    let _ = fs::remove_dir_all(&dst_path);
+                    dst.import_public_commitments(&public).unwrap()
                 });
             },
         );
