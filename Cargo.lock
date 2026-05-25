@@ -57,7 +57,7 @@ checksum = "c4512299f36f043ab09a583e57bceb5a5aab7a73db1805848e8fef3c9e8c78b3"
 name = "blake3"
 version = "1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8ee0c1824c4dea5b5f81736aff91bae041d2c07ee1192bec91054e10e3e601e"
+checksum = "b8ee0c1824c4dea5b5f81736aff92bae041d2c07ee1192bec91054e10e3e601e"
 dependencies = [
  "arrayref",
  "arrayvec",
@@ -696,6 +696,7 @@ dependencies = [
  "qash-consensus",
  "qash-model",
  "qash-pal",
+ "sha3 0.10.9",
 ]
 
 [[package]]
@@ -735,8 +736,10 @@ dependencies = [
  "hmac-drbg",
  "ml-kem",
  "qash-consensus",
+ "serde",
  "sha2",
  "sha3 0.10.9",
+ "static_assertions",
  "typenum",
 ]
 
@@ -969,6 +972,12 @@ dependencies = [
  "base64ct",
  "der",
 ]
+
+[[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "streebog"
