@@ -226,46 +226,45 @@ fn parse_options(args: &[String]) -> Result<DemoOptions, DemoCliError> {
     while i < args.len() {
         match args[i].as_str() {
             "--dir" => {
-                i += 1;
-                options.dir = PathBuf::from(required_value(args, i, "--dir")?.as_str());
+                options.dir = PathBuf::from(required_value(args, i + 1, "--dir")?.as_str());
+                i += 2;
             }
             "--peer-dir" => {
-                i += 1;
-                options.peer_dir = Some(PathBuf::from(required_value(args, i, "--peer-dir")?.as_str()));
+                options.peer_dir = Some(PathBuf::from(required_value(args, i + 1, "--peer-dir")?.as_str()));
+                i += 2;
             }
             "--out" => {
-                i += 1;
-                options.out = Some(PathBuf::from(required_value(args, i, "--out")?.as_str()));
+                options.out = Some(PathBuf::from(required_value(args, i + 1, "--out")?.as_str()));
+                i += 2;
             }
             "--epoch" => {
-                i += 1;
-                let value = required_value(args, i, "--epoch")?;
+                let value = required_value(args, i + 1, "--epoch")?;
                 options.epoch = value
                     .parse::<u64>()
                     .map_err(|_| DemoCliError::InvalidEpoch(value.clone()))?;
+                i += 2;
             }
             "--nonce-hex" => {
-                i += 1;
-                options.nonce = Some(parse_hex32(required_value(args, i, "--nonce-hex")?, "--nonce-hex")?);
+                options.nonce = Some(parse_hex32(required_value(args, i + 1, "--nonce-hex")?, "--nonce-hex")?);
+                i += 2;
             }
             "--body" => {
-                i += 1;
-                options.body = required_value(args, i, "--body")?.as_bytes().to_vec();
+                options.body = required_value(args, i + 1, "--body")?.as_bytes().to_vec();
+                i += 2;
             }
             "--disclosure-key-commitment-hex" => {
-                i += 1;
                 options.disclosure_key_commitment = Some(parse_hex32(
-                    required_value(args, i, "--disclosure-key-commitment-hex")?,
+                    required_value(args, i + 1, "--disclosure-key-commitment-hex")?,
                     "--disclosure-key-commitment-hex",
                 )?);
+                i += 2;
             }
             "--receipt-id" => {
-                i += 1;
-                options.receipt_id = Some(parse_hex32(required_value(args, i, "--receipt-id")?, "--receipt-id")?);
+                options.receipt_id = Some(parse_hex32(required_value(args, i + 1, "--receipt-id")?, "--receipt-id")?);
+                i += 2;
             }
             other => return Err(DemoCliError::UnknownFlag(other.to_string())),
         }
-        i += 1;
     }
     Ok(options)
 }
@@ -291,6 +290,9 @@ fn random_bytes() -> Result<[u8; 32], DemoCliError> {
 
 fn parse_hex32(value: &str, field: &'static str) -> Result<[u8; 32], DemoCliError> {
     if value.len() != 64 {
+        return Err(DemoCliError::InvalidHex(field));
+    }
+    if !value.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(DemoCliError::InvalidHex(field));
     }
     let mut out = [0u8; 32];
