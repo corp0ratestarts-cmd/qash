@@ -42,6 +42,23 @@ pub fn h_domain(tag: DomainTag, input: &[u8]) -> [u8; 32] {
     res
 }
 
+/// Return a SHA3-256 hasher pre-seeded with `tag` as the domain separator.
+/// Feed subsequent data with `hasher.update(...)`, then finish with
+/// `h_domain_finish`. Equivalent to `h_domain(tag, concat(chunks))`.
+pub(crate) fn h_domain_start(tag: DomainTag) -> Sha3_256 {
+    let mut h = Sha3_256::new();
+    h.update((tag as u32).to_le_bytes());
+    h
+}
+
+/// Consume a hasher started with `h_domain_start` and return the digest.
+pub(crate) fn h_domain_finish(h: Sha3_256) -> [u8; 32] {
+    let out = h.finalize();
+    let mut res = [0u8; 32];
+    res.copy_from_slice(&out);
+    res
+}
+
 /// Untagged SHA3-256 (only where the spec explicitly requires it).
 pub fn sha3_256(input: &[u8]) -> [u8; 32] {
     let mut hasher = Sha3_256::new();

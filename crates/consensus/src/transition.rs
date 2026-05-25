@@ -3,7 +3,8 @@
 use crate::encoding::EncodeError;
 use crate::envelope::{PROTOCOL_VERSION_V1_1, PROTOCOL_VERSION_V1_2};
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
-use crate::hash::{h_domain, DomainTag};
+use crate::hash::{h_domain, h_domain_finish, h_domain_start, DomainTag};
+use sha3::Digest as _;
 use crate::lyapunov::{
     self, ConvergenceWindow, LyapunovError, LyapunovEval, ValidatorMetrics, WINDOW_SIZE,
 };
@@ -134,17 +135,6 @@ impl EpochState {
 /// Only `state.validator_count` validator slots are encoded.
 pub fn encode_full_state_into(state: &EpochState, out: &mut [u8; FULL_STATE_MAX_BYTES]) -> usize {
     let len = write_state_base_bytes(state, &state.state_root, out);
-    append_sharding_roots_if_present(state, out, len)
-}
-
-/// Encode for state-root commitment: identical to encode_full_state_into but
-/// substitutes `prior_root` into the state_root field.
-fn encode_for_commitment_into(
-    state: &EpochState,
-    prior_root: &[u8; 32],
-    out: &mut [u8; FULL_STATE_MAX_BYTES],
-) -> usize {
-    let len = write_state_base_bytes(state, prior_root, out);
     append_sharding_roots_if_present(state, out, len)
 }
 
@@ -401,10 +391,45 @@ fn fp_to_i64_wire(fp: FixedPoint) -> i64 {
     fp.raw() as i64
 }
 
+/// Stream the canonical commitment encoding of `state` into `h`, substituting
+/// `prior_root` for the `state_root` field. Produces the same byte sequence as
+/// `encode_for_commitment_into` without allocating a full-sized stack buffer.
+fn stream_state_for_commitment(state: &EpochState, prior_root: &[u8; 32], h: &mut sha3::Sha3_256) {
+    h.update(state.epoch.to_le_bytes());
+    h.update(prior_root);
+    h.update([0u8; 32]); // ledger_root: zeros
+    h.update(state.entropy_seed);
+    h.update([state.halt_reason as u8, 0x00, 0x00, 0x00]);
+    h.update(state.validator_count.to_le_bytes());
+    // v1.1 cascade_health + 4 bytes pad
+    h.update(state.cascade_health.to_le_bytes());
+    h.update([0u8; 4]);
+
+    for i in 0..state.validator_count as usize {
+        let v = &state.validators[i];
+        h.update(fp_to_i64_wire(v.divergence).to_le_bytes());
+        h.update(fp_to_i64_wire(v.conflict).to_le_bytes());
+        h.update(fp_to_i64_wire(v.slash_accum).to_le_bytes());
+        h.update(state.nonces[i].to_le_bytes());
+        h.update(state.validator_ids[i]);
+    }
+
+    let (filled, values) = state.convergence_window.raw_parts();
+    h.update([filled, 0x00, 0x00, 0x00]);
+    for v in values.iter() {
+        h.update(fp_to_i64_wire(*v).to_le_bytes());
+    }
+
+    if state.receipt_root != [0u8; 32] || state.efb_root != [0u8; 32] {
+        h.update(state.receipt_root);
+        h.update(state.efb_root);
+    }
+}
+
 fn compute_state_root(state: &EpochState, prior_root: &[u8; 32]) -> [u8; 32] {
-    let mut buf = [0u8; FULL_STATE_MAX_BYTES];
-    let len = encode_for_commitment_into(state, prior_root, &mut buf);
-    h_domain(DomainTag::StateRoot, &buf[..len])
+    let mut h = h_domain_start(DomainTag::StateRoot);
+    stream_state_for_commitment(state, prior_root, &mut h);
+    h_domain_finish(h)
 }
 
 // ---------------------------------------------------------------------------
