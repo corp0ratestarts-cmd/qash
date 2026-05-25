@@ -3,6 +3,7 @@ pub mod commitment_backpressure;
 pub mod commitment_inbox;
 pub mod commitment_transport;
 pub mod mvp;
+pub mod mvp_demo_profile;
 #[cfg(feature = "std")]
 pub mod mvp_vault;
 pub mod receipt;
