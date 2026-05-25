@@ -1,3 +1,5 @@
+mod demo;
+
 use qash_address::encode as addr_encode;
 use qash_consensus::derive_leaf_index;
 use qash_consensus::encoding::ENCODING_VERSION;
@@ -5,6 +7,21 @@ use qash_consensus::params::consensus_params_hash;
 use qash_model::{run, HaltReason};
 
 fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("demo") {
+        match demo::run_demo_cli(&args[1..]) {
+            Ok(()) => return,
+            Err(err) => {
+                eprintln!("{err}");
+                std::process::exit(2);
+            }
+        }
+    }
+
+    run_protocol_health_demo();
+}
+
+fn run_protocol_health_demo() {
     // --- 1. Protocol fingerprint ---
     let params_hash = consensus_params_hash();
     print!("QASH consensus params hash : ");
