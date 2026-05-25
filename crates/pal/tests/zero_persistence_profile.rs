@@ -1,3 +1,5 @@
+#![cfg(feature = "std")]
+
 use qash_pal::admission::{process_envelope, EphemeralEnvelope};
 use qash_pal::zero_wal::{InMemoryZeroPersistenceWal, ZeroPersistenceWal, ZeroPersistenceWalRecord};
 
