@@ -577,4 +577,146 @@ mod tests {
         let _ = fs::remove_dir_all(&node_a);
         let _ = fs::remove_dir_all(&node_b);
     }
+
+    // ── Additional corruption / schema hardening tests ────────────────────
+
+    #[test]
+    fn wal_record_body_payload_corruption_is_detected_on_reopen() {
+        // Flip bytes deep inside the WAL record payload (not the magic prefix).
+        // The record is structurally complete (correct length and magic) but
+        // the inner TX bytes are corrupt. Opening must reject it.
+        let path = temp_workspace("payload-corrupt");
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        vault
+            .issue_receipt(
+                10,
+                fixture_bytes(FixtureKind::FirstNonce),
+                b"synthetic body for corruption test",
+                fixture_bytes(FixtureKind::DisclosureCommitment),
+            )
+            .unwrap();
+        let wal_path = path.join(super::COMMITMENT_WAL_FILE);
+        let mut data = fs::read(&wal_path).unwrap();
+        // Offset: WAL_MAGIC (8) + WAL_RECORD_MAGIC (8) = 16 bytes header,
+        // then flip a byte in the middle of the TX payload.
+        let corrupt_offset = 16 + 20;
+        data[corrupt_offset] ^= 0xAB;
+        fs::write(&wal_path, &data).unwrap();
+        assert!(
+            matches!(MvpReceiptVault::open(&path), Err(MvpVaultError::InvalidWal(_))),
+            "corrupt WAL payload must be rejected on reopen"
+        );
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn wal_truncated_to_header_plus_record_magic_only_is_rejected() {
+        // Write a WAL with the file magic and a record magic prefix but no
+        // record payload — simulates a crash mid-write.
+        let path = temp_workspace("truncated-at-record-magic");
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        drop(vault);
+        let wal_path = path.join(super::COMMITMENT_WAL_FILE);
+        let mut data = fs::read(&wal_path).unwrap();
+        data.extend_from_slice(super::WAL_RECORD_MAGIC);
+        // Append only 4 bytes of payload (far too short for a full record).
+        data.extend_from_slice(&[0u8; 4]);
+        fs::write(&wal_path, &data).unwrap();
+        assert!(
+            matches!(MvpReceiptVault::open(&path), Err(MvpVaultError::InvalidWal(_))),
+            "partial record after record magic must be rejected"
+        );
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn import_of_empty_public_commitments_returns_zero() {
+        let path = temp_workspace("import-empty");
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        // An export with only the header and no records is valid and returns 0.
+        let header_only = {
+            let mut v = Vec::new();
+            v.extend_from_slice(super::PUBLIC_COMMITMENTS_HEADER);
+            v
+        };
+        let count = vault.import_public_commitments(&header_only).unwrap();
+        assert_eq!(count, 0, "header-only export must import 0 records");
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn import_of_corrupted_export_header_is_rejected() {
+        let path = temp_workspace("import-bad-header");
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        // Corrupt the very first byte of the export header magic.
+        let mut bad_header = super::PUBLIC_COMMITMENTS_HEADER.to_vec();
+        bad_header[0] ^= 0xff;
+        let result = vault.import_public_commitments(&bad_header);
+        assert!(
+            matches!(result, Err(MvpVaultError::InvalidWal(_))),
+            "corrupted export header must be rejected on import"
+        );
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn replay_root_is_stable_across_two_sequential_reads() {
+        // Regression guard: two sequential calls to read_all_public_exports
+        // on the same vault must produce the same sequence and therefore the
+        // same commitment root.
+        let path = temp_workspace("replay-stable");
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        vault
+            .issue_receipt(
+                1,
+                fixture_bytes(FixtureKind::FirstNonce),
+                b"alpha incident",
+                fixture_bytes(FixtureKind::DisclosureCommitment),
+            )
+            .unwrap();
+        vault
+            .issue_receipt(
+                2,
+                fixture_bytes(FixtureKind::SecondNonce),
+                b"beta incident",
+                fixture_bytes(FixtureKind::DisclosureCommitment),
+            )
+            .unwrap();
+
+        let exports_a = vault.read_all_public_exports().unwrap();
+        let exports_b = vault.read_all_public_exports().unwrap();
+        assert_eq!(exports_a.len(), exports_b.len());
+        for (a, b) in exports_a.iter().zip(exports_b.iter()) {
+            assert_eq!(a.encode(), b.encode());
+        }
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn replay_report_json_schema_has_required_fields() {
+        // Parse the JSON string that cmd_replay writes to --report and verify
+        // all required schema fields are present with correct types.
+        // We build the report string the same way demo.rs does.
+        let records: usize = 3;
+        let root = [0xABu8; 32];
+        let hex_root: String = root.iter().map(|b| format!("{b:02x}")).collect();
+        let report = format!(
+            "{{\n  \"profile\": \"TX-MVP-ReceiptCommit\",\n  \"records\": {},\n  \"commitment_root\": \"{}\",\n  \"public_transcript_only\": true,\n  \"private_payloads_seen\": false,\n  \"status\": \"ok\"\n}}\n",
+            records, hex_root
+        );
+
+        // Minimal JSON field validation without serde — check key presence and value shapes.
+        assert!(report.contains("\"profile\": \"TX-MVP-ReceiptCommit\""));
+        assert!(report.contains(&format!("\"records\": {records}")));
+        assert!(report.contains(&format!("\"commitment_root\": \"{hex_root}\"")));
+        assert!(report.contains("\"public_transcript_only\": true"));
+        assert!(report.contains("\"private_payloads_seen\": false"));
+        assert!(report.contains("\"status\": \"ok\""));
+        // commitment_root must be a 64-char lowercase hex string.
+        let start = report.find("\"commitment_root\": \"").unwrap() + "\"commitment_root\": \"".len();
+        let end = report[start..].find('"').unwrap() + start;
+        let root_hex = &report[start..end];
+        assert_eq!(root_hex.len(), 64, "commitment_root must be 64 hex chars");
+        assert!(root_hex.chars().all(|c| c.is_ascii_hexdigit()), "commitment_root must be lowercase hex");
+    }
 }

@@ -19,6 +19,11 @@ typenum = "1.20.0"
 [dev-dependencies]
 serde = { version = "1", default-features = false }
 static_assertions = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "mvp_vault"
+harness = false
 
 [features]
 default = []
