@@ -1,5 +1,7 @@
 #![cfg(feature = "std")]
 
+// This test depends on std-backed in-memory WAL support and must not
+// participate in --no-default-features deterministic replay validation.
 use qash_pal::admission::{process_envelope, EphemeralEnvelope};
 use qash_pal::zero_wal::{
     InMemoryZeroPersistenceWal,
