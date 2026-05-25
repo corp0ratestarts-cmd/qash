@@ -4,11 +4,16 @@ This document captures the complete project direction from current state through
 verified execution substrate in maximum technical detail. It is the authoritative reference for any
 developer, auditor, or formal methods contributor picking up this codebase.
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-25
 **Current state:** Pre-genesis integration RC. The repository contains v1.0,
 v1.1, and v1.2 implementation/proof evidence in flight, but genesis remains
 provisional and non-authoritative. Do not create `v1.0-reference` or lock
 `GENESIS_CONSTANTS.toml` until the pre-genesis evidence gate below is complete.
+
+**MVP claim boundary:** the offline incident-receipt commit demonstrator (Domain B
+local MVP) is governed by [`docs/mvp/claims_register.md`](docs/mvp/claims_register.md).
+That document is the authoritative source for what is and is not claimed by the
+MVP. All funding documentation and partner outreach must remain within it.
 
 > **Strategic framing:** QASH is not a blockchain. It is a **formally verified state-transition
 > substrate with coterminous governance** — a kernel-reduced, proof-carrying execution substrate
