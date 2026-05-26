@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn replay_is_order_sensitive_until_order_rule_is_defined() {
+    fn replay_root_is_order_sensitive_transcript_order_is_the_rule() {
         let records = public_export_sequence();
         let forward = replay_public_exports(&records);
         let reversed = replay_public_exports(&[records[1], records[0]]);

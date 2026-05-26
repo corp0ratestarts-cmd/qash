@@ -79,6 +79,14 @@ The profile should compute a deterministic root over public exports only. The ro
 4. independent of wall-clock, OS entropy, filesystem ordering, and nondeterministic map iteration;
 5. documented with test vectors before implementation changes are merged.
 
+## Transcript-Order Replay Rule
+
+**Current pilot rule:** Public export order is part of the evidence transcript. Records are replayed in the order they appear in the public commitments file — the order they were written to the WAL. Reordering records produces a different commitment root and is treated as a distinct transcript.
+
+**Rationale:** Transcript-order replay is the simplest rule that satisfies determinism, requires no sorting key, and preserves the issuer's original record sequence as evidence.
+
+**Future aggregation note:** Canonical sorting (e.g., by `(epoch, tx_commitment)`) is a planned aggregation feature for cross-operator transcript merging. It is not the current pilot rule. Sorting must be specified explicitly in a future profile version before use.
+
 ## Implementation constraints
 
 A future implementation PR must include:
@@ -123,7 +131,7 @@ Blocked:
 
 ## Open design questions
 
-1. Should the demo profile preserve input order, sort by `tx_commitment`, or sort by `(epoch, tx_commitment)`?
+1. ~~Should the demo profile preserve input order, sort by `tx_commitment`, or sort by `(epoch, tx_commitment)`?~~ **Resolved for pilot:** transcript-order (insertion order). Canonical sorting deferred to a future profile version.
 2. Should the public export format remain flat bytes, or move to a versioned envelope before pilot use?
 3. Should replay reports include a profile hash that commits to this document and the profile implementation version?
 4. Should the MVP demo profile live in `crates/consensus` behind a non-genesis feature flag, or remain in `crates/pal`/hosted code until a formal proof obligation exists?

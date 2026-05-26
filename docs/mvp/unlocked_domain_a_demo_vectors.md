@@ -30,6 +30,10 @@ root_n = SHA3-256("QASH-MVP-DEMO-PROFILE-ROOT\0" || root_{n-1} || len(record_n) 
 
 Where `record_n` is the fixed-size encoding of `TxMvpReceiptCommitPublicExport`.
 
+## Transcript-order rule
+
+Records are replayed in transcript order: the order they appear in the public commitments file (WAL insertion order). The two-record test sequence [A at epoch 10, B at epoch 11] represents A issued before B. Swapping A and B produces a different root — verified by `replay_root_is_order_sensitive_transcript_order_is_the_rule`. Canonical sorting (by epoch, tx_commitment, etc.) is a future aggregation feature and is not applied here.
+
 ## Required properties
 
 The vector tests assert:
@@ -39,7 +43,7 @@ The vector tests assert:
 - truncated public export is rejected;
 - extra bytes are rejected;
 - replay uses public exports only;
-- changing record order changes the root until an explicit deterministic ordering rule is adopted.
+- reordering records changes the root (transcript-order is the rule; alternative orderings are distinct transcripts).
 
 ## Non-goals
 

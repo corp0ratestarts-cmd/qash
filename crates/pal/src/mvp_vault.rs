@@ -703,12 +703,13 @@ mod tests {
         let root = [0xABu8; 32];
         let hex_root: String = root.iter().map(|b| format!("{b:02x}")).collect();
         let report = format!(
-            "{{\n  \"profile\": \"TX-MVP-ReceiptCommit\",\n  \"records\": {},\n  \"commitment_root\": \"{}\",\n  \"public_transcript_only\": true,\n  \"private_payloads_seen\": false,\n  \"status\": \"ok\"\n}}\n",
+            "{{\n  \"profile\": \"TX-MVP-ReceiptCommit\",\n  \"profile_version\": 1,\n  \"records\": {},\n  \"commitment_root\": \"{}\",\n  \"public_transcript_only\": true,\n  \"private_payloads_seen\": false,\n  \"status\": \"ok\"\n}}\n",
             records, hex_root
         );
 
         // Minimal JSON field validation without serde — check key presence and value shapes.
         assert!(report.contains("\"profile\": \"TX-MVP-ReceiptCommit\""));
+        assert!(report.contains("\"profile_version\": 1"));
         assert!(report.contains(&format!("\"records\": {records}")));
         assert!(report.contains(&format!("\"commitment_root\": \"{hex_root}\"")));
         assert!(report.contains("\"public_transcript_only\": true"));
@@ -720,5 +721,8 @@ mod tests {
         let root_hex = &report[start..end];
         assert_eq!(root_hex.len(), 64, "commitment_root must be 64 hex chars");
         assert!(root_hex.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()), "commitment_root must be lowercase hex");
+        // Private incident payload text must never appear in replay reports.
+        assert!(!report.contains("body"), "private body text must not appear in replay report");
+        assert!(!report.contains("incident"), "private payload text must not appear in replay report");
     }
 }
