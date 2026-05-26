@@ -132,16 +132,30 @@ the full three-layer correspondence chain and extraction pipeline.
 
 ---
 
+## Domain Crossing Properties (1-A)
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|----------|
+| CapToken schema correctness: wrap ∘ unwrap = id | §2 | **PROVED** | `cap_token_schema_correct` in `capability/cap_token_schema.v` | `crates/consensus/src/domain.rs` | — |
+| CapToken wraps value (information preservation) | §2 | **PROVED** | `cap_token_wraps_value` in `capability/cap_token_schema.v` | `crates/consensus/src/domain.rs` | — |
+| CapToken injectivity: equal inner values → equal tokens | §2 | **PROVED** | `cap_token_schema_injective` in `capability/cap_token_schema.v` | `crates/consensus/src/domain.rs` | — |
+| Domain crossing is explicit: into_inner is the sole observation path | §2, ADR-0001 | **PROVED** | `domain_crossing_is_explicit` in `capability/cap_token_schema.v` | `crates/consensus/src/domain.rs` | — |
+| All known Capability codes (0x01–0x04) pass validate_capability | §2 | **PROVED** | `capability_code_roundtrip`, `capability_code_01_valid`, `02_valid`, `03_valid` in `capability/cap_token_schema.v` | `crates/consensus/src/capability.rs` | `capability::tests::*` |
+| Codes 0x00 and 0xFF are rejected | §2 | **PROVED** | `capability_code_00_invalid`, `capability_code_ff_invalid` in `capability/cap_token_schema.v` | `crates/consensus/src/capability.rs` | — |
+| Capability whitelist exhaustive: codes outside whitelist are rejected | §2 | **PROVED** | `unknown_code_rejected` in `capability/cap_token_schema.v` | `crates/consensus/src/capability.rs` | — |
+
+---
+
 ## Coverage Summary
 
 | Status | Count |
 |--------|-------|
-| **PROVED** | 35 |
+| **PROVED** | 42 |
 | **CI-VERIFIED** | 4 |
 | **AXIOM** | 3 |
 | **PLACEHOLDER** | 2 |
 | **MISSING** | 0 |
-| **Total** | 37 |
+| **Total** | 44 |
 
 ---
 

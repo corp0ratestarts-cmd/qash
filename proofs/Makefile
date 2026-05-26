@@ -26,7 +26,8 @@ STRICT_PROOFS := \
 	model/Model.v \
 	model/RefinementStatement.v \
 	model/Extract.v \
-	sharding/efb_determinism.v
+	sharding/efb_determinism.v \
+	capability/cap_token_schema.v
 
 VFILES := $(STRICT_PROOFS)
 VOFILES := $(VFILES:.v=.vo)
