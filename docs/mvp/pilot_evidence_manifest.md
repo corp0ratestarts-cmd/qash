@@ -16,7 +16,7 @@ A third party can reproduce the full set by running `bash scripts/run_mvp_demo.s
 ## Privacy Boundary Rules
 
 1. `public_commitments.bin` — must not contain any incident body text, raw nonces, workspace salts, or filesystem paths.
-2. `replay.json` — `"private_payloads_seen": false` must be present and true; any `true` value is a claim boundary violation.
+2. `replay.json` — `"private_payloads_seen": false` must be present; any `true` value is a claim boundary violation.
 3. `disclosure.bin` — contains private receipt body; never include in public bundles or funder packets.
 
 The `build_pilot_evidence_bundle.sh` script enforces these rules before writing output.
