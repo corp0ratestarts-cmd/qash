@@ -23,5 +23,16 @@ jobs:
       - name: Run MVP demo end-to-end
         run: bash scripts/run_mvp_demo.sh --clean
 
-      - name: Validate pilot bundle script syntax
-        run: bash -n scripts/build_pilot_evidence_bundle.sh && bash -n scripts/capture_benchmarks.sh
+      - name: Generate replay report for bundle validation
+        run: |
+          cargo run --quiet --bin qash-demo -- replay \
+            --dir artifacts/mvp-demo/node-a \
+            --report artifacts/mvp-demo/replay.json
+
+      - name: Validate pilot evidence bundle (dry-run)
+        env:
+          DEMO_DIR: artifacts/mvp-demo
+        run: bash scripts/build_pilot_evidence_bundle.sh --dry-run
+
+      - name: Validate pilot script syntax
+        run: bash -n scripts/capture_benchmarks.sh
