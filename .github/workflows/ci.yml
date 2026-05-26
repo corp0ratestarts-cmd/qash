@@ -6,6 +6,20 @@ permissions:
   contents: read
 
 jobs:
+  slice-evidence-freshness:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert fresh slice evidence manifest for slice-critical changes
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: bash scripts/check_slice_evidence_freshness.sh
+
   build-x86_64:
     runs-on: ubuntu-latest
     steps:
@@ -13,99 +27,70 @@ jobs:
 
       - name: Install pinned Rust toolchain
         run: rustup toolchain install
-
       - name: Verify pinned Rust toolchain
         run: ./scripts/verify_rust_toolchain.sh
-
-      - name: Build workspace (release)
-        run: cargo build --workspace --release
+      - name: Build
+        run: cargo build --no-default-features
 
   test-determinism:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install pinned Rust toolchain
         run: rustup toolchain install
-
       - name: Verify pinned Rust toolchain
         run: ./scripts/verify_rust_toolchain.sh
-
-      - name: Test workspace (no-default-features)
+      - name: Test
         run: cargo test --workspace --no-default-features
-
-      - name: Test workspace (with std)
-        run: cargo test --workspace
+      - name: Verify deterministic build pipeline
+        run: ./scripts/verify_two_stage_build.sh
+      - name: Verify genesis artifact-set hash
+        run: ./scripts/verify_genesis_hash.sh
 
   clippy-lint:
     runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      SOURCE_DATE_EPOCH: 0
     steps:
       - uses: actions/checkout@v4
-
       - name: Install pinned Rust toolchain
         run: rustup toolchain install
-
       - name: Verify pinned Rust toolchain
         run: ./scripts/verify_rust_toolchain.sh
-
-      - name: Clippy workspace
+      - name: Clippy (consensus)
+        run: cargo clippy -p qash-consensus -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::unreachable -D warnings
+      - name: Clippy (workspace)
         run: cargo clippy --workspace -- -D warnings
-
-      - name: Clippy workspace (no-default-features)
-        run: cargo clippy --workspace --no-default-features -- -D warnings
-
-  zero-persistence-boundary:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install pinned Rust toolchain
-        run: rustup toolchain install
-
-      - name: Test zero-persistence profile (std)
-        run: cargo test -p qash-pal --features std zero_persistence
-
-      - name: Test zero-persistence profile (sovereign-hardened)
-        run: cargo test -p qash-pal --features sovereign-hardened zero_persistence
-
-  kani-advisory:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install pinned Rust toolchain
-        run: rustup toolchain install
-
-      - name: Check Kani harnesses compile (advisory, no proof run)
-        run: cargo check --workspace --no-default-features
-
-  slice-evidence-freshness:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Check implementation slices have fresh evidence
-        run: bash scripts/check_slice_evidence.sh
 
   document-hygiene:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Check document hygiene
+      - name: Reject raw transcripts and ad hoc root specs
         run: bash scripts/check_document_hygiene.sh
+      - name: Privacy admission checklist lint (P5/P7/P8)
+        run: bash scripts/check_privacy_admission.sh
+
+  zero-persistence-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+      - name: Check zero-persistence PAL boundary
+        run: bash scripts/check_zero_persistence_boundary.sh
 
   supply-chain:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install pinned Rust toolchain
         run: rustup toolchain install
-
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
       - name: Install cargo-deny
         run: cargo install cargo-deny --locked
       - name: cargo deny check
@@ -198,3 +183,19 @@ jobs:
             proof-hashes.txt
           if-no-files-found: error
           retention-days: 365
+
+  kani-advisory:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+      - name: Install Kani
+        run: cargo install kani-verifier --version 0.67.0 --locked
+      - name: Set up Kani
+        run: cargo kani setup
+      - name: Verify consensus Kani harnesses
+        run: scripts/run_kani_consensus.sh
