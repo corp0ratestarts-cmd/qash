@@ -1,19 +1,40 @@
 # QASH Implementation Order
 
 **Status:** Active execution guide.  
+**Last updated:** 2026-05-26 (Track -1 reconciliation — PRs #165–#169 merged)  
 **Purpose:** This file orders the remaining work. `ROADMAP.md` describes the broader destination.
 
 ## Current posture
 
-QASH is pre-genesis. Domain A is the deterministic `no_std` consensus kernel.
+QASH is pre-genesis RC. Domain A (24 modules, 483 tests passing) is implementation-complete
+for the current RC surface, but not production-authoritative until proof closure, cross-ISA
+evidence, compliance evidence, and genesis-lock gates are complete.
+
 Domain B is the operational boundary for networking, storage, privacy, attestation,
-acceleration, audit, and evidence. Genesis remains trustless and deterministic.
-Hardware-backed tools are optional local OpSec only.
+acceleration, audit, and evidence. The PAL scaffold is substantially built; production
+transport, ZK verifier, and crash recovery remain open.
+
+**Release baselines (as of 2026-05-26):**
+- `qash-pilot-baseline-v0.2.1` = commit `04ad39d` (Merge PR #168)
+- `qash-pilot-baseline-v0.3` = commit `67665e4` (Merge PR #169, current `main`)
+- Genesis lock tag is deferred until the evidence gate below is complete
+
+**Already merged (do not re-implement):**
+- PR #75: v1.1 CI toolchain stabilization (cross-compile matrix)
+- PR #77: v1.1 Envelope primitives and causal ordering
+- PR #167: Phase 2-R micro-fix — single-pass tx admission via cheap byte reads (partial 2-R landing)
+- PR #168: Pilot execution readiness docs, evidence manifest, pilot package, funding docs
+- PR #169: v0.3 multi-operator import/replay with labelled import tracking
+
+Genesis remains trustless and deterministic. Hardware-backed tools are optional local OpSec only.
 
 ## Strategic order
 
-1. **Consolidate gates before new protocol work.**
-   - Keep the trustless-genesis / vendor-agnostic hardware OpSec invariant merged.
+1. **Consolidate gates before new protocol work** (Track 0 — pre-execution gate).
+   - Run `bash scripts/check_document_hygiene.sh`, `bash scripts/check_privacy_admission.sh`,
+     `bash scripts/check_slice_evidence_freshness.sh`, `cargo test --workspace --no-default-features`,
+     `make -C proofs`, `cargo deny check`, `bash scripts/verify_two_stage_build.sh`.
+   - Keep the trustless-genesis / vendor-agnostic hardware OpSec invariant green.
    - Keep privacy admission lint for TX-2+ specs green.
    - Keep slice evidence freshness manifests for review-critical work green.
    - Treat PR #93 follow-through as scheduled roadmap work, not current implementation.
@@ -54,11 +75,14 @@ Hardware-backed tools are optional local OpSec only.
    - Preserve v1.2 sharded replay parity.
    - Produce prover-sizing evidence before throughput or finality claims.
 
-7. **Execute Phase 2-R runtime optimization.**
-   - Benchmark current baseline first.
-   - Implement single-pass admission, deterministic candidate sorting,
-     streaming state-root hashing, and runtime-only projected views.
-   - Accept no performance claim without archived benchmark artifacts.
+7. **Complete Phase 2-R runtime optimization (partial — PR #167 landed single-pass admission).**
+   - Archive tx-heavy and commit-path benchmark baselines first (`cargo criterion`; 1024-validator epoch).
+   - Confirm PR #167 parity on all 3 ISAs (x86_64, aarch64, riscv64gc), not just x86_64.
+   - Implement deterministic total-order sorting by `(sort_key, tx_id)`; add reversed-input parity test.
+   - Implement streaming state-root commitment with exact preimage parity against current buffered path.
+   - Implement runtime-only `ProjectedView`; keep Coq model unchanged.
+   - Write ADR evidence in `docs/adr/ADR-006-runtime-optimization-track.md`.
+   - Accept no performance claim without archived benchmark artifacts under `artifacts/benchmarks/`.
 
 8. **Build per-commit compliance evidence bundles.**
    - SBOM.
