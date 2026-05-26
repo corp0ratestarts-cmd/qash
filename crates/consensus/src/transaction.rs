@@ -87,13 +87,6 @@ impl ParsedTx<'_> {
             ParsedTx::Tx1(tx) => &tx.author_id,
         }
     }
-
-    fn nonce(&self) -> u64 {
-        match self {
-            ParsedTx::Tx0(tx) => tx.nonce,
-            ParsedTx::Tx1(tx) => tx.nonce,
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------
