@@ -322,6 +322,68 @@ fn bench_phase2r_epoch_advancement_baseline(c: &mut Criterion) {
     group.finish();
 }
 
+// ---------------------------------------------------------------------------
+// B8: Tx-heavy epoch advancement — full advance_epoch with max transactions.
+//
+// This is the primary Phase 2-R baseline. It measures the total cost of
+// advance_epoch when called with a full transaction batch (up to 1024 TX0s),
+// including the 2-pass sort+validate in prevalidate_all and the full state-root
+// commitment. A Phase 2-R optimisation must preserve byte-exact output and
+// demonstrate a measurable improvement on this bench before performance claims
+// are valid.
+// ---------------------------------------------------------------------------
+
+fn bench_phase2r_tx_heavy_advance(c: &mut Criterion) {
+    let mut group = c.benchmark_group("phase2r_tx_heavy_advance");
+
+    for &vc in &[16u32, 128, 512, 1024] {
+        // tx_count = vc: every validator submits exactly one TX0.
+        group.bench_with_input(
+            BenchmarkId::new("advance_epoch_full_tx_batch", vc),
+            &vc,
+            |b, &vc| {
+                let state_init = make_state(vc);
+                let input = idle_input(vc);
+                let txs = tx_batch(&state_init, vc as usize);
+                let refs: Vec<&[u8]> = txs.iter().map(|tx| tx.as_slice()).collect();
+                b.iter(|| {
+                    let mut state = state_init;
+                    let result = advance_epoch(
+                        black_box(&mut state),
+                        black_box(&input),
+                        black_box(refs.as_slice()),
+                    );
+                    black_box(result.is_ok())
+                });
+            },
+        );
+
+        // Reverse-order batch: tests sort cost when input is in worst-case order
+        // (keys descend → insertion sort does O(n²) swaps).
+        group.bench_with_input(
+            BenchmarkId::new("advance_epoch_reversed_tx_batch", vc),
+            &vc,
+            |b, &vc| {
+                let state_init = make_state(vc);
+                let input = idle_input(vc);
+                let txs = tx_batch(&state_init, vc as usize);
+                let refs: Vec<&[u8]> = txs.iter().rev().map(|tx| tx.as_slice()).collect();
+                b.iter(|| {
+                    let mut state = state_init;
+                    let result = advance_epoch(
+                        black_box(&mut state),
+                        black_box(&input),
+                        black_box(refs.as_slice()),
+                    );
+                    black_box(result.is_ok())
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_epoch_transition,
@@ -331,6 +393,7 @@ criterion_group!(
     bench_phase2r_tx_admission,
     bench_phase2r_validator_lookup,
     bench_phase2r_state_root_commitment,
-    bench_phase2r_epoch_advancement_baseline
+    bench_phase2r_epoch_advancement_baseline,
+    bench_phase2r_tx_heavy_advance
 );
 criterion_main!(benches);
