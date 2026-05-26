@@ -1,7 +1,9 @@
 //! HMAC-DRBG (NIST SP 800-90A) deterministic random bit generator.
 //!
-//! Domain B only. Provides a FIPS 140-3 approved entropy source for
-//! Domain B operations (key generation, nonce derivation, etc.).
+//! Domain B only. Provides a FIPS-aligned entropy source intended for
+//! FIPS 140-3 validation evidence for Domain B operations (key generation,
+//! nonce derivation, etc.). "FIPS-aligned" is not "FIPS validated" —
+//! FIPS 140-3 module validation requires CMVP lab engagement.
 //!
 //! The underlying `hmac-drbg` crate implements HMAC-SHA-256 DRBG per
 //! NIST SP 800-90A Rev 1. This wrapper:

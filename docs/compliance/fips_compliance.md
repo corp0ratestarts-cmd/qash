@@ -1,9 +1,14 @@
-# FIPS 140-3 Compliance — QASH Domain B
+# FIPS 140-3 Alignment — QASH Domain B
+
+> **Claim boundary:** This document uses "FIPS-aligned" throughout. "FIPS-aligned"
+> is not "FIPS validated." FIPS 140-3 module validation requires engagement with
+> a NIST-accredited CMVP lab. This document records implementation evidence
+> intended to support a future CMVP submission — not a current validation claim.
 
 This document maps each FIPS 140-3 Level 1 requirement to its concrete
 implementation in `qash-pal` (Domain B). Domain A (`qash-consensus`) is
 proof-eligible consensus logic and is explicitly **out of scope** for FIPS
-evaluation; it contains no approved or non-approved algorithms.
+evaluation; it contains no FIPS-approved or non-approved algorithms.
 
 ---
 
@@ -54,15 +59,22 @@ Callers MUST NOT pass OS entropy directly to cryptographic functions.
 **Requirement:** All external connections MUST use TLS 1.2 or higher.
 
 **Implementation:**
+- `crates/pal/src/crypto/tls.rs` — `validate_tls_config(tls_version: Option<u16>)`:
+  - Rejects `None` (no TLS) with `TlsConfigError::NoTls`
+  - Rejects SSLv3 (0x0300), TLS 1.0 (0x0301), TLS 1.1 (0x0302) with
+    `TlsConfigError::VersionBelowFloor`
+  - Accepts TLS 1.2 (0x0303) and TLS 1.3 (0x0304)
+  - Call at PAL init time before establishing any network transport
+- `log_pseudonym(prefix, pk_bytes)`: derives a 16-byte truncated SHA3-256
+  pseudonym for validator identities in log lines. Raw public keys, IP
+  addresses, and validator IDs must NEVER appear in log output.
 - Hosted PAL (`Host` in `crates/pal/src/lib.rs`) currently uses an in-process
   log rather than an external TLS channel.
-- When a network transport is wired in, it MUST be configured to:
-  - Reject SSLv3, TLS 1.0, TLS 1.1
-  - Require TLS 1.2+ with an approved cipher suite (see CNSA 2.0 annex)
-  - Use certificates from an approved PKI
+- When a network transport is wired in, it MUST call `validate_tls_config`
+  at initialisation and reject any configuration that returns an error.
 
-**Validation gate (Phase 2-P):** The `cavp-kat` CI job will enforce that any
-new Domain B crypto primitive has a known-answer test before merge.
+**Validation gate:** The `cavp-kat` CI job enforces that any new Domain B
+crypto primitive has a known-answer test before merge.
 
 ---
 
@@ -121,7 +133,32 @@ FIPS module boundary:
 
 ---
 
-## 9. FIPS 140-3 Validation Roadmap
+## 9. Crypto-Agility Traits (AS.01 extensibility)
+
+`crates/pal/src/crypto/traits.rs` defines:
+
+| Trait | Purpose |
+|-------|---------|
+| `HasherTrait` | Domain-tagged hash abstraction |
+| `KemTrait` | Key encapsulation abstraction |
+| `CipherTrait` | AEAD cipher abstraction (`std` only) |
+| `SignatureTrait` | Digital signature abstraction (`std` only) |
+
+Suite implementations:
+
+| Suite | Struct | Feature flag | Hash | Notes |
+|-------|--------|-------------|------|-------|
+| Standard | `SuiteStandard` | (always) | SHA3-256 | FIPS-aligned baseline |
+| Guomi | `SuiteGuomi` | `suite_guomi` | SM3 | GM/T sovereign standard |
+| Korea | `SuiteKorea` | `suite_korea` | LSH-512/256 (KS X 3262) | Korean national standard |
+
+**Domain A parity invariant:** toggling any suite feature must not change
+`crates/consensus/` — `git diff crates/consensus/` must remain empty after
+any feature toggle.
+
+---
+
+## 10. FIPS 140-3 Validation Roadmap
 
 | Phase | Action |
 |-------|--------|
