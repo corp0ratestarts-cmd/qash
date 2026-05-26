@@ -2,6 +2,8 @@ pub mod admission;
 pub mod commitment_backpressure;
 pub mod commitment_inbox;
 pub mod commitment_transport;
+#[cfg(feature = "std")]
+pub mod net;
 pub mod mvp;
 pub mod mvp_demo_profile;
 #[cfg(feature = "std")]
