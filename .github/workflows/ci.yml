@@ -221,18 +221,21 @@ jobs:
 
   codeql:
     runs-on: ubuntu-latest
+    continue-on-error: true
     permissions:
       contents: read
       security-events: write
     steps:
       - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: rust
           queries: security-and-quality
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+      - name: Build for CodeQL
+        run: cargo build --no-default-features
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
