@@ -18,7 +18,9 @@ changed_files="$(git diff --name-only "$base_sha"...HEAD)"
 # This gate is for implementation/release/proof-critical review slices. ADR-only
 # planning PRs are still checked by document hygiene and privacy admission, but
 # should not require a locally generated evidence bundle.
-critical_pattern='^(docs/spec/|docs/release/|docs/traceability|ROADMAP\.md|README\.md|PROJECT_STATUS\.md|crates/consensus/|crates/pal/|proofs/|tests/vectors/|\.github/workflows/|\.github/PULL_REQUEST_TEMPLATE\.md|scripts/)'
+# Note: .github/workflows/ is excluded — CI config changes are operational and
+# do not require implementation evidence manifests.
+critical_pattern='^(docs/spec/|docs/release/|docs/traceability|ROADMAP\.md|README\.md|PROJECT_STATUS\.md|crates/consensus/|crates/pal/|proofs/|tests/vectors/|\.github/PULL_REQUEST_TEMPLATE\.md|scripts/)'
 
 if ! printf '%s\n' "$changed_files" | rg -q "$critical_pattern"; then
   echo "No slice-critical file changes detected."
