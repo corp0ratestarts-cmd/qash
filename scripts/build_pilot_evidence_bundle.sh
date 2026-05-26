@@ -55,8 +55,9 @@ done
 echo "public_commitments.bin: no private body text found"
 
 # replay.json: must have private_payloads_seen == false and no body text.
+export DEMO_DIR
 if python3 - <<'EOF'
-import json, sys
+import json, os, sys
 with open(f"{os.environ.get('DEMO_DIR', '.qash-mvp-demo')}/replay.json") as f:
     d = json.load(f)
 assert not d.get("private_payloads_seen", True), "private_payloads_seen is not false"
@@ -96,7 +97,10 @@ if [ "$DRY_RUN" = "0" ]; then
     cp "docs/mvp/post_merge_audit.md"    "$OUT/"
 
     # Optional docs (included if present)
-    for opt in docs/mvp/operator_runbook.md docs/mvp/passive_observability.md; do
+    for opt in \
+        docs/ops/mvp_operator_runbook.md \
+        docs/threat_model/passive_observability.md
+    do
         [ -f "$opt" ] && cp "$opt" "$OUT/" && echo "included: $opt"
     done
 
