@@ -941,4 +941,54 @@ mod tests {
         assert_eq!(err, TxError::MalformedEnvelope);
         assert_eq!(state.nonces[0], 0);
     }
+
+    // ── 2-R: Sort determinism — reversed input → identical output ──────────
+    //
+    // Canonical admission order must be independent of submission order.
+    // Given two transactions from different authors, prevalidate_all must
+    // yield the same applied count and nonce increments regardless of whether
+    // txA comes before or after txB in the raw slice.
+    #[test]
+    fn sort_order_is_identical_for_reversed_input_batch() {
+        let author_a = {
+            let mut id = [0u8; 48];
+            id[0] = 1;
+            id
+        };
+        let author_b = {
+            let mut id = [0u8; 48];
+            id[0] = 2;
+            id
+        };
+
+        let mut state_fwd = make_state(2);
+        state_fwd.validator_ids[0] = author_a;
+        state_fwd.validator_ids[1] = author_b;
+
+        let tx_a = make_tx0_raw(author_a, 0);
+        let tx_b = make_tx0_raw(author_b, 0);
+
+        // Forward order: [tx_a, tx_b]
+        let fwd_refs: [&[u8]; 2] = [&tx_a, &tx_b];
+        let fwd_result = prevalidate_all(&state_fwd, &fwd_refs, 1024)
+            .expect("prevalidate_all should succeed for valid txs");
+
+        // Reversed order: [tx_b, tx_a]
+        let state_rev = state_fwd;
+        let rev_refs: [&[u8]; 2] = [&tx_b, &tx_a];
+        let rev_result = prevalidate_all(&state_rev, &rev_refs, 1024)
+            .expect("prevalidate_all should succeed for valid txs");
+
+        // Both orderings must apply the same number of transactions.
+        assert_eq!(
+            fwd_result.applied_count, rev_result.applied_count,
+            "reversed input must admit the same transaction count"
+        );
+        // Both orderings must produce identical nonce state — i.e. the same
+        // authors' nonces were incremented.
+        assert_eq!(
+            fwd_result.next_nonces, rev_result.next_nonces,
+            "reversed input must produce identical nonce increments"
+        );
+    }
 }

@@ -52,19 +52,29 @@ impl ReceiptKey {
 
 /// Evidence that a `ReceiptKey` has been consumed and its material zeroized.
 ///
-/// Returned by `shred_key()`. Callers should persist this as WAL evidence
-/// before considering the shred complete.
+/// Returned by `shred_key()`. All fields are required to ensure the audit
+/// record is unambiguous: `key_commitment` identifies the key, `epoch`
+/// timestamps the shred in protocol time, and `event_root` links to the
+/// receipt/incident that triggered the erasure. Callers should persist this
+/// as WAL evidence before considering the shred complete.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ShredKeyEvidence {
+    /// Commitment to the shredded key material. Computed at key construction;
+    /// no key bytes are retained after `shred_key()` returns.
     pub key_commitment: [u8; 32],
+    /// Protocol epoch at which the shred was executed (caller-supplied).
+    pub epoch: u64,
+    /// Event root that triggered the erasure (caller-supplied). Links this
+    /// shred record to the incident/receipt being erased for audit tracing.
+    pub event_root: [u8; 32],
 }
 
 impl From<ShredKeyEvidence> for ShredCommitment {
     fn from(ev: ShredKeyEvidence) -> Self {
         ShredCommitment {
             key_id_commitment: ev.key_commitment,
-            epoch: 0,
-            event_root: [0u8; 32],
+            epoch: ev.epoch,
+            event_root: ev.event_root,
         }
     }
 }
@@ -72,14 +82,20 @@ impl From<ShredKeyEvidence> for ShredCommitment {
 /// Consume a `ReceiptKey` by value, zeroizing its material, and return
 /// durable evidence of the shred.
 ///
+/// `epoch` and `event_root` are the caller's context: which protocol epoch
+/// the shred occurred in, and which event/receipt triggered the erasure.
+/// Both are required to produce an unambiguous audit record.
+///
 /// After this function returns, the key material is gone from memory.
-/// The caller holds only the `ShredKeyEvidence` commitment — which contains
-/// no usable key bytes.
-pub fn shred_key(key: ReceiptKey) -> ShredKeyEvidence {
+/// The caller holds only the `ShredKeyEvidence` — which contains no usable
+/// key bytes.
+pub fn shred_key(key: ReceiptKey, epoch: u64, event_root: [u8; 32]) -> ShredKeyEvidence {
     let commitment = key.key_commitment;
     drop(key); // ZeroizeOnDrop fires here, wiping `material`
     ShredKeyEvidence {
         key_commitment: commitment,
+        epoch,
+        event_root,
     }
 }
 
@@ -109,8 +125,25 @@ mod tests {
         let material = [0xAB_u8; 32];
         let key = ReceiptKey::new(material);
         let commitment_before = key.key_commitment;
-        let evidence = shred_key(key);
+        let evidence = shred_key(key, 42, [0xEE_u8; 32]);
         assert_eq!(evidence.key_commitment, commitment_before);
+        assert_eq!(evidence.epoch, 42);
+        assert_eq!(evidence.event_root, [0xEE_u8; 32]);
+    }
+
+    #[test]
+    fn shred_key_preserves_audit_context() {
+        let key = ReceiptKey::new([0x11_u8; 32]);
+        let epoch = 99u64;
+        let event_root = [0xABu8; 32];
+        let evidence = shred_key(key, epoch, event_root);
+        // Audit trail is fully preserved — epoch and event_root identify when/why.
+        assert_eq!(evidence.epoch, epoch);
+        assert_eq!(evidence.event_root, event_root);
+        // Distinct epochs produce distinguishable evidence records.
+        let key2 = ReceiptKey::new([0x11_u8; 32]);
+        let evidence2 = shred_key(key2, 100, event_root);
+        assert_ne!(evidence.epoch, evidence2.epoch);
     }
 
     #[test]
@@ -128,7 +161,7 @@ mod tests {
             ciphertext[i] = plaintext[i] ^ key.as_bytes()[i];
         }
 
-        let evidence = shred_key(key);
+        let evidence = shred_key(key, 7, [0xDDu8; 32]);
 
         // After shred: evidence carries only the commitment, not the key bytes.
         assert_eq!(evidence.key_commitment, commitment);
