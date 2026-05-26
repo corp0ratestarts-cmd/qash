@@ -57,7 +57,7 @@ echo "public_commitments.bin: no private body text found"
 # replay.json: must have private_payloads_seen == false and no body text.
 if python3 - <<'EOF'
 import json, sys
-with open(".qash-mvp-demo/replay.json") as f:
+with open(f"{os.environ.get('DEMO_DIR', '.qash-mvp-demo')}/replay.json") as f:
     d = json.load(f)
 assert not d.get("private_payloads_seen", True), "private_payloads_seen is not false"
 assert "profile_version" in d, "profile_version missing from replay report"
