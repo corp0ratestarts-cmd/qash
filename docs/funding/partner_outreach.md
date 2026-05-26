@@ -70,18 +70,21 @@
 Use these messages in partner conversations. Do not use blocked terms from the claims register.
 
 ✅ Use:
+- "cyber-resilience substrate"
 - "offline incident-log attestation substrate"
 - "commitment-only public audit trail"
 - "deterministic replay for independent verification"
 - "selective disclosure without a transaction graph"
-- "cyber-resilience substrate"
 - "air-gapped and intermittently-connected environments"
+- "offline-first cryptographic commitment"
 
-❌ Avoid:
+❌ Avoid (claim boundary violations):
 - "blockchain", "distributed ledger", "cryptocurrency"
-- "payment", "settlement", "clearing", "token"
-- "production-ready", "certified", "deployed"
+- "payment", "settlement", "clearing", "token", "coin"
+- "production-ready", "certified", "deployed", "genesis-admitted"
 - "identity provider", "credential issuer"
+- "production ZK", "production hardware attestation"
+- "custody", "wallet"
 
 ---
 
@@ -96,3 +99,7 @@ Use these messages in partner conversations. Do not use blocked terms from the c
 | 6 | Begin WP2.2 pilot with partner data |
 | 10 | WP5.3 partner engagement workshop |
 | 12 | Letters of interest for Phase 2 application |
+
+---
+
+All partner-facing claims are governed by `docs/mvp/claims_register.md`.

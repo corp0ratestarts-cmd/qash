@@ -12,7 +12,7 @@ Cyber-incident records are routinely lost, altered, or selectively disclosed und
 
 ## Solution
 
-QASH demonstrates an **offline-first cryptographic commitment substrate** for incident-log attestation. Operators commit incident records as fixed-size cryptographic commitments to a local append-only write-ahead log. The system then exports a commitment-only public transcript — a sequence of hashes — that can be replayed deterministically across independent machines to produce a stable, tamper-evident root, without revealing the incident bodies.
+QASH demonstrates a **cyber-resilience substrate** for offline incident-log commitments, deterministic replay, and selective disclosure — without publishing a transaction graph. Operators commit incident records as fixed-size cryptographic commitments to a local append-only write-ahead log. The system then exports a commitment-only public transcript — a sequence of hashes — that can be replayed deterministically across independent machines to produce a stable, tamper-evident root, without revealing the incident bodies.
 
 Core properties:
 
@@ -50,4 +50,4 @@ Indicative budget: see `docs/funding/work_packages.md`.
 
 ## Claim Boundary
 
-This system is a local Domain B demonstrator. It is not a payment instrument, settlement rail, regulated financial product, or production deployment. All allowed and blocked claims are governed by `docs/mvp/claims_register.md`.
+This system is a local Domain B demonstrator. It is not a payment instrument, settlement rail, token, coin, regulated financial product, custody system, production identity system, production ZK verifier, production hardware attestation path, or production deployment. Genesis-admitted terminology does not apply. All allowed and blocked claims are governed by `docs/mvp/claims_register.md`.

@@ -3,8 +3,8 @@
 //! The demo commands exercise the local offline incident receipt commit flow
 //! without changing Domain A consensus behavior.
 
+use qash_pal::mvp_demo_profile;
 use qash_pal::mvp_vault::MvpReceiptVault;
-use sha3::{Digest, Sha3_256};
 use std::fmt;
 use std::fs;
 use std::path::PathBuf;
@@ -210,19 +210,23 @@ fn cmd_sync(options: &DemoOptions) -> Result<(), DemoCliError> {
 fn cmd_replay(options: &DemoOptions) -> Result<(), DemoCliError> {
     let vault = MvpReceiptVault::open(&options.dir).map_err(vault_error)?;
     let exports = vault.read_all_public_exports().map_err(vault_error)?;
-    let mut root = [0u8; 32];
-    for export in &exports {
-        root = replay_root_step(root, &export.encode());
-    }
+    let export_bytes: Vec<u8> = exports.iter().flat_map(|e| e.encode()).collect();
+    let (record_count, root) = if export_bytes.is_empty() {
+        (0usize, [0u8; 32])
+    } else {
+        let rpt = mvp_demo_profile::replay_public_export_bytes(&export_bytes)
+            .map_err(|e| DemoCliError::Vault(format!("{e:?}")))?;
+        (rpt.records, rpt.commitment_root)
+    };
     println!("QASH MVP replay report");
     println!("workspace: {}", options.dir.display());
-    println!("records: {}", exports.len());
+    println!("records: {record_count}");
     println!("commitment_root: {}", hex32(root));
     println!("status: deterministic local replay completed");
     if let Some(report_path) = &options.report {
         let report = format!(
-            "{{\n  \"profile\": \"TX-MVP-ReceiptCommit\",\n  \"records\": {},\n  \"commitment_root\": \"{}\",\n  \"public_transcript_only\": true,\n  \"private_payloads_seen\": false,\n  \"status\": \"ok\"\n}}\n",
-            exports.len(),
+            "{{\n  \"profile\": \"TX-MVP-ReceiptCommit\",\n  \"profile_version\": 1,\n  \"records\": {},\n  \"commitment_root\": \"{}\",\n  \"public_transcript_only\": true,\n  \"private_payloads_seen\": false,\n  \"status\": \"ok\"\n}}\n",
+            record_count,
             hex32(root)
         );
         fs::write(report_path, report.as_bytes()).map_err(|err| DemoCliError::Io(err.to_string()))?;
@@ -305,15 +309,6 @@ fn parse_options(args: &[String]) -> Result<DemoOptions, DemoCliError> {
 
 fn required_value<'a>(args: &'a [String], index: usize, flag: &'static str) -> Result<&'a String, DemoCliError> {
     args.get(index).ok_or(DemoCliError::MissingValue(flag))
-}
-
-fn replay_root_step(previous: [u8; 32], public_record: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha3_256::new();
-    hasher.update(b"QASH-MVP-REPLAY-ROOT\0");
-    hasher.update(previous);
-    hasher.update((public_record.len() as u64).to_le_bytes());
-    hasher.update(public_record);
-    hasher.finalize().into()
 }
 
 fn random_bytes() -> Result<[u8; 32], DemoCliError> {
