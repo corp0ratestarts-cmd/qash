@@ -22,3 +22,6 @@ jobs:
 
       - name: Run MVP demo end-to-end
         run: bash scripts/run_mvp_demo.sh --clean
+
+      - name: Validate pilot evidence bundle script (dry-run)
+        run: bash scripts/build_pilot_evidence_bundle.sh --dry-run
