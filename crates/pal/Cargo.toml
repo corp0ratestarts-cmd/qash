@@ -13,8 +13,11 @@ hmac-drbg = "0.3.0"
 sha2 = "0.9"
 sha3 = "0.10"
 ml-kem = { version = "0.3", optional = true }
+sm3 = { version = "0.4", optional = true }
 getrandom = { version = "0.2", optional = true }
 typenum = "1.20.0"
+zeroize = { version = "1", features = ["derive"] }
+static_assertions = "1"
 
 [dev-dependencies]
 serde = { version = "1", default-features = false }
@@ -33,3 +36,5 @@ replay-scaffold = ["std"]
 zero-persistence = ["std"]
 sovereign-hardened = ["zero-persistence"]
 pqc = ["ml-kem"]
+suite_guomi = ["sm3"]
+suite_korea = []
