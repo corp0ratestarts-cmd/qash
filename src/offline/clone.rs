@@ -100,7 +100,7 @@ pub enum CloneChannel {
 #[derive(Clone, Debug)]
 pub struct CloneHop {
     pub channel: CloneChannel,
-    pub hop_index: u8,   // 0-based, must be < 7
+    pub hop_index: u8,    // 0-based, must be < 7
     pub epoch_offset: u8, // epochs since chunk was produced, must be < 12
 }
 
@@ -125,9 +125,9 @@ mod tests {
     fn cascade_input_encodes_index_epoch_payload() {
         let chunk = make_chunk(1, 42, b"hello");
         let input = chunk.cascade_input();
-        assert_eq!(&input[0..4],  &1u32.to_le_bytes());
+        assert_eq!(&input[0..4], &1u32.to_le_bytes());
         assert_eq!(&input[4..12], &42u64.to_le_bytes());
-        assert_eq!(&input[12..],  b"hello");
+        assert_eq!(&input[12..], b"hello");
     }
 
     #[test]

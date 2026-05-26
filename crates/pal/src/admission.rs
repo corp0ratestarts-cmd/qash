@@ -101,7 +101,9 @@ fn parse_in_place(view: EnvelopeView<'_>) -> Result<EnvelopeView<'_>, AdmissionE
     Ok(view)
 }
 
-fn validate_effect_view(view: EnvelopeView<'_>) -> Result<ValidatedEffectCommitment, AdmissionError> {
+fn validate_effect_view(
+    view: EnvelopeView<'_>,
+) -> Result<ValidatedEffectCommitment, AdmissionError> {
     if view.bytes[0] != 1 {
         return Err(AdmissionError {
             class: AdmissionErrorClass::SchemaInvalid,

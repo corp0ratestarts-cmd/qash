@@ -50,7 +50,7 @@ fn main() {
     // Fixed-seed fixture inputs (no randomness).
     let fixtures: &[(&str, u64, u8, &[u8])] = &[
         ("alpha-incident", 1, 0, b"synthetic alpha incident body"),
-        ("beta-incident",  2, 1, b"synthetic beta incident body"),
+        ("beta-incident", 2, 1, b"synthetic beta incident body"),
         ("gamma-incident", 3, 2, b"synthetic gamma incident body"),
     ];
 
@@ -81,7 +81,13 @@ fn main() {
         println!("  nonce_commitment:       {}", hex32(nonce_commitment));
         println!("  payload_commitment:     {}", hex32(payload_commitment));
         println!("  disclosure_commitment:  {}", hex32(disclosure_commitment));
-        println!("  record_hex:             {}", record.iter().map(|b| format!("{b:02x}")).collect::<String>());
+        println!(
+            "  record_hex:             {}",
+            record
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        );
         println!();
     }
 

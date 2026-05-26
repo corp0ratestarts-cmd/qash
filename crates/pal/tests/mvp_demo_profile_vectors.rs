@@ -1,5 +1,5 @@
 use qash_pal::mvp::{
-    TxMvpReceiptCommit, TxMvpReceiptCommitPublicExport, TxMvpReceiptCommitError,
+    TxMvpReceiptCommit, TxMvpReceiptCommitError, TxMvpReceiptCommitPublicExport,
     TX_MVP_PUBLIC_EXPORT_BYTES, TX_MVP_RECEIPT_COMMIT_VERSION,
 };
 use sha3::{Digest, Sha3_256};
@@ -68,7 +68,10 @@ fn public_exports_decode_and_replay_to_stable_root() {
     for record in &records {
         let encoded = record.encode();
         assert_eq!(encoded.len(), TX_MVP_PUBLIC_EXPORT_BYTES);
-        assert_eq!(TxMvpReceiptCommitPublicExport::decode(&encoded).unwrap(), *record);
+        assert_eq!(
+            TxMvpReceiptCommitPublicExport::decode(&encoded).unwrap(),
+            *record
+        );
     }
 
     let root_once = demo_profile_root(&records);

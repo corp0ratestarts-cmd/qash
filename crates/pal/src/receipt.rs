@@ -110,7 +110,9 @@ where
     V: ReceiptVault,
     W: ZeroPersistenceWal,
 {
-    let completed = vault.commit_shred(request).map_err(AtomicShredError::Vault)?;
+    let completed = vault
+        .commit_shred(request)
+        .map_err(AtomicShredError::Vault)?;
     wal.append_commitment(ZeroPersistenceWalRecord::from(completed))
         .map_err(AtomicShredError::EvidenceAppend)?;
     Ok(completed)

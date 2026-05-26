@@ -22,7 +22,11 @@ fn commitment_transport_and_recovery_wal_round_trip() {
     assert_eq!(received, frame);
 
     let mut path = std::env::temp_dir();
-    path.push(format!("qash-recovery-{}-{}.wal", std::process::id(), received.epoch));
+    path.push(format!(
+        "qash-recovery-{}-{}.wal",
+        std::process::id(),
+        received.epoch
+    ));
     let _ = std::fs::remove_file(&path);
 
     let wal = FileRecoveryWal::open(&path).unwrap();

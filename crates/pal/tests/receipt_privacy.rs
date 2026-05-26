@@ -4,7 +4,9 @@ use qash_pal::receipt::{
     commit_shred_with_evidence, DisclosureDomain, EncryptedReceiptCommitment, ReceiptVault,
     ShredCommitment, ShredRequest,
 };
-use qash_pal::zero_wal::{InMemoryZeroPersistenceWal, ZeroPersistenceWal, ZeroPersistenceWalRecord};
+use qash_pal::zero_wal::{
+    InMemoryZeroPersistenceWal, ZeroPersistenceWal, ZeroPersistenceWalRecord,
+};
 
 #[derive(Default)]
 struct MemoryReceiptVault {

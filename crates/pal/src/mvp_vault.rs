@@ -97,7 +97,8 @@ impl MvpReceiptVault {
         let salt_path = root.join(VAULT_SALT_FILE);
         if !salt_path.exists() {
             let mut salt = [0u8; VAULT_SALT_BYTES];
-            getrandom::getrandom(&mut salt).map_err(|err| MvpVaultError::Io(io::Error::other(err.to_string())))?;
+            getrandom::getrandom(&mut salt)
+                .map_err(|err| MvpVaultError::Io(io::Error::other(err.to_string())))?;
             fs::write(salt_path, salt)?;
         }
         Ok(Self {
@@ -137,11 +138,14 @@ impl MvpReceiptVault {
         disclosure_key_commitment: [u8; 32],
     ) -> Result<PrivateIncidentReceipt, MvpVaultError> {
         let payload_commitment = payload_commitment(body);
-        let tx = TxMvpReceiptCommit::new(epoch, nonce, payload_commitment, disclosure_key_commitment);
+        let tx =
+            TxMvpReceiptCommit::new(epoch, nonce, payload_commitment, disclosure_key_commitment);
         tx.validate()?;
         let epoch_nonce_key = EpochNonceKey::from_tx(&tx);
         if self.epoch_nonce_index.borrow().contains(&epoch_nonce_key) {
-            return Err(MvpVaultError::Tx(TxMvpReceiptCommitError::DuplicateEpochNonce));
+            return Err(MvpVaultError::Tx(
+                TxMvpReceiptCommitError::DuplicateEpochNonce,
+            ));
         }
 
         let receipt_id = tx.tx_commitment()?;
@@ -195,22 +199,33 @@ impl MvpReceiptVault {
         if data.len() < PUBLIC_COMMITMENTS_HEADER.len()
             || &data[..PUBLIC_COMMITMENTS_HEADER.len()] != PUBLIC_COMMITMENTS_HEADER
         {
-            return Err(MvpVaultError::InvalidWal("invalid public commitments header"));
+            return Err(MvpVaultError::InvalidWal(
+                "invalid public commitments header",
+            ));
         }
         let records_data = &data[PUBLIC_COMMITMENTS_HEADER.len()..];
-        if !records_data.len().is_multiple_of(TX_MVP_PUBLIC_EXPORT_BYTES) {
-            return Err(MvpVaultError::InvalidWal("truncated public commitments record"));
+        if !records_data
+            .len()
+            .is_multiple_of(TX_MVP_PUBLIC_EXPORT_BYTES)
+        {
+            return Err(MvpVaultError::InvalidWal(
+                "truncated public commitments record",
+            ));
         }
         let count = records_data.len() / TX_MVP_PUBLIC_EXPORT_BYTES;
         for i in 0..count {
             let start = i * TX_MVP_PUBLIC_EXPORT_BYTES;
-            TxMvpReceiptCommitPublicExport::decode(&records_data[start..start + TX_MVP_PUBLIC_EXPORT_BYTES])?;
+            TxMvpReceiptCommitPublicExport::decode(
+                &records_data[start..start + TX_MVP_PUBLIC_EXPORT_BYTES],
+            )?;
         }
         fs::write(self.root.join(IMPORTED_COMMITMENTS_FILE), data)?;
         Ok(count)
     }
 
-    pub fn read_all_public_exports(&self) -> Result<Vec<TxMvpReceiptCommitPublicExport>, MvpVaultError> {
+    pub fn read_all_public_exports(
+        &self,
+    ) -> Result<Vec<TxMvpReceiptCommitPublicExport>, MvpVaultError> {
         let mut seen: BTreeSet<[u8; 32]> = BTreeSet::new();
         let mut exports: Vec<TxMvpReceiptCommitPublicExport> = Vec::new();
 
@@ -233,9 +248,7 @@ impl MvpReceiptVault {
         if imports_dir.is_dir() {
             let mut entries: Vec<_> = fs::read_dir(&imports_dir)?
                 .filter_map(|e| e.ok())
-                .filter(|e| {
-                    e.path().extension().and_then(|x| x.to_str()) == Some("bin")
-                })
+                .filter(|e| e.path().extension().and_then(|x| x.to_str()) == Some("bin"))
                 .collect();
             entries.sort_by_key(|e| e.file_name());
             for entry in entries {
@@ -253,20 +266,33 @@ impl MvpReceiptVault {
     /// `imports/manifest.json`. Records already seen in earlier imports or the
     /// local WAL are counted as duplicates but not re-stored — the raw file is
     /// kept intact so the transcript is reproducible.
-    pub fn import_with_label(&self, data: &[u8], label: &str) -> Result<ImportResult, MvpVaultError> {
+    pub fn import_with_label(
+        &self,
+        data: &[u8],
+        label: &str,
+    ) -> Result<ImportResult, MvpVaultError> {
         if data.len() < PUBLIC_COMMITMENTS_HEADER.len()
             || &data[..PUBLIC_COMMITMENTS_HEADER.len()] != PUBLIC_COMMITMENTS_HEADER
         {
-            return Err(MvpVaultError::InvalidWal("invalid public commitments header"));
+            return Err(MvpVaultError::InvalidWal(
+                "invalid public commitments header",
+            ));
         }
         let records_data = &data[PUBLIC_COMMITMENTS_HEADER.len()..];
-        if !records_data.len().is_multiple_of(TX_MVP_PUBLIC_EXPORT_BYTES) {
-            return Err(MvpVaultError::InvalidWal("truncated public commitments record"));
+        if !records_data
+            .len()
+            .is_multiple_of(TX_MVP_PUBLIC_EXPORT_BYTES)
+        {
+            return Err(MvpVaultError::InvalidWal(
+                "truncated public commitments record",
+            ));
         }
         let total = records_data.len() / TX_MVP_PUBLIC_EXPORT_BYTES;
         for i in 0..total {
             let start = i * TX_MVP_PUBLIC_EXPORT_BYTES;
-            TxMvpReceiptCommitPublicExport::decode(&records_data[start..start + TX_MVP_PUBLIC_EXPORT_BYTES])?;
+            TxMvpReceiptCommitPublicExport::decode(
+                &records_data[start..start + TX_MVP_PUBLIC_EXPORT_BYTES],
+            )?;
         }
 
         let imports_dir = self.root.join(IMPORTS_DIR);
@@ -296,7 +322,13 @@ impl MvpReceiptVault {
 
         append_import_manifest_entry(&self.root, seq, label, &filename, total)?;
 
-        Ok(ImportResult { seq, label: label.to_string(), records: total, new_records, duplicates })
+        Ok(ImportResult {
+            seq,
+            label: label.to_string(),
+            records: total,
+            new_records,
+            duplicates,
+        })
     }
 
     /// Return the list of multi-source import entries from `imports/manifest.json`.
@@ -317,8 +349,7 @@ impl MvpReceiptVault {
         if salt_bytes.len() != VAULT_SALT_BYTES {
             return Err(MvpVaultError::InvalidWorkspace("vault salt has wrong size"));
         }
-        let counter = u64::try_from(self.read_commitments()?.len())
-            .unwrap_or(u64::MAX);
+        let counter = u64::try_from(self.read_commitments()?.len()).unwrap_or(u64::MAX);
         let mut hasher = Sha3_256::new();
         hasher.update(b"QASH-MVP-NONCE-DERIVE\0");
         hasher.update(&salt_bytes);
@@ -330,7 +361,9 @@ impl MvpReceiptVault {
     pub fn disclose_receipt(&self, receipt_id: [u8; 32]) -> Result<Vec<u8>, MvpVaultError> {
         let body = match fs::read(self.receipt_path(receipt_id)) {
             Ok(body) => body,
-            Err(err) if err.kind() == ErrorKind::NotFound => return Err(MvpVaultError::ReceiptNotFound),
+            Err(err) if err.kind() == ErrorKind::NotFound => {
+                return Err(MvpVaultError::ReceiptNotFound)
+            }
             Err(err) => return Err(MvpVaultError::Io(err)),
         };
 
@@ -491,7 +524,12 @@ fn parse_import_manifest(text: &str) -> Result<Vec<ImportManifestEntry>, MvpVaul
         let file = extract_json_str(inner, "file").unwrap_or_default();
         let records = extract_json_usize(inner, "records").unwrap_or(0);
         if seq > 0 && !file.is_empty() {
-            entries.push(ImportManifestEntry { seq, label, file, records });
+            entries.push(ImportManifestEntry {
+                seq,
+                label,
+                file,
+                records,
+            });
         }
     }
     Ok(entries)
@@ -509,7 +547,9 @@ fn extract_json_u32(s: &str, key: &str) -> Option<u32> {
     let needle = format!("\"{}\":", key);
     let start = s.find(&needle)? + needle.len();
     let rest = s[start..].trim_start();
-    let end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+    let end = rest
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(rest.len());
     rest[..end].parse().ok()
 }
 
@@ -639,7 +679,9 @@ mod tests {
         assert_eq!(vault.read_commitments().unwrap().len(), 1);
         assert!(!public.windows(body.len()).any(|window| window == body));
         assert!(!public.windows(32).any(|window| window == receipt.tx.nonce));
-        assert!(public.windows(32).any(|window| window == receipt.tx.payload_commitment));
+        assert!(public
+            .windows(32)
+            .any(|window| window == receipt.tx.payload_commitment));
         let _ = fs::remove_dir_all(&path);
     }
 
@@ -649,7 +691,9 @@ mod tests {
         let vault = MvpReceiptVault::init(&path).unwrap();
         let nonce = fixture_bytes(FixtureKind::FirstNonce);
         let disclosure = fixture_bytes(FixtureKind::DisclosureCommitment);
-        vault.issue_receipt(10, nonce, b"first synthetic body", disclosure).unwrap();
+        vault
+            .issue_receipt(10, nonce, b"first synthetic body", disclosure)
+            .unwrap();
         let duplicate = vault.issue_receipt(10, nonce, b"second synthetic body", disclosure);
         assert!(matches!(duplicate, Err(MvpVaultError::Tx(_))));
         let _ = fs::remove_dir_all(&path);
@@ -661,7 +705,9 @@ mod tests {
         let nonce = fixture_bytes(FixtureKind::FirstNonce);
         let disclosure = fixture_bytes(FixtureKind::DisclosureCommitment);
         let vault = MvpReceiptVault::init(&path).unwrap();
-        vault.issue_receipt(10, nonce, b"first synthetic body", disclosure).unwrap();
+        vault
+            .issue_receipt(10, nonce, b"first synthetic body", disclosure)
+            .unwrap();
         drop(vault);
 
         let reopened = MvpReceiptVault::open(&path).unwrap();
@@ -692,8 +738,12 @@ mod tests {
             .unwrap();
 
         let disclosure = vault.disclose_receipt(first.receipt_id).unwrap();
-        assert!(disclosure.windows(b"first synthetic incident".len()).any(|w| w == b"first synthetic incident"));
-        assert!(!disclosure.windows(b"second synthetic incident".len()).any(|w| w == b"second synthetic incident"));
+        assert!(disclosure
+            .windows(b"first synthetic incident".len())
+            .any(|w| w == b"first synthetic incident"));
+        assert!(!disclosure
+            .windows(b"second synthetic incident".len())
+            .any(|w| w == b"second synthetic incident"));
         let _ = fs::remove_dir_all(&path);
     }
 
@@ -702,7 +752,10 @@ mod tests {
         let path = temp_workspace("unknown-receipt");
         let vault = MvpReceiptVault::init(&path).unwrap();
         let unknown_id = fixture_bytes(FixtureKind::FirstNonce);
-        assert!(matches!(vault.disclose_receipt(unknown_id), Err(MvpVaultError::ReceiptNotFound)));
+        assert!(matches!(
+            vault.disclose_receipt(unknown_id),
+            Err(MvpVaultError::ReceiptNotFound)
+        ));
         let _ = fs::remove_dir_all(&path);
     }
 
@@ -722,7 +775,10 @@ mod tests {
         let mut data = fs::read(&wal_path).unwrap();
         data.truncate(data.len() - 10);
         fs::write(&wal_path, &data).unwrap();
-        assert!(matches!(MvpReceiptVault::open(&path), Err(MvpVaultError::InvalidWal(_))));
+        assert!(matches!(
+            MvpReceiptVault::open(&path),
+            Err(MvpVaultError::InvalidWal(_))
+        ));
         let _ = fs::remove_dir_all(&path);
     }
 
@@ -735,7 +791,10 @@ mod tests {
         let mut data = fs::read(&wal_path).unwrap();
         data[0] ^= 0xff;
         fs::write(&wal_path, &data).unwrap();
-        assert!(matches!(MvpReceiptVault::open(&path), Err(MvpVaultError::InvalidWal(_))));
+        assert!(matches!(
+            MvpReceiptVault::open(&path),
+            Err(MvpVaultError::InvalidWal(_))
+        ));
         let _ = fs::remove_dir_all(&path);
     }
 
@@ -820,11 +879,17 @@ mod tests {
         // then flip a byte in the middle of the TX payload.
         let header_size = 16;
         let corrupt_offset = header_size + 20;
-        assert!(data.len() > corrupt_offset, "WAL too short for corruption test");
+        assert!(
+            data.len() > corrupt_offset,
+            "WAL too short for corruption test"
+        );
         data[corrupt_offset] ^= 0xAB;
         fs::write(&wal_path, &data).unwrap();
         assert!(
-            matches!(MvpReceiptVault::open(&path), Err(MvpVaultError::InvalidWal(_))),
+            matches!(
+                MvpReceiptVault::open(&path),
+                Err(MvpVaultError::InvalidWal(_))
+            ),
             "corrupt WAL payload must be rejected on reopen"
         );
         let _ = fs::remove_dir_all(&path);
@@ -844,7 +909,10 @@ mod tests {
         data.extend_from_slice(&[0u8; 4]);
         fs::write(&wal_path, &data).unwrap();
         assert!(
-            matches!(MvpReceiptVault::open(&path), Err(MvpVaultError::InvalidWal(_))),
+            matches!(
+                MvpReceiptVault::open(&path),
+                Err(MvpVaultError::InvalidWal(_))
+            ),
             "partial record after record magic must be rejected"
         );
         let _ = fs::remove_dir_all(&path);
@@ -935,13 +1003,25 @@ mod tests {
         assert!(report.contains("\"private_payloads_seen\": false"));
         assert!(report.contains("\"status\": \"ok\""));
         // commitment_root must be a 64-char lowercase hex string.
-        let start = report.find("\"commitment_root\": \"").unwrap() + "\"commitment_root\": \"".len();
+        let start =
+            report.find("\"commitment_root\": \"").unwrap() + "\"commitment_root\": \"".len();
         let end = report[start..].find('"').unwrap() + start;
         let root_hex = &report[start..end];
         assert_eq!(root_hex.len(), 64, "commitment_root must be 64 hex chars");
-        assert!(root_hex.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()), "commitment_root must be lowercase hex");
+        assert!(
+            root_hex
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()),
+            "commitment_root must be lowercase hex"
+        );
         // Private incident payload text must never appear in replay reports.
-        assert!(!report.contains("body"), "private body text must not appear in replay report");
-        assert!(!report.contains("incident"), "private payload text must not appear in replay report");
+        assert!(
+            !report.contains("body"),
+            "private body text must not appear in replay report"
+        );
+        assert!(
+            !report.contains("incident"),
+            "private payload text must not appear in replay report"
+        );
     }
 }

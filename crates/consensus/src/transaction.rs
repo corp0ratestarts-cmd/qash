@@ -365,8 +365,7 @@ fn apply_tx_1_cached(
         return Err(TxError::TargetOutOfBounds);
     }
 
-    let next_divergence =
-        tx1_project_divergence(projected_divergences[target_idx], delta)?;
+    let next_divergence = tx1_project_divergence(projected_divergences[target_idx], delta)?;
     projected_divergences[target_idx] = next_divergence;
     next_nonces[author_idx] = next_nonces[author_idx]
         .checked_add(1)

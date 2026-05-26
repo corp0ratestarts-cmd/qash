@@ -16,7 +16,11 @@ pub enum RecoveryWalError {
 pub fn encode_record(record: ZeroPersistenceWalRecord) -> [u8; RECOVERY_RECORD_BYTES] {
     let mut out = [0u8; RECOVERY_RECORD_BYTES];
     match record {
-        ZeroPersistenceWalRecord::EffectCommitment { epoch, effect_root, receipt_root } => {
+        ZeroPersistenceWalRecord::EffectCommitment {
+            epoch,
+            effect_root,
+            receipt_root,
+        } => {
             out[0] = 1;
             write_u64(&mut out, 8, epoch);
             write_root(&mut out, 16, effect_root);
@@ -32,7 +36,11 @@ pub fn encode_record(record: ZeroPersistenceWalRecord) -> [u8; RECOVERY_RECORD_B
             write_u64(&mut out, 8, epoch);
             write_root(&mut out, 16, event_root);
         }
-        ZeroPersistenceWalRecord::ShredCommitment { epoch, key_id_commitment, event_root } => {
+        ZeroPersistenceWalRecord::ShredCommitment {
+            epoch,
+            key_id_commitment,
+            event_root,
+        } => {
             out[0] = 4;
             write_u64(&mut out, 8, epoch);
             write_root(&mut out, 16, key_id_commitment);
@@ -52,10 +60,24 @@ pub fn decode_record(input: &[u8]) -> Result<ZeroPersistenceWalRecord, RecoveryW
     let a = read_root(input, &mut pos);
     let b = read_root(input, &mut pos);
     match tag {
-        1 => Ok(ZeroPersistenceWalRecord::EffectCommitment { epoch, effect_root: a, receipt_root: b }),
-        2 => Ok(ZeroPersistenceWalRecord::StateRoot { epoch, state_root: a }),
-        3 => Ok(ZeroPersistenceWalRecord::BlindAudit { epoch, event_root: a }),
-        4 => Ok(ZeroPersistenceWalRecord::ShredCommitment { epoch, key_id_commitment: a, event_root: b }),
+        1 => Ok(ZeroPersistenceWalRecord::EffectCommitment {
+            epoch,
+            effect_root: a,
+            receipt_root: b,
+        }),
+        2 => Ok(ZeroPersistenceWalRecord::StateRoot {
+            epoch,
+            state_root: a,
+        }),
+        3 => Ok(ZeroPersistenceWalRecord::BlindAudit {
+            epoch,
+            event_root: a,
+        }),
+        4 => Ok(ZeroPersistenceWalRecord::ShredCommitment {
+            epoch,
+            key_id_commitment: a,
+            event_root: b,
+        }),
         _ => Err(RecoveryWalError::InvalidTag),
     }
 }
@@ -92,9 +114,14 @@ impl FileRecoveryWal {
     pub fn open(path: impl Into<std::path::PathBuf>) -> Result<Self, RecoveryWalError> {
         let path = path.into();
         if !path.exists() {
-            let mut file = std::fs::OpenOptions::new().create_new(true).write(true).open(&path).map_err(|_| RecoveryWalError::Io)?;
+            let mut file = std::fs::OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(&path)
+                .map_err(|_| RecoveryWalError::Io)?;
             use std::io::Write;
-            file.write_all(&RECOVERY_WAL_MAGIC).map_err(|_| RecoveryWalError::Io)?;
+            file.write_all(&RECOVERY_WAL_MAGIC)
+                .map_err(|_| RecoveryWalError::Io)?;
             file.sync_all().map_err(|_| RecoveryWalError::Io)?;
         }
         Ok(Self { path })
@@ -102,8 +129,12 @@ impl FileRecoveryWal {
 
     pub fn append_synced(&self, record: ZeroPersistenceWalRecord) -> Result<(), RecoveryWalError> {
         use std::io::Write;
-        let mut file = std::fs::OpenOptions::new().append(true).open(&self.path).map_err(|_| RecoveryWalError::Io)?;
-        file.write_all(&encode_record(record)).map_err(|_| RecoveryWalError::Io)?;
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&self.path)
+            .map_err(|_| RecoveryWalError::Io)?;
+        file.write_all(&encode_record(record))
+            .map_err(|_| RecoveryWalError::Io)?;
         file.sync_all().map_err(|_| RecoveryWalError::Io)?;
         Ok(())
     }
@@ -112,7 +143,8 @@ impl FileRecoveryWal {
         use std::io::Read;
         let mut file = std::fs::File::open(&self.path).map_err(|_| RecoveryWalError::Io)?;
         let mut magic = [0u8; 8];
-        file.read_exact(&mut magic).map_err(|_| RecoveryWalError::Io)?;
+        file.read_exact(&mut magic)
+            .map_err(|_| RecoveryWalError::Io)?;
         if magic != RECOVERY_WAL_MAGIC {
             return Err(RecoveryWalError::InvalidMagic);
         }
@@ -135,7 +167,11 @@ mod tests {
 
     #[test]
     fn record_round_trips() {
-        let record = ZeroPersistenceWalRecord::ShredCommitment { epoch: 3, key_id_commitment: [4u8; 32], event_root: [5u8; 32] };
+        let record = ZeroPersistenceWalRecord::ShredCommitment {
+            epoch: 3,
+            key_id_commitment: [4u8; 32],
+            event_root: [5u8; 32],
+        };
         assert_eq!(decode_record(&encode_record(record)).unwrap(), record);
     }
 }
