@@ -51,9 +51,8 @@ fn bench_issue_receipt(c: &mut Criterion) {
                 )
                 .unwrap();
             seq += 1;
-            seq - 1  // Return value for black_box
+            seq - 1 // Return value for black_box
         });
-    });
     });
 
     group.finish();
@@ -152,9 +151,7 @@ fn bench_import_public_commitments(c: &mut Criterion) {
             BenchmarkId::from_parameter(record_count),
             &record_count,
             |b, _| {
-                b.iter(|| {
-                    dst.import_public_commitments(&public).unwrap()
-                });
+                b.iter(|| dst.import_public_commitments(&public).unwrap());
             },
         );
         let _ = fs::remove_dir_all(&src_path);

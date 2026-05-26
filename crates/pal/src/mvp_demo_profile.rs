@@ -61,7 +61,9 @@ pub fn replay_public_exports(records: &[TxMvpReceiptCommitPublicExport]) -> [u8;
     root
 }
 
-pub fn replay_public_export_bytes(bytes: &[u8]) -> Result<MvpDemoProfileReplayReport, MvpDemoProfileError> {
+pub fn replay_public_export_bytes(
+    bytes: &[u8],
+) -> Result<MvpDemoProfileReplayReport, MvpDemoProfileError> {
     let records = decode_public_exports(bytes)?;
     let commitment_root = replay_public_exports(&records);
     Ok(MvpDemoProfileReplayReport {
@@ -85,7 +87,10 @@ fn replay_step(previous: [u8; 32], public_record: &[u8]) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_public_exports, replay_public_exports, replay_public_export_bytes, MvpDemoProfileError};
+    use super::{
+        decode_public_exports, replay_public_export_bytes, replay_public_exports,
+        MvpDemoProfileError,
+    };
     use crate::mvp::{
         TxMvpReceiptCommit, TxMvpReceiptCommitError, TxMvpReceiptCommitPublicExport,
         TX_MVP_PUBLIC_EXPORT_BYTES, TX_MVP_RECEIPT_COMMIT_VERSION,
@@ -154,20 +159,27 @@ mod tests {
 
     #[test]
     fn malformed_public_export_bytes_fail_closed() {
-        assert_eq!(replay_public_export_bytes(&[]), Err(MvpDemoProfileError::EmptyInput));
+        assert_eq!(
+            replay_public_export_bytes(&[]),
+            Err(MvpDemoProfileError::EmptyInput)
+        );
 
         let records = public_export_sequence();
         let valid = records[0].encode();
         assert_eq!(
             decode_public_exports(&valid[..TX_MVP_PUBLIC_EXPORT_BYTES - 1]),
-            Err(MvpDemoProfileError::InvalidPublicExport(TxMvpReceiptCommitError::InvalidLength))
+            Err(MvpDemoProfileError::InvalidPublicExport(
+                TxMvpReceiptCommitError::InvalidLength
+            ))
         );
 
         let mut invalid_version = valid;
         invalid_version[0..4].copy_from_slice(&(TX_MVP_RECEIPT_COMMIT_VERSION + 1).to_le_bytes());
         assert_eq!(
             decode_public_exports(&invalid_version),
-            Err(MvpDemoProfileError::InvalidPublicExport(TxMvpReceiptCommitError::InvalidVersion))
+            Err(MvpDemoProfileError::InvalidPublicExport(
+                TxMvpReceiptCommitError::InvalidVersion
+            ))
         );
     }
 

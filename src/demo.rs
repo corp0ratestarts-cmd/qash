@@ -147,7 +147,9 @@ pub fn print_demo_help() {
     println!("  qash-demo sync --import FILE [--dir PATH]");
     println!("  qash-demo replay [--dir PATH] [--report PATH]");
     println!("  qash-demo disclose --receipt-id HEX [--dir PATH] [--out PATH]");
-    println!("  qash-demo import-commitments --file FILE [--file FILE ...] [--label LABEL] [--dir PATH]");
+    println!(
+        "  qash-demo import-commitments --file FILE [--file FILE ...] [--label LABEL] [--dir PATH]"
+    );
     println!("  qash-demo list-imports [--dir PATH]");
     println!();
     println!("Claim boundary:");
@@ -158,7 +160,10 @@ pub fn print_demo_help() {
 
 fn cmd_init(options: &DemoOptions) -> Result<(), DemoCliError> {
     MvpReceiptVault::init(&options.dir).map_err(vault_error)?;
-    println!("initialized QASH MVP demo workspace: {}", options.dir.display());
+    println!(
+        "initialized QASH MVP demo workspace: {}",
+        options.dir.display()
+    );
     println!("scope: {DEMO_SCOPE}");
     Ok(())
 }
@@ -177,13 +182,21 @@ fn cmd_issue_receipt(options: &DemoOptions) -> Result<(), DemoCliError> {
     };
 
     let receipt = vault
-        .issue_receipt(options.epoch, nonce, &options.body, disclosure_key_commitment)
+        .issue_receipt(
+            options.epoch,
+            nonce,
+            &options.body,
+            disclosure_key_commitment,
+        )
         .map_err(vault_error)?;
     println!("issued TX-MVP-ReceiptCommit");
     println!("workspace: {}", options.dir.display());
     println!("epoch: {}", receipt.tx.epoch);
     println!("receipt_id: {}", hex32(receipt.receipt_id));
-    println!("payload_commitment: {}", hex32(receipt.tx.payload_commitment));
+    println!(
+        "payload_commitment: {}",
+        hex32(receipt.tx.payload_commitment)
+    );
     println!("public export only contains commitments; private body remains in local vault");
     Ok(())
 }
@@ -194,7 +207,9 @@ fn cmd_sync(options: &DemoOptions) -> Result<(), DemoCliError> {
         let vault = MvpReceiptVault::open(&options.dir)
             .or_else(|_| MvpReceiptVault::init(&options.dir))
             .map_err(vault_error)?;
-        let count = vault.import_public_commitments(&data).map_err(vault_error)?;
+        let count = vault
+            .import_public_commitments(&data)
+            .map_err(vault_error)?;
         println!("imported {} public commitment records", count);
         println!("workspace: {}", options.dir.display());
         println!("source: {}", import_path.display());
@@ -212,9 +227,15 @@ fn cmd_sync(options: &DemoOptions) -> Result<(), DemoCliError> {
         fs::create_dir_all(peer_dir).map_err(|err| DemoCliError::Io(err.to_string()))?;
         fs::write(peer_dir.join("public_commitments.bin"), &public)
             .map_err(|err| DemoCliError::Io(err.to_string()))?;
-        println!("synced commitment-only export to peer workspace: {}", peer_dir.display());
+        println!(
+            "synced commitment-only export to peer workspace: {}",
+            peer_dir.display()
+        );
     }
-    println!("wrote commitment-only public export: {}", out_path.display());
+    println!(
+        "wrote commitment-only public export: {}",
+        out_path.display()
+    );
     println!("bytes: {}", public.len());
     Ok(())
 }
@@ -241,7 +262,8 @@ fn cmd_replay(options: &DemoOptions) -> Result<(), DemoCliError> {
             record_count,
             hex32(root)
         );
-        fs::write(report_path, report.as_bytes()).map_err(|err| DemoCliError::Io(err.to_string()))?;
+        fs::write(report_path, report.as_bytes())
+            .map_err(|err| DemoCliError::Io(err.to_string()))?;
         println!("report: {}", report_path.display());
     }
     Ok(())
@@ -297,7 +319,10 @@ fn cmd_list_imports(options: &DemoOptions) -> Result<(), DemoCliError> {
     }
     println!("imports in workspace: {}", options.dir.display());
     for entry in &entries {
-        println!("  [{:04}] {} — {} records ({})", entry.seq, entry.label, entry.records, entry.file);
+        println!(
+            "  [{:04}] {} — {} records ({})",
+            entry.seq, entry.label, entry.records, entry.file
+        );
     }
     println!("total: {} import(s)", entries.len());
     Ok(())
@@ -313,15 +338,21 @@ fn parse_options(args: &[String]) -> Result<DemoOptions, DemoCliError> {
                 i += 2;
             }
             "--peer-dir" => {
-                options.peer_dir = Some(PathBuf::from(required_value(args, i + 1, "--peer-dir")?.as_str()));
+                options.peer_dir = Some(PathBuf::from(
+                    required_value(args, i + 1, "--peer-dir")?.as_str(),
+                ));
                 i += 2;
             }
             "--import" => {
-                options.import = Some(PathBuf::from(required_value(args, i + 1, "--import")?.as_str()));
+                options.import = Some(PathBuf::from(
+                    required_value(args, i + 1, "--import")?.as_str(),
+                ));
                 i += 2;
             }
             "--file" => {
-                options.import_files.push(PathBuf::from(required_value(args, i + 1, "--file")?.as_str()));
+                options.import_files.push(PathBuf::from(
+                    required_value(args, i + 1, "--file")?.as_str(),
+                ));
                 i += 2;
             }
             "--label" => {
@@ -329,11 +360,15 @@ fn parse_options(args: &[String]) -> Result<DemoOptions, DemoCliError> {
                 i += 2;
             }
             "--out" => {
-                options.out = Some(PathBuf::from(required_value(args, i + 1, "--out")?.as_str()));
+                options.out = Some(PathBuf::from(
+                    required_value(args, i + 1, "--out")?.as_str(),
+                ));
                 i += 2;
             }
             "--report" => {
-                options.report = Some(PathBuf::from(required_value(args, i + 1, "--report")?.as_str()));
+                options.report = Some(PathBuf::from(
+                    required_value(args, i + 1, "--report")?.as_str(),
+                ));
                 i += 2;
             }
             "--epoch" => {
@@ -344,7 +379,10 @@ fn parse_options(args: &[String]) -> Result<DemoOptions, DemoCliError> {
                 i += 2;
             }
             "--nonce-hex" => {
-                options.nonce = Some(parse_hex32(required_value(args, i + 1, "--nonce-hex")?, "--nonce-hex")?);
+                options.nonce = Some(parse_hex32(
+                    required_value(args, i + 1, "--nonce-hex")?,
+                    "--nonce-hex",
+                )?);
                 i += 2;
             }
             "--body" => {
@@ -359,7 +397,10 @@ fn parse_options(args: &[String]) -> Result<DemoOptions, DemoCliError> {
                 i += 2;
             }
             "--receipt-id" => {
-                options.receipt_id = Some(parse_hex32(required_value(args, i + 1, "--receipt-id")?, "--receipt-id")?);
+                options.receipt_id = Some(parse_hex32(
+                    required_value(args, i + 1, "--receipt-id")?,
+                    "--receipt-id",
+                )?);
                 i += 2;
             }
             other => return Err(DemoCliError::UnknownFlag(other.to_string())),
@@ -368,7 +409,11 @@ fn parse_options(args: &[String]) -> Result<DemoOptions, DemoCliError> {
     Ok(options)
 }
 
-fn required_value<'a>(args: &'a [String], index: usize, flag: &'static str) -> Result<&'a String, DemoCliError> {
+fn required_value<'a>(
+    args: &'a [String],
+    index: usize,
+    flag: &'static str,
+) -> Result<&'a String, DemoCliError> {
     args.get(index).ok_or(DemoCliError::MissingValue(flag))
 }
 
@@ -429,7 +474,10 @@ mod tests {
     fn demo_local_flow_runs() {
         let dir = temp_workspace("basic");
         let dir_s = dir.to_string_lossy().to_string();
-        assert_eq!(run_demo_cli(&["init".into(), "--dir".into(), dir_s.clone()]), Ok(()));
+        assert_eq!(
+            run_demo_cli(&["init".into(), "--dir".into(), dir_s.clone()]),
+            Ok(())
+        );
         assert_eq!(
             run_demo_cli(&[
                 "issue-receipt".into(),
@@ -440,8 +488,14 @@ mod tests {
             ]),
             Ok(())
         );
-        assert_eq!(run_demo_cli(&["sync".into(), "--dir".into(), dir_s.clone()]), Ok(()));
-        assert_eq!(run_demo_cli(&["replay".into(), "--dir".into(), dir_s]), Ok(()));
+        assert_eq!(
+            run_demo_cli(&["sync".into(), "--dir".into(), dir_s.clone()]),
+            Ok(())
+        );
+        assert_eq!(
+            run_demo_cli(&["replay".into(), "--dir".into(), dir_s]),
+            Ok(())
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -456,7 +510,10 @@ mod tests {
 
     #[test]
     fn hex32_parser_rejects_bad_values() {
-        assert!(matches!(parse_hex32("abcd", "field"), Err(DemoCliError::InvalidHex("field"))));
+        assert!(matches!(
+            parse_hex32("abcd", "field"),
+            Err(DemoCliError::InvalidHex("field"))
+        ));
     }
 
     #[test]
@@ -477,12 +534,17 @@ mod tests {
         let node_b_s = node_b.to_string_lossy().to_string();
 
         // node-a issues a receipt and exports
-        assert_eq!(run_demo_cli(&["init".into(), "--dir".into(), node_a_s.clone()]), Ok(()));
+        assert_eq!(
+            run_demo_cli(&["init".into(), "--dir".into(), node_a_s.clone()]),
+            Ok(())
+        );
         assert_eq!(
             run_demo_cli(&[
                 "issue-receipt".into(),
-                "--dir".into(), node_a_s.clone(),
-                "--body".into(), "synthetic offline incident".into(),
+                "--dir".into(),
+                node_a_s.clone(),
+                "--body".into(),
+                "synthetic offline incident".into(),
             ]),
             Ok(())
         );
@@ -490,20 +552,28 @@ mod tests {
         assert_eq!(
             run_demo_cli(&[
                 "sync".into(),
-                "--dir".into(), node_a_s.clone(),
-                "--out".into(), export_path.to_string_lossy().to_string(),
+                "--dir".into(),
+                node_a_s.clone(),
+                "--out".into(),
+                export_path.to_string_lossy().to_string(),
             ]),
             Ok(())
         );
 
         // node-b imports from node-a
-        assert_eq!(run_demo_cli(&["init".into(), "--dir".into(), node_b_s.clone()]), Ok(()));
+        assert_eq!(
+            run_demo_cli(&["init".into(), "--dir".into(), node_b_s.clone()]),
+            Ok(())
+        );
         assert_eq!(
             run_demo_cli(&[
                 "import-commitments".into(),
-                "--dir".into(), node_b_s.clone(),
-                "--file".into(), export_path.to_string_lossy().to_string(),
-                "--label".into(), "node-a".into(),
+                "--dir".into(),
+                node_b_s.clone(),
+                "--file".into(),
+                export_path.to_string_lossy().to_string(),
+                "--label".into(),
+                "node-a".into(),
             ]),
             Ok(())
         );
@@ -512,7 +582,10 @@ mod tests {
             Ok(())
         );
         // replay should include imported records
-        assert_eq!(run_demo_cli(&["replay".into(), "--dir".into(), node_b_s]), Ok(()));
+        assert_eq!(
+            run_demo_cli(&["replay".into(), "--dir".into(), node_b_s]),
+            Ok(())
+        );
 
         let _ = fs::remove_dir_all(&node_a);
         let _ = fs::remove_dir_all(&node_b);
@@ -522,8 +595,14 @@ mod tests {
     fn list_imports_on_empty_workspace() {
         let dir = temp_workspace("list-empty");
         let dir_s = dir.to_string_lossy().to_string();
-        assert_eq!(run_demo_cli(&["init".into(), "--dir".into(), dir_s.clone()]), Ok(()));
-        assert_eq!(run_demo_cli(&["list-imports".into(), "--dir".into(), dir_s]), Ok(()));
+        assert_eq!(
+            run_demo_cli(&["init".into(), "--dir".into(), dir_s.clone()]),
+            Ok(())
+        );
+        assert_eq!(
+            run_demo_cli(&["list-imports".into(), "--dir".into(), dir_s]),
+            Ok(())
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 }

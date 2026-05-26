@@ -178,10 +178,8 @@ fn phase2r_streaming_state_root_matches_buffered_for_varied_states() {
 /// of the single-pass path under the total-order sort).
 #[test]
 fn phase2r_single_pass_admission_is_order_independent_with_tx1() {
-    use qash_consensus::transaction::{
-        prevalidate_all, TX1_WIRE_BYTES, TX_TYPE_SCORE_DECREMENT,
-    };
     use qash_consensus::fixed_point::FixedPoint;
+    use qash_consensus::transaction::{prevalidate_all, TX1_WIRE_BYTES, TX_TYPE_SCORE_DECREMENT};
 
     let mut state = state_with_validators(4);
     // Give validator 1 some divergence so TX-1 can decrement it.

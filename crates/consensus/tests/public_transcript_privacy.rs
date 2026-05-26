@@ -36,6 +36,9 @@ fn public_transcript_type_name_has_no_graph_or_identity_surface() {
         "Operator",
         "ValidatorIdentity",
     ] {
-        assert!(!type_name.contains(forbidden), "forbidden marker {forbidden}");
+        assert!(
+            !type_name.contains(forbidden),
+            "forbidden marker {forbidden}"
+        );
     }
 }

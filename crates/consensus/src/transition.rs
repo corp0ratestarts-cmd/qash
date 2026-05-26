@@ -4,12 +4,12 @@ use crate::encoding::EncodeError;
 use crate::envelope::{PROTOCOL_VERSION_V1_1, PROTOCOL_VERSION_V1_2};
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
 use crate::hash::{h_domain, h_domain_finish, h_domain_start, DomainTag};
-use sha3::Digest as _;
 use crate::lyapunov::{
     self, ConvergenceWindow, LyapunovError, LyapunovEval, ValidatorMetrics, WINDOW_SIZE,
 };
 use crate::public::PublicTranscript;
 use crate::sharding::{compute_efb, EpochFinalityBeacon, ShardCommitment, ShardingError};
+use sha3::Digest as _;
 
 /// Protocol-facing limit (u32 per Domain A rules). Used in wire validation.
 pub const MAX_VALIDATORS_WIRE: u32 = 1024;

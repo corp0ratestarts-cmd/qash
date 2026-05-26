@@ -26,5 +26,7 @@ pub enum AccelerationError {
 }
 
 pub enum FieldOp {
-    Add, Mul, Mod,
+    Add,
+    Mul,
+    Mod,
 }

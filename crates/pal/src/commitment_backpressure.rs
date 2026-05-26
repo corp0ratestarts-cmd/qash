@@ -68,19 +68,43 @@ mod tests {
     #[test]
     fn transitions_from_admit_to_throttle_to_reject() {
         let mut gate = CommitmentBackpressure::new(2, 4).unwrap();
-        assert_eq!(gate.observe_commitment().unwrap(), BackpressureDecision::Admit);
-        assert_eq!(gate.observe_commitment().unwrap(), BackpressureDecision::Admit);
-        assert_eq!(gate.observe_commitment().unwrap(), BackpressureDecision::Throttle);
-        assert_eq!(gate.observe_commitment().unwrap(), BackpressureDecision::Throttle);
-        assert_eq!(gate.observe_commitment().unwrap(), BackpressureDecision::Reject);
+        assert_eq!(
+            gate.observe_commitment().unwrap(),
+            BackpressureDecision::Admit
+        );
+        assert_eq!(
+            gate.observe_commitment().unwrap(),
+            BackpressureDecision::Admit
+        );
+        assert_eq!(
+            gate.observe_commitment().unwrap(),
+            BackpressureDecision::Throttle
+        );
+        assert_eq!(
+            gate.observe_commitment().unwrap(),
+            BackpressureDecision::Throttle
+        );
+        assert_eq!(
+            gate.observe_commitment().unwrap(),
+            BackpressureDecision::Reject
+        );
     }
 
     #[test]
     fn reset_window_allows_new_admission() {
         let mut gate = CommitmentBackpressure::new(1, 1).unwrap();
-        assert_eq!(gate.observe_commitment().unwrap(), BackpressureDecision::Admit);
-        assert_eq!(gate.observe_commitment().unwrap(), BackpressureDecision::Reject);
+        assert_eq!(
+            gate.observe_commitment().unwrap(),
+            BackpressureDecision::Admit
+        );
+        assert_eq!(
+            gate.observe_commitment().unwrap(),
+            BackpressureDecision::Reject
+        );
         gate.reset_window();
-        assert_eq!(gate.observe_commitment().unwrap(), BackpressureDecision::Admit);
+        assert_eq!(
+            gate.observe_commitment().unwrap(),
+            BackpressureDecision::Admit
+        );
     }
 }

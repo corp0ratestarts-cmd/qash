@@ -55,7 +55,9 @@ mod tests {
 
     #[test]
     fn weighted_term_no_overflow() {
-        let ch = CascadeHealthFactor { value: CascadeHealthFactor::P };
+        let ch = CascadeHealthFactor {
+            value: CascadeHealthFactor::P,
+        };
         let chi: i128 = 150_000;
         // 150_000 * 1_000_000 = 1.5e11, well within i128
         assert_eq!(ch.weighted_term(chi), 150_000_000_000i128);

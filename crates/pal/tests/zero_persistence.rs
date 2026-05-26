@@ -21,7 +21,8 @@ fn admission_to_wal_persists_commitment_only() {
     let effect = process_envelope(slot).unwrap();
 
     let mut wal = InMemoryZeroPersistenceWal::new();
-    wal.append_commitment(ZeroPersistenceWalRecord::from(effect)).unwrap();
+    wal.append_commitment(ZeroPersistenceWalRecord::from(effect))
+        .unwrap();
 
     assert_eq!(
         wal.records(),
@@ -35,7 +36,12 @@ fn admission_to_wal_persists_commitment_only() {
 
 #[test]
 fn zero_persistence_wal_has_no_payload_record_shape() {
-    let variants = ["EffectCommitment", "StateRoot", "BlindAudit", "ShredCommitment"];
+    let variants = [
+        "EffectCommitment",
+        "StateRoot",
+        "BlindAudit",
+        "ShredCommitment",
+    ];
     for variant in variants {
         assert!(!variant.contains("Raw"));
         assert!(!variant.contains("Payload"));

@@ -2,7 +2,7 @@ use core::fmt::{Debug, Display};
 
 use qash_pal::admission::{AdmissionError, EphemeralEnvelope};
 use serde::Serialize;
-use static_assertions::{assert_not_impl_any, assert_impl_all};
+use static_assertions::{assert_impl_all, assert_not_impl_any};
 
 assert_not_impl_any!(EphemeralEnvelope<128>: Clone, Debug, Display, Send, Sync, Serialize);
 assert_impl_all!(AdmissionError: Debug, Copy, Clone, Eq, PartialEq);

@@ -10,8 +10,8 @@ pub const TX_MVP_RECEIPT_COMMIT_BYTES: usize = 140;
 pub const TX_MVP_PUBLIC_EXPORT_BYTES: usize = 140;
 
 pub const TX_MVP_RECEIPT_COMMIT_DOMAIN_TAG: [u8; 32] = [
-    b'Q', b'A', b'S', b'H', b'-', b'M', b'V', b'P', b'-', b'R', b'E', b'C', b'E', b'I', b'P',
-    b'T', b'-', b'C', b'O', b'M', b'M', b'I', b'T', 0, 0, 0, 0, 0, 0, 0, 0, 1,
+    b'Q', b'A', b'S', b'H', b'-', b'M', b'V', b'P', b'-', b'R', b'E', b'C', b'E', b'I', b'P', b'T',
+    b'-', b'C', b'O', b'M', b'M', b'I', b'T', 0, 0, 0, 0, 0, 0, 0, 0, 1,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,7 +121,14 @@ impl TxMvpReceiptCommit {
         let mut domain_tag = [0u8; 32];
         domain_tag.copy_from_slice(&bytes[pos..pos + 32]);
 
-        let tx = Self { version, epoch, nonce, payload_commitment, disclosure_key_commitment, domain_tag };
+        let tx = Self {
+            version,
+            epoch,
+            nonce,
+            payload_commitment,
+            disclosure_key_commitment,
+            domain_tag,
+        };
         tx.validate()?;
         Ok(tx)
     }
@@ -196,7 +203,14 @@ impl TxMvpReceiptCommitPublicExport {
         if version != TX_MVP_RECEIPT_COMMIT_VERSION {
             return Err(TxMvpReceiptCommitError::InvalidVersion);
         }
-        Ok(Self { version, epoch, tx_commitment, nonce_commitment, payload_commitment, disclosure_key_commitment })
+        Ok(Self {
+            version,
+            epoch,
+            tx_commitment,
+            nonce_commitment,
+            payload_commitment,
+            disclosure_key_commitment,
+        })
     }
 }
 
@@ -253,7 +267,10 @@ mod tests {
     fn invalid_domain_tag_is_rejected() {
         let mut tx = sample_tx();
         tx.domain_tag = fixture_bytes(FixtureKind::InvalidDomainTag);
-        assert_eq!(tx.validate(), Err(TxMvpReceiptCommitError::InvalidDomainTag));
+        assert_eq!(
+            tx.validate(),
+            Err(TxMvpReceiptCommitError::InvalidDomainTag)
+        );
     }
 
     #[test]
@@ -267,14 +284,20 @@ mod tests {
     fn duplicate_epoch_nonce_is_rejected() {
         let tx = sample_tx();
         let prior = [tx];
-        assert_eq!(tx.validate_epoch_nonce_unused(prior.iter()), Err(TxMvpReceiptCommitError::DuplicateEpochNonce));
+        assert_eq!(
+            tx.validate_epoch_nonce_unused(prior.iter()),
+            Err(TxMvpReceiptCommitError::DuplicateEpochNonce)
+        );
         let different_epoch = TxMvpReceiptCommit::new(
             8,
             fixture_bytes(FixtureKind::Nonce),
             fixture_bytes(FixtureKind::PayloadCommitment),
             fixture_bytes(FixtureKind::DisclosureCommitment),
         );
-        assert_eq!(different_epoch.validate_epoch_nonce_unused(prior.iter()), Ok(()));
+        assert_eq!(
+            different_epoch.validate_epoch_nonce_unused(prior.iter()),
+            Ok(())
+        );
     }
 
     #[test]
@@ -284,8 +307,14 @@ mod tests {
         let encoded = export.encode();
         assert_eq!(encoded.len(), TX_MVP_PUBLIC_EXPORT_BYTES);
         assert!(!encoded.windows(32).any(|window| window == tx.nonce));
-        assert!(!encoded.windows(32).any(|window| window == TX_MVP_RECEIPT_COMMIT_DOMAIN_TAG));
-        assert!(encoded.windows(32).any(|window| window == tx.payload_commitment));
-        assert!(encoded.windows(32).any(|window| window == tx.disclosure_key_commitment));
+        assert!(!encoded
+            .windows(32)
+            .any(|window| window == TX_MVP_RECEIPT_COMMIT_DOMAIN_TAG));
+        assert!(encoded
+            .windows(32)
+            .any(|window| window == tx.payload_commitment));
+        assert!(encoded
+            .windows(32)
+            .any(|window| window == tx.disclosure_key_commitment));
     }
 }
