@@ -87,13 +87,6 @@ impl ParsedTx<'_> {
             ParsedTx::Tx1(tx) => &tx.author_id,
         }
     }
-
-    fn nonce(&self) -> u64 {
-        match self {
-            ParsedTx::Tx0(tx) => tx.nonce,
-            ParsedTx::Tx1(tx) => tx.nonce,
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -356,28 +349,29 @@ fn apply_tx_1_projected(
     Ok(())
 }
 
-fn apply_tx_1_prevalidated(
+fn apply_tx_1_cached(
     projected_divergences: &mut [FixedPoint; MAX_VALIDATORS],
     next_nonces: &mut [u64; MAX_VALIDATORS],
     validator_count: u32,
     author_idx: usize,
-    tx: &Tx1<'_>,
+    target_idx_raw: u32,
+    delta: u32,
 ) -> Result<(u32, FixedPoint), TxError> {
     if author_idx >= validator_count as usize {
         return Err(TxError::MalformedEnvelope);
     }
-    let target_idx = usize::try_from(tx.target_idx).map_err(|_| TxError::TargetOutOfBounds)?;
+    let target_idx = usize::try_from(target_idx_raw).map_err(|_| TxError::TargetOutOfBounds)?;
     if target_idx >= validator_count as usize {
         return Err(TxError::TargetOutOfBounds);
     }
 
     let next_divergence =
-        tx1_project_divergence(projected_divergences[target_idx], tx.delta)?;
+        tx1_project_divergence(projected_divergences[target_idx], delta)?;
     projected_divergences[target_idx] = next_divergence;
     next_nonces[author_idx] = next_nonces[author_idx]
         .checked_add(1)
         .ok_or(TxError::MalformedEnvelope)?;
-    Ok((tx.target_idx, next_divergence))
+    Ok((target_idx_raw, next_divergence))
 }
 
 // ---------------------------------------------------------------------------
@@ -425,18 +419,19 @@ impl TxPrevalidation {
 // ---------------------------------------------------------------------------
 
 /// Per-entry for sorting. `author_slot` is pre-resolved in pass 1 to avoid a
-/// second O(N) `index_of_validator` scan in the admission pass. `raw_idx` is
-/// retained so pass 2 can re-read the envelope for nonce and type fields.
+/// second O(N) `index_of_validator` scan in the admission pass. `raw_idx`
+/// retains the position so pass 2 can read nonce and type with cheap
+/// fixed-offset reads (no full re-validation; all checks done in pass 1).
 #[derive(Clone, Copy)]
-struct SortEntry {
+struct CandidateTx {
     key: [u8; 32],
     id: [u8; 32],
     raw_idx: u32,
     author_slot: u32,
 }
 
-impl SortEntry {
-    const ZERO: SortEntry = SortEntry {
+impl CandidateTx {
+    const ZERO: CandidateTx = CandidateTx {
         key: [0u8; 32],
         id: [0u8; 32],
         raw_idx: 0,
@@ -444,7 +439,7 @@ impl SortEntry {
     };
 }
 
-fn sort_entry_after(left: &SortEntry, right: &SortEntry) -> bool {
+fn candidate_after(left: &CandidateTx, right: &CandidateTx) -> bool {
     left.key > right.key || (left.key == right.key && left.id > right.id)
 }
 
@@ -472,13 +467,12 @@ pub fn prevalidate_all(
         raw_txs.len()
     };
 
-    let mut entries = [SortEntry::ZERO; MAX_TX_PER_EPOCH];
+    let mut entries = [CandidateTx::ZERO; MAX_TX_PER_EPOCH];
     let mut valid: usize = 0;
 
-    // Pass 1: parse each envelope, resolve author slot, build sort entries.
+    // Pass 1: parse each envelope, resolve author slot, build CandidateTx entries.
     // Caching `author_slot` avoids a second O(N) `index_of_validator` scan in
-    // the admission pass. The raw bytes are still re-read in pass 2 for nonce
-    // and type-specific fields.
+    // the admission pass. `raw_idx` is retained for cheap field reads in pass 2.
     for (raw_idx, raw) in raw_txs.iter().enumerate().take(n) {
         let (tx, consumed) = match parse_tx(raw) {
             Ok(v) => v,
@@ -493,7 +487,7 @@ pub fn prevalidate_all(
             Err(_) => continue,
         };
         let key = sort_key(&state.entropy_seed, &id);
-        entries[valid] = SortEntry {
+        entries[valid] = CandidateTx {
             key,
             id,
             raw_idx: raw_idx as u32,
@@ -506,7 +500,7 @@ pub fn prevalidate_all(
     let mut i: usize = 1;
     while i < valid {
         let mut j = i;
-        while j > 0 && sort_entry_after(&entries[j - 1], &entries[j]) {
+        while j > 0 && candidate_after(&entries[j - 1], &entries[j]) {
             entries.swap(j - 1, j);
             j -= 1;
         }
@@ -532,42 +526,52 @@ pub fn prevalidate_all(
     let mut applied: u32 = 0;
 
     // Pass 2: admit in sorted order.
-    // Re-parses each envelope for nonce/type fields; uses the cached author
-    // slot to skip the O(N) `index_of_validator` scan done in pass 1.
+    // Reads nonce and type from fixed envelope offsets — no full re-parse.
+    // All validity checks (version, author_id, payload_len, envelope size) were
+    // already performed in pass 1; `raw_idx` points to a known-valid slice.
     for e in &entries[..valid] {
         if applied as usize >= limit {
             break;
         }
         let raw = raw_txs[e.raw_idx as usize];
-        let (tx, _) = match parse_tx(raw) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
+        let mut nonce_b = [0u8; 8];
+        nonce_b.copy_from_slice(&raw[4..12]);
+        let nonce = u64::from_le_bytes(nonce_b);
         let idx = e.author_slot as usize;
-        if check_nonce(&next_nonces, idx, tx.nonce()).is_err() {
+        if check_nonce(&next_nonces, idx, nonce).is_err() {
             continue;
         }
-        let applied_tx = match tx {
-            ParsedTx::Tx0(_) => {
+        let mut typ_b = [0u8; 2];
+        typ_b.copy_from_slice(&raw[2..4]);
+        let tx_type = u16::from_le_bytes(typ_b);
+        let applied_tx = match tx_type {
+            TX_TYPE_NOOP => {
                 next_nonces[idx] = next_nonces[idx]
                     .checked_add(1)
                     .ok_or(TxError::MalformedEnvelope)?;
                 true
             }
-            ParsedTx::Tx1(ref tx1) => {
-                match apply_tx_1_prevalidated(
+            TX_TYPE_SCORE_DECREMENT => {
+                let mut target_b = [0u8; 4];
+                target_b.copy_from_slice(&raw[64..68]);
+                let target_idx = u32::from_le_bytes(target_b);
+                let mut delta_b = [0u8; 4];
+                delta_b.copy_from_slice(&raw[68..72]);
+                let delta = u32::from_le_bytes(delta_b);
+                match apply_tx_1_cached(
                     &mut projected_divergences,
                     &mut next_nonces,
                     state.validator_count,
                     idx,
-                    tx1,
+                    target_idx,
+                    delta,
                 ) {
-                    Ok((target_idx, new_divergence)) => {
+                    Ok((tidx, new_divergence)) => {
                         let effect_idx = divergence_update_count as usize;
                         if effect_idx >= MAX_VALIDATORS {
                             return Err(TxError::BudgetExceeded);
                         }
-                        divergence_targets[effect_idx] = target_idx;
+                        divergence_targets[effect_idx] = tidx;
                         divergence_values[effect_idx] = new_divergence;
                         divergence_update_count += 1;
                         true
@@ -575,6 +579,7 @@ pub fn prevalidate_all(
                     Err(_) => false,
                 }
             }
+            _ => continue, // unreachable: pass 1 accepted only known types
         };
         if applied_tx {
             applied += 1;
@@ -907,27 +912,27 @@ mod tests {
     }
 
     #[test]
-    fn sort_entry_total_order_breaks_equal_sort_key_by_tx_id() {
+    fn candidate_total_order_breaks_equal_sort_key_by_tx_id() {
         let mut low_id = [0u8; 32];
         low_id[31] = 1;
         let mut high_id = [0u8; 32];
         high_id[31] = 2;
 
-        let high_first = SortEntry {
+        let high_first = CandidateTx {
             key: [7u8; 32],
             id: high_id,
             raw_idx: 0,
             author_slot: 0,
         };
-        let low_second = SortEntry {
+        let low_second = CandidateTx {
             key: [7u8; 32],
             id: low_id,
             raw_idx: 1,
             author_slot: 0,
         };
 
-        assert!(sort_entry_after(&high_first, &low_second));
-        assert!(!sort_entry_after(&low_second, &high_first));
+        assert!(candidate_after(&high_first, &low_second));
+        assert!(!candidate_after(&low_second, &high_first));
     }
 
     #[test]
