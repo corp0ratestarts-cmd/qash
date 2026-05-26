@@ -99,5 +99,5 @@ status: deterministic local replay completed
 
 ## Contact
 
-For pilot enquiries, contact `corp0rate.starts@gmail.com`.  
+For pilot enquiries, contact `<pilot-contact-email>`.  
 All partner-facing claims are governed by `docs/mvp/claims_register.md`.
