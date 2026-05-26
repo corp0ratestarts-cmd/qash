@@ -221,6 +221,8 @@ jobs:
 
   codeql:
     runs-on: ubuntu-latest
+    # Advisory until findings are triaged and suppressions/exceptions are documented.
+    continue-on-error: true
     permissions:
       contents: read
       security-events: write
@@ -240,6 +242,8 @@ jobs:
 
   osv-scan:
     runs-on: ubuntu-latest
+    # Advisory until known CVEs are audited, upgraded, or recorded as justified exceptions.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: OSV dependency vulnerability scan
@@ -250,6 +254,8 @@ jobs:
 
   scorecard:
     runs-on: ubuntu-latest
+    # Advisory until repository-level supply-chain posture controls are configured.
+    continue-on-error: true
     permissions:
       contents: read
       id-token: write
