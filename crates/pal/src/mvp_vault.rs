@@ -22,6 +22,8 @@ const VAULT_DIR: &str = "vault";
 const DISCLOSURE_DIR: &str = "disclosures";
 const COMMITMENT_WAL_FILE: &str = "commitments.wal";
 const IMPORTED_COMMITMENTS_FILE: &str = "imported_commitments.bin";
+const IMPORTS_DIR: &str = "imports";
+const IMPORTS_MANIFEST_FILE: &str = "imports/manifest.json";
 const PUBLIC_COMMITMENTS_HEADER: &[u8] = b"QASH-MVP-PUBLIC-COMMITMENTS\0";
 const VAULT_SALT_BYTES: usize = 32;
 const MANIFEST_MAGIC: &str = "QASH-MVP-INCIDENT-RECEIPT-DEMO\n";
@@ -209,29 +211,102 @@ impl MvpReceiptVault {
     }
 
     pub fn read_all_public_exports(&self) -> Result<Vec<TxMvpReceiptCommitPublicExport>, MvpVaultError> {
-        let mut exports: Vec<TxMvpReceiptCommitPublicExport> = self
-            .read_commitments()?
-            .into_iter()
-            .map(|r| r.public_export)
-            .collect();
+        let mut seen: BTreeSet<[u8; 32]> = BTreeSet::new();
+        let mut exports: Vec<TxMvpReceiptCommitPublicExport> = Vec::new();
+
+        for record in self.read_commitments()? {
+            let key = record.public_export.tx_commitment;
+            if seen.insert(key) {
+                exports.push(record.public_export);
+            }
+        }
+
+        // Legacy single-file import (sync --import).
         let import_path = self.root.join(IMPORTED_COMMITMENTS_FILE);
         if import_path.exists() {
             let data = fs::read(&import_path)?;
-            if data.len() >= PUBLIC_COMMITMENTS_HEADER.len()
-                && &data[..PUBLIC_COMMITMENTS_HEADER.len()] == PUBLIC_COMMITMENTS_HEADER
-            {
-                let records_data = &data[PUBLIC_COMMITMENTS_HEADER.len()..];
-                let n = records_data.len() / TX_MVP_PUBLIC_EXPORT_BYTES;
-                for i in 0..n {
-                    let start = i * TX_MVP_PUBLIC_EXPORT_BYTES;
-                    let export = TxMvpReceiptCommitPublicExport::decode(
-                        &records_data[start..start + TX_MVP_PUBLIC_EXPORT_BYTES],
-                    )?;
-                    exports.push(export);
-                }
+            append_public_exports_from_bytes(&data, &mut exports, &mut seen)?;
+        }
+
+        // Multi-source imports (import-commitments --file).
+        let imports_dir = self.root.join(IMPORTS_DIR);
+        if imports_dir.is_dir() {
+            let mut entries: Vec<_> = fs::read_dir(&imports_dir)?
+                .filter_map(|e| e.ok())
+                .filter(|e| {
+                    e.path().extension().and_then(|x| x.to_str()) == Some("bin")
+                })
+                .collect();
+            entries.sort_by_key(|e| e.file_name());
+            for entry in entries {
+                let data = fs::read(entry.path())?;
+                append_public_exports_from_bytes(&data, &mut exports, &mut seen)?;
             }
         }
+
         Ok(exports)
+    }
+
+    /// Import a public commitments file with a source label (v0.3 multi-operator path).
+    ///
+    /// Stores the binary in `imports/NNN.bin` and appends an entry to
+    /// `imports/manifest.json`. Records already seen in earlier imports or the
+    /// local WAL are counted as duplicates but not re-stored — the raw file is
+    /// kept intact so the transcript is reproducible.
+    pub fn import_with_label(&self, data: &[u8], label: &str) -> Result<ImportResult, MvpVaultError> {
+        if data.len() < PUBLIC_COMMITMENTS_HEADER.len()
+            || &data[..PUBLIC_COMMITMENTS_HEADER.len()] != PUBLIC_COMMITMENTS_HEADER
+        {
+            return Err(MvpVaultError::InvalidWal("invalid public commitments header"));
+        }
+        let records_data = &data[PUBLIC_COMMITMENTS_HEADER.len()..];
+        if !records_data.len().is_multiple_of(TX_MVP_PUBLIC_EXPORT_BYTES) {
+            return Err(MvpVaultError::InvalidWal("truncated public commitments record"));
+        }
+        let total = records_data.len() / TX_MVP_PUBLIC_EXPORT_BYTES;
+        for i in 0..total {
+            let start = i * TX_MVP_PUBLIC_EXPORT_BYTES;
+            TxMvpReceiptCommitPublicExport::decode(&records_data[start..start + TX_MVP_PUBLIC_EXPORT_BYTES])?;
+        }
+
+        let imports_dir = self.root.join(IMPORTS_DIR);
+        fs::create_dir_all(&imports_dir)?;
+
+        // Count duplicates against already-present exports BEFORE writing the new
+        // file so the newly-added records don't appear in their own dedup check.
+        let existing = self.read_all_public_exports()?;
+        let existing_keys: BTreeSet<[u8; 32]> = existing.iter().map(|e| e.tx_commitment).collect();
+        let mut new_records: usize = 0;
+        let mut duplicates: usize = 0;
+        for i in 0..total {
+            let start = i * TX_MVP_PUBLIC_EXPORT_BYTES;
+            let export = TxMvpReceiptCommitPublicExport::decode(
+                &records_data[start..start + TX_MVP_PUBLIC_EXPORT_BYTES],
+            )?;
+            if existing_keys.contains(&export.tx_commitment) {
+                duplicates += 1;
+            } else {
+                new_records += 1;
+            }
+        }
+
+        let seq = next_import_seq(&imports_dir)?;
+        let filename = format!("{seq:03}.bin");
+        fs::write(imports_dir.join(&filename), data)?;
+
+        append_import_manifest_entry(&self.root, seq, label, &filename, total)?;
+
+        Ok(ImportResult { seq, label: label.to_string(), records: total, new_records, duplicates })
+    }
+
+    /// Return the list of multi-source import entries from `imports/manifest.json`.
+    pub fn read_import_manifest(&self) -> Result<Vec<ImportManifestEntry>, MvpVaultError> {
+        let path = self.root.join(IMPORTS_MANIFEST_FILE);
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let text = fs::read_to_string(&path)?;
+        parse_import_manifest(&text)
     }
 
     /// Derive a nonce from the workspace salt + current WAL record count + epoch.
@@ -320,6 +395,150 @@ fn append_wal_record(path: &Path, record: &CommitmentWalRecord) -> Result<(), Mv
     file.write_all(&record.tx.encode()?)?;
     file.write_all(&record.public_export.encode())?;
     file.sync_all()?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Multi-import types and helpers (v0.3)
+// ---------------------------------------------------------------------------
+
+/// Result of a labelled multi-source import.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportResult {
+    pub seq: u32,
+    pub label: String,
+    pub records: usize,
+    pub new_records: usize,
+    pub duplicates: usize,
+}
+
+/// One entry in the `imports/manifest.json` file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportManifestEntry {
+    pub seq: u32,
+    pub label: String,
+    pub file: String,
+    pub records: usize,
+}
+
+fn next_import_seq(imports_dir: &Path) -> Result<u32, MvpVaultError> {
+    let mut max_seq: u32 = 0;
+    for entry in fs::read_dir(imports_dir)? {
+        let entry = entry?;
+        if entry.path().extension().and_then(|x| x.to_str()) == Some("bin") {
+            let name = entry.file_name();
+            let stem = name.to_string_lossy();
+            if let Ok(n) = stem.trim_end_matches(".bin").parse::<u32>() {
+                if n > max_seq {
+                    max_seq = n;
+                }
+            }
+        }
+    }
+    Ok(max_seq + 1)
+}
+
+fn append_import_manifest_entry(
+    root: &Path,
+    seq: u32,
+    label: &str,
+    filename: &str,
+    records: usize,
+) -> Result<(), MvpVaultError> {
+    let path = root.join(IMPORTS_MANIFEST_FILE);
+    let mut entries = if path.exists() {
+        let text = fs::read_to_string(&path)?;
+        parse_import_manifest(&text)?
+    } else {
+        Vec::new()
+    };
+    entries.push(ImportManifestEntry {
+        seq,
+        label: label.to_string(),
+        file: filename.to_string(),
+        records,
+    });
+    fs::write(&path, serialise_import_manifest(&entries))?;
+    Ok(())
+}
+
+fn serialise_import_manifest(entries: &[ImportManifestEntry]) -> String {
+    let mut out = String::from("[\n");
+    for (i, e) in entries.iter().enumerate() {
+        let comma = if i + 1 < entries.len() { "," } else { "" };
+        let label_escaped = e.label.replace('\\', "\\\\").replace('"', "\\\"");
+        let file_escaped = e.file.replace('\\', "\\\\").replace('"', "\\\"");
+        out.push_str(&format!(
+            "  {{\"seq\":{},\"label\":\"{}\",\"file\":\"{}\",\"records\":{}}}{}\n",
+            e.seq, label_escaped, file_escaped, e.records, comma
+        ));
+    }
+    out.push(']');
+    out
+}
+
+fn parse_import_manifest(text: &str) -> Result<Vec<ImportManifestEntry>, MvpVaultError> {
+    // Minimal hand-rolled parser for the specific format written by serialise_import_manifest.
+    let mut entries = Vec::new();
+    for line in text.lines() {
+        let line = line.trim().trim_end_matches(',');
+        if !line.starts_with('{') || !line.ends_with('}') {
+            continue;
+        }
+        let inner = &line[1..line.len() - 1];
+        let seq = extract_json_u32(inner, "seq").unwrap_or(0);
+        let label = extract_json_str(inner, "label").unwrap_or_default();
+        let file = extract_json_str(inner, "file").unwrap_or_default();
+        let records = extract_json_usize(inner, "records").unwrap_or(0);
+        if seq > 0 && !file.is_empty() {
+            entries.push(ImportManifestEntry { seq, label, file, records });
+        }
+    }
+    Ok(entries)
+}
+
+fn extract_json_str(s: &str, key: &str) -> Option<String> {
+    let needle = format!("\"{}\":\"", key);
+    let start = s.find(&needle)? + needle.len();
+    let rest = &s[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].replace("\\\\", "\\").replace("\\\"", "\""))
+}
+
+fn extract_json_u32(s: &str, key: &str) -> Option<u32> {
+    let needle = format!("\"{}\":", key);
+    let start = s.find(&needle)? + needle.len();
+    let rest = s[start..].trim_start();
+    let end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+    rest[..end].parse().ok()
+}
+
+fn extract_json_usize(s: &str, key: &str) -> Option<usize> {
+    extract_json_u32(s, key).map(|n| n as usize)
+}
+
+fn append_public_exports_from_bytes(
+    data: &[u8],
+    exports: &mut Vec<TxMvpReceiptCommitPublicExport>,
+    seen: &mut BTreeSet<[u8; 32]>,
+) -> Result<(), MvpVaultError> {
+    if data.len() < PUBLIC_COMMITMENTS_HEADER.len() {
+        return Ok(());
+    }
+    if &data[..PUBLIC_COMMITMENTS_HEADER.len()] != PUBLIC_COMMITMENTS_HEADER {
+        return Ok(());
+    }
+    let records_data = &data[PUBLIC_COMMITMENTS_HEADER.len()..];
+    let n = records_data.len() / TX_MVP_PUBLIC_EXPORT_BYTES;
+    for i in 0..n {
+        let start = i * TX_MVP_PUBLIC_EXPORT_BYTES;
+        let export = TxMvpReceiptCommitPublicExport::decode(
+            &records_data[start..start + TX_MVP_PUBLIC_EXPORT_BYTES],
+        )?;
+        if seen.insert(export.tx_commitment) {
+            exports.push(export);
+        }
+    }
     Ok(())
 }
 

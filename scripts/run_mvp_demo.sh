@@ -5,7 +5,7 @@
 #   ./scripts/run_mvp_demo.sh [--clean]
 #
 # Exercises the full local demo flow:
-#   init → issue-receipt × 2 → sync → replay → disclose
+#   init → issue-receipt × 2 → sync → replay → disclose → multi-import → dedup check
 #
 # Then verifies:
 #   - public commitment export does NOT contain private incident body text
@@ -22,7 +22,9 @@ set -euo pipefail
 
 ARTIFACT_DIR="artifacts/mvp-demo"
 NODE_DIR="${ARTIFACT_DIR}/node-a"
+NODE_B_DIR="${ARTIFACT_DIR}/node-b"
 COMMITMENTS_FILE="${ARTIFACT_DIR}/public_commitments.bin"
+NODE_B_EXPORT="${ARTIFACT_DIR}/node-b-commitments.bin"
 DISCLOSURE_FILE="${ARTIFACT_DIR}/disclosure.bin"
 
 BODY_ONE="synthetic incident alpha"
@@ -40,17 +42,17 @@ echo "dir: ${NODE_DIR}"
 echo ""
 
 # ── Build ──────────────────────────────────────────────────────────────────
-echo "[1/7] building qash-demo..."
+echo "[1/9] building qash-demo..."
 cargo build --bin qash-demo --quiet
 
 DEMO="cargo run --quiet --bin qash-demo --"
 
 # ── Init ───────────────────────────────────────────────────────────────────
-echo "[2/7] init workspace..."
+echo "[2/9] init workspace..."
 $DEMO init --dir "${NODE_DIR}"
 
 # ── Issue two receipts ─────────────────────────────────────────────────────
-echo "[3/7] issuing first receipt..."
+echo "[3/9] issuing first receipt..."
 RECEIPT_ONE_OUTPUT=$($DEMO issue-receipt \
     --dir "${NODE_DIR}" \
     --epoch 1 \
@@ -63,18 +65,18 @@ if [[ -z "${RECEIPT_ONE_ID}" ]]; then
     exit 1
 fi
 
-echo "[4/7] issuing second receipt..."
+echo "[4/9] issuing second receipt..."
 $DEMO issue-receipt \
     --dir "${NODE_DIR}" \
     --epoch 2 \
     --body "${BODY_TWO}"
 
 # ── Sync ───────────────────────────────────────────────────────────────────
-echo "[5/7] syncing commitment-only public export..."
+echo "[5/9] syncing commitment-only public export..."
 $DEMO sync --dir "${NODE_DIR}" --out "${COMMITMENTS_FILE}"
 
 # ── Replay ─────────────────────────────────────────────────────────────────
-echo "[6/7] replaying..."
+echo "[6/9] replaying..."
 REPLAY_ONE=$($DEMO replay --dir "${NODE_DIR}")
 echo "${REPLAY_ONE}"
 
@@ -91,11 +93,56 @@ fi
 echo "determinism check: commitment_root is stable across two runs (${ROOT_ONE})"
 
 # ── Disclose ───────────────────────────────────────────────────────────────
-echo "[7/7] disclosing first receipt (${RECEIPT_ONE_ID})..."
+echo "[7/9] disclosing first receipt (${RECEIPT_ONE_ID})..."
 $DEMO disclose \
     --dir "${NODE_DIR}" \
     --receipt-id "${RECEIPT_ONE_ID}" \
     --out "${DISCLOSURE_FILE}"
+
+# ── Multi-operator import (v0.3) ───────────────────────────────────────────
+echo "[8/9] multi-operator import: node-b issues a receipt and node-a imports it..."
+$DEMO init --dir "${NODE_B_DIR}"
+$DEMO issue-receipt \
+    --dir "${NODE_B_DIR}" \
+    --epoch 3 \
+    --body "synthetic incident gamma"
+$DEMO sync --dir "${NODE_B_DIR}" --out "${NODE_B_EXPORT}"
+
+# node-a imports node-b's public commitments
+$DEMO import-commitments \
+    --dir "${NODE_DIR}" \
+    --file "${NODE_B_EXPORT}" \
+    --label "node-b"
+
+$DEMO list-imports --dir "${NODE_DIR}"
+
+# replay on node-a now includes node-b's records
+REPLAY_MERGED=$($DEMO replay --dir "${NODE_DIR}")
+echo "${REPLAY_MERGED}"
+ROOT_MERGED=$(echo "${REPLAY_MERGED}" | grep '^commitment_root:' | awk '{print $2}')
+
+# merged root must differ from single-node root (it now has an extra record)
+if [[ "${ROOT_MERGED}" == "${ROOT_ONE}" ]]; then
+    echo "ERROR: merged replay root is same as single-node root — import may not have been included" >&2
+    exit 1
+fi
+echo "multi-import check: merged root differs from single-node root (expected)"
+echo "  single-node root: ${ROOT_ONE}"
+echo "  merged root:      ${ROOT_MERGED}"
+
+# ── Idempotent re-import check ─────────────────────────────────────────────
+echo "[9/9] idempotent re-import check: importing node-b again should produce 0 new records..."
+REIMPORT_OUTPUT=$($DEMO import-commitments \
+    --dir "${NODE_DIR}" \
+    --file "${NODE_B_EXPORT}" \
+    --label "node-b-dedup-check")
+echo "${REIMPORT_OUTPUT}"
+NEW_RECORDS=$(echo "${REIMPORT_OUTPUT}" | grep '^\s*new:' | awk '{print $2}')
+if [[ "${NEW_RECORDS}" != "0" ]]; then
+    echo "ERROR: expected 0 new records on re-import, got: ${NEW_RECORDS}" >&2
+    exit 1
+fi
+echo "dedup check: 0 new records on re-import (all marked as duplicates)"
 
 # ── Assertions ─────────────────────────────────────────────────────────────
 echo ""
@@ -143,7 +190,8 @@ fi
 echo "RESULT: PASSED"
 echo ""
 echo "Artifacts written to ${ARTIFACT_DIR}/"
-echo "  ${COMMITMENTS_FILE}  (commitment-only public export)"
+echo "  ${COMMITMENTS_FILE}  (node-a commitment-only public export)"
+echo "  ${NODE_B_EXPORT}  (node-b commitment-only public export)"
 echo "  ${DISCLOSURE_FILE}  (selected receipt disclosure)"
 echo ""
 echo "Claim boundary: this demonstrator is not a payment instrument,"
