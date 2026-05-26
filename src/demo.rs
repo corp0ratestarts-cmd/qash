@@ -20,6 +20,8 @@ pub enum DemoCommand {
     Sync,
     Replay,
     Disclose,
+    ImportCommitments,
+    ListImports,
 }
 
 impl DemoCommand {
@@ -30,6 +32,8 @@ impl DemoCommand {
             "sync" => Some(Self::Sync),
             "replay" => Some(Self::Replay),
             "disclose" => Some(Self::Disclose),
+            "import-commitments" => Some(Self::ImportCommitments),
+            "list-imports" => Some(Self::ListImports),
             _ => None,
         }
     }
@@ -71,6 +75,8 @@ struct DemoOptions {
     dir: PathBuf,
     peer_dir: Option<PathBuf>,
     import: Option<PathBuf>,
+    import_files: Vec<PathBuf>,
+    import_label: Option<String>,
     out: Option<PathBuf>,
     report: Option<PathBuf>,
     epoch: u64,
@@ -86,6 +92,8 @@ impl Default for DemoOptions {
             dir: PathBuf::from(DEFAULT_DIR),
             peer_dir: None,
             import: None,
+            import_files: Vec::new(),
+            import_label: None,
             out: None,
             report: None,
             epoch: 0,
@@ -120,6 +128,8 @@ pub fn run_demo_cli(args: &[String]) -> Result<(), DemoCliError> {
         DemoCommand::Sync => cmd_sync(&options),
         DemoCommand::Replay => cmd_replay(&options),
         DemoCommand::Disclose => cmd_disclose(&options),
+        DemoCommand::ImportCommitments => cmd_import_commitments(&options),
+        DemoCommand::ListImports => cmd_list_imports(&options),
     }
 }
 
@@ -137,6 +147,8 @@ pub fn print_demo_help() {
     println!("  qash-demo sync --import FILE [--dir PATH]");
     println!("  qash-demo replay [--dir PATH] [--report PATH]");
     println!("  qash-demo disclose --receipt-id HEX [--dir PATH] [--out PATH]");
+    println!("  qash-demo import-commitments --file FILE [--file FILE ...] [--label LABEL] [--dir PATH]");
+    println!("  qash-demo list-imports [--dir PATH]");
     println!();
     println!("Claim boundary:");
     println!("  This demo is not a payment instrument, settlement rail, credential");
@@ -250,6 +262,47 @@ fn cmd_disclose(options: &DemoOptions) -> Result<(), DemoCliError> {
     Ok(())
 }
 
+fn cmd_import_commitments(options: &DemoOptions) -> Result<(), DemoCliError> {
+    if options.import_files.is_empty() {
+        return Err(DemoCliError::MissingValue("--file"));
+    }
+    let vault = MvpReceiptVault::open(&options.dir)
+        .or_else(|_| MvpReceiptVault::init(&options.dir))
+        .map_err(vault_error)?;
+    for file_path in &options.import_files {
+        let data = fs::read(file_path).map_err(|err| DemoCliError::Io(err.to_string()))?;
+        let default_label = file_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+        let label = options.import_label.as_deref().unwrap_or(&default_label);
+        let result = vault.import_with_label(&data, label).map_err(vault_error)?;
+        println!("imported: {} (seq {})", result.label, result.seq);
+        println!("  records: {}", result.records);
+        println!("  new: {}", result.new_records);
+        println!("  duplicates: {}", result.duplicates);
+    }
+    println!("workspace: {}", options.dir.display());
+    println!("note: imported records support replay but not disclosure (no private body)");
+    Ok(())
+}
+
+fn cmd_list_imports(options: &DemoOptions) -> Result<(), DemoCliError> {
+    let vault = MvpReceiptVault::open(&options.dir).map_err(vault_error)?;
+    let entries = vault.read_import_manifest().map_err(vault_error)?;
+    if entries.is_empty() {
+        println!("no imports found in workspace: {}", options.dir.display());
+        return Ok(());
+    }
+    println!("imports in workspace: {}", options.dir.display());
+    for entry in &entries {
+        println!("  [{:04}] {} — {} records ({})", entry.seq, entry.label, entry.records, entry.file);
+    }
+    println!("total: {} import(s)", entries.len());
+    Ok(())
+}
+
 fn parse_options(args: &[String]) -> Result<DemoOptions, DemoCliError> {
     let mut options = DemoOptions::default();
     let mut i = 0;
@@ -265,6 +318,14 @@ fn parse_options(args: &[String]) -> Result<DemoOptions, DemoCliError> {
             }
             "--import" => {
                 options.import = Some(PathBuf::from(required_value(args, i + 1, "--import")?.as_str()));
+                i += 2;
+            }
+            "--file" => {
+                options.import_files.push(PathBuf::from(required_value(args, i + 1, "--file")?.as_str()));
+                i += 2;
+            }
+            "--label" => {
+                options.import_label = Some(required_value(args, i + 1, "--label")?.clone());
                 i += 2;
             }
             "--out" => {
@@ -396,5 +457,73 @@ mod tests {
     #[test]
     fn hex32_parser_rejects_bad_values() {
         assert!(matches!(parse_hex32("abcd", "field"), Err(DemoCliError::InvalidHex("field"))));
+    }
+
+    #[test]
+    fn import_commitments_missing_file_flag_is_error() {
+        let dir = temp_workspace("import-no-file");
+        let dir_s = dir.to_string_lossy().to_string();
+        let _ = run_demo_cli(&["init".into(), "--dir".into(), dir_s.clone()]);
+        let result = run_demo_cli(&["import-commitments".into(), "--dir".into(), dir_s]);
+        assert_eq!(result, Err(DemoCliError::MissingValue("--file")));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn import_commitments_and_list_flow() {
+        let node_a = temp_workspace("import-node-a");
+        let node_b = temp_workspace("import-node-b");
+        let node_a_s = node_a.to_string_lossy().to_string();
+        let node_b_s = node_b.to_string_lossy().to_string();
+
+        // node-a issues a receipt and exports
+        assert_eq!(run_demo_cli(&["init".into(), "--dir".into(), node_a_s.clone()]), Ok(()));
+        assert_eq!(
+            run_demo_cli(&[
+                "issue-receipt".into(),
+                "--dir".into(), node_a_s.clone(),
+                "--body".into(), "synthetic offline incident".into(),
+            ]),
+            Ok(())
+        );
+        let export_path = node_a.join("public_commitments.bin");
+        assert_eq!(
+            run_demo_cli(&[
+                "sync".into(),
+                "--dir".into(), node_a_s.clone(),
+                "--out".into(), export_path.to_string_lossy().to_string(),
+            ]),
+            Ok(())
+        );
+
+        // node-b imports from node-a
+        assert_eq!(run_demo_cli(&["init".into(), "--dir".into(), node_b_s.clone()]), Ok(()));
+        assert_eq!(
+            run_demo_cli(&[
+                "import-commitments".into(),
+                "--dir".into(), node_b_s.clone(),
+                "--file".into(), export_path.to_string_lossy().to_string(),
+                "--label".into(), "node-a".into(),
+            ]),
+            Ok(())
+        );
+        assert_eq!(
+            run_demo_cli(&["list-imports".into(), "--dir".into(), node_b_s.clone()]),
+            Ok(())
+        );
+        // replay should include imported records
+        assert_eq!(run_demo_cli(&["replay".into(), "--dir".into(), node_b_s]), Ok(()));
+
+        let _ = fs::remove_dir_all(&node_a);
+        let _ = fs::remove_dir_all(&node_b);
+    }
+
+    #[test]
+    fn list_imports_on_empty_workspace() {
+        let dir = temp_workspace("list-empty");
+        let dir_s = dir.to_string_lossy().to_string();
+        assert_eq!(run_demo_cli(&["init".into(), "--dir".into(), dir_s.clone()]), Ok(()));
+        assert_eq!(run_demo_cli(&["list-imports".into(), "--dir".into(), dir_s]), Ok(()));
+        let _ = fs::remove_dir_all(&dir);
     }
 }
