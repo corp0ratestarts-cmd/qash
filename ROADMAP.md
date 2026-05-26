@@ -141,6 +141,20 @@ triggers the safety halt. Documented in the test file with exact threshold deriv
 | 9 | Proof-to-code refinement | #63 | `proofs/model/RefinementStatement.v`, `proofs/model/Extract.v`, `docs/refinement.md` |
 | 10 | Multi-compiler differential testing | #65 | `.github/workflows/multi-compiler-diff.yml`, `scripts/run_differential_corpus.sh`, `artifacts/differential/` |
 
+### Phase 4 — Pilot readiness & v0.3 (merged 2026-05-25 – 2026-05-26)
+
+| # | Item | PR | Key files |
+|---|------|----|-----------|
+| 11 | Pilot evidence bundle script repair | #165, #166 | `scripts/build_pilot_evidence_bundle.sh` |
+| 12 | Phase 2-R micro-fix: single-pass tx admission via cheap byte reads (partial 2-R landing) | #167 | `crates/consensus/src/transaction.rs`, `crates/consensus/src/transition.rs` |
+| 13 | Pilot execution readiness — evidence manifest, pilot package, funding docs, assurance docs | #168 | `docs/mvp/pilot_evidence_manifest.md`, `docs/pilot/pilot_package.md`, `docs/funding/`, `docs/assurance/` |
+| 14 | v0.3: multi-operator import/replay with labelled import tracking | #169 | `crates/pal/src/mvp_vault.rs`, `scripts/run_mvp_demo.sh` |
+
+**Release baseline decision:**
+- `qash-pilot-baseline-v0.2.1` = commit `04ad39d` (Merge PR #168, post-pilot-readiness, pre-v0.3)
+- `qash-pilot-baseline-v0.3` = commit `67665e4` (Merge PR #169, current `main`)
+- `v1.0-reference` genesis lock tag is deferred until all evidence gates in the checklist below are complete
+
 ---
 
 ## Phase milestone: pre-genesis evidence gate
@@ -218,13 +232,14 @@ compat_version_floor = "1.0.0"
 
 ---
 
-### 2-R: Core Runtime Optimization - SCHEDULED
+### 2-R: Core Runtime Optimization - PARTIALLY LANDED
 
 **Source:** Latest PR #93 runtime-performance review.
 
-**Status:** Scheduled. Initial parity tests and benchmark-compilation gates are
-present; do not treat the runtime optimization itself as implemented until the
-refactors below land and pass archived benchmark evidence.
+**Status:** Single-pass tx admission via cheap byte reads landed in PR #167 (commit
+`8329120`). The remaining items below are still scheduled and require archived
+benchmark evidence before any performance claim is accepted. Do not treat 2-R as
+complete until all items pass and benchmark artifacts are captured.
 
 **Intent:** Improve the consensus hot path by removing redundant parsing,
 ordering, hashing, and projection work without changing consensus bytes, public
