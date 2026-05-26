@@ -4,7 +4,7 @@ This document captures the complete project direction from current state through
 verified execution substrate in maximum technical detail. It is the authoritative reference for any
 developer, auditor, or formal methods contributor picking up this codebase.
 
-**Last updated:** 2026-05-25
+**Last updated:** 2026-05-26
 **Current state:** Pre-genesis integration RC. The repository contains v1.0,
 v1.1, and v1.2 implementation/proof evidence in flight, but genesis remains
 provisional and non-authoritative. Do not create `v1.0-reference` or lock
@@ -150,9 +150,24 @@ triggers the safety halt. Documented in the test file with exact threshold deriv
 | 13 | Pilot execution readiness — evidence manifest, pilot package, funding docs, assurance docs | #168 | `docs/mvp/pilot_evidence_manifest.md`, `docs/pilot/pilot_package.md`, `docs/funding/`, `docs/assurance/` |
 | 14 | v0.3: multi-operator import/replay with labelled import tracking | #169 | `crates/pal/src/mvp_vault.rs`, `scripts/run_mvp_demo.sh` |
 
+### Phase 5 — Security, compliance, and transport hardening (in progress, PR #172)
+
+| # | Item | Track | Key files |
+|---|------|-------|-----------|
+| 15 | Track 1: Security CI expansion — CodeQL, OSV, Scorecard, SBOM, CAVP-KAT, domain-A tripwires, hardware-opsec-drift | 1 | `.github/workflows/ci.yml` |
+| 16 | Track 2: Zero-persistence PAL boundary audit — verified, no changes needed | 2 | `crates/pal/src/admission.rs` |
+| 17 | Track 3: Privacy admission and erasure-compatible receipt/key handling | 3 | `crates/pal/src/privacy/`, `docs/spec/09_privacy_model.md` |
+| 18 | Track 4: TCP CommitmentTransport, faulty transport (fault injection), crash-recovery replay parity harness | 4 | `crates/pal/src/net/`, `crates/pal/tests/crash_recovery_parity.rs` |
+| 19 | Track 5: Domain A v1.1 features — already implemented; audit confirmed | 5 | `crates/consensus/src/` |
+| 20 | Track 6: FIPS-aligned crypto audit, TLS validation, log_pseudonym, crypto-agility traits | 6 | `crates/pal/src/crypto/`, `docs/compliance/fips_compliance.md` |
+| 21 | Track 7: Phase 2-R sort-determinism test; ADR-006 evidence updated | 7 | `crates/consensus/src/transaction.rs`, `docs/adr/adr006_phase2r_evidence.md` |
+| 22 | Track 9 (1-A): CapToken schema Coq proof — 10 theorems, 0 Admitted | 9 | `proofs/capability/cap_token_schema.v`, `proofs/COVERAGE.md` |
+| 23 | Track 10: GDPR DPIA, CC EAL4+ security target, SLSA reproducible build script | 10 | `docs/compliance/`, `scripts/verify_reproducible_build.sh` |
+
 **Release baseline decision:**
 - `qash-pilot-baseline-v0.2.1` = commit `04ad39d` (Merge PR #168, post-pilot-readiness, pre-v0.3)
 - `qash-pilot-baseline-v0.3` = commit `67665e4` (Merge PR #169, current `main`)
+- Phase 5 hardening is in progress on branch `claude/jolly-cerf-tel3D` (PR #172)
 - `v1.0-reference` genesis lock tag is deferred until all evidence gates in the checklist below are complete
 
 ---
