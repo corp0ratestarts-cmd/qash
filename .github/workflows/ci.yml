@@ -221,6 +221,7 @@ jobs:
 
   codeql:
     runs-on: ubuntu-latest
+    # Advisory until findings are triaged and suppressions/exceptions are documented.
     continue-on-error: true
     permissions:
       contents: read
@@ -243,6 +244,7 @@ jobs:
 
   osv-scan:
     runs-on: ubuntu-latest
+    # Advisory until known CVEs are audited, upgraded, or recorded as justified exceptions.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -256,6 +258,7 @@ jobs:
 
   scorecard:
     runs-on: ubuntu-latest
+    # Advisory until repository-level supply-chain posture controls are configured.
     continue-on-error: true
     permissions:
       contents: read
