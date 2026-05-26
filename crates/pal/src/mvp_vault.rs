@@ -276,9 +276,6 @@ impl MvpReceiptVault {
         // file so the newly-added records don't appear in their own dedup check.
         let existing = self.read_all_public_exports()?;
         let existing_keys: BTreeSet<[u8; 32]> = existing.iter().map(|e| e.tx_commitment).collect();
-        // Count duplicates against already-present exports BEFORE writing the file.
-        let existing = self.read_all_public_exports()?;
-        let existing_keys: BTreeSet<[u8; 32]> = existing.iter().map(|e| e.tx_commitment).collect();
         let mut new_records: usize = 0;
         let mut duplicates: usize = 0;
         for i in 0..total {
@@ -506,6 +503,7 @@ fn extract_json_str(s: &str, key: &str) -> Option<String> {
     let rest = &s[start..];
     let end = rest.find('"')?;
     Some(rest[..end].replace("\\\\", "\\").replace("\\\"", "\""))
+}
 
 fn extract_json_u32(s: &str, key: &str) -> Option<u32> {
     let needle = format!("\"{}\":", key);
