@@ -505,8 +505,7 @@ fn extract_json_str(s: &str, key: &str) -> Option<String> {
     let start = s.find(&needle)? + needle.len();
     let rest = &s[start..];
     let end = rest.find('"')?;
-    Some(rest[..end].replace("\\\"", "\"").replace("\\\\", "\\"))
-}
+    Some(rest[..end].replace("\\\\", "\\").replace("\\\"", "\""))
 
 fn extract_json_u32(s: &str, key: &str) -> Option<u32> {
     let needle = format!("\"{}\":", key);
