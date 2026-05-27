@@ -110,6 +110,7 @@ pub mod hosted {
     use std::io::{self, ErrorKind, Read, Write};
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
+    use zeroize::Zeroize;
 
     const LOG_MAGIC: &[u8; 8] = b"QPALOG1\0";
     const RECORD_MAGIC: &[u8; 8] = b"QPAIN1\0\0";
@@ -129,6 +130,19 @@ pub mod hosted {
         outbound: Vec<Vec<u8>>,
         attestation_quote: [u8; 256],
         reset_requested: bool,
+    }
+
+    /// Domain-B operational halt preparation.
+    ///
+    /// This records the PAL-side actions that precede the deployed
+    /// non-returning halt loop. Domain A halt state remains replayable and is
+    /// not mutated by these platform operations.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct PreparedHalt {
+        pub reason: HaltReason,
+        pub critical_memory_zeroized: bool,
+        pub scheduler_disable_requested: bool,
+        pub watchdog_reset_requested: bool,
     }
 
     /// Domain-B attestation report. It is verified before trust decisions, but
@@ -497,6 +511,34 @@ pub mod hosted {
 
         pub fn reset_requested(&self) -> bool {
             self.reset_requested
+        }
+
+        /// Prepare Domain-B operational halt behavior without touching
+        /// Domain-A state. The non-returning step is deliberately separate so
+        /// tests can verify zeroization/watchdog ownership without diverging.
+        pub fn prepare_absorbing_halt(
+            &mut self,
+            critical_memory: &mut [u8],
+            reason: HaltReason,
+        ) -> PreparedHalt {
+            critical_memory.zeroize();
+            self.request_reset();
+            PreparedHalt {
+                reason,
+                critical_memory_zeroized: critical_memory.iter().all(|b| *b == 0),
+                scheduler_disable_requested: true,
+                watchdog_reset_requested: true,
+            }
+        }
+    }
+
+    impl PreparedHalt {
+        /// Enter the deployed PAL absorbing halt loop.
+        pub fn enter_non_returning_loop(self) -> ! {
+            let _ = self;
+            loop {
+                std::hint::spin_loop();
+            }
         }
     }
 
