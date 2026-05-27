@@ -107,8 +107,7 @@ fn crash_mid_wal_body() {
     const N_EPOCHS: u64 = 5;
     const VALIDATORS: u32 = 4;
 
-    let (clean_roots, full_contents, full_path) =
-        run_clean_and_collect(N_EPOCHS, VALIDATORS);
+    let (clean_roots, full_contents, full_path) = run_clean_and_collect(N_EPOCHS, VALIDATORS);
 
     // Collect byte offsets by running a second clean pass and recording file
     // size after each epoch application.
@@ -118,8 +117,7 @@ fn crash_mid_wal_body() {
         let mut state = genesis(VALIDATORS);
         let mut host = Host::new(&path2).expect("host created for offset tracking");
         for epoch in 0..N_EPOCHS {
-            let input =
-                deterministic_input(epoch, VALIDATORS, (epoch as i64 + 1) * 10_000);
+            let input = deterministic_input(epoch, VALIDATORS, (epoch as i64 + 1) * 10_000);
             host.apply_canonical_input(&mut state, &input)
                 .expect("apply in offset pass");
             epoch_offsets.push(
@@ -155,15 +153,15 @@ fn crash_mid_wal_body() {
     }
 
     // For mid-record truncations in the last record: replay must not panic.
-    if let (Some(&last_full_offset), Some(&prev_offset)) =
-        (epoch_offsets.last(), epoch_offsets.get(epoch_offsets.len().saturating_sub(2)))
-    {
+    if let (Some(&last_full_offset), Some(&prev_offset)) = (
+        epoch_offsets.last(),
+        epoch_offsets.get(epoch_offsets.len().saturating_sub(2)),
+    ) {
         let full_len = full_contents.len() as u64;
         for partial_bytes in 1..full_len.saturating_sub(last_full_offset) {
             let mid_offset = (last_full_offset + partial_bytes) as usize;
             let partial_path = unique_path(&format!("partial-{partial_bytes}"));
-            std::fs::write(&partial_path, &full_contents[..mid_offset])
-                .expect("write partial WAL");
+            std::fs::write(&partial_path, &full_contents[..mid_offset]).expect("write partial WAL");
 
             let result = Host::new(&partial_path)
                 .expect("host opened on partial WAL")

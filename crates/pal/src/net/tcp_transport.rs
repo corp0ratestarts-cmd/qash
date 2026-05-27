@@ -85,8 +85,7 @@ impl CommitmentTransport for TcpCommitmentTransport {
         match result {
             Ok(()) => Ok(Some(CommitmentFrame::decode(&buf)?)),
             Err(ref e)
-                if e.kind() == io::ErrorKind::WouldBlock
-                    || e.kind() == io::ErrorKind::TimedOut =>
+                if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut =>
             {
                 Ok(None)
             }

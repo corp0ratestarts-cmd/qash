@@ -173,7 +173,10 @@ mod tests {
         for i in 0..32 {
             attempted_decrypt[i] = ciphertext[i] ^ evidence.key_commitment[i];
         }
-        assert_ne!(attempted_decrypt, plaintext, "key commitment must not decrypt the ciphertext");
+        assert_ne!(
+            attempted_decrypt, plaintext,
+            "key commitment must not decrypt the ciphertext"
+        );
     }
 
     #[test]
