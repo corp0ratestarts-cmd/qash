@@ -38,3 +38,8 @@ sovereign-hardened = ["zero-persistence"]
 pqc = ["ml-kem"]
 suite_guomi = ["sm3"]
 suite_korea = []
+# Gate the Plonky3 FRI-STARK verifier backend. The `plonky3` crate itself is
+# NOT yet a dependency (supply-chain vetting required). This feature compiles
+# the interface design, profile-lock tests, and Domain B containment harness.
+# Add `plonky3 = { version = "...", ... }` to [dependencies] once vetted.
+plonky3 = []

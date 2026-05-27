@@ -4,6 +4,8 @@ pub mod commitment_inbox;
 pub mod commitment_transport;
 #[cfg(feature = "std")]
 pub mod net;
+#[cfg(all(feature = "plonky3", feature = "std"))]
+pub mod zk;
 pub mod mvp;
 pub mod mvp_demo_profile;
 #[cfg(feature = "std")]
