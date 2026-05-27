@@ -31,7 +31,6 @@
 /// adding it). The `verify_proof_bytes` stub returns `Ok(())` for non-empty
 /// proofs and `Err` for empty ones. Replace `verify_proof_bytes` with a real
 /// Plonky3 call once the dependency is vetted and added to Cargo.toml.
-
 use crate::hosted::{CanonicalZkProfile, HostedError, ZkProofBundle, ZkProofVerifier};
 
 /// Proof bytes for a single shard's layer-1 FRI-STARK proof.
@@ -95,10 +94,7 @@ impl Plonky3FriVerifier {
     ///
     /// Replace the stub inside `verify_proof_bytes` with a real Plonky3 call
     /// once the `plonky3` crate dependency is vetted.
-    pub fn verify_shard_proof(
-        &self,
-        shard: &ShardProofBytes,
-    ) -> Result<[u8; 32], HostedError> {
+    pub fn verify_shard_proof(&self, shard: &ShardProofBytes) -> Result<[u8; 32], HostedError> {
         verify_proof_bytes(&shard.proof_bytes, "shard")?;
         if shard.public_input_commitment == [0u8; 32] {
             return Err(HostedError::InvalidInput(
@@ -154,16 +150,24 @@ impl ZkProofVerifier for Plonky3FriVerifier {
     ///    cross into Domain A.
     fn verify_bundle(&self, bundle: &ZkProofBundle) -> Result<[u8; 32], HostedError> {
         if bundle.profile != self.locked_profile {
-            return Err(HostedError::InvalidInput("profile mismatch: bundle profile does not match locked profile"));
+            return Err(HostedError::InvalidInput(
+                "profile mismatch: bundle profile does not match locked profile",
+            ));
         }
         if bundle.shard_proof_count == 0 {
-            return Err(HostedError::InvalidInput("malformed bundle: shard_proof_count is zero"));
+            return Err(HostedError::InvalidInput(
+                "malformed bundle: shard_proof_count is zero",
+            ));
         }
         if bundle.aggregation_proof_count == 0 {
-            return Err(HostedError::InvalidInput("malformed bundle: aggregation_proof_count is zero"));
+            return Err(HostedError::InvalidInput(
+                "malformed bundle: aggregation_proof_count is zero",
+            ));
         }
         if bundle.batch_root == [0u8; 32] {
-            return Err(HostedError::InvalidInput("malformed bundle: batch_root is zero (uninitialized)"));
+            return Err(HostedError::InvalidInput(
+                "malformed bundle: batch_root is zero (uninitialized)",
+            ));
         }
         Ok(bundle.batch_root)
     }
@@ -224,7 +228,10 @@ mod tests {
             Err(HostedError::InvalidInput(m)) => m,
             _ => panic!("expected InvalidInput"),
         };
-        assert!(msg.contains("profile mismatch"), "error must mention profile mismatch");
+        assert!(
+            msg.contains("profile mismatch"),
+            "error must mention profile mismatch"
+        );
     }
 
     #[test]
@@ -411,7 +418,8 @@ mod tests {
             .collect();
 
         for shard in &shards {
-            v.verify_shard_proof(shard).expect("shard proof must verify");
+            v.verify_shard_proof(shard)
+                .expect("shard proof must verify");
         }
 
         let agg = AggregationProofBytes {
