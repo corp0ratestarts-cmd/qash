@@ -32,6 +32,9 @@ VIOLATIONS=()
 
 # ── Prohibited phrases (case-insensitive) ─────────────────────────────────────
 # These are unacceptable compliance or capability overclaims.
+# Keep this list contextual: broad protocol words such as "token" and
+# "custody" are not blocked alone because QASH legitimately uses phrases such
+# as CapToken, non-custodial, no custody, and custody-boundary disclaimers.
 PROHIBITED_PHRASES=(
   'GDPR compliant'
   'FIPS validated'
@@ -47,10 +50,23 @@ PROHIBITED_PHRASES=(
   'mainnet-ready'
   'financial infrastructure'
   'payment system'
-  '\btoken\b'
-  '\bcustody\b'
   'settlement layer'
+  'investment token'
+  'utility token'
+  'security token'
+  'governance token'
+  'token sale'
+  'asset custody'
+  'funds custody'
+  'customer custody'
+  'custodial service'
+  'custody of assets'
 )
+
+# Hard compliance/certification phrases may be listed in negative or prohibited
+# contexts without an allow marker. These patterns suppress false positives like
+# "not FIPS validated", "no claim of NSA approved", or "must not say GDPR compliant".
+NEGATIVE_CONTEXT='(^|[^[:alnum:]_])(not|no|non|never|without|must not|do not|cannot|should not|prohibit|prohibited|forbidden|blocked|avoid|no claim of|not a claim of|is not|are not)[^\.\n]{0,96}'
 
 # ── Forbidden platform overclaims (outside docs/platforms/) ───────────────────
 PLATFORM_OVERCLAIMS=(
@@ -76,7 +92,18 @@ mapfile -t SCAN_FILES < <(
     -e '^docs/release/'
 )
 
-# ── Scanner function ──────────────────────────────────────────────────────────
+# ── Scanner helpers ───────────────────────────────────────────────────────────
+line_has_allow_marker() {
+  local line="$1"
+  echo "$line" | grep -qF '<!-- claim-boundary-allow:'
+}
+
+line_is_negative_context_for_pattern() {
+  local line="$1"
+  local pattern="$2"
+  echo "$line" | grep -qiP "${NEGATIVE_CONTEXT}${pattern}"
+}
+
 # Scans a file for a pattern (case-insensitive).
 # Respects the allowlist marker: a line containing the marker suppresses
 # itself and the immediately following line only.
@@ -97,13 +124,16 @@ scan_file_for_pattern() {
     fi
 
     # If this line is an allowlist marker, skip it and set flag for next line
-    if echo "$line" | grep -qF '<!-- claim-boundary-allow:'; then
+    if line_has_allow_marker "$line"; then
       skip_next=1
       continue
     fi
 
     # Check for the pattern (case-insensitive)
     if echo "$line" | grep -qiP "$pattern"; then
+      if line_is_negative_context_for_pattern "$line" "$pattern"; then
+        continue
+      fi
       echo "  VIOLATION: $file:$lineno: $line"
       VIOLATIONS+=("$file:$lineno: $pattern")
       violation_found=1
@@ -172,6 +202,12 @@ done
   for phrase in "${PLATFORM_OVERCLAIMS[@]}"; do
     echo "| \`$phrase\` | enforced |"
   done
+  echo ""
+  echo "## Negative-context suppression"
+  echo ""
+  echo "Lines that clearly negate or prohibit a claim, such as \`not FIPS validated\`"
+  echo "or \`must not say GDPR compliant\`, are not counted as live overclaims."
+  echo "Use the allowlist marker for longer examples or tables."
   echo ""
   if [ "${#VIOLATIONS[@]}" -gt 0 ]; then
     echo "## Violations found"
