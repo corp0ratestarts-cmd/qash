@@ -4,11 +4,13 @@ This document captures the complete project direction from current state through
 verified execution substrate in maximum technical detail. It is the authoritative reference for any
 developer, auditor, or formal methods contributor picking up this codebase.
 
-**Last updated:** 2026-05-26
+**Last updated:** 2026-05-27
 **Current state:** Pre-genesis integration RC. The repository contains v1.0,
 v1.1, and v1.2 implementation/proof evidence in flight, but genesis remains
 provisional and non-authoritative. Do not create `v1.0-reference` or lock
 `GENESIS_CONSTANTS.toml` until the pre-genesis evidence gate below is complete.
+PR #201 is merged on `main`; the main-branch Pre-Genesis Full-Repo Audit at
+commit `18154bc37e19ff27835b4dbaf16a3334406ae1ae` passed all blocking phases.
 
 **MVP claim boundary:** the offline incident-receipt commit demonstrator (Domain B
 local MVP) is governed by [`docs/mvp/claims_register.md`](docs/mvp/claims_register.md).
@@ -189,7 +191,7 @@ complete and the project explicitly chooses to lock genesis.
 - `test-determinism`: green (includes `verify_two_stage_build.sh`)
 - `clippy-lint`: green
 - `supply-chain`: green (`cargo deny check`)
-- `proofs`: green (18 PROVED, 4 CI-VERIFIED, 3 AXIOM, 2 PLACEHOLDER, 0 Admitted)
+- `proofs`: green according to `proofs/COVERAGE.md` (42 PROVED, 4 CI-VERIFIED, 3 AXIOM, 2 PLACEHOLDER, 0 MISSING, 0 active `Admitted`)
 - `fuzz-smoke`: green (6 targets, 30s each)
 - `platform-determinism`: green (x86_64, aarch64, riscv64gc matching state roots)
 - `release-attestation`: green (byte-identical two-stage build, manifest archived)
@@ -2413,12 +2415,13 @@ Every new transaction type or state-transition variant requires a COVERAGE.md ro
 any new `Axiom` declaration in `proofs/` that doesn't appear in `proofs/COVERAGE.md`
 fails CI.
 
-**Current state (v1.0, after Phase 3 item 9):**
-- **PROVED:** 18
+**Current state (mechanically mirrored from `proofs/COVERAGE.md`):**
+- **PROVED:** 42
 - **CI-VERIFIED:** 4
 - **AXIOM:** 3 (AX-3/SHA3, Blinding PRF, AX2_rust_refinement)
 - **PLACEHOLDER:** 2 (TH-10 cascade collision, IT-MAC forgery bound)
-- **Total:** 27
+- **MISSING:** 0
+- **Total:** 44
 
 **v1.1 target additions:**
 
@@ -2432,7 +2435,10 @@ fails CI.
 | Lyapunov confluence (Church-Rosser) | PROVED | `contractivity/lyapunov_confluence.v` |
 | Lyapunov unique normal form | PROVED | `contractivity/lyapunov_confluence.v` |
 
-**Target v1.1 total: ≥ 25 PROVED, 0 PLACEHOLDER**
+**Release-boundary rule:** do not hand-wave proof counts across roadmap or implementation docs.
+All counts must be derived from `proofs/COVERAGE.md`. Any `AXIOM` or `PLACEHOLDER`
+inside the active v1.0 Domain A claim boundary must be discharged, explicitly scoped
+outside that boundary, or accepted by owner sign-off as a release-boundary assumption.
 
 ---
 
