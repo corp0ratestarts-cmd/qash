@@ -1381,6 +1381,89 @@ mod tests {
         );
         assert_eq!(state.efb_root, [0u8; 32]);
     }
+
+    // ── 2-R: Streaming state-root preimage parity ────────────────────────────
+    //
+    // Verifies that the streaming path (`compute_state_root` via
+    // `stream_state_for_commitment`) produces the exact same state root as the
+    // reference buffered path (`write_state_base_bytes` +
+    // `append_sharding_roots_if_present` + SHA3-256 with domain tag).
+    //
+    // Tested over six state shapes:
+    //   - All-zero / genesis-like (4 validators)
+    //   - Non-zero prior_root (4 validators)
+    //   - Non-zero validator metrics + nonces (8 validators)
+    //   - receipt_root only (triggers sharding-roots block)
+    //   - Both receipt_root and efb_root set (full sharding path)
+    //   - Maximum validator count (1024)
+    fn genesis_state_vc(vc: u32) -> EpochState {
+        let mut s = genesis_state_vc4();
+        s.validator_count = vc;
+        s
+    }
+
+    fn streaming_parity_check(state: &EpochState, prior_root: &[u8; 32]) {
+        // Streaming path (production implementation).
+        let streamed = compute_state_root(state, prior_root);
+
+        // Buffered reference path: assemble bytes, apply domain-tagged SHA3-256.
+        let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+        let base_len = write_state_base_bytes(state, prior_root, &mut buf);
+        let total_len = append_sharding_roots_if_present(state, &mut buf, base_len);
+        let buffered = h_domain(DomainTag::StateRoot, &buf[..total_len]);
+
+        assert_eq!(
+            streamed, buffered,
+            "streaming state root != buffered reference \
+             (epoch={}, vc={}, prior_root={:?})",
+            state.epoch, state.validator_count, prior_root,
+        );
+    }
+
+    #[test]
+    fn streaming_state_root_parity_genesis_shape() {
+        streaming_parity_check(&genesis_state_vc(4), &[0u8; 32]);
+    }
+
+    #[test]
+    fn streaming_state_root_parity_nonzero_prior_root() {
+        streaming_parity_check(&genesis_state_vc(4), &[0xAB; 32]);
+    }
+
+    #[test]
+    fn streaming_state_root_parity_with_validators_and_window() {
+        let mut state = genesis_state_vc(8);
+        state.validators[0] = ValidatorMetrics {
+            divergence: FixedPoint::from_raw(500_000),
+            conflict: FixedPoint::from_raw(100_000),
+            slash_accum: FixedPoint::from_raw(10_000),
+        };
+        state.nonces[0] = 42;
+        state.validator_ids[0][0] = 0xFF;
+        streaming_parity_check(&state, &[0xCD; 32]);
+    }
+
+    #[test]
+    fn streaming_state_root_parity_with_receipt_root_only() {
+        let mut state = genesis_state_vc(4);
+        state.receipt_root = [0x11; 32];
+        // efb_root stays zero → sharding-roots block IS appended.
+        streaming_parity_check(&state, &[0xEF; 32]);
+    }
+
+    #[test]
+    fn streaming_state_root_parity_with_full_sharding_roots() {
+        let mut state = genesis_state_vc(4);
+        state.receipt_root = [0x22; 32];
+        state.efb_root = [0x33; 32];
+        state.cascade_health = 7;
+        streaming_parity_check(&state, &[0xFF; 32]);
+    }
+
+    #[test]
+    fn streaming_state_root_parity_max_validators() {
+        streaming_parity_check(&genesis_state_vc(MAX_VALIDATORS as u32), &[0x55; 32]);
+    }
 }
 
 fn evaluate_projected(
