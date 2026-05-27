@@ -18,5 +18,5 @@ Define:
 
 ## Acceptance criteria
 - [x] Golden vectors with expected `state_root_hex` and a genesis state-root commitment KAT in `tests/vectors/vectors.v1.json`
-- [ ] Roundtrip: `Decode(Encode(S)) == S` for valid states — pending dedicated roundtrip tests
-- [ ] Canonical rejection tests (non-canonical encodings fail) — pending
+- [x] Roundtrip: `Decode(Encode(S)) == S` for valid states
+- [x] Canonical rejection tests (non-canonical encodings fail)
