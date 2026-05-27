@@ -55,7 +55,10 @@ Before genesis-lock, run and triage all of the following:
 
 ## Current entries
 
-*No entries registered. The advisory CI jobs (osv-scan, supply-chain) run on every PR. When any advisory job reports a finding, triage it here within one sprint of detection.*
+*No open dependency-risk entries as of 2026-05-27. The advisory CI jobs
+(`osv-scan`, OSV vulnerability scan, and `supply-chain`) run on every PR. When
+any advisory job reports a finding, triage it here within one sprint of
+detection.*
 
 ---
 
@@ -85,7 +88,9 @@ When a finding is **Mitigated** or **Blocked-pending-upstream**, document the co
 
 | Date | Auditor | Tool | Findings | Triaged | Notes |
 |------|---------|------|----------|---------|-------|
-| *(none yet)* | | | | | |
+| 2026-05-27 | Codex | `cargo audit --deny warnings` | 0 advisories | Yes | Installed `cargo-audit v0.22.1`; fetched RustSec database into `/tmp/qash-cargo-audit`; scanned current `Cargo.lock` with 135 crate dependencies. |
+| 2026-05-27 | Codex | `cargo deny check` | 0 blocking findings | Yes | `advisories`, `bans`, `licenses`, and `sources` passed. Existing configuration warnings remain: unmatched `0BSD`/`ISC` allow-list entries and unnecessary `hybrid-array` skip. |
+| 2026-05-27 | GitHub Actions | OSV vulnerability scan | 0 blocking findings | Yes | PR #202 OSV vulnerability scan passed; PR-local OSV results remain the source for branch-specific dependency deltas. |
 
 ---
 
@@ -93,9 +98,9 @@ When a finding is **Mitigated** or **Blocked-pending-upstream**, document the co
 
 Before genesis-lock:
 
-- [ ] `cargo audit` run on current `Cargo.lock` — zero unacknowledged findings
-- [ ] OSV scan run — zero unacknowledged findings  
-- [ ] `cargo deny check` passes (or all failures have entries here with owner sign-off)
-- [ ] All **Critical** and **High** severity findings have `Upgrade` or `Mitigated` status
-- [ ] All **Medium** findings have a documented decision and owner sign-off
-- [ ] All **Blocked-pending-upstream** entries have a compensating control and re-review date
+- [x] `cargo audit` run on current `Cargo.lock` — zero unacknowledged findings
+- [x] OSV scan run — zero unacknowledged findings
+- [x] `cargo deny check` passes (or all failures have entries here with owner sign-off)
+- [x] All **Critical** and **High** severity findings have `Upgrade` or `Mitigated` status
+- [x] All **Medium** findings have a documented decision and owner sign-off
+- [x] All **Blocked-pending-upstream** entries have a compensating control and re-review date
