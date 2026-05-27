@@ -1,22 +1,23 @@
 # QASH Implementation Order
 
 **Status:** Active execution guide.  
-**Last updated:** 2026-05-27 (Phase 5 hardening tracks in review — PRs #174–#183)  
+**Last updated:** 2026-05-27 (Phase 5 hardening complete — all PRs #174–#183 merged)  
 **Purpose:** This file orders the remaining work. `ROADMAP.md` describes the broader destination.
 
 ## Current posture
 
-QASH is pre-genesis RC. Domain A (24 modules, 483 tests passing) is implementation-complete
+QASH is pre-genesis RC. Domain A (24 modules, 483+ tests passing) is implementation-complete
 for the current RC surface, but not production-authoritative until proof closure, cross-ISA
 evidence, compliance evidence, and genesis-lock gates are complete.
 
-Domain B is the operational boundary for networking, storage, privacy, attestation,
-acceleration, audit, and evidence. The PAL scaffold is substantially built; production
-transport, ZK verifier, and crash recovery remain open.
+Domain B PAL is substantially complete: production TCP transport, crash-recovery parity
+harness, Plonky3 ZK verifier scaffold, privacy/erasure, and FIPS-aligned crypto are all
+implemented and merged.
 
-**Release baselines (as of 2026-05-26):**
+**Release baselines (as of 2026-05-27):**
 - `qash-pilot-baseline-v0.2.1` = commit `04ad39d` (Merge PR #168)
-- `qash-pilot-baseline-v0.3` = commit `67665e4` (Merge PR #169, current `main`)
+- `qash-pilot-baseline-v0.3` = commit `67665e4` (Merge PR #169)
+- `qash-phase5-complete` = current `main` (all PRs #174–#183 merged, 2026-05-27)
 - Genesis lock tag is deferred until the evidence gate below is complete
 
 **Already merged (do not re-implement):**
@@ -26,7 +27,7 @@ transport, ZK verifier, and crash recovery remain open.
 - PR #168: Pilot execution readiness docs, evidence manifest, pilot package, funding docs
 - PR #169: v0.3 multi-operator import/replay with labelled import tracking
 
-**Phase 5 hardening — in review (PRs #174–#183, all from decomposed #172):**
+**Phase 5 hardening — merged (2026-05-27):**
 - PR #174 (Track 3): Privacy/erasure boundary — `ReceiptKey` ZeroizeOnDrop, `ShredKeyEvidence`, PII boundary assertions
 - PR #175 (Track 4): Production PAL transport — `TcpCommitmentTransport`, `FaultyTransport`, crash-recovery parity harness
 - PR #176 (Track 6): FIPS-aligned crypto — HMAC-DRBG wording audit, TLS validation, `log_pseudonym`, crypto-agility traits
