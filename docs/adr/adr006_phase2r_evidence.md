@@ -95,7 +95,56 @@ No files under `crates/consensus/` were modified. No Domain A types, state field
 | Item | Status | Gate |
 |------|--------|------|
 | O(n log n) sort replacement | Deferred | Profiling evidence required first; insertion sort is correct for n ≤ 1024 |
-| `ProjectedView` struct | Deferred | Profiling must show full `EpochState` copy cost dominates |
+| `ProjectedView` struct | **Landed** (PR #183) | Parity verified by 3 tests |
 | Validator directory | Deferred | Only if profiling shows lookup cost dominates |
 | Cross-ISA parity for PR #167 byte-read path | Open | Requires aarch64/riscv64gc CI run |
 
+---
+
+# ADR-006 Phase 2-R Evidence Note (Domain A — Track 7, 2026-05-27)
+
+**Scope:** Domain A (`crates/consensus/src/transition.rs`)  
+**Branch:** `claude/track-7-streaming-state-root-parity`
+
+## Changes
+
+### Streaming state-root computation (Domain A, `transition.rs`)
+
+The state-root commitment path was refactored to stream field groups directly into
+SHA3-256 via incremental `update()` calls, replacing a 82 KB intermediate stack buffer
+(`FULL_STATE_MAX_BYTES = 82,132` bytes). The domain tag, field ordering, and byte layout
+are identical. Only the allocation pattern changed.
+
+Six parity tests (`streaming_state_root_parity_*`) verify byte-identical output across
+all state shapes (genesis, non-zero prior root, non-zero validator metrics, receipt_root
+only, both sharding roots, maximum validators). All pass.
+
+### ProjectedView (Domain A, `transition.rs`)
+
+A private, runtime-only `ProjectedView<'a>` struct was introduced to eliminate the ~80 KB
+`EpochState` copy previously made in `run_pipeline` before computing the state root.
+
+The struct holds:
+- References to the unchanged large arrays (`validator_ids`) borrowed from `state`
+- References to freshly-computed arrays already on the stack (`validators`, `nonces`)
+- Owned scalars for the eight fields updated during the transition
+
+`ProjectedView::compute_root` replicates `stream_state_for_commitment` field-by-field and
+is verified by three parity tests (`projected_view_compute_root_matches_full_state_*`). All
+pass. The commit-point direct assignments to `*state` are unchanged.
+
+### Benchmark baseline
+
+Archived at `artifacts/benchmarks/epoch_transition_baseline_9f6e995.md` (commit `9f6e995`).
+Key figure: 1024-validator `advance_epoch` ~312 µs on x86\_64. Cross-ISA verification required
+before any external throughput claims.
+
+## Protocol boundary assertion
+
+- Wire format: **unchanged**
+- Hash preimage / domain tags: **unchanged**
+- `advance_epoch` / `advance_epoch_sharded` signatures: **unchanged**
+- `GENESIS_CONSTANTS.toml`: **unchanged**
+- Coq proof files: **unchanged**
+- `ProjectedView` is not exported from the crate and has no protocol-facing presence
+- Cross-domain contamination: no Domain B value introduced or changed

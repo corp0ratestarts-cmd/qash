@@ -433,6 +433,80 @@ fn compute_state_root(state: &EpochState, prior_root: &[u8; 32]) -> [u8; 32] {
 }
 
 // ---------------------------------------------------------------------------
+// ProjectedView — runtime-only lightweight view of the next epoch state
+// ---------------------------------------------------------------------------
+
+/// Runtime-only projected view of the next epoch state, used to compute the
+/// state root without copying the full ~80 KB `EpochState`.
+///
+/// Holds references to the unchanged large arrays (`validator_ids`) and
+/// references to the freshly-computed arrays (`validators`, `nonces`) that
+/// already live on the stack in `run_pipeline`. Small scalar fields are owned.
+///
+/// **Protocol guarantee:** `ProjectedView::compute_root` must produce
+/// byte-for-byte identical output to `compute_state_root` called on a full
+/// `EpochState` with the same field values. The parity is enforced by the
+/// `projected_view_compute_root_matches_full_state` test.
+///
+/// The Coq model is unaffected — this type exists only in the runtime data
+/// path and carries no proof-eligible semantic content.
+struct ProjectedView<'a> {
+    epoch: u64,
+    entropy_seed: [u8; 32],
+    halt_reason: HaltReason,
+    validator_count: u32,
+    cascade_health: u32,
+    validators: &'a [ValidatorMetrics; MAX_VALIDATORS],
+    nonces: &'a [u64; MAX_VALIDATORS],
+    validator_ids: &'a [[u8; 48]; MAX_VALIDATORS],
+    convergence_window: ConvergenceWindow,
+    receipt_root: [u8; 32],
+    efb_root: [u8; 32],
+}
+
+impl<'a> ProjectedView<'a> {
+    /// Compute the state root by streaming all fields into SHA3-256 in the
+    /// identical order as `stream_state_for_commitment` / `compute_state_root`.
+    ///
+    /// Must remain in sync with `stream_state_for_commitment`. Any change to
+    /// the wire encoding must be mirrored here and vice-versa.
+    fn compute_root(&self, prior_root: &[u8; 32]) -> [u8; 32] {
+        let mut h = h_domain_start(DomainTag::StateRoot);
+        h.update(self.epoch.to_le_bytes());
+        h.update(prior_root);
+        h.update([0u8; 32]); // ledger_root: zeros
+        h.update(self.entropy_seed);
+        h.update([self.halt_reason as u8, 0x00, 0x00, 0x00]);
+        h.update(self.validator_count.to_le_bytes());
+        // v1.1 cascade_health + 4 bytes pad
+        h.update(self.cascade_health.to_le_bytes());
+        h.update([0u8; 4]);
+
+        for i in 0..self.validator_count as usize {
+            let v = &self.validators[i];
+            h.update(fp_to_i64_wire(v.divergence).to_le_bytes());
+            h.update(fp_to_i64_wire(v.conflict).to_le_bytes());
+            h.update(fp_to_i64_wire(v.slash_accum).to_le_bytes());
+            h.update(self.nonces[i].to_le_bytes());
+            h.update(self.validator_ids[i]);
+        }
+
+        let (filled, values) = self.convergence_window.raw_parts();
+        h.update([filled, 0x00, 0x00, 0x00]);
+        for v in values.iter() {
+            h.update(fp_to_i64_wire(*v).to_le_bytes());
+        }
+
+        if self.receipt_root != [0u8; 32] || self.efb_root != [0u8; 32] {
+            h.update(self.receipt_root);
+            h.update(self.efb_root);
+        }
+
+        h_domain_finish(h)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Transition logic
 // ---------------------------------------------------------------------------
 
@@ -618,16 +692,23 @@ fn run_pipeline(
         None => state.efb_root,
     };
 
-    let mut projected = *state;
-    projected.validators = next_validators;
-    projected.nonces = tx_plan.next_nonces;
-    projected.convergence_window = next_window;
-    projected.entropy_seed = next_entropy;
-    projected.epoch = next_epoch;
-    projected.cascade_health = new_cascade_health;
-    projected.receipt_root = next_receipt_root;
-    projected.efb_root = next_efb_root;
-    let root = compute_state_root(&projected, &prior_root);
+    // ProjectedView: compute state root without a full ~80 KB EpochState copy.
+    // All eight updated fields are provided directly; unchanged large arrays
+    // (validator_ids) are borrowed from the current state.
+    let root = ProjectedView {
+        epoch: next_epoch,
+        entropy_seed: next_entropy,
+        halt_reason: state.halt_reason,
+        validator_count: state.validator_count,
+        cascade_health: new_cascade_health,
+        validators: &next_validators,
+        nonces: &tx_plan.next_nonces,
+        validator_ids: &state.validator_ids,
+        convergence_window: next_window,
+        receipt_root: next_receipt_root,
+        efb_root: next_efb_root,
+    }
+    .compute_root(&prior_root);
 
     // v1.1 causal fingerprint: H_domain(CausalFingerprint, prev_fp || epoch_le || state_root).
     // Chains the full transition history; equal fingerprints ⟹ equal histories.
@@ -1463,6 +1544,98 @@ mod tests {
     #[test]
     fn streaming_state_root_parity_max_validators() {
         streaming_parity_check(&genesis_state_vc(MAX_VALIDATORS as u32), &[0x55; 32]);
+    }
+
+    // ── 2-R: ProjectedView parity ────────────────────────────────────────────
+    //
+    // Verifies that `ProjectedView::compute_root` produces byte-for-byte
+    // identical output to `compute_state_root` called on a full `EpochState`
+    // with the same field values. This enforces the correctness of the
+    // ~80 KB copy elimination in `run_pipeline`.
+
+    #[test]
+    fn projected_view_compute_root_matches_full_state_genesis() {
+        let state = genesis_state_vc(4);
+        let prior_root = [0u8; 32];
+        let full_root = compute_state_root(&state, &prior_root);
+        let view_root = ProjectedView {
+            epoch: state.epoch,
+            entropy_seed: state.entropy_seed,
+            halt_reason: state.halt_reason,
+            validator_count: state.validator_count,
+            cascade_health: state.cascade_health,
+            validators: &state.validators,
+            nonces: &state.nonces,
+            validator_ids: &state.validator_ids,
+            convergence_window: state.convergence_window,
+            receipt_root: state.receipt_root,
+            efb_root: state.efb_root,
+        }
+        .compute_root(&prior_root);
+        assert_eq!(
+            full_root, view_root,
+            "ProjectedView::compute_root diverged from compute_state_root (genesis shape)"
+        );
+    }
+
+    #[test]
+    fn projected_view_compute_root_matches_full_state_with_metrics() {
+        let mut state = genesis_state_vc(8);
+        state.validators[0] = ValidatorMetrics {
+            divergence: FixedPoint::from_raw(200_000),
+            conflict: FixedPoint::from_raw(50_000),
+            slash_accum: FixedPoint::ZERO,
+        };
+        state.nonces[0] = 42;
+        state.cascade_health = 3;
+        state.entropy_seed = [0xCA; 32];
+        let prior_root = [0xDE; 32];
+        let full_root = compute_state_root(&state, &prior_root);
+        let view_root = ProjectedView {
+            epoch: state.epoch,
+            entropy_seed: state.entropy_seed,
+            halt_reason: state.halt_reason,
+            validator_count: state.validator_count,
+            cascade_health: state.cascade_health,
+            validators: &state.validators,
+            nonces: &state.nonces,
+            validator_ids: &state.validator_ids,
+            convergence_window: state.convergence_window,
+            receipt_root: state.receipt_root,
+            efb_root: state.efb_root,
+        }
+        .compute_root(&prior_root);
+        assert_eq!(
+            full_root, view_root,
+            "ProjectedView::compute_root diverged from compute_state_root (with metrics)"
+        );
+    }
+
+    #[test]
+    fn projected_view_compute_root_matches_full_state_with_sharding_roots() {
+        let mut state = genesis_state_vc(4);
+        state.receipt_root = [0x11; 32];
+        state.efb_root = [0x22; 32];
+        let prior_root = [0xAA; 32];
+        let full_root = compute_state_root(&state, &prior_root);
+        let view_root = ProjectedView {
+            epoch: state.epoch,
+            entropy_seed: state.entropy_seed,
+            halt_reason: state.halt_reason,
+            validator_count: state.validator_count,
+            cascade_health: state.cascade_health,
+            validators: &state.validators,
+            nonces: &state.nonces,
+            validator_ids: &state.validator_ids,
+            convergence_window: state.convergence_window,
+            receipt_root: state.receipt_root,
+            efb_root: state.efb_root,
+        }
+        .compute_root(&prior_root);
+        assert_eq!(
+            full_root, view_root,
+            "ProjectedView::compute_root diverged from compute_state_root (sharding roots set)"
+        );
     }
 }
 
