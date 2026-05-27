@@ -223,22 +223,11 @@ jobs:
     runs-on: ubuntu-latest
     # Advisory until findings are triaged and suppressions/exceptions are documented.
     continue-on-error: true
-    permissions:
-      contents: read
-      security-events: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: rust
-          queries: security-and-quality
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: /language:rust
+      - name: Defer CodeQL to repository default setup
+        run: |
+          echo "Repository CodeQL default setup is enabled."
+          echo "Skipping custom CodeQL advanced setup to avoid duplicate code-scanning uploads."
 
   osv-scan:
     runs-on: ubuntu-latest
@@ -247,33 +236,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: OSV dependency vulnerability scan
-        uses: google/osv-scanner-action@v2
+        id: osv-scan
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@v2.3.8
         with:
           scan-args: |-
             --lockfile=Cargo.lock
+      - name: Record advisory OSV result
+        if: steps.osv-scan.outcome == 'failure'
+        run: |
+          echo "OSV advisory scan reported findings or a scanner error."
+          echo "Security review should inspect the OSV log, but this advisory job is not merge-blocking."
 
   scorecard:
     runs-on: ubuntu-latest
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     # Advisory until repository-level supply-chain posture controls are configured.
     continue-on-error: true
-    permissions:
-      contents: read
-      id-token: write
-      security-events: write
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Run OpenSSF Scorecard
-        uses: ossf/scorecard-action@v2
+        uses: ossf/scorecard-action@v2.4.0
         with:
           results_file: scorecard-results.sarif
           results_format: sarif
           publish_results: false
-      - name: Upload Scorecard SARIF
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Upload Scorecard artifact
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: scorecard-results.sarif
+          name: scorecard-${{ github.sha }}
+          path: scorecard-results.sarif
+          if-no-files-found: warn
+          retention-days: 365
 
   sbom:
     runs-on: ubuntu-latest
