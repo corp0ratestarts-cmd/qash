@@ -1,0 +1,118 @@
+name: OS Determinism Advisory (Tier B)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 1'
+
+# Advisory workflow — all jobs use continue-on-error: true.
+# Tier B hosted-OS targets (Windows, macOS, FreeBSD, WASM).
+# No support claims until L3 state-root evidence exists for each target.
+
+jobs:
+  native-root:
+    name: Capture native state root (Linux x86_64 reference)
+    runs-on: ubuntu-latest
+    outputs:
+      state_root: ${{ steps.capture.outputs.state_root }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Capture native state root
+        id: capture
+        run: |
+          ROOT=$(cargo test -p qash-consensus --no-default-features \
+                   state_root_canonical_seq_print -- --nocapture 2>/dev/null \
+                 | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1)
+          echo "state_root=${ROOT}" >> "$GITHUB_OUTPUT"
+          echo "Native state root: ${ROOT}"
+
+  # ── Tier B — Windows ─────────────────────────────────────────────────────────
+  windows-x86_64:
+    name: x86_64-pc-windows-msvc (advisory L3)
+    needs: native-root
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Run platform determinism gate
+        env:
+          TARGET: x86_64-pc-windows-msvc
+          EXPECTED_ROOT: ${{ needs.native-root.outputs.state_root }}
+          MODE: full
+        shell: bash
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  # ── Tier B — macOS ───────────────────────────────────────────────────────────
+  macos-x86_64:
+    name: x86_64-apple-darwin (advisory L3)
+    needs: native-root
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Run platform determinism gate
+        env:
+          TARGET: x86_64-apple-darwin
+          EXPECTED_ROOT: ${{ needs.native-root.outputs.state_root }}
+          MODE: full
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  macos-aarch64:
+    name: aarch64-apple-darwin (advisory L2 — best-effort)
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain + aarch64 target
+        run: |
+          rustup toolchain install
+          rustup target add aarch64-apple-darwin
+      - name: Run platform determinism gate (test only — cross-compile from x86_64 runner)
+        env:
+          TARGET: aarch64-apple-darwin
+          MODE: compile
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  # ── Tier B — WASM ────────────────────────────────────────────────────────────
+  wasm32-wasip1:
+    name: wasm32-wasip1 (advisory L2)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain + WASM target
+        run: |
+          rustup toolchain install
+          rustup target add wasm32-wasip1
+      - name: Install wasmtime
+        run: |
+          curl -fsSL https://wasmtime.dev/install.sh | bash
+          echo "$HOME/.wasmtime/bin" >> "$GITHUB_PATH"
+      - name: Run platform determinism gate
+        env:
+          TARGET: wasm32-wasip1
+          MODE: test
+          CARGO_TARGET_WASM32_WASIP1_RUNNER: wasmtime
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  wasm32-unknown:
+    name: wasm32-unknown-unknown (advisory L1 compile-only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain + WASM target
+        run: |
+          rustup toolchain install
+          rustup target add wasm32-unknown-unknown
+      - name: Run platform determinism gate (compile only)
+        env:
+          TARGET: wasm32-unknown-unknown
+          MODE: compile
+        run: bash scripts/run_platform_determinism_gate.sh

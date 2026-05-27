@@ -1,0 +1,105 @@
+name: Embedded no_std Advisory (Tier C)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * 1'
+
+# Advisory workflow — all jobs use continue-on-error: true.
+# Tier C embedded/RTOS profiles: cargo check for no_std targets.
+# Goal: L1 compile evidence that Domain A builds cleanly under these profiles.
+# RTOS APIs remain Domain B PAL concerns; no RTOS API enters qash-consensus.
+
+jobs:
+  # ── Tier C — ARM Cortex-M (ITRON, FreeRTOS, Zephyr, AUTOSAR) ─────────────
+  thumbv7em-none-eabihf:
+    name: thumbv7em-none-eabihf (advisory L1 — ARM Cortex-M4/M7)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain + embedded target
+        run: |
+          rustup toolchain install
+          rustup target add thumbv7em-none-eabihf
+      - name: Run platform determinism gate (compile only)
+        env:
+          TARGET: thumbv7em-none-eabihf
+          MODE: compile
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  thumbv8m-none-eabihf:
+    name: thumbv8m.main-none-eabihf (advisory L1 — ARM Cortex-M33/M55, Zephyr)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain + embedded target
+        run: |
+          rustup toolchain install
+          rustup target add thumbv8m.main-none-eabihf
+      - name: Run platform determinism gate (compile only)
+        env:
+          TARGET: thumbv8m.main-none-eabihf
+          MODE: compile
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  # ── Tier C — RISC-V embedded (RTEMS, seL4-RISC-V) ───────────────────────────
+  riscv32imac-none:
+    name: riscv32imac-unknown-none-elf (advisory L1 — RISC-V embedded, RTEMS)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain + RISC-V target
+        run: |
+          rustup toolchain install
+          rustup target add riscv32imac-unknown-none-elf
+      - name: Run platform determinism gate (compile only)
+        env:
+          TARGET: riscv32imac-unknown-none-elf
+          MODE: compile
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  # ── Tier C — AArch64 bare-metal (seL4) ──────────────────────────────────────
+  aarch64-none:
+    name: aarch64-unknown-none (advisory L1 — seL4)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain + AArch64 bare-metal target
+        run: |
+          rustup toolchain install
+          rustup target add aarch64-unknown-none
+      - name: Run platform determinism gate (compile only)
+        env:
+          TARGET: aarch64-unknown-none
+          MODE: compile
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  # ── Summary job ───────────────────────────────────────────────────────────────
+  embedded-summary:
+    name: Embedded no_std summary
+    needs:
+      - thumbv7em-none-eabihf
+      - thumbv8m-none-eabihf
+      - riscv32imac-none
+      - aarch64-none
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    if: always()
+    steps:
+      - name: Summarise embedded compile results
+        run: |
+          echo "## Embedded no_std Advisory Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Target | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| thumbv7em-none-eabihf | ${{ needs.thumbv7em-none-eabihf.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| thumbv8m.main-none-eabihf | ${{ needs.thumbv8m-none-eabihf.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| riscv32imac-unknown-none-elf | ${{ needs.riscv32imac-none.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| aarch64-unknown-none | ${{ needs.aarch64-none.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Advisory only — failures do not block PRs or main." >> "$GITHUB_STEP_SUMMARY"
+          echo "> L1 compile evidence required before any embedded/RTOS support claim." >> "$GITHUB_STEP_SUMMARY"

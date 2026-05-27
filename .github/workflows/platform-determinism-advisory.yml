@@ -1,0 +1,158 @@
+name: Platform Determinism Advisory (Tier A+)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1'
+
+# Advisory workflow — all jobs use continue-on-error: true.
+# Failures are recorded but do not block PRs or main.
+# Tier A+ targets promote to blocking only after ≥3 clean scheduled runs
+# with L3 state-root evidence + L4 corpus + L5 artifact (per platform matrix).
+
+jobs:
+  native-root:
+    name: Capture native state root (x86_64 reference)
+    runs-on: ubuntu-latest
+    outputs:
+      state_root: ${{ steps.capture.outputs.state_root }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Capture native state root
+        id: capture
+        run: |
+          ROOT=$(cargo test -p qash-consensus --no-default-features \
+                   state_root_canonical_seq_print -- --nocapture 2>/dev/null \
+                 | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1)
+          echo "state_root=${ROOT}" >> "$GITHUB_OUTPUT"
+          echo "Native state root: ${ROOT}"
+
+  # ── Tier A+ — musl static-link variants ─────────────────────────────────────
+  x86_64-musl:
+    name: x86_64-unknown-linux-musl (advisory L3)
+    needs: native-root
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain + musl target
+        run: |
+          rustup toolchain install
+          rustup target add x86_64-unknown-linux-musl
+      - name: Run platform determinism gate
+        env:
+          TARGET: x86_64-unknown-linux-musl
+          EXPECTED_ROOT: ${{ needs.native-root.outputs.state_root }}
+          MODE: full
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  aarch64-musl:
+    name: aarch64-unknown-linux-musl (advisory L3)
+    needs: native-root
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y qemu-user-static gcc-aarch64-linux-gnu
+      - name: Install pinned Rust toolchain + musl target
+        run: |
+          rustup toolchain install
+          rustup target add aarch64-unknown-linux-musl
+      - name: Run platform determinism gate
+        env:
+          TARGET: aarch64-unknown-linux-musl
+          EXPECTED_ROOT: ${{ needs.native-root.outputs.state_root }}
+          MODE: full
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  # ── Tier A+ — 32-bit and big-endian ─────────────────────────────────────────
+  i686-linux:
+    name: i686-unknown-linux-gnu (advisory L3)
+    needs: native-root
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gcc-i686-linux-gnu qemu-user-static
+      - name: Install pinned Rust toolchain + i686 target
+        run: |
+          rustup toolchain install
+          rustup target add i686-unknown-linux-gnu
+      - name: Run platform determinism gate
+        env:
+          TARGET: i686-unknown-linux-gnu
+          EXPECTED_ROOT: ${{ needs.native-root.outputs.state_root }}
+          MODE: full
+          CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: i686-linux-gnu-gcc
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  s390x-linux:
+    name: s390x-unknown-linux-gnu (advisory L3 — big-endian)
+    needs: native-root
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gcc-s390x-linux-gnu qemu-user-static
+      - name: Install pinned Rust toolchain + s390x target
+        run: |
+          rustup toolchain install
+          rustup target add s390x-unknown-linux-gnu
+      - name: Run platform determinism gate
+        env:
+          TARGET: s390x-unknown-linux-gnu
+          EXPECTED_ROOT: ${{ needs.native-root.outputs.state_root }}
+          MODE: full
+          CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER: s390x-linux-gnu-gcc
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  # ── Tier A+ — LoongArch (L1 compile-only; QEMU support may vary) ────────────
+  loongarch64-linux:
+    name: loongarch64-unknown-linux-gnu (advisory L1 compile-only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain + LoongArch target
+        run: |
+          rustup toolchain install
+          rustup target add loongarch64-unknown-linux-gnu || true
+      - name: Run platform determinism gate (compile only)
+        env:
+          TARGET: loongarch64-unknown-linux-gnu
+          MODE: compile
+        run: bash scripts/run_platform_determinism_gate.sh
+
+  # ── Tier A+ — ARMv7 (L1 compile-only initially; needs QEMU arm harness) ─────
+  armv7-linux:
+    name: armv7-unknown-linux-gnueabihf (advisory L1 compile-only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gcc-arm-linux-gnueabihf
+      - name: Install pinned Rust toolchain + ARMv7 target
+        run: |
+          rustup toolchain install
+          rustup target add armv7-unknown-linux-gnueabihf
+      - name: Run platform determinism gate (compile only)
+        env:
+          TARGET: armv7-unknown-linux-gnueabihf
+          MODE: compile
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+        run: bash scripts/run_platform_determinism_gate.sh
