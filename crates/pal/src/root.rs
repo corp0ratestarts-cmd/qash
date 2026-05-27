@@ -6,6 +6,7 @@ pub mod mvp;
 pub mod mvp_demo_profile;
 #[cfg(feature = "std")]
 pub mod mvp_vault;
+pub mod privacy;
 pub mod receipt;
 pub mod recovery_wal;
 pub mod zero_wal;
