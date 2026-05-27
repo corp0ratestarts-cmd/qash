@@ -1,7 +1,7 @@
 # QASH Implementation Order
 
 **Status:** Active execution guide.  
-**Last updated:** 2026-05-26 (Track -1 reconciliation — PRs #165–#169 merged)  
+**Last updated:** 2026-05-27 (Phase 5 hardening tracks in review — PRs #174–#183)  
 **Purpose:** This file orders the remaining work. `ROADMAP.md` describes the broader destination.
 
 ## Current posture
@@ -25,6 +25,18 @@ transport, ZK verifier, and crash recovery remain open.
 - PR #167: Phase 2-R micro-fix — single-pass tx admission via cheap byte reads (partial 2-R landing)
 - PR #168: Pilot execution readiness docs, evidence manifest, pilot package, funding docs
 - PR #169: v0.3 multi-operator import/replay with labelled import tracking
+
+**Phase 5 hardening — in review (PRs #174–#183, all from decomposed #172):**
+- PR #174 (Track 3): Privacy/erasure boundary — `ReceiptKey` ZeroizeOnDrop, `ShredKeyEvidence`, PII boundary assertions
+- PR #175 (Track 4): Production PAL transport — `TcpCommitmentTransport`, `FaultyTransport`, crash-recovery parity harness
+- PR #176 (Track 6): FIPS-aligned crypto — HMAC-DRBG wording audit, TLS validation, `log_pseudonym`, crypto-agility traits
+- PR #177 (Track 7): Phase 2-R sort-order determinism test and ADR evidence
+- PR #178 (Track 8): Plonky3 FRI-STARK ZK verifier scaffold with profile-lock invariant
+- PR #179 (Track 10): Compliance evidence bundle — DPIA, CC EAL4+ ST, OSCAL assessment, reproducible build script
+- PR #180 (Track -1/docs): ROADMAP Phase 5 summary update
+- PR #181 (Track 9/1-A): CapToken schema Coq proof — 10 theorems, 0 Admitted
+- PR #182 (Track 9/housekeeping): Remove stale `encoding_injectivity.v` from `_CoqProject`
+- PR #183 (Track 7): Streaming state-root parity tests + `ProjectedView` (~80 KB copy elimination)
 
 Genesis remains trustless and deterministic. Hardware-backed tools are optional local OpSec only.
 
