@@ -93,6 +93,12 @@ current baseline vectors.
 | `docker/` | Pinned build environment (`Dockerfile.build`) | — |
 | `docs/` | Protocol specs, ADRs, threat model, refinement pipeline | — |
 | `docs/release/pre_genesis_evidence_snapshot.md` | Current pre-genesis audit handoff and allowed-claim boundary | — |
+| `docs/audit/pre_genesis_audit_plan.md` | Pre-genesis full-repo audit gate: 10 phases, gating model, CI split | Runs on every PR (blocking subset) and weekly (full audit) |
+| `docs/audit/unsafe_exceptions.md` | Unsafe code exception register — Domain B only; Domain A has zero tolerance | Updated when any Domain B unsafe lacks a `// SAFETY:` comment |
+| `docs/audit/dependency_risk_register.md` | Dependency risk triage register — advisory findings from `cargo audit`, OSV, `cargo deny` | Must be complete before genesis-lock |
+| `docs/platforms/authorized_platform_matrix.md` | Authorised platform universe across 5 tiers with evidence-gating rules | Advisory CI runs weekly; blocking Tier A enforced by `platform-determinism.yml` |
+| `docs/platforms/rtos_portability_plan.md` | RTOS portability strategy for 8 profiles (ITRON, FreeRTOS, Zephyr, RTEMS, seL4, AUTOSAR, VxWorks, QNX, INTEGRITY) | L1 compile evidence goals; RTOS APIs remain Domain B |
+| `docs/platforms/accelerator_profiles.md` | GPU compute and hardware security/attestation Tier D evidence profiles | All profiles are planned evidence targets — no support claims yet |
 | `docs/release/current_integration_review_slices.md` | Review map for splitting the current integration branch | — |
 | `scripts/capture_pre_genesis_evidence.sh` | Local evidence bundle capture for the exact reviewed worktree | Writes under `artifacts/evidence/` |
 | `GENESIS_CONSTANTS.toml` | Immutable genesis parameters — treat as append-only | — |

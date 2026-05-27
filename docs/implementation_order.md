@@ -145,3 +145,63 @@ make -C proofs
 cargo deny check
 scripts/run_kani_consensus.sh
 ```
+
+---
+
+## Track 11 — Pre-Genesis Full-Repo Audit Gate + Authorised Platform Matrix
+
+**Status:** In progress (PRs #185–#197).  
+**Gate:** Must complete before genesis-lock. All blocking audit phases must be clean.
+
+### Deliverables
+
+| PR | Content | Branch |
+|----|---------|--------|
+| [#185](https://github.com/corp0ratestarts-cmd/qash/pull/185) | `docs/platforms/authorized_platform_matrix.md` | `claude/relaxed-hopper-OHZQZ` |
+| [#186](https://github.com/corp0ratestarts-cmd/qash/pull/186) | `docs/platforms/rtos_portability_plan.md` | `docs/rtos-portability-plan` |
+| [#187](https://github.com/corp0ratestarts-cmd/qash/pull/187) | `docs/platforms/accelerator_profiles.md` | `docs/accelerator-profiles` |
+| [#188](https://github.com/corp0ratestarts-cmd/qash/pull/188) | `docs/audit/pre_genesis_audit_plan.md`, `docs/audit/unsafe_exceptions.md`, `artifacts/audit/.gitkeep` | `docs/pre-genesis-audit-plan` |
+| [#189](https://github.com/corp0ratestarts-cmd/qash/pull/189) | `scripts/audit_file_inventory.sh`, `scripts/audit_claim_boundary.sh` | `scripts/audit-file-inventory-claim-boundary` |
+| [#190](https://github.com/corp0ratestarts-cmd/qash/pull/190) | `scripts/audit_rust_bad_practices.sh`, `scripts/audit_panic_surface.sh` | `scripts/audit-rust-bad-practices-panic-surface` |
+| [#191](https://github.com/corp0ratestarts-cmd/qash/pull/191) | `scripts/audit_unsafe_boundary.sh`, `scripts/audit_liveness_loops.sh`, `scripts/audit_concurrency_patterns.sh`, `scripts/audit_domain_boundary_full.sh` | `scripts/audit-e-boundary-liveness-concurrency` |
+| [#192](https://github.com/corp0ratestarts-cmd/qash/pull/192) | `scripts/run_platform_determinism_gate.sh` | `scripts/platform-determinism-gate` |
+| [#193](https://github.com/corp0ratestarts-cmd/qash/pull/193) | `docs/audit/dependency_risk_register.md` | `docs/audit-f-dependency-risk-register` |
+| [#194](https://github.com/corp0ratestarts-cmd/qash/pull/194) | `scripts/run_clippy_strict_audit.sh`, `.github/workflows/pre-genesis-full-repo-audit.yml` | `scripts/audit-g-clippy-workflow` |
+| [#195](https://github.com/corp0ratestarts-cmd/qash/pull/195) | `scripts/build_pre_genesis_audit_report.sh` | `scripts/audit-h-report-builder` |
+| [#196](https://github.com/corp0ratestarts-cmd/qash/pull/196) | `scripts/build_platform_evidence_matrix.sh`, `artifacts/evidence/platform_matrix.template.md` | `scripts/platform-evidence-matrix` |
+| [#197](https://github.com/corp0ratestarts-cmd/qash/pull/197) | `.github/workflows/platform-determinism-advisory.yml`, `os-determinism-advisory.yml`, `embedded-nostd-advisory.yml` | `workflows/platform-advisory` |
+| [#198](https://github.com/corp0ratestarts-cmd/qash/pull/198) | Link audit/platform docs from README, ROADMAP, this file | `docs/pr-j-link-audit-platform-docs` |
+
+### Audit phases
+
+| Phase | Script | Status | Gate |
+|-------|--------|--------|------|
+| 1 — File inventory | `audit_file_inventory.sh` | ✅ Done | Full audit only |
+| 2 — Rust bad practices | `audit_rust_bad_practices.sh` | ✅ Done | Blocking |
+| 3 — Strict Clippy | `run_clippy_strict_audit.sh` | ✅ Done | Advisory |
+| 4 — Unsafe boundary | `audit_unsafe_boundary.sh` | ✅ Done | Blocking |
+| 5 — Liveness loops | `audit_liveness_loops.sh` | ✅ Done | Blocking |
+| 6 — Panic surface | `audit_panic_surface.sh` | ✅ Done | Blocking |
+| 7 — Concurrency patterns | `audit_concurrency_patterns.sh` | ✅ Done | Advisory |
+| 9 — Claim boundary | `audit_claim_boundary.sh` | ✅ Done | Blocking |
+| 10 — Domain A/B full boundary | `audit_domain_boundary_full.sh` | ✅ Done | Blocking |
+| 12 — Consolidated report | `build_pre_genesis_audit_report.sh` | ✅ Done | Full audit only |
+
+### Platform tiers
+
+| Tier | Scope | CI status |
+|------|-------|-----------|
+| **A** — genesis-blocking | `x86_64`, `aarch64`, `riscv64gc` Linux | ✅ `platform-determinism.yml` |
+| **A+** — advisory ISA | musl, i686, s390x, LoongArch, ARMv7 | `platform-determinism-advisory.yml` |
+| **B** — hosted OS | Windows, macOS, FreeBSD, WASM | `os-determinism-advisory.yml` |
+| **C** — embedded / RTOS | thumbv7em, thumbv8m, riscv32imac, aarch64-none | `embedded-nostd-advisory.yml` |
+| **D** — accelerator / hardware | MUSA, CUDA, ROCm, TPM, HSM, TEE | Domain B evidence profiles (manual) |
+
+### Policy documents
+
+- [`docs/platforms/authorized_platform_matrix.md`](../platforms/authorized_platform_matrix.md) — Evidence-gating rules and tier definitions
+- [`docs/platforms/rtos_portability_plan.md`](../platforms/rtos_portability_plan.md) — RTOS portability strategy
+- [`docs/platforms/accelerator_profiles.md`](../platforms/accelerator_profiles.md) — Accelerator and hardware evidence profiles
+- [`docs/audit/pre_genesis_audit_plan.md`](pre_genesis_audit_plan.md) — Full audit plan with all phase specs
+- [`docs/audit/unsafe_exceptions.md`](unsafe_exceptions.md) — Unsafe exception register
+- [`docs/audit/dependency_risk_register.md`](dependency_risk_register.md) — Dependency risk triage register
