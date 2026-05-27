@@ -8,7 +8,6 @@ contractivity/encode_injectivity.v
 contractivity/tx_perturbation_0.v
 contractivity/tx1_score_decrement.v
 contractivity/lyapunov_grace_convergence.v
-encoding_injectivity.v
 lyapunov_decrease.v
 safety/absorbing_halt.v
 integration/th8_composition.v
