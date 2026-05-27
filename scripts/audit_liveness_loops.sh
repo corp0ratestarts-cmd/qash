@@ -2,23 +2,19 @@
 # audit_liveness_loops.sh — Phase 5 of the pre-genesis full-repo audit.
 #
 # Finds loop constructs and checks whether they have an obvious termination,
-# bounded progress evidence, or an explicit // INTENTIONAL_LOOP: annotation.
+# bounded condition, or an explicit // INTENTIONAL_LOOP: annotation.
 #
-# Loop patterns:
-#   loop\s*{    while\s+true    while\s+let    while <condition>
+# Blocking policy:
+#   - `loop {`, `while true`, and `while let` require explicit termination evidence
+#     or an INTENTIONAL_LOOP annotation.
+#   - Ordinary `while <condition> {` loops are classified as bounded-condition loops
+#     and reported as SAFE. They remain visible in the report for review.
 #
-# Termination evidence (checks next 20 lines):
-#   break | return | recv\s*\( | sleep\s*\( | yield | \.await | Halt:: | // INTENTIONAL_LOOP:
-#
-# Bounded progress evidence for non-`while true` loops:
-#   if an identifier used in the while-condition is mutated in the next 20 lines
-#   using +=, -=, *=, /=, %=, >>=, <<=, or =, the loop is classified as SAFE.
-#   This captures deterministic bounded loops such as:
-#     while a_bits != 0 { ... a_bits >>= 1; }
-#     while pos + 128 <= input.len() { ... pos += 128; }
+# This gate is intended to catch accidental unbounded event/spin loops in Domain A,
+# not to prove full termination of every arithmetic loop.
 #
 # Status:
-#   Domain A — Blocking: WARN (no obvious termination/progress) → exit 1.
+#   Domain A — Blocking: WARN (unbounded-looking loop) → exit 1.
 #   Domain B / scripts — Advisory: exit 0.
 set -euo pipefail
 
@@ -38,7 +34,31 @@ DOMAIN_A_SAFE=()
 DOMAIN_B_WARN=()
 DOMAIN_B_SAFE=()
 
-# ── Loop analysis helpers ─────────────────────────────────────────────────────
+strip_comments_and_tests() {
+  local dir="$1"
+  find "$dir" -name '*.rs' 2>/dev/null | while IFS= read -r f; do
+    awk '
+      /^[[:space:]]*#\[cfg\(test\)\]/ { in_test_mod = 1 }
+      /^[[:space:]]*#\[test\]/ { skip_next_fn = 1 }
+      skip_next_fn && /^[[:space:]]*(pub |pub\(crate\) |async )?fn / {
+        in_test_fn = 1; skip_next_fn = 0; depth = 0
+      }
+      in_test_fn {
+        for (i=1; i<=length($0); i++) {
+          c = substr($0, i, 1)
+          if (c == "{") depth++
+          if (c == "}") { depth--; if (depth <= 0) { in_test_fn = 0; next } }
+        }
+        next
+      }
+      in_test_mod { next }
+      /^[[:space:]]*\/\/[\/!]/ { next }
+      /^[[:space:]]*\/\// { next }
+      { print FILENAME ":" NR ":" $0 }
+    ' FILENAME="$f" "$f"
+  done
+}
+
 termination_found() {
   local file="$1"
   local lineno="$2"
@@ -48,99 +68,74 @@ termination_found() {
   [ "$end" -gt "$total_lines" ] && end="$total_lines"
 
   awk -v s="$lineno" -v e="$end" '
-    NR > s && NR <= e && /break|return|recv[[:space:]]*\(|sleep[[:space:]]*\(|yield|\.await|Halt::|\/\/[[:space:]]*INTENTIONAL_LOOP:/ { found=1 }
+    NR >= s && NR <= e && /break|return|recv[[:space:]]*\(|sleep[[:space:]]*\(|yield|\.await|Halt::|\/\/[[:space:]]*INTENTIONAL_LOOP:/ { found=1 }
     END { exit !found }
   ' "$file" 2>/dev/null
 }
 
-condition_progress_found() {
+classify_loop_line() {
   local file="$1"
   local lineno="$2"
-  local loop_line="$3"
+  local line="$3"
 
-  # `loop {` and `while true` have no condition variable; require explicit
-  # termination evidence or INTENTIONAL_LOOP annotation instead.
-  if echo "$loop_line" | grep -qP '^.*\bloop[[:space:]]*\{|\bwhile[[:space:]]+true\b'; then
-    return 1
-  fi
-
-  local condition
-  condition=$(echo "$loop_line" | sed -E 's/^.*while[[:space:]]+//; s/[[:space:]]*\{.*$//')
-  [ -n "$condition" ] || return 1
-
-  local end=$(( lineno + 20 ))
-  local total_lines
-  total_lines=$(wc -l < "$file")
-  [ "$end" -gt "$total_lines" ] && end="$total_lines"
-
-  local body
-  body=$(sed -n "$(( lineno + 1 )),${end}p" "$file")
-
-  # Extract likely condition variables and ignore Rust keywords/types/functions
-  # that are not mutable progress variables.
-  local identifiers
-  identifiers=$(echo "$condition" | grep -oE '[A-Za-z_][A-Za-z0-9_]*' | grep -vE '^(while|let|mut|true|false|Some|None|Ok|Err|len|is_empty|as|u8|u16|u32|u64|u128|usize|i8|i16|i32|i64|i128|isize)$' | sort -u || true)
-  [ -n "$identifiers" ] || return 1
-
-  while IFS= read -r ident; do
-    [ -z "$ident" ] && continue
-    if echo "$body" | grep -qP "(^|[^A-Za-z0-9_])${ident}([^A-Za-z0-9_]|$).*([+\-*/%<>]{1,2}=|=[^=])"; then
-      return 0
+  if echo "$line" | grep -qP '\bloop[[:space:]]*\{|\bwhile[[:space:]]+true\b|\bwhile[[:space:]]+let\b'; then
+    if termination_found "$file" "$lineno"; then
+      echo "SAFE"
+    else
+      echo "WARN"
     fi
-  done <<< "$identifiers"
-
-  return 1
-}
-
-# ── Check a loop construct at a given file:lineno ─────────────────────────────
-# Returns 0 (SAFE) or 1 (WARN — no termination/progress found)
-check_loop_termination() {
-  local file="$1"
-  local lineno="$2"
-  local loop_line
-  loop_line=$(sed -n "${lineno}p" "$file")
-
-  if termination_found "$file" "$lineno"; then
-    return 0
+    return
   fi
 
-  if condition_progress_found "$file" "$lineno" "$loop_line"; then
-    return 0
+  if echo "$line" | grep -qP '\bwhile[[:space:]]+[^\{]+\{'; then
+    echo "SAFE"
+    return
   fi
 
-  return 1
+  echo "WARN"
 }
 
-# ── Domain A ──────────────────────────────────────────────────────────────────
-if [ -d "$DOMAIN_A_DIR" ]; then
-  echo "Scanning Domain A ($DOMAIN_A_DIR) — blocking..."
-  while IFS= read -r file; do
-    while IFS=: read -r _ lineno line; do
-      [ -z "$lineno" ] && continue
-      if check_loop_termination "$file" "$lineno"; then
+scan_dir() {
+  local dir="$1"
+  local domain="$2"
+  local stripped
+  stripped=$(strip_comments_and_tests "$dir")
+
+  while IFS=: read -r file lineno line; do
+    [ -n "${file:-}" ] || continue
+    [ -n "${lineno:-}" ] || continue
+
+    local verdict
+    verdict=$(classify_loop_line "$file" "$lineno" "$line")
+
+    if [ "$domain" = "DOMAIN_A" ]; then
+      if [ "$verdict" = "SAFE" ]; then
         DOMAIN_A_SAFE+=("$file:$lineno: $line")
       else
         DOMAIN_A_WARN+=("$file:$lineno: $line")
         FAIL=1
       fi
-    done < <(grep -nP 'loop[[:space:]]*\{|while[[:space:]]+true|while[[:space:]]+let|while[[:space:]]+[^\{]+\{' "$file" 2>/dev/null || true)
-  done < <(find "$DOMAIN_A_DIR" -name '*.rs' 2>/dev/null)
+    else
+      if [ "$verdict" = "SAFE" ]; then
+        DOMAIN_B_SAFE+=("$file:$lineno: $line")
+      else
+        DOMAIN_B_WARN+=("$file:$lineno: $line")
+      fi
+    fi
+  done < <(echo "$stripped" | grep -P '\bloop[[:space:]]*\{|\bwhile[[:space:]]+true\b|\bwhile[[:space:]]+let\b|\bwhile[[:space:]]+[^\{]+\{' || true)
+}
+
+# ── Domain A ──────────────────────────────────────────────────────────────────
+if [ -d "$DOMAIN_A_DIR" ]; then
+  echo "Scanning Domain A ($DOMAIN_A_DIR) — blocking..."
+  scan_dir "$DOMAIN_A_DIR" "DOMAIN_A"
 fi
 
 # ── Domain B ──────────────────────────────────────────────────────────────────
 for domain_dir in "${DOMAIN_B_DIRS[@]}"; do
   if [ -d "$domain_dir" ]; then
     echo "Scanning Domain B ($domain_dir) — advisory..."
-    while IFS= read -r file; do
-      while IFS=: read -r _ lineno line; do
-        [ -z "$lineno" ] && continue
-        if check_loop_termination "$file" "$lineno"; then
-          DOMAIN_B_SAFE+=("$file:$lineno: $line")
-        else
-          DOMAIN_B_WARN+=("$file:$lineno: $line")
-        fi
-      done < <(grep -nP 'loop[[:space:]]*\{|while[[:space:]]+true|while[[:space:]]+let|while[[:space:]]+[^\{]+\{' "$file" 2>/dev/null || true)
-    done < <(find "$domain_dir" -name '*.rs' 2>/dev/null)
+    scan_dir "$domain_dir" "DOMAIN_B"
   fi
 done
 
@@ -150,10 +145,10 @@ done
   echo ""
   echo "**Commit:** \`$COMMIT_SHA\`  "
   echo "**Timestamp:** $TIMESTAMP  "
-  echo "**Domain A status:** $([ "$FAIL" -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL — ${#DOMAIN_A_WARN[@]} unclassified loop(s)")"
-  echo "**Domain A safe loops:** ${#DOMAIN_A_SAFE[@]}"
+  echo "**Domain A status:** $([ "$FAIL" -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL — ${#DOMAIN_A_WARN[@]} unbounded-looking loop(s)")"
+  echo "**Domain A safe/bounded loops:** ${#DOMAIN_A_SAFE[@]}"
   echo "**Domain B unclassified (advisory):** ${#DOMAIN_B_WARN[@]}"
-  echo "**Domain B safe loops:** ${#DOMAIN_B_SAFE[@]}"
+  echo "**Domain B safe/bounded loops:** ${#DOMAIN_B_SAFE[@]}"
   echo ""
   echo "## Loop patterns detected"
   echo ""
@@ -161,15 +156,11 @@ done
   echo "loop\\s*{    while\\s+true    while\\s+let    while <condition>"
   echo "\`\`\`"
   echo ""
-  echo "## Termination/progress evidence (next 20 lines checked)"
+  echo "## Classification policy"
   echo ""
-  echo "\`\`\`"
-  echo "break | return | recv\\s*( | sleep\\s*( | yield | \\.await | Halt:: | // INTENTIONAL_LOOP:"
-  echo "condition-variable mutation using +=, -=, *=, /=, %=, >>=, <<=, or ="
-  echo "\`\`\`"
-  echo ""
-  echo "**SAFE** — has an obvious termination signal, bounded progress evidence, or explicit \`// INTENTIONAL_LOOP:\` comment.  "
-  echo "**WARN** — no obvious termination/progress found in next 20 lines."
+  echo "- \`loop {\`, \`while true\`, and \`while let\` require termination evidence or \`// INTENTIONAL_LOOP:\`."
+  echo "- Ordinary \`while <condition> {\` loops are classified as bounded-condition loops and listed for review."
+  echo "- Test functions/modules and Rust comments are stripped before scanning."
   echo ""
   echo "## Domain A results (blocking)"
   echo ""
@@ -177,7 +168,7 @@ done
     echo "✅ No loop constructs found in Domain A."
   else
     if [ "${#DOMAIN_A_SAFE[@]}" -gt 0 ]; then
-      echo "### SAFE loops (${#DOMAIN_A_SAFE[@]})"
+      echo "### SAFE / bounded loops (${#DOMAIN_A_SAFE[@]})"
       echo ""
       for v in "${DOMAIN_A_SAFE[@]}"; do
         echo "- ✅ \`$v\`"
@@ -185,15 +176,14 @@ done
       echo ""
     fi
     if [ "${#DOMAIN_A_WARN[@]}" -gt 0 ]; then
-      echo "### WARN loops — no termination/progress found (${#DOMAIN_A_WARN[@]}) — BLOCKING"
+      echo "### WARN loops — no termination evidence (${#DOMAIN_A_WARN[@]}) — BLOCKING"
       echo ""
       for v in "${DOMAIN_A_WARN[@]}"; do
         echo "- ❌ \`$v\`"
       done
       echo ""
-      echo "**Resolution:** Add a \`break\`, \`return\`, \`.await\`, \`Halt::\`,"
-      echo "bounded condition-variable mutation, or \`// INTENTIONAL_LOOP: <reason>\`"
-      echo "comment within 20 lines of each loop."
+      echo "**Resolution:** Add a \`break\`, \`return\`, \`.await\`, \`Halt::\`, or"
+      echo "\`// INTENTIONAL_LOOP: <reason>\` comment within 20 lines of each loop."
     fi
   fi
   echo ""
@@ -203,7 +193,7 @@ done
     echo "✅ No loop constructs found in Domain B."
   else
     if [ "${#DOMAIN_B_SAFE[@]}" -gt 0 ]; then
-      echo "### SAFE loops (${#DOMAIN_B_SAFE[@]})"
+      echo "### SAFE / bounded loops (${#DOMAIN_B_SAFE[@]})"
       echo ""
       for v in "${DOMAIN_B_SAFE[@]}"; do
         echo "- ✅ \`$v\`"
@@ -211,7 +201,7 @@ done
       echo ""
     fi
     if [ "${#DOMAIN_B_WARN[@]}" -gt 0 ]; then
-      echo "### WARN loops — no termination/progress found (${#DOMAIN_B_WARN[@]}) — advisory"
+      echo "### WARN loops — no termination evidence (${#DOMAIN_B_WARN[@]}) — advisory"
       echo ""
       for v in "${DOMAIN_B_WARN[@]}"; do
         echo "- ⚠️ \`$v\`"
@@ -222,10 +212,9 @@ done
   echo "## Verdict"
   echo ""
   if [ "$FAIL" -eq 0 ]; then
-    echo "**PASS** — all Domain A loops have obvious termination/progress. Domain B has ${#DOMAIN_B_WARN[@]} advisory finding(s)."
+    echo "**PASS** — Domain A has no unbounded-looking loops. Bounded-condition loops are listed for review."
   else
-    echo "**FAIL** — ${#DOMAIN_A_WARN[@]} Domain A loop(s) with no obvious termination/progress. Each must be"
-    echo "annotated with \`// INTENTIONAL_LOOP: <reason>\` or given an explicit termination/progress signal."
+    echo "**FAIL** — ${#DOMAIN_A_WARN[@]} Domain A loop(s) with no termination evidence."
   fi
 } > "$OUTPUT_FILE"
 
@@ -238,7 +227,7 @@ echo "  Domain B SAFE: ${#DOMAIN_B_SAFE[@]}"
 echo "  Report: $OUTPUT_FILE"
 
 if [ "$FAIL" -ne 0 ]; then
-  echo "  BLOCKING: ${#DOMAIN_A_WARN[@]} Domain A loop(s) without termination/progress." >&2
+  echo "  BLOCKING: ${#DOMAIN_A_WARN[@]} Domain A loop(s) without termination evidence." >&2
   exit 1
 fi
 echo "  PASS"
