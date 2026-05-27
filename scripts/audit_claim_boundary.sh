@@ -27,9 +27,6 @@ mkdir -p "$OUTPUT_DIR"
 COMMIT_SHA=$(git rev-parse HEAD)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-FAIL=0
-VIOLATIONS=()
-
 # Contextual overclaim patterns, case-insensitive grep -P regexes.
 # Broad protocol words are not blocked alone because QASH legitimately uses
 # capability-token, non-custodial, no-custody, and boundary-disclaimer language.
@@ -61,9 +58,6 @@ PROHIBITED_PHRASES=(
   'custody[[:space:]-]+of[[:space:]-]+assets'
 )
 
-NEGATIVE_CONTEXT='(^|[^[:alnum:]_])(not|no|non|never|without|must not|do not|cannot|should not|prohibit|prohibited|forbidden|blocked|avoid|no claim of|not a claim of|is not|are not)[^\.\n]{0,160}'
-EXAMPLE_CONTEXT='(^|[[:space:]>#*-])((the )?prohibited claims are|avoid[[:space:]]*\(claim boundary violations\)|blocked:|blocked claims?|prohibited profile behavior|must not:|must never|do not use blocked terms)'
-
 PLATFORM_OVERCLAIMS=(
   'supports[[:space:]-]+all[[:space:]-]+platforms'
   'runs[[:space:]-]+on[[:space:]-]+all[[:space:]-]+platforms'
@@ -87,144 +81,121 @@ mapfile -t SCAN_FILES < <(
     -e '^docs/release/'
 )
 
-line_has_allow_marker() {
-  local line="$1"
-  echo "$line" | grep -qF '<!-- claim-boundary-allow:'
-}
-
-line_enters_example_context() {
-  local line="$1"
-  echo "$line" | grep -qiP "$EXAMPLE_CONTEXT"
-}
-
-line_is_negative_context_for_pattern() {
-  local line="$1"
-  local pattern="$2"
-  echo "$line" | grep -qiP "${NEGATIVE_CONTEXT}${pattern}"
-}
-
-scan_file_for_pattern() {
-  local file="$1"
-  local pattern="$2"
-  local -i lineno=0
-  local -i skip_next=0
-  local -i example_context=0
-  local violation_found=0
-
-  while IFS= read -r line || [ -n "$line" ]; do
-    lineno=$(( lineno + 1 ))
-
-    if echo "$line" | grep -qP '^#{1,3}[[:space:]]+'; then
-      example_context=0
-    fi
-
-    if line_enters_example_context "$line"; then
-      example_context=40
-      continue
-    fi
-
-    if [ "$skip_next" -eq 1 ]; then
-      skip_next=0
-      continue
-    fi
-
-    if line_has_allow_marker "$line"; then
-      skip_next=1
-      continue
-    fi
-
-    if echo "$line" | grep -qiP "$pattern"; then
-      if [ "$example_context" -gt 0 ]; then
-        example_context=$(( example_context - 1 ))
-        continue
-      fi
-      if line_is_negative_context_for_pattern "$line" "$pattern"; then
-        continue
-      fi
-      echo "  VIOLATION: $file:$lineno: $line"
-      VIOLATIONS+=("$file:$lineno: $pattern")
-      violation_found=1
-    fi
-
-    if [ "$example_context" -gt 0 ]; then
-      example_context=$(( example_context - 1 ))
-    fi
-  done < "$file"
-
-  return $violation_found
-}
-
 echo "Scanning ${#SCAN_FILES[@]} files for prohibited claim patterns..."
-for file in "${SCAN_FILES[@]}"; do
-  [ -f "$file" ] || continue
-  for phrase in "${PROHIBITED_PHRASES[@]}"; do
-    if ! scan_file_for_pattern "$file" "$phrase" 2>/dev/null; then
-      FAIL=1
-    fi
-  done
-done
-
 echo "Scanning for platform overclaims outside docs/platforms/..."
-for file in "${SCAN_FILES[@]}"; do
-  [ -f "$file" ] || continue
-  for phrase in "${PLATFORM_OVERCLAIMS[@]}"; do
-    if ! scan_file_for_pattern "$file" "$phrase" 2>/dev/null; then
-      FAIL=1
-    fi
-  done
-done
+perl - "$OUTPUT_FILE" "$COMMIT_SHA" "$TIMESTAMP" "${#SCAN_FILES[@]}" "${#PROHIBITED_PHRASES[@]}" "${#PLATFORM_OVERCLAIMS[@]}" "${SCAN_FILES[@]}" <<'PERL'
+use strict;
+use warnings;
 
-{
-  echo "# Claim Boundary Scan"
-  echo ""
-  echo "**Commit:** \`$COMMIT_SHA\`  "
-  echo "**Timestamp:** $TIMESTAMP  "
-  echo "**Status:** $([ "$FAIL" -eq 0 ] && echo "✅ PASS — no violations" || echo "❌ FAIL — violations found")"
-  echo ""
-  echo "## Files scanned"
-  echo ""
-  echo "- **General scan:** ${#SCAN_FILES[@]} files (\`.md\`, \`.toml\`, \`.txt\` tracked by git, excluding exempt directories)"
-  echo "- **Excluded:** \`docs/mvp/claims_register.md\`, \`docs/audit/\`, \`docs/platforms/\`, \`docs/release/\`"
-  echo "- **NOT excluded:** \`docs/funding/\`, \`docs/compliance/\`"
-  echo ""
-  echo "## Pattern groups"
-  echo ""
-  echo "- Compliance/certification overclaim patterns: ${#PROHIBITED_PHRASES[@]}"
-  echo "- Platform overclaim patterns: ${#PLATFORM_OVERCLAIMS[@]}"
-  echo ""
-  echo "## Suppression policy"
-  echo ""
-  echo "Clearly negative uses and explicit blocked/prohibited/avoid example sections are not treated as live claims."
-  echo "The narrow allowlist marker remains available for one-off cases."
-  echo ""
-  if [ "${#VIOLATIONS[@]}" -gt 0 ]; then
-    echo "## Violations found"
-    echo ""
-    for v in "${VIOLATIONS[@]}"; do
-      echo "- \`$v\`"
-    done
-    echo ""
-  fi
-  echo "## Allowlist marker"
-  echo ""
-  echo "A line containing \`<!-- claim-boundary-allow: <reason> -->\` suppresses"
-  echo "that line and the **immediately following line only**. No broader suppression."
-  echo ""
-  echo "## Verdict"
-  echo ""
-  if [ "$FAIL" -eq 0 ]; then
-    echo "**PASS** — all scanned files are within the claim boundary."
-  else
-    echo "**FAIL** — ${#VIOLATIONS[@]} violation(s) found. Each must be removed,"
-    echo "corrected, or explicitly allowlisted with justification."
-  fi
-} > "$OUTPUT_FILE"
+my ($output_file, $commit_sha, $timestamp, $scan_count, $prohibited_count, $platform_count, @files) = @ARGV;
 
-echo ""
-echo "Claim boundary scan complete."
-echo "  Report: $OUTPUT_FILE"
-if [ "$FAIL" -ne 0 ]; then
-  echo "  BLOCKING: ${#VIOLATIONS[@]} violation(s) — see report for details." >&2
-  exit 1
-fi
-echo "  PASS: no violations found."
+my @groups = (
+  [
+    'compliance/certification overclaim',
+    qr/(?:GDPR[\s-]+compliant|FIPS[\s-]+validat|FIPS[\s-]+certif|NSA[\s-]+approv|military[\s-]+certif|NATO[\s-]+certif|FedRAMP[\s-]+authoris|Common[\s-]+Criteria[\s-]+certif|CMMC[\s-]+compliant|quantum[\s-]+secure|production[\s-]+ready|mainnet[\s-]+ready|financial[\s-]+infrastructure|payment[\s-]+system|settlement[\s-]+layer|investment[\s-]+token|utility[\s-]+token|security[\s-]+token|governance[\s-]+token|token[\s-]+sale|asset[\s-]+custody|funds[\s-]+custody|customer[\s-]+custody|custodial[\s-]+service|custody[\s-]+of[\s-]+assets)/i,
+  ],
+  [
+    'platform overclaim',
+    qr/(?:supports[\s-]+all[\s-]+platforms|runs[\s-]+on[\s-]+all[\s-]+platforms|runs[\s-]+on[\s-]+every[\s-]+platform|runs[\s-]+on[\s-]+all[\s-]+supported[\s-]+platforms|MUSA[\s-]+support|CUDA[\s-]+support|ROCm[\s-]+support|HSM[\s-]+support|TPM[\s-]+support|smartcard[\s-]+support|TEE[\s-]+support|full[\s-]+RTOS[\s-]+support)/i,
+  ],
+);
+
+my $negative_context = qr/(^|[^[:alnum:]_])(?:not|no|non|never|without|must not|do not|cannot|should not|prohibit|prohibited|forbidden|blocked|avoid|no claim of|not a claim of|is not|are not)[^.\n]{0,160}/i;
+my $example_context = qr/(^|[\s>#*-])(?:(?:the )?prohibited claims are|avoid\s*\(claim boundary violations\)|blocked:|blocked claims?|prohibited profile behavior|must not:|must never|do not use blocked terms)/i;
+my $metadata_context = qr/^\*\*Branch:\*\*/i;
+my $conditional_fips_context = qr/(?:FIPS validation applies .* requires lab validation|FIPS validation test report|should claim FIPS alignment .* until CMVP validation exists|running on FIPS-validated hardware RNG)/i;
+
+my @violations;
+
+for my $file (@files) {
+  next unless -f $file;
+  open my $fh, '<', $file or next;
+
+  my $lineno = 0;
+  my $skip_next = 0;
+  my $example_lines = 0;
+
+  while (my $line = <$fh>) {
+    chomp $line;
+    $lineno++;
+
+    $example_lines = 0 if $line =~ /^#{1,3}\s+/;
+
+    if ($line =~ $example_context) {
+      $example_lines = 40;
+      next;
+    }
+
+    if ($skip_next) {
+      $skip_next = 0;
+      next;
+    }
+
+    if (index($line, '<!-- claim-boundary-allow:') >= 0) {
+      $skip_next = 1;
+      next;
+    }
+
+    next if $line =~ $metadata_context;
+    next if $line =~ $conditional_fips_context;
+
+    for my $group (@groups) {
+      my ($label, $pattern) = @$group;
+      next unless $line =~ $pattern;
+
+      if ($example_lines > 0) {
+        $example_lines--;
+        next;
+      }
+      next if $line =~ /$negative_context.*$pattern/;
+
+      print "  VIOLATION: $file:$lineno: $line\n";
+      push @violations, "$file:$lineno: $label";
+    }
+
+    $example_lines-- if $example_lines > 0;
+  }
+  close $fh;
+}
+
+open my $out, '>', $output_file or die "failed to write $output_file: $!";
+my $fail = @violations ? 1 : 0;
+print {$out} "# Claim Boundary Scan\n\n";
+print {$out} "**Commit:** `$commit_sha`  \n";
+print {$out} "**Timestamp:** $timestamp  \n";
+print {$out} "**Status:** " . ($fail ? "❌ FAIL — violations found" : "✅ PASS — no violations") . "\n\n";
+print {$out} "## Files scanned\n\n";
+print {$out} "- **General scan:** $scan_count files (`.md`, `.toml`, `.txt` tracked by git, excluding exempt directories)\n";
+print {$out} "- **Excluded:** `docs/mvp/claims_register.md`, `docs/audit/`, `docs/platforms/`, `docs/release/`\n";
+print {$out} "- **NOT excluded:** `docs/funding/`, `docs/compliance/`\n\n";
+print {$out} "## Pattern groups\n\n";
+print {$out} "- Compliance/certification overclaim patterns: $prohibited_count\n";
+print {$out} "- Platform overclaim patterns: $platform_count\n\n";
+print {$out} "## Suppression policy\n\n";
+print {$out} "Clearly negative uses and explicit blocked/prohibited/avoid example sections are not treated as live claims.\n";
+print {$out} "The narrow allowlist marker remains available for one-off cases.\n\n";
+if (@violations) {
+  print {$out} "## Violations found\n\n";
+  print {$out} "- `$_`\n" for @violations;
+  print {$out} "\n";
+}
+print {$out} "## Allowlist marker\n\n";
+print {$out} "A line containing `<!-- claim-boundary-allow: <reason> -->` suppresses\n";
+print {$out} "that line and the **immediately following line only**. No broader suppression.\n\n";
+print {$out} "## Verdict\n\n";
+if ($fail) {
+  print {$out} "**FAIL** — " . scalar(@violations) . " violation(s) found. Each must be removed,\n";
+  print {$out} "corrected, or explicitly allowlisted with justification.\n";
+} else {
+  print {$out} "**PASS** — all scanned files are within the claim boundary.\n";
+}
+close $out;
+
+print "\nClaim boundary scan complete.\n";
+print "  Report: $output_file\n";
+if ($fail) {
+  print STDERR "  BLOCKING: " . scalar(@violations) . " violation(s) — see report for details.\n";
+  exit 1;
+}
+print "  PASS: no violations found.\n";
+PERL
