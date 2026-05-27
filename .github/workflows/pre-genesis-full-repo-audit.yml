@@ -1,0 +1,228 @@
+name: Pre-Genesis Full-Repo Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1'
+  pull_request:
+    paths:
+      - '**.rs'
+      - 'docs/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - 'GENESIS_CONSTANTS.toml'
+
+jobs:
+  # ════════════════════════════════════════════════════════════════════════════
+  # BLOCKING JOBS — run on every trigger (including PR).
+  # Any failure blocks the PR.
+  #
+  # Guard: each blocking step checks 'test -f scripts/<name>.sh || exit 0'
+  # so the gate is inactive until the script is present on the branch.
+  # Once Audit-B/C/E PRs merge, scripts are always present and guards are moot.
+  # ════════════════════════════════════════════════════════════════════════════
+
+  claim-boundary:
+    name: Claim boundary scan (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ripgrep
+        run: sudo apt-get install -y ripgrep
+      - name: Run claim boundary scan
+        run: test -f scripts/audit_claim_boundary.sh || exit 0; bash scripts/audit_claim_boundary.sh
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claim-boundary-report
+          path: artifacts/audit/claim_boundary.md
+
+  domain-boundary-full:
+    name: Domain A/B full boundary scan (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run domain boundary scan
+        run: test -f scripts/audit_domain_boundary_full.sh || exit 0; bash scripts/audit_domain_boundary_full.sh
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: domain-boundary-full-report
+          path: artifacts/audit/domain_boundary_full.md
+
+  rust-bad-practices:
+    name: Rust bad practices scan (blocking — Domain A)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Run Rust bad practices scan
+        run: test -f scripts/audit_rust_bad_practices.sh || exit 0; bash scripts/audit_rust_bad_practices.sh
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-bad-practices-report
+          path: artifacts/audit/rust_bad_practices.md
+
+  panic-surface:
+    name: Panic surface scan (blocking — Domain A)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Run panic surface scan
+        run: test -f scripts/audit_panic_surface.sh || exit 0; bash scripts/audit_panic_surface.sh
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: panic-surface-report
+          path: artifacts/audit/panic_surface.md
+
+  unsafe-boundary:
+    name: Unsafe boundary audit (blocking — Domain A)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Install cargo-geiger (advisory count)
+        run: cargo install cargo-geiger --locked || true
+      - name: Run unsafe boundary audit
+        run: test -f scripts/audit_unsafe_boundary.sh || exit 0; bash scripts/audit_unsafe_boundary.sh
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsafe-boundary-report
+          path: artifacts/audit/unsafe_boundary.md
+
+  liveness-loops:
+    name: Liveness loop scan (blocking — Domain A)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run liveness loop scan
+        run: test -f scripts/audit_liveness_loops.sh || exit 0; bash scripts/audit_liveness_loops.sh
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: liveness-loops-report
+          path: artifacts/audit/liveness_loops.md
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # FULL AUDIT JOBS — only on workflow_dispatch, push: main, weekly schedule.
+  # Skipped on PR triggers. Use explicit if: guard.
+  # ════════════════════════════════════════════════════════════════════════════
+
+  file-inventory:
+    name: File inventory (full audit only)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run file inventory
+        run: test -f scripts/audit_file_inventory.sh || exit 0; bash scripts/audit_file_inventory.sh
+      - name: Upload inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: file-inventory
+          path: |
+            artifacts/audit/file_inventory.json
+            artifacts/audit/file_inventory.md
+
+  build-audit-report:
+    name: Build consolidated audit report (full audit only)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      github.ref == 'refs/heads/main'
+    needs:
+      - claim-boundary
+      - domain-boundary-full
+      - rust-bad-practices
+      - panic-surface
+      - unsafe-boundary
+      - liveness-loops
+      - file-inventory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all audit artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/audit
+          merge-multiple: true
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Build consolidated report
+        run: test -f scripts/build_pre_genesis_audit_report.sh || exit 0; bash scripts/build_pre_genesis_audit_report.sh
+      - name: Upload full audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-genesis-full-audit-report
+          path: |
+            artifacts/audit/pre_genesis_full_repo_audit.md
+            artifacts/audit/pre_genesis_full_repo_audit.json
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # ADVISORY JOBS — continue-on-error: true, run on every trigger.
+  # Failures are recorded but do not block the PR.
+  # ════════════════════════════════════════════════════════════════════════════
+
+  strict-clippy:
+    name: Strict Clippy audit (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Run strict Clippy audit
+        run: test -f scripts/run_clippy_strict_audit.sh || exit 0; bash scripts/run_clippy_strict_audit.sh
+      - name: Upload Clippy output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strict-clippy-output
+          path: artifacts/audit/strict_clippy.txt
+
+  concurrency-patterns:
+    name: Concurrency pattern audit (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run concurrency pattern audit
+        run: test -f scripts/audit_concurrency_patterns.sh || exit 0; bash scripts/audit_concurrency_patterns.sh
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: concurrency-patterns-report
+          path: artifacts/audit/concurrency_patterns.md
+
+  miri-advisory:
+    name: Miri advisory run (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install nightly toolchain + Miri
+        run: |
+          rustup toolchain install nightly
+          rustup +nightly component add miri
+          cargo +nightly miri setup
+      - name: Run Miri on qash-consensus
+        run: cargo +nightly miri test -p qash-consensus --no-default-features
