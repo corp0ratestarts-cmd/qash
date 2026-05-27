@@ -145,9 +145,10 @@ jobs:
   build-audit-report:
     name: Build consolidated audit report (full audit only)
     if: >
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'schedule' ||
-      github.ref == 'refs/heads/main'
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event_name == 'schedule' ||
+       github.ref == 'refs/heads/main')
     needs:
       - claim-boundary
       - domain-boundary-full
@@ -169,6 +170,7 @@ jobs:
       - name: Build consolidated report
         run: test -f scripts/build_pre_genesis_audit_report.sh || exit 0; bash scripts/build_pre_genesis_audit_report.sh
       - name: Upload full audit report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pre-genesis-full-audit-report
