@@ -80,6 +80,12 @@ graph TD
   * [crates/pal/](file:///home/debian/Downloads/QASH/qash/crates/pal/) — Platform Abstraction Layer (**Domain B**).
 * [src/](file:///home/debian/Downloads/QASH/qash/src/) — Hosted entrypoint binary.
 * [GENESIS_CONSTANTS.toml](file:///home/debian/Downloads/QASH/qash/GENESIS_CONSTANTS.toml) — Immutable parameters defining genesis block state (unlocked).
+* [docs/platforms/authorized_platform_matrix.md](docs/platforms/authorized_platform_matrix.md) — Authorised platform universe: Tier A genesis-blocking, Tier A+ advisory ISA, Tier B hosted OS, Tier C RTOS, Tier D accelerator/hardware evidence profiles and evidence-gating rules.
+  * [docs/platforms/rtos_portability_plan.md](docs/platforms/rtos_portability_plan.md) — RTOS portability strategy (ITRON, FreeRTOS, Zephyr, RTEMS, seL4, AUTOSAR, VxWorks, QNX, INTEGRITY).
+  * [docs/platforms/accelerator_profiles.md](docs/platforms/accelerator_profiles.md) — GPU compute and hardware security/attestation evidence profiles (MUSA, CUDA, ROCm, TPM, HSM, TEE, SGX).
+* [docs/audit/pre_genesis_audit_plan.md](docs/audit/pre_genesis_audit_plan.md) — Pre-genesis full-repo audit plan: 10 phases, gating model, CI workflow split, negative test protocol.
+  * [docs/audit/unsafe_exceptions.md](docs/audit/unsafe_exceptions.md) — Unsafe code exception register (Domain B only; Domain A has zero tolerance).
+  * [docs/audit/dependency_risk_register.md](docs/audit/dependency_risk_register.md) — Dependency risk triage register (required before genesis-lock).
 
 > [!NOTE]
 > **Runtime Status**: Integration scaffold. The hosted PAL replay, commitment transport, attestation interfaces, sharded replay, and ZK boundaries exist. Production networking, hardware attestation, and Plonky3 verifications are not yet deployed.
