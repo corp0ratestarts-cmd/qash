@@ -5,3 +5,7 @@ runner = ["qemu-aarch64-static", "-L", "/usr/aarch64-linux-gnu"]
 [target.riscv64gc-unknown-linux-gnu]
 linker = "riscv64-linux-gnu-gcc"
 runner = ["qemu-riscv64-static", "-L", "/usr/riscv64-linux-gnu"]
+
+[target.s390x-unknown-linux-gnu]
+linker = "s390x-linux-gnu-gcc"
+runner = ["qemu-s390x-static", "-L", "/usr/s390x-linux-gnu"]
