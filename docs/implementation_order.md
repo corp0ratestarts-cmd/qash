@@ -1,23 +1,28 @@
 # QASH Implementation Order
 
 **Status:** Active execution guide.  
-**Last updated:** 2026-05-27 (Phase 5 hardening complete — all PRs #174–#183 merged)  
-**Purpose:** This file orders the remaining work. `ROADMAP.md` describes the broader destination.
+**Last updated:** 2026-05-27 (Phase 5 hardening complete — all PRs #174–#184 merged)  
+**Purpose:** This file records completed pre-genesis RC work and orders the remaining evidence/genesis-lock work. `ROADMAP.md` describes the broader destination.
 
 ## Current posture
 
 QASH is pre-genesis RC. Domain A (24 modules, 483+ tests passing) is implementation-complete
-for the current RC surface, but not production-authoritative until proof closure, cross-ISA
-evidence, compliance evidence, and genesis-lock gates are complete.
+for the current RC surface, but not production-authoritative until evidence reconciliation,
+tracked proof-debt review, cross-ISA evidence, compliance evidence, and genesis-lock gates are complete.
 
 Domain B PAL is substantially complete: production TCP transport, crash-recovery parity
 harness, Plonky3 ZK verifier scaffold, privacy/erasure, and FIPS-aligned crypto are all
 implemented and merged.
 
+Active checked Coq proof files are clean of `Admitted.` markers. Remaining proof debt is
+explicitly tracked as axioms/placeholders in `proofs/COVERAGE.md`; do not describe the proof
+system as fully discharged until those tracked assumptions are closed or accepted by an owner
+sign-off for the relevant release boundary.
+
 **Release baselines (as of 2026-05-27):**
 - `qash-pilot-baseline-v0.2.1` = commit `04ad39d` (Merge PR #168)
 - `qash-pilot-baseline-v0.3` = commit `67665e4` (Merge PR #169)
-- `qash-phase5-complete` = current `main` (all PRs #174–#183 merged, 2026-05-27)
+- `qash-phase5-complete` = current `main` (all PRs #174–#184 merged, 2026-05-27)
 - Genesis lock tag is deferred until the evidence gate below is complete
 
 **Already merged (do not re-implement):**
@@ -35,9 +40,10 @@ implemented and merged.
 - PR #178 (Track 8): Plonky3 FRI-STARK ZK verifier scaffold with profile-lock invariant
 - PR #179 (Track 10): Compliance evidence bundle — DPIA, CC EAL4+ ST, OSCAL assessment, reproducible build script
 - PR #180 (Track -1/docs): ROADMAP Phase 5 summary update
-- PR #181 (Track 9/1-A): CapToken schema Coq proof — 10 theorems, 0 Admitted
+- PR #181 (Track 9/1-A): CapToken schema Coq proof — 10 theorems, 0 `Admitted.` markers
 - PR #182 (Track 9/housekeeping): Remove stale `encoding_injectivity.v` from `_CoqProject`
 - PR #183 (Track 7): Streaming state-root parity tests + `ProjectedView` (~80 KB copy elimination)
+- PR #184 (Track 7): `prevalidate_all_impl` removes the extra ~80 KB `EpochState` copy before tx prevalidation
 
 Genesis remains trustless and deterministic. Hardware-backed tools are optional local OpSec only.
 
@@ -52,7 +58,7 @@ Genesis remains trustless and deterministic. Hardware-backed tools are optional 
    - Keep slice evidence freshness manifests for review-critical work green.
    - Treat PR #93 follow-through as scheduled roadmap work, not current implementation.
 
-2. **Expand CI into security and compliance preflight.**
+2. **Security and compliance preflight — complete for the current RC phase.**
    - CodeQL Rust analysis.
    - OSV dependency scanning.
    - OpenSSF Scorecard.
@@ -60,44 +66,39 @@ Genesis remains trustless and deterministic. Hardware-backed tools are optional 
    - Secret scanning.
    - Rust hygiene checks.
    - QASH-specific Domain A and hardware-OpSec tripwires.
+   - Advisory jobs remain advisory until their findings are triaged and repository-level controls are configured.
 
-3. **Implement zero-persistence as code.**
-   - Split PAL features into `replay-scaffold`, `zero-persistence`, and
-     `sovereign-hardened`.
-   - Make production admission consume `EphemeralEnvelope` by value.
-   - Use borrowed parser views only.
-   - Pass only validated scalar effects or commitments into Domain A.
-   - Keep raw fixture WALs only under `replay-scaffold`.
+3. **Zero-persistence code boundary — complete for the current RC surface.**
+   - Production admission consumes `EphemeralEnvelope` by value.
+   - Borrowed parser views are used at the PAL boundary.
+   - Only validated scalar effects or commitments pass into Domain A.
+   - Raw fixture WALs remain under replay/pilot scaffolding boundaries only.
 
-4. **Implement privacy admission and receipt/key shredding.**
-   - Add receipt encryption declarations.
-   - Add disclosure-domain declarations.
-   - Add `ShredCommitment` evidence.
-   - Add public-transcript no-graph-field tests.
+4. **Privacy admission and receipt/key shredding — complete for the current RC surface.**
+   - Receipt/key shredding evidence exists.
+   - Disclosure-domain declarations exist.
+   - Public-transcript no-PII/no-graph-field tests exist.
+   - Claims remain "GDPR-aligned design" and "erasure-compatible handling," not "GDPR compliant."
 
-5. **Implement production PAL transport and recovery.**
-   - Commitment-frame transport.
-   - Crash-safe commitment WAL.
-   - Replay-from-genesis recovery.
-   - Network reorder/drop/delay tests.
-   - Attestation as Domain B local evidence only.
+5. **Production PAL transport and recovery — complete for the current RC surface.**
+   - Commitment-frame TCP transport exists.
+   - Fault-injection transport exists for deterministic reorder/drop tests.
+   - Crash-recovery parity harness exists.
+   - Attestation remains Domain B local evidence only.
 
-6. **Implement production ZK verifier backend in Domain B.**
-   - Keep proof bytes out of Domain A.
-   - Add malformed-proof rejection and profile-lock tests.
-   - Preserve v1.2 sharded replay parity.
-   - Produce prover-sizing evidence before throughput or finality claims.
+6. **Production ZK verifier backend in Domain B — scaffold merged.**
+   - Proof bytes remain out of Domain A.
+   - Malformed-proof rejection and profile-lock tests exist.
+   - Throughput/finality claims still require prover-sizing evidence and production follow-through.
 
-7. **Complete Phase 2-R runtime optimization (partial — PR #167 landed single-pass admission).**
-   - Archive tx-heavy and commit-path benchmark baselines first (`cargo criterion`; 1024-validator epoch).
-   - Confirm PR #167 parity on all 3 ISAs (x86_64, aarch64, riscv64gc), not just x86_64.
-   - Implement deterministic total-order sorting by `(sort_key, tx_id)`; add reversed-input parity test.
-   - Implement streaming state-root commitment with exact preimage parity against current buffered path.
-   - Implement runtime-only `ProjectedView`; keep Coq model unchanged.
-   - Write ADR evidence in `docs/adr/ADR-006-runtime-optimization-track.md`.
+7. **Phase 2-R runtime optimization — complete for the current RC surface.**
+   - PR #167: single-pass admission via cheap byte reads.
+   - PR #177: deterministic total-order sorting evidence via reversed-input parity test.
+   - PR #183: streaming state-root commitment with exact preimage parity and runtime-only `ProjectedView`.
+   - PR #184: `prevalidate_all_impl` removes the extra hot-path `EpochState` copy while keeping public API and wire format unchanged.
    - Accept no performance claim without archived benchmark artifacts under `artifacts/benchmarks/`.
 
-8. **Build per-commit compliance evidence bundles.**
+8. **Compliance evidence bundles — design-phase complete; final candidate evidence still required.**
    - SBOM.
    - dependency and vulnerability scans.
    - proof hashes.
@@ -106,8 +107,14 @@ Genesis remains trustless and deterministic. Hardware-backed tools are optional 
    - fuzz and Kani summaries.
    - zero-persistence summary.
    - OSCAL-style assessment output.
+   - Capture a fresh candidate-commit evidence bundle before any genesis-lock tag.
 
-9. **Schedule PR #93 research and production follow-through without blocking genesis.**
+9. **Active proof posture — admitted-clean, not assumption-free.**
+   - `make -C proofs` rejects active `Admitted.` markers.
+   - `proofs/COVERAGE.md` reports 42 `PROVED`, 4 `CI-VERIFIED`, 3 `AXIOM`, 2 `PLACEHOLDER`, 0 `MISSING`, 44 total.
+   - Treat AX2 refinement, cascade collision resistance, blinding PRF, and IT-MAC proof debt as explicitly tracked assumptions/placeholders until discharged or accepted at a release boundary.
+
+10. **Schedule PR #93 research and production follow-through without blocking genesis.**
    - `ADR-007`: UC-MJA cascade remains research only until KATs, benchmarks,
      constant-time evidence, cross-ISA parity, and proof obligations exist.
    - `ADR-008`: sovereign storage tiers remain Domain B deployment policy;
@@ -117,12 +124,13 @@ Genesis remains trustless and deterministic. Hardware-backed tools are optional 
    - Phase 6 sharding/horizontal scaling is post-genesis production delivery,
      not a pre-genesis lock dependency unless explicitly promoted by a future decision.
 
-10. **Make genesis-lock decision only after evidence reconciliation.**
+11. **Make genesis-lock decision only after evidence reconciliation.**
    - Normative PDF committed and reconciled.
    - Traceability complete.
    - Cross-ISA replay evidence current.
    - Production PAL readiness explicit.
    - Compliance/evidence bundle captured for the candidate commit.
+   - Active proof files admitted-clean and tracked axioms/placeholders explicitly accepted or discharged for the chosen release boundary.
 
 ## Minimum local evidence command set
 
