@@ -394,6 +394,10 @@ fn fp_to_i64_wire(fp: FixedPoint) -> i64 {
 /// Stream the canonical commitment encoding of `state` into `h`, substituting
 /// `prior_root` for the `state_root` field. Produces the same byte sequence as
 /// `encode_for_commitment_into` without allocating a full-sized stack buffer.
+///
+/// Used as the reference implementation for `ProjectedView::compute_root` parity
+/// tests. Production code uses `ProjectedView::compute_root` directly.
+#[cfg(test)]
 fn stream_state_for_commitment(state: &EpochState, prior_root: &[u8; 32], h: &mut sha3::Sha3_256) {
     h.update(state.epoch.to_le_bytes());
     h.update(prior_root);
@@ -426,6 +430,10 @@ fn stream_state_for_commitment(state: &EpochState, prior_root: &[u8; 32], h: &mu
     }
 }
 
+/// Reference implementation: compute the state root via the streaming path.
+/// Used in parity tests to verify `ProjectedView::compute_root` produces
+/// identical output. Production code uses `ProjectedView::compute_root`.
+#[cfg(test)]
 fn compute_state_root(state: &EpochState, prior_root: &[u8; 32]) -> [u8; 32] {
     let mut h = h_domain_start(DomainTag::StateRoot);
     stream_state_for_commitment(state, prior_root, &mut h);
