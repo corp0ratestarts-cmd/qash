@@ -79,6 +79,91 @@ capture_cargo_metadata() {
     fi
 }
 
+emit_oscal_assessment() {
+    # Emit an OSCAL-style Assessment Results stub (NIST OSCAL 1.1, simplified).
+    # Records evidence bundle metadata and pass/fail per control activity.
+    # Full OSCAL validation requires oscal-cli; this stub is machine-readable
+    # and suitable for submission to a compliance automation pipeline.
+    local oscal_file="$out_dir/oscal-assessment.json"
+
+    local pass_count=0
+    local fail_count=0
+    for cmd in "${!COMMAND_STATUS[@]}"; do
+        if [ "${COMMAND_STATUS[$cmd]}" = "PASS" ]; then
+            pass_count=$((pass_count + 1))
+        else
+            fail_count=$((fail_count + 1))
+        fi
+    done
+    local overall="pass"
+    [ "$fail_count" -gt 0 ] && overall="fail"
+
+    # Build tab-separated cmd\tstatus lines for Python to consume as stdin.
+    {
+        for cmd in "${!COMMAND_STATUS[@]}"; do
+            printf '%s\t%s\n' "$cmd" "${COMMAND_STATUS[$cmd]}"
+        done
+    } | python3 - "$timestamp" "$commit" "$overall" "$pass_count" "$fail_count" > "$oscal_file" <<'PY'
+import json, sys
+
+ts, commit, overall, pass_count, fail_count = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+
+results = []
+for line in sys.stdin.read().strip().splitlines():
+    if '\t' not in line:
+        continue
+    cmd, status = line.split('\t', 1)
+    results.append({"title": cmd.strip(), "result": "pass" if status.strip() == "PASS" else "fail"})
+
+doc = {
+    "component-definition": {
+        "uuid": "00000000-0000-0000-0000-000000000001",
+        "metadata": {
+            "title": "QASH Pre-Genesis Evidence Assessment",
+            "last-modified": ts, "version": commit, "oscal-version": "1.1.0",
+        },
+        "components": [{"uuid": "00000000-0000-0000-0000-000000000002", "type": "software",
+            "title": "QASH Consensus Engine",
+            "description": "Post-quantum deterministic consensus kernel and PAL.",
+            "control-implementations": [{"uuid": "00000000-0000-0000-0000-000000000003",
+                "source": "https://pages.nist.gov/OSCAL/",
+                "description": "Pre-genesis evidence gate activities",
+                "implemented-requirements": [
+                    {"uuid": "00000000-0000-{:04d}-0000-000000000000".format(i),
+                     "control-id": "evidence-{:03d}".format(i+1),
+                     "description": r["title"], "remarks": r["result"]}
+                    for i, r in enumerate(results)
+                ]}]}]},
+    "assessment-results": {
+        "uuid": "00000000-0000-0000-0000-000000000099",
+        "metadata": {"title": "QASH Evidence Assessment Results",
+            "last-modified": ts, "version": commit, "oscal-version": "1.1.0"},
+        "import-ap": {"href": "#"},
+        "results": [{"uuid": "00000000-0000-0000-0000-000000000100",
+            "title": "Evidence bundle run", "start": ts, "end": ts,
+            "reviewed-controls": {"control-selections": [{"include-all": {}}]},
+            "findings": [
+                {"uuid": "00000000-0001-{:04d}-0000-000000000000".format(i+1),
+                 "title": r["title"],
+                 "target": {"type": "objective-id",
+                     "target-id": "evidence-{:03d}".format(i+1),
+                     "status": {"state": r["result"]}}}
+                for i, r in enumerate(results)
+            ],
+            "attestations": [{"responsible-parties": [{"role-id": "assessor",
+                "party-uuids": ["00000000-0000-0000-0000-000000000200"]}],
+                "parts": [{"name": "assessment-log-entry",
+                    "prose": "Automated evidence bundle. Overall: {}. Pass: {}. Fail: {}.".format(
+                        overall, pass_count, fail_count)}]}]}]}
+}
+print(json.dumps(doc, indent=2))
+PY
+
+    printf '== oscal_assessment ==\n' | tee -a "$manifest"
+    printf 'oscal_file: %s\n' "$oscal_file" | tee -a "$manifest"
+    printf 'overall: %s (pass=%s fail=%s)\n\n' "$overall" "$pass_count" "$fail_count" | tee -a "$manifest"
+}
+
 append_slice_command_statuses() {
     printf '## Slice Command Statuses\n\n' >>"$manifest"
     printf '| Slice | Command | Status | Log |\n' >>"$manifest"
@@ -169,5 +254,6 @@ cargo_deny_home="$(prepare_cargo_deny_home)"
 run_step supply_chain env CARGO_HOME="$cargo_deny_home" cargo deny check --disable-fetch --metadata-path "$cargo_metadata_path"
 run_step kani_consensus scripts/run_kani_consensus.sh
 append_slice_command_statuses
+emit_oscal_assessment
 
 printf 'Evidence bundle written to %s\n' "$out_dir"
