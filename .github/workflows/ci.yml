@@ -250,6 +250,7 @@ jobs:
 
   scorecard:
     runs-on: ubuntu-latest
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     # Advisory until repository-level supply-chain posture controls are configured.
     continue-on-error: true
     steps:
