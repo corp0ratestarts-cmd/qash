@@ -45,11 +45,11 @@
 |-------|-------|
 | **PDF §** | §4.2 (p. 10, provisional) |
 | **PDF quote** | `let new_state = compute_state_root(state, crypto_suite);` |
-| **Code** | `crates/consensus/src/encoding.rs` contains `state_root_header_only()`, which hashes a 52-byte header. |
-| **Test / Vector** | — |
+| **Code** | `crates/consensus/src/encoding.rs` contains the canonical state-root commitment preimage encoder accepted by `docs/adr/ADR-003-state-root-and-encoding.md`; v1.0 state roots use `H_domain(STATE_ROOT, Encode_for_commitment(...))`, not cascade-derived roots. |
+| **Test / Vector** | `tests/vectors/vectors.v1.json` contains state-root commitment KAT coverage; `crates/consensus/tests/golden_replay.rs` and `crates/consensus/tests/domain_a_audit.rs` cover valid-state roundtrip plus canonical rejection cases. |
 | **Proof** | — |
-| **Status** | 🔶 |
-| **Blocking** | `PDF-SILENT`: the PDF calls `compute_state_root` but does not define the state byte layout or commitment structure. `docs/adr/ADR-003-state-root-encoding.md` must define canonical encoding and state-root input bytes before compliance can be assessed. |
+| **Status** | ⚠️ |
+| **Gap** | `PDF-SILENT`: the PDF calls `compute_state_root` but does not define the state byte layout or commitment structure. ADR-003's state-root decision is accepted, and the roundtrip/rejection/KAT acceptance criteria are now covered in code and tests. Remaining work is external PDF reconciliation plus any future proof-to-code refinement or extraction-equivalence evidence. |
 
 ### P0-3: Fixed-point arithmetic
 
@@ -73,7 +73,7 @@
 | **Test / Vector** | `state_root_canonical_seq_print`; `tests/vectors/vectors.v1.json`; `crates/consensus/tests/v1_1_replay.rs`; `crates/consensus/tests/v1_2_sharded_replay.rs`; `crates/consensus/tests/vector_runner.rs`. |
 | **Proof** | — |
 | **Status** | ⚠️ |
-| **Gap** | CI verifies the authorized ISA roots and replay gates. Remaining gaps: local non-native QEMU execution requires the apt packages installed by `scripts/install_test_dependencies.sh`, and the state-root vector remains code-derived until ADR-003 defines full state encoding and the normative PDF is committed. |
+| **Gap** | CI verifies the authorized ISA roots and replay gates. Remaining gaps: local non-native QEMU execution requires the apt packages installed by `scripts/install_test_dependencies.sh`, and the state-root vector remains code-derived until the normative PDF is committed and independently reconciled. |
 
 ### P0-5: Absorbing halt semantics
 
@@ -85,7 +85,7 @@
 | **Test / Vector** | — |
 | **Proof** | — |
 | **Status** | ⚠️ |
-| **Blocking** | `docs/adr/ADR-004-absorbing-halt-layering.md` must define how deterministic Domain A halt behavior composes with PAL zeroize/watchdog behavior to satisfy the PDF's diverging halt contract. |
+| **Gap** | `docs/adr/ADR-004-absorbing-halt-layering.md` remains proposed and must close the halt-layering acceptance gap before genesis-lock: Domain A absorbing halt must remain deterministic and replayable, Domain B/PAL must own zeroize/watchdog/non-returning operational behavior, and PAL halt behavior must not perturb Domain A state roots. |
 
 ### P0-6: Leaf index concatenation
 

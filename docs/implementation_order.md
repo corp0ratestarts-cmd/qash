@@ -111,7 +111,7 @@ Genesis remains trustless and deterministic. Hardware-backed tools are optional 
 
 9. **Active proof posture — admitted-clean, not assumption-free.**
    - `make -C proofs` rejects active `Admitted.` markers.
-   - `proofs/COVERAGE.md` reports 42 `PROVED`, 4 `CI-VERIFIED`, 3 `AXIOM`, 2 `PLACEHOLDER`, 0 `MISSING`, 44 total.
+   - `proofs/COVERAGE.md` reports 42 `PROVED`, 4 `CI-VERIFIED`, 3 `AXIOM`, 2 `PLACEHOLDER`, 0 `MISSING`, 44 total. This file is the source of truth for proof counts; README and roadmap summaries must mirror it mechanically.
    - Treat AX2 refinement, cascade collision resistance, blinding PRF, and IT-MAC proof debt as explicitly tracked assumptions/placeholders until discharged or accepted at a release boundary.
 
 10. **Schedule PR #93 research and production follow-through without blocking genesis.**

@@ -1,6 +1,7 @@
 # Pre-Genesis Full-Repo Audit Plan
 
-**Status:** Active — pre-genesis gate for Track 11 / genesis-lock.  
+**Status:** Active — pre-genesis gate for Track 11 / genesis-lock. Synced with
+PR #201 scanner behavior on 2026-05-27.
 **Trigger:** Run before any genesis-candidate release. Also runs weekly on `main` and on every PR touching `.rs`, `docs/`, `scripts/`, or workflows.
 
 ---
@@ -160,9 +161,20 @@ Scans all `.md`/`.toml`/`.txt` files (excluding `docs/mvp/claims_register.md`, `
 
 **Allowlist marker:** `<!-- claim-boundary-allow: <reason> -->` suppresses that line and the immediately following line only.
 
-**Prohibited phrases** (case-insensitive): `GDPR compliant`, `FIPS validated`, `FIPS certified`, `NSA approved`, `military certified`, `NATO certified`, `FedRAMP authoris`, `Common Criteria certified`, `CMMC compliant`, `quantum secure`, `production-ready`, `mainnet-ready`, `financial infrastructure`, `payment system`, `\btoken\b`, `\bcustody\b`, `settlement layer`.
+**Compliance / certification overclaim patterns** (case-insensitive): the scanner
+blocks live claims for compliance certification, validation, authorization, production
+readiness, regulated financial-infrastructure claims, and other phrases listed in
+`scripts/audit_claim_boundary.sh`.
 
-**Forbidden platform overclaims** (outside `docs/platforms/`): `supports all platforms`, `runs on all`, `MUSA support`, `CUDA support`, `ROCm support`, `HSM support`, `TPM support`, `smartcard support`, `TEE support`, `full RTOS support`.
+**Forbidden platform overclaims** (outside `docs/platforms/`): broad claims such as
+support for all platforms or unrestricted platform/runtime support, plus profile-specific
+support claims for MUSA, CUDA, ROCm, HSM, TPM, smartcard, TEE, or full RTOS support
+before evidence exists. Narrow Tier A wording such as replay running on the three
+authorized ISAs is not treated as a universal platform-support claim.
+
+**Suppression policy:** clearly negative uses and explicit blocked/prohibited/avoid
+example sections are not treated as live claims. The allowlist marker remains available
+for one-off suppressions only.
 
 **Output:** `artifacts/audit/claim_boundary.md`
 
@@ -226,8 +238,9 @@ Before promoting any blocking script to CI, verify:
 1. **unwrap test** — add `unwrap()` to production code in `crates/consensus/src/` → `audit_rust_bad_practices.sh` exits 1.
 2. **overclaim test** — add "production-ready" to a top-level `.md` → `audit_claim_boundary.sh` exits 1.
 3. **allowlist test** — add `<!-- claim-boundary-allow: test -->` before the overclaim → that line and the following line only are suppressed.
-4. **unsafe false-positive test** — confirm `#![forbid(unsafe_code)]` does NOT trigger `audit_unsafe_boundary.sh`.
-5. **platform contamination test** — add `use tokio::time;` to `crates/consensus/src/` → `audit_domain_boundary_full.sh` exits 1.
+4. **blocked-example test** — add a forbidden phrase under an explicit blocked/prohibited/avoid examples section → `audit_claim_boundary.sh` suppresses it as documentation of a non-claim.
+5. **unsafe false-positive test** — confirm `#![forbid(unsafe_code)]` does NOT trigger `audit_unsafe_boundary.sh`.
+6. **platform contamination test** — add `use tokio::time;` to `crates/consensus/src/` → `audit_domain_boundary_full.sh` exits 1.
 
 ---
 
