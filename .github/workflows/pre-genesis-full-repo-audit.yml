@@ -179,8 +179,9 @@ jobs:
             artifacts/audit/pre_genesis_full_repo_audit.json
 
   # ════════════════════════════════════════════════════════════════════════════
-  # ADVISORY JOBS — continue-on-error: true, run on every trigger.
-  # Failures are recorded but do not block the PR.
+  # ADVISORY JOBS — continue-on-error: true.
+  # Strict Clippy and concurrency run on every trigger. Miri is intentionally
+  # full-audit only because it is slow and may require tool/harness triage.
   # ════════════════════════════════════════════════════════════════════════════
 
   strict-clippy:
@@ -217,6 +218,10 @@ jobs:
 
   miri-advisory:
     name: Miri advisory run (advisory)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
