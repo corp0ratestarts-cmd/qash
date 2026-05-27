@@ -644,12 +644,23 @@ fn run_pipeline(
         }
     }
 
-    let mut tx_base = *state;
-    tx_base.validators = next_validators;
-    let tx_plan = crate::transaction::prevalidate_all(&tx_base, raw_txs, state.validator_count)
-        .map_err(|_| TransitionHalt {
-            reason: HaltReason::ArithOverflow,
-        })?;
+    // ProjectedView avoids copying the full ~80 KB EpochState just to patch
+    // `validators`. We pass the freshly-computed `next_validators` directly so
+    // `prevalidate_all_impl` sees updated divergences from this epoch's Lyapunov
+    // pipeline, while `validator_ids`, `entropy_seed`, and `nonces` come from the
+    // unmodified `state`.
+    let tx_plan = crate::transaction::prevalidate_all_impl(
+        &state.validator_ids,
+        &next_validators,
+        &state.entropy_seed,
+        &state.nonces,
+        state.validator_count,
+        raw_txs,
+        state.validator_count,
+    )
+    .map_err(|_| TransitionHalt {
+        reason: HaltReason::ArithOverflow,
+    })?;
     tx_plan
         .apply_divergence_updates(&mut next_validators)
         .map_err(|_| TransitionHalt {

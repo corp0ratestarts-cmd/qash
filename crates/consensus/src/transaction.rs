@@ -453,8 +453,24 @@ fn candidate_after(left: &CandidateTx, right: &CandidateTx) -> bool {
 ///
 /// Malformed or inadmissible transactions are filtered out. A nonce overflow
 /// is returned as an error because the next state cannot represent it.
-pub fn prevalidate_all(
-    state: &EpochState,
+/// Core implementation of `prevalidate_all` with decomposed state fields.
+///
+/// Called by the public `prevalidate_all` wrapper and directly by `run_pipeline`
+/// in `transition.rs`, where the validator metrics have already been updated by
+/// the Lyapunov pipeline but the rest of the state has not yet been committed.
+/// This avoids making a full ~80 KB `EpochState` copy just to patch `validators`.
+///
+/// All parameters mirror the corresponding `EpochState` fields:
+/// - `validator_ids` / `validator_count`: used to resolve `author_id` → slot index
+/// - `entropy_seed`: used to compute per-tx `sort_key`
+/// - `nonces`: starting nonce array (copied; not mutated in `state`)
+/// - `validators`: current (possibly updated) metrics used for divergence checks
+pub(crate) fn prevalidate_all_impl(
+    validator_ids: &[[u8; 48]; MAX_VALIDATORS],
+    validators: &[ValidatorMetrics; MAX_VALIDATORS],
+    entropy_seed: &[u8; 32],
+    nonces: &[u64; MAX_VALIDATORS],
+    validator_count: u32,
     raw_txs: &[&[u8]],
     max_count: u32,
 ) -> Result<TxPrevalidation, TxError> {
@@ -469,23 +485,21 @@ pub fn prevalidate_all(
     let mut entries = [CandidateTx::ZERO; MAX_TX_PER_EPOCH];
     let mut valid: usize = 0;
 
-    // Pass 1: parse each envelope, resolve author slot, build CandidateTx entries.
-    // Caching `author_slot` avoids a second O(N) `index_of_validator` scan in
-    // the admission pass. `raw_idx` is retained for cheap field reads in pass 2.
     for (raw_idx, raw) in raw_txs.iter().enumerate().take(n) {
         let (tx, consumed) = match parse_tx(raw) {
             Ok(v) => v,
             Err(_) => continue,
         };
-        let slot = match index_of_validator(state, tx.author_id()) {
-            Some(s) => s,
-            None => continue,
-        };
+        let slot =
+            match (0..validator_count as usize).find(|&i| &validator_ids[i] == tx.author_id()) {
+                Some(s) => s,
+                None => continue,
+            };
         let id = match tx_id_bytes(raw, consumed) {
             Ok(id) => id,
             Err(_) => continue,
         };
-        let key = sort_key(&state.entropy_seed, &id);
+        let key = sort_key(entropy_seed, &id);
         entries[valid] = CandidateTx {
             key,
             id,
@@ -495,7 +509,6 @@ pub fn prevalidate_all(
         valid += 1;
     }
 
-    // Insertion sort (deterministic, constant-size), ordered by (sort_key, tx_id).
     let mut i: usize = 1;
     while i < valid {
         let mut j = i;
@@ -511,11 +524,11 @@ pub fn prevalidate_all(
     } else {
         valid
     };
-    let mut next_nonces = state.nonces;
+    let mut next_nonces = *nonces;
     let mut projected_divergences = [FixedPoint::ZERO; MAX_VALIDATORS];
-    for (dst, validator) in projected_divergences[..state.validator_count as usize]
+    for (dst, validator) in projected_divergences[..validator_count as usize]
         .iter_mut()
-        .zip(state.validators[..state.validator_count as usize].iter())
+        .zip(validators[..validator_count as usize].iter())
     {
         *dst = validator.divergence;
     }
@@ -524,10 +537,6 @@ pub fn prevalidate_all(
     let mut divergence_update_count: u32 = 0;
     let mut applied: u32 = 0;
 
-    // Pass 2: admit in sorted order.
-    // Reads nonce and type from fixed envelope offsets — no full re-parse.
-    // All validity checks (version, author_id, payload_len, envelope size) were
-    // already performed in pass 1; `raw_idx` points to a known-valid slice.
     for e in &entries[..valid] {
         if applied as usize >= limit {
             break;
@@ -560,7 +569,7 @@ pub fn prevalidate_all(
                 match apply_tx_1_cached(
                     &mut projected_divergences,
                     &mut next_nonces,
-                    state.validator_count,
+                    validator_count,
                     idx,
                     target_idx,
                     delta,
@@ -578,7 +587,7 @@ pub fn prevalidate_all(
                     Err(_) => false,
                 }
             }
-            _ => continue, // unreachable: pass 1 accepted only known types
+            _ => continue,
         };
         if applied_tx {
             applied += 1;
@@ -592,6 +601,22 @@ pub fn prevalidate_all(
         divergence_update_count,
         applied_count: applied,
     })
+}
+
+pub fn prevalidate_all(
+    state: &EpochState,
+    raw_txs: &[&[u8]],
+    max_count: u32,
+) -> Result<TxPrevalidation, TxError> {
+    prevalidate_all_impl(
+        &state.validator_ids,
+        &state.validators,
+        &state.entropy_seed,
+        &state.nonces,
+        state.validator_count,
+        raw_txs,
+        max_count,
+    )
 }
 
 /// Apply all transactions in `raw_txs` to `state`.
@@ -989,6 +1014,74 @@ mod tests {
         assert_eq!(
             fwd_result.next_nonces, rev_result.next_nonces,
             "reversed input must produce identical nonce increments"
+        );
+    }
+
+    // Track 7: prevalidate_all_impl parity — the decomposed API used by
+    // transition.rs must produce identical output to the EpochState wrapper.
+    #[test]
+    fn prevalidate_all_impl_matches_prevalidate_all_with_same_validators() {
+        let mut state = make_state(4);
+        state.validators[1].divergence = FixedPoint::from_raw(50);
+        let tx0 = make_tx0_raw(author_id(0), 0);
+        let tx1 = make_tx1_raw(author_id(0), 0, 1, 50);
+        let txs: &[&[u8]] = &[tx0.as_slice(), tx1.as_slice()];
+
+        let via_state = prevalidate_all(&state, txs, 100).unwrap();
+        let via_impl = prevalidate_all_impl(
+            &state.validator_ids,
+            &state.validators,
+            &state.entropy_seed,
+            &state.nonces,
+            state.validator_count,
+            txs,
+            100,
+        )
+        .unwrap();
+
+        assert_eq!(via_state.applied_count, via_impl.applied_count);
+        assert_eq!(via_state.next_nonces, via_impl.next_nonces);
+        assert_eq!(
+            via_state.divergence_update_count,
+            via_impl.divergence_update_count
+        );
+        assert_eq!(via_state.divergence_targets, via_impl.divergence_targets);
+        assert_eq!(via_state.divergence_values, via_impl.divergence_values);
+    }
+
+    #[test]
+    fn prevalidate_all_impl_with_updated_validators_sees_fresh_divergence() {
+        // Simulates what transition.rs does: validators have been updated by the
+        // Lyapunov pipeline before prevalidate_all_impl is called.  A TX-1 that
+        // would fail against `state.validators` (delta > divergence) succeeds
+        // against `next_validators` because we patched a higher divergence in.
+        let state = make_state(2);
+        // original state: validators[1].divergence = 0 → TX-1 delta=50 would fail
+        let tx1 = make_tx1_raw(author_id(0), 0, 1, 50);
+
+        let original = prevalidate_all(&state, &[tx1.as_slice()], 100).unwrap();
+        assert_eq!(
+            original.applied_count, 0,
+            "should fail with zero divergence"
+        );
+
+        // patch in next_validators with divergence = 100
+        let mut next_validators = state.validators;
+        next_validators[1].divergence = FixedPoint::from_raw(100);
+
+        let patched = prevalidate_all_impl(
+            &state.validator_ids,
+            &next_validators,
+            &state.entropy_seed,
+            &state.nonces,
+            state.validator_count,
+            &[tx1.as_slice()],
+            100,
+        )
+        .unwrap();
+        assert_eq!(
+            patched.applied_count, 1,
+            "should succeed with divergence=100"
         );
     }
 }
