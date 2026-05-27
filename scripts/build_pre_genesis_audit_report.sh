@@ -172,7 +172,12 @@ fi
   echo ""
   echo "## Dependency risk"
   echo ""
-  RISK_ENTRIES=$(grep -c '^### ' "docs/audit/dependency_risk_register.md" 2>/dev/null || echo "0")
+  RISK_ENTRIES=$(awk '
+    /^## Current entries/ { in_entries = 1; next }
+    /^## / { in_entries = 0 }
+    in_entries && /^### / { count++ }
+    END { print count + 0 }
+  ' "docs/audit/dependency_risk_register.md" 2>/dev/null || echo "0")
   echo "Open dependency risk entries: $RISK_ENTRIES"
   echo ""
   echo "_See \`docs/audit/dependency_risk_register.md\` for triage status._"
