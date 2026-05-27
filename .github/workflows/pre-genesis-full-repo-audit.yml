@@ -232,4 +232,6 @@ jobs:
           rustup +nightly component add miri
           cargo +nightly miri setup
       - name: Run Miri on qash-consensus
+        env:
+          MIRIFLAGS: -Zmiri-disable-isolation
         run: cargo +nightly miri test -p qash-consensus --no-default-features
