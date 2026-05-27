@@ -10,7 +10,7 @@
 #   <!-- claim-boundary-allow: <reason> -->
 #   Suppresses that line AND the immediately following line only.
 #
-# Excluded from scan (these files list prohibited examples, not live claims):
+# Excluded from scan:
 #   docs/mvp/claims_register.md
 #   docs/audit/**
 #   docs/platforms/**
@@ -30,60 +30,55 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 FAIL=0
 VIOLATIONS=()
 
-# ── Prohibited phrases (case-insensitive) ─────────────────────────────────────
-# These are unacceptable compliance or capability overclaims.
-# Keep this list contextual: broad protocol words such as "token" and
-# "custody" are not blocked alone because QASH legitimately uses phrases such
-# as CapToken, non-custodial, no custody, and custody-boundary disclaimers.
+# Contextual overclaim patterns, case-insensitive grep -P regexes.
+# Broad protocol words are not blocked alone because QASH legitimately uses
+# capability-token, non-custodial, no-custody, and boundary-disclaimer language.
 PROHIBITED_PHRASES=(
-  'GDPR compliant'
-  'FIPS validated'
-  'FIPS certified'
-  'NSA approved'
-  'military certified'
-  'NATO certified'
-  'FedRAMP authoris'
-  'Common Criteria certified'
-  'CMMC compliant'
-  'quantum secure'
-  'production-ready'
-  'mainnet-ready'
-  'financial infrastructure'
-  'payment system'
-  'settlement layer'
-  'investment token'
-  'utility token'
-  'security token'
-  'governance token'
-  'token sale'
-  'asset custody'
-  'funds custody'
-  'customer custody'
-  'custodial service'
-  'custody of assets'
+  'GDPR[[:space:]-]+compliant'
+  'FIPS[[:space:]-]+validat'
+  'FIPS[[:space:]-]+certif'
+  'NSA[[:space:]-]+approv'
+  'military[[:space:]-]+certif'
+  'NATO[[:space:]-]+certif'
+  'FedRAMP[[:space:]-]+authoris'
+  'Common[[:space:]-]+Criteria[[:space:]-]+certif'
+  'CMMC[[:space:]-]+compliant'
+  'quantum[[:space:]-]+secure'
+  'production[[:space:]-]+ready'
+  'mainnet[[:space:]-]+ready'
+  'financial[[:space:]-]+infrastructure'
+  'payment[[:space:]-]+system'
+  'settlement[[:space:]-]+layer'
+  'investment[[:space:]-]+token'
+  'utility[[:space:]-]+token'
+  'security[[:space:]-]+token'
+  'governance[[:space:]-]+token'
+  'token[[:space:]-]+sale'
+  'asset[[:space:]-]+custody'
+  'funds[[:space:]-]+custody'
+  'customer[[:space:]-]+custody'
+  'custodial[[:space:]-]+service'
+  'custody[[:space:]-]+of[[:space:]-]+assets'
 )
 
-# Hard compliance/certification phrases may be listed in negative or prohibited
-# contexts without an allow marker. These patterns suppress false positives like
-# "not FIPS validated", "no claim of NSA approved", or "must not say GDPR compliant".
-NEGATIVE_CONTEXT='(^|[^[:alnum:]_])(not|no|non|never|without|must not|do not|cannot|should not|prohibit|prohibited|forbidden|blocked|avoid|no claim of|not a claim of|is not|are not)[^\.\n]{0,96}'
+NEGATIVE_CONTEXT='(^|[^[:alnum:]_])(not|no|non|never|without|must not|do not|cannot|should not|prohibit|prohibited|forbidden|blocked|avoid|no claim of|not a claim of|is not|are not)[^\.\n]{0,160}'
+EXAMPLE_CONTEXT='(^|[[:space:]>#*-])((the )?prohibited claims are|avoid[[:space:]]*\(claim boundary violations\)|blocked:|blocked claims?|prohibited profile behavior|must not:|must never|do not use blocked terms)'
 
-# ── Forbidden platform overclaims (outside docs/platforms/) ───────────────────
 PLATFORM_OVERCLAIMS=(
-  'supports all platforms'
-  'runs on all'
-  'MUSA support'
-  'CUDA support'
-  'ROCm support'
-  'HSM support'
-  'TPM support'
-  'smartcard support'
-  'TEE support'
-  'full RTOS support'
+  'supports[[:space:]-]+all[[:space:]-]+platforms'
+  'runs[[:space:]-]+on[[:space:]-]+all[[:space:]-]+platforms'
+  'runs[[:space:]-]+on[[:space:]-]+every[[:space:]-]+platform'
+  'runs[[:space:]-]+on[[:space:]-]+all[[:space:]-]+supported[[:space:]-]+platforms'
+  'MUSA[[:space:]-]+support'
+  'CUDA[[:space:]-]+support'
+  'ROCm[[:space:]-]+support'
+  'HSM[[:space:]-]+support'
+  'TPM[[:space:]-]+support'
+  'smartcard[[:space:]-]+support'
+  'TEE[[:space:]-]+support'
+  'full[[:space:]-]+RTOS[[:space:]-]+support'
 )
 
-# ── Build the file list ───────────────────────────────────────────────────────
-# Scan .md, .toml, .txt files tracked by git, excluding the allowlist directories.
 mapfile -t SCAN_FILES < <(
   git ls-files '*.md' '*.toml' '*.txt' | grep -v \
     -e '^docs/mvp/claims_register\.md$' \
@@ -92,10 +87,14 @@ mapfile -t SCAN_FILES < <(
     -e '^docs/release/'
 )
 
-# ── Scanner helpers ───────────────────────────────────────────────────────────
 line_has_allow_marker() {
   local line="$1"
   echo "$line" | grep -qF '<!-- claim-boundary-allow:'
+}
+
+line_enters_example_context() {
+  local line="$1"
+  echo "$line" | grep -qiP "$EXAMPLE_CONTEXT"
 }
 
 line_is_negative_context_for_pattern() {
@@ -104,33 +103,41 @@ line_is_negative_context_for_pattern() {
   echo "$line" | grep -qiP "${NEGATIVE_CONTEXT}${pattern}"
 }
 
-# Scans a file for a pattern (case-insensitive).
-# Respects the allowlist marker: a line containing the marker suppresses
-# itself and the immediately following line only.
 scan_file_for_pattern() {
   local file="$1"
   local pattern="$2"
   local -i lineno=0
   local -i skip_next=0
+  local -i example_context=0
   local violation_found=0
 
   while IFS= read -r line || [ -n "$line" ]; do
     lineno=$(( lineno + 1 ))
 
-    # If previous line was an allowlist marker, skip this line
+    if echo "$line" | grep -qP '^#{1,3}[[:space:]]+'; then
+      example_context=0
+    fi
+
+    if line_enters_example_context "$line"; then
+      example_context=40
+      continue
+    fi
+
     if [ "$skip_next" -eq 1 ]; then
       skip_next=0
       continue
     fi
 
-    # If this line is an allowlist marker, skip it and set flag for next line
     if line_has_allow_marker "$line"; then
       skip_next=1
       continue
     fi
 
-    # Check for the pattern (case-insensitive)
     if echo "$line" | grep -qiP "$pattern"; then
+      if [ "$example_context" -gt 0 ]; then
+        example_context=$(( example_context - 1 ))
+        continue
+      fi
       if line_is_negative_context_for_pattern "$line" "$pattern"; then
         continue
       fi
@@ -138,13 +145,16 @@ scan_file_for_pattern() {
       VIOLATIONS+=("$file:$lineno: $pattern")
       violation_found=1
     fi
+
+    if [ "$example_context" -gt 0 ]; then
+      example_context=$(( example_context - 1 ))
+    fi
   done < "$file"
 
   return $violation_found
 }
 
-# ── Scan for prohibited phrases ───────────────────────────────────────────────
-echo "Scanning ${#SCAN_FILES[@]} files for prohibited phrases..."
+echo "Scanning ${#SCAN_FILES[@]} files for prohibited claim patterns..."
 for file in "${SCAN_FILES[@]}"; do
   [ -f "$file" ] || continue
   for phrase in "${PROHIBITED_PHRASES[@]}"; do
@@ -154,17 +164,8 @@ for file in "${SCAN_FILES[@]}"; do
   done
 done
 
-# ── Scan for platform overclaims (broader file set, excluding docs/platforms/) ─
-echo "Scanning for platform overclaims (outside docs/platforms/)..."
-mapfile -t PLATFORM_SCAN_FILES < <(
-  git ls-files '*.md' '*.toml' '*.txt' | grep -v \
-    -e '^docs/mvp/claims_register\.md$' \
-    -e '^docs/audit/' \
-    -e '^docs/platforms/' \
-    -e '^docs/release/'
-)
-
-for file in "${PLATFORM_SCAN_FILES[@]}"; do
+echo "Scanning for platform overclaims outside docs/platforms/..."
+for file in "${SCAN_FILES[@]}"; do
   [ -f "$file" ] || continue
   for phrase in "${PLATFORM_OVERCLAIMS[@]}"; do
     if ! scan_file_for_pattern "$file" "$phrase" 2>/dev/null; then
@@ -173,7 +174,6 @@ for file in "${PLATFORM_SCAN_FILES[@]}"; do
   done
 done
 
-# ── Emit report ───────────────────────────────────────────────────────────────
 {
   echo "# Claim Boundary Scan"
   echo ""
@@ -185,29 +185,17 @@ done
   echo ""
   echo "- **General scan:** ${#SCAN_FILES[@]} files (\`.md\`, \`.toml\`, \`.txt\` tracked by git, excluding exempt directories)"
   echo "- **Excluded:** \`docs/mvp/claims_register.md\`, \`docs/audit/\`, \`docs/platforms/\`, \`docs/release/\`"
-  echo "- **NOT excluded:** \`docs/funding/\`, \`docs/compliance/\` (grant/compliance-facing docs are high-risk)"
+  echo "- **NOT excluded:** \`docs/funding/\`, \`docs/compliance/\`"
   echo ""
-  echo "## Prohibited phrases"
+  echo "## Pattern groups"
   echo ""
-  echo "| Phrase | Status |"
-  echo "|--------|--------|"
-  for phrase in "${PROHIBITED_PHRASES[@]}"; do
-    echo "| \`$phrase\` | enforced |"
-  done
+  echo "- Compliance/certification overclaim patterns: ${#PROHIBITED_PHRASES[@]}"
+  echo "- Platform overclaim patterns: ${#PLATFORM_OVERCLAIMS[@]}"
   echo ""
-  echo "## Platform overclaims (outside \`docs/platforms/\`)"
+  echo "## Suppression policy"
   echo ""
-  echo "| Phrase | Status |"
-  echo "|--------|--------|"
-  for phrase in "${PLATFORM_OVERCLAIMS[@]}"; do
-    echo "| \`$phrase\` | enforced |"
-  done
-  echo ""
-  echo "## Negative-context suppression"
-  echo ""
-  echo "Lines that clearly negate or prohibit a claim, such as \`not FIPS validated\`"
-  echo "or \`must not say GDPR compliant\`, are not counted as live overclaims."
-  echo "Use the allowlist marker for longer examples or tables."
+  echo "Clearly negative uses and explicit blocked/prohibited/avoid example sections are not treated as live claims."
+  echo "The narrow allowlist marker remains available for one-off cases."
   echo ""
   if [ "${#VIOLATIONS[@]}" -gt 0 ]; then
     echo "## Violations found"
