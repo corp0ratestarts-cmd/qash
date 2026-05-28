@@ -119,5 +119,28 @@ fn cascade_kat_has_required_fields_and_minimum_count() {
             "cascade_kat.json: entry[{}] missing 'h_cascade_hex'",
             i
         );
+        assert!(
+            entry["context_key_hex"].as_str().is_some(),
+            "cascade_kat.json: entry[{}] missing 'context_key_hex'",
+            i
+        );
+        assert!(
+            entry["h_cascade_keyed_hex"].as_str().is_some(),
+            "cascade_kat.json: entry[{}] missing 'h_cascade_keyed_hex'",
+            i
+        );
+
+        for field in ["h_cascade_hex", "h_cascade_keyed_hex"] {
+            let value = entry[field]
+                .as_str()
+                .unwrap_or_else(|| panic!("cascade_kat.json: entry[{}] missing '{}'", i, field));
+            assert_eq!(
+                value.len(),
+                128,
+                "cascade_kat.json: entry[{}].{} must be 64-byte hex",
+                i,
+                field
+            );
+        }
     }
 }

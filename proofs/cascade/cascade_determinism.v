@@ -16,8 +16,9 @@
       4. Domain separator encoding is UTF-8 with no platform-dependent behavior
          (fixed byte strings, no locale or endianness sensitivity)
 
-    Status: PLACEHOLDER — CI test vectors for H_cascade pending implementation
-    of the cascade in src/crypto/cascade.rs.
+    Status: VERIFICATION CLAIM — cascade implementation and checked-in KAT
+    vectors are present. CI enforces h_cascade / h_cascade_keyed known-answer
+    tests and cross-platform state-root replay gates.
 
     Depends on: TH-7 (replay invariance for the existing consensus path),
                 AX-1, AX-2.
@@ -25,7 +26,10 @@
 
 (** No Coq proof is required for VERIFICATION CLAIMS.
     This file serves as the formal record of the claim and its proof
-    obligations. Cross-ISA verification is in:
+    obligations. Cross-ISA and vector verification is in:
       scripts/verify_cross_isa_identity.sh
-      tests/vectors/vectors.v1.json (cascade output vectors, TBD)
+      .github/workflows/platform-determinism.yml
+      crates/consensus/tests/cascade_kat.rs
+      crates/consensus/tests/vector_integrity.rs
+      tests/vectors/cascade_kat.json
 *)
