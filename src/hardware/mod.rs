@@ -4,7 +4,9 @@ pub mod capabilities;
 pub mod platform;
 pub mod power_management;
 
-pub use acceleration::{AccelerationBackend, AccelerationError, FieldOp};
+pub use acceleration::{
+    AccelerationBackend, AccelerationError, FieldOp, SoftwareAccelerationBackend,
+};
 pub use attestation_gate::{
     AttestationGate, AttestationGateError, AttestationQuote, UnimplementedAttestationGate,
 };
