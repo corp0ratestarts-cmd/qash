@@ -115,8 +115,8 @@ fi
     echo "# ❌ Pre-Genesis Full-Repo Audit — FAIL"
   fi
   echo ""
-  echo "**Commit:** \`$COMMIT_SHA\`  "
-  echo "**Timestamp:** $TIMESTAMP  "
+  echo "**Commit:** \`$COMMIT_SHA\`"
+  echo "**Timestamp:** $TIMESTAMP"
   echo "**Overall verdict:** **$OVERALL_VERDICT**"
   echo ""
   echo "---"
