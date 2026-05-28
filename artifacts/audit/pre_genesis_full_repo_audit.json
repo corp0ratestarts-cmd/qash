@@ -1,0 +1,21 @@
+{
+  "commit": "eaa8f614842d47af2e4b7501cb77326a2681ef86",
+  "timestamp": "2026-05-28T10:51:05Z",
+  "overall_verdict": "PASS",
+  "blocking_phases": {
+    "claim_boundary": "PASS",
+    "domain_boundary_full": "PASS",
+    "rust_bad_practices": "PASS",
+    "panic_surface": "PASS",
+    "unsafe_boundary": "PASS",
+    "liveness_loops": "PASS"
+  },
+  "file_inventory": {
+    "total_files": "362",
+    "domain_a_files": "21",
+    "domain_b_files": "29"
+  },
+  "proof_status": "26 .v files present",
+  "open_exception_count": 1,
+  "dependency_risk_entries": 0
+}

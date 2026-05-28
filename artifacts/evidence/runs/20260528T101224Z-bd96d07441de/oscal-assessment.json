@@ -1,0 +1,73 @@
+{
+  "component-definition": {
+    "uuid": "00000000-0000-0000-0000-000000000001",
+    "metadata": {
+      "title": "QASH Pre-Genesis Evidence Assessment",
+      "last-modified": "20260528T105135Z",
+      "version": "eaa8f614842d",
+      "oscal-version": "1.1.0"
+    },
+    "components": [
+      {
+        "uuid": "00000000-0000-0000-0000-000000000002",
+        "type": "software",
+        "title": "QASH Consensus Engine",
+        "description": "Post-quantum deterministic consensus kernel and PAL.",
+        "control-implementations": [
+          {
+            "uuid": "00000000-0000-0000-0000-000000000003",
+            "source": "https://pages.nist.gov/OSCAL/",
+            "description": "Pre-genesis evidence gate activities",
+            "implemented-requirements": []
+          }
+        ]
+      }
+    ]
+  },
+  "assessment-results": {
+    "uuid": "00000000-0000-0000-0000-000000000099",
+    "metadata": {
+      "title": "QASH Evidence Assessment Results",
+      "last-modified": "20260528T105135Z",
+      "version": "eaa8f614842d",
+      "oscal-version": "1.1.0"
+    },
+    "import-ap": {
+      "href": "#"
+    },
+    "results": [
+      {
+        "uuid": "00000000-0000-0000-0000-000000000100",
+        "title": "Evidence bundle run",
+        "start": "20260528T105135Z",
+        "end": "20260528T105135Z",
+        "reviewed-controls": {
+          "control-selections": [
+            {
+              "include-all": {}
+            }
+          ]
+        },
+        "findings": [],
+        "attestations": [
+          {
+            "responsible-parties": [
+              {
+                "role-id": "assessor",
+                "party-uuids": [
+                  "00000000-0000-0000-0000-000000000200"
+                ]
+              }
+            ],
+            "parts": [
+              {
+                "name": "assessment-log-entry",
+                "prose": "Automated evidence bundle. Overall: pass. Pass: 15. Fail: 0."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

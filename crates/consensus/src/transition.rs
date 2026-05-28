@@ -387,8 +387,11 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
 /// D, C <= SCALE = 1_000_000; Sigma validated <= i64::MAX; V_convergence <= 768_000_000.
 #[inline]
 fn fp_to_i64_wire(fp: FixedPoint) -> i64 {
-    debug_assert!(fp.raw() >= i64::MIN as i128 && fp.raw() <= i64::MAX as i128);
-    fp.raw() as i64
+    match i64::try_from(fp.raw()) {
+        Ok(value) => value,
+        Err(_) if fp.raw() < 0 => i64::MIN,
+        Err(_) => i64::MAX,
+    }
 }
 
 /// Stream the canonical commitment encoding of `state` into `h`, substituting
