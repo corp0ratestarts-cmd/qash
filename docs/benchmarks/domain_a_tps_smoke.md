@@ -72,7 +72,7 @@ Use the reversed full-batch result as the conservative Domain A TX-heavy
 baseline, because it exercises the deterministic ordering path hardest.
 
 If single-shard CPU-only TPS is already comfortably above the target per-shard
-load, then hardware acceleration is not needed in Domain A.
+load, then accelerator support is not needed for the deterministic core.
 
 If single-shard CPU-only TPS is low but the independent-shard model reaches the
 target with a plausible shard count, the sharded architecture is likely the
