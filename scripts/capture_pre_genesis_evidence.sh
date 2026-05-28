@@ -235,7 +235,12 @@ prepare_cargo_deny_home() {
     printf 'Coq: %s\n' "$(coqc --version 2>/dev/null | head -1 || printf 'not found')"
     printf 'Kani: %s\n' "$(cargo kani --version 2>/dev/null || kani --version 2>/dev/null || printf 'not found')"
     printf '\n## Working Tree\n\n'
-    git status --short
+    status_excludes=()
+    case "$out_dir" in
+        /*) ;;
+        *) status_excludes=(":(exclude)$out_dir" ":(exclude)$out_dir/**") ;;
+    esac
+    git status --short -- . "${status_excludes[@]}"
     printf '\n## Command Summary\n\n'
 } >"$manifest"
 
