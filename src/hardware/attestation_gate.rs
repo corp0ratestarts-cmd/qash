@@ -287,13 +287,21 @@ mod tests {
         AttestationGate, AttestationGateError, AttestationQuote, LocalEvidenceAttestationGate,
         UnimplementedAttestationGate, LOCAL_EVIDENCE_QUOTE_LEN,
     };
+    use sha3::{Digest, Sha3_256};
 
     fn nonce() -> [u8; 32] {
-        [7u8; 32]
+        test_hash(b"nonce")
     }
 
     fn measurement(byte: u8) -> [u8; 32] {
-        [byte; 32]
+        test_hash(&[b"measurement".as_slice(), &[byte]].concat())
+    }
+
+    fn test_hash(label: &[u8]) -> [u8; 32] {
+        let mut h = Sha3_256::new();
+        h.update(b"QASH/test/attestation/v1");
+        h.update(label);
+        h.finalize().into()
     }
 
     #[test]
@@ -386,8 +394,8 @@ mod tests {
     fn merkle_different_nonces_same_root() {
         use super::SoftwareHashMerkleAttestation;
         let gate = SoftwareHashMerkleAttestation::new();
-        let q1 = gate.generate_quote(&[0u8; 32]).unwrap();
-        let q2 = gate.generate_quote(&[1u8; 32]).unwrap();
+        let q1 = gate.generate_quote(&test_hash(b"nonce-a")).unwrap();
+        let q2 = gate.generate_quote(&test_hash(b"nonce-b")).unwrap();
         assert_ne!(q1, q2);
         assert_eq!(&q1.bytes[33..65], &q2.bytes[33..65]);
     }
@@ -419,8 +427,8 @@ mod tests {
     #[test]
     fn merkle_wrong_identity_fails() {
         use super::SoftwareHashMerkleAttestation;
-        let gate_a = SoftwareHashMerkleAttestation::with_identity([0xAAu8; 32]);
-        let gate_b = SoftwareHashMerkleAttestation::with_identity([0xBBu8; 32]);
+        let gate_a = SoftwareHashMerkleAttestation::with_identity(test_hash(b"identity-a"));
+        let gate_b = SoftwareHashMerkleAttestation::with_identity(test_hash(b"identity-b"));
         let quote = gate_a.generate_quote(&nonce()).unwrap();
         assert_eq!(
             gate_b.verify_quote(&quote),

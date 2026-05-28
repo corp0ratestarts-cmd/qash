@@ -113,9 +113,17 @@ impl Module {
 mod tests {
     use super::*;
     use qash_consensus::EpochInput;
+    use sha3::{Digest, Sha3_256};
 
     fn idle_input(validator_count: u32) -> EpochInput {
         EpochInput::new(validator_count)
+    }
+
+    fn test_nonce(label: &[u8]) -> [u8; 32] {
+        let mut h = Sha3_256::new();
+        h.update(b"QASH/test/consensus/nonce/v1");
+        h.update(label);
+        h.finalize().into()
     }
 
     #[test]
@@ -159,7 +167,7 @@ mod tests {
     #[test]
     fn attestation_roundtrip() {
         let m = Module::new(4);
-        let nonce = [0x42u8; 32];
+        let nonce = test_nonce(b"roundtrip");
         let quote = m.attestation_quote(&nonce).unwrap();
         m.verify_attestation(&quote).unwrap();
     }
@@ -167,7 +175,7 @@ mod tests {
     #[test]
     fn attestation_quote_is_deterministic_for_same_nonce() {
         let m = Module::new(4);
-        let nonce = [0u8; 32];
+        let nonce = test_nonce(b"deterministic");
         let q1 = m.attestation_quote(&nonce).unwrap();
         let q2 = m.attestation_quote(&nonce).unwrap();
         assert_eq!(q1, q2);
@@ -176,8 +184,8 @@ mod tests {
     #[test]
     fn different_nonces_produce_different_quotes() {
         let m = Module::new(4);
-        let q1 = m.attestation_quote(&[0u8; 32]).unwrap();
-        let q2 = m.attestation_quote(&[1u8; 32]).unwrap();
+        let q1 = m.attestation_quote(&test_nonce(b"nonce-a")).unwrap();
+        let q2 = m.attestation_quote(&test_nonce(b"nonce-b")).unwrap();
         assert_ne!(q1, q2);
     }
 
