@@ -16,12 +16,31 @@ pub enum ObfuscationError {
     InvalidInputLength,
     /// Domain separator is empty.
     InvalidDomain,
+    /// Cascade output bytes do not match the expected canonical output.
+    VerificationFailed,
 }
 
 /// Obfuscation cascade output (Domain B only).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CascadeOutput {
     pub bytes: Vec<u8>,
+}
+
+impl CascadeOutput {
+    /// Convert the heap-backed output into the canonical fixed-size form.
+    pub fn try_into_array(self) -> Result<[u8; OUTPUT_BYTES], ObfuscationError> {
+        self.bytes
+            .try_into()
+            .map_err(|_| ObfuscationError::InvalidInputLength)
+    }
+
+    /// Borrow the output as the canonical fixed-size byte array.
+    pub fn as_array(&self) -> Result<[u8; OUTPUT_BYTES], ObfuscationError> {
+        self.bytes
+            .as_slice()
+            .try_into()
+            .map_err(|_| ObfuscationError::InvalidInputLength)
+    }
 }
 
 /// Domain B obfuscation cascade trait.
@@ -36,6 +55,21 @@ pub trait ObfuscationCascade {
     /// Returns an error when the domain is invalid or the implementation is not
     /// available.
     fn apply(&self, input: &[u8], domain: &[u8]) -> Result<CascadeOutput, ObfuscationError>;
+
+    /// Recompute and compare a canonical cascade output.
+    fn verify(
+        &self,
+        input: &[u8],
+        domain: &[u8],
+        expected: &CascadeOutput,
+    ) -> Result<(), ObfuscationError> {
+        let computed = self.apply(input, domain)?;
+        if computed.bytes == expected.bytes && expected.bytes.len() == OUTPUT_BYTES {
+            Ok(())
+        } else {
+            Err(ObfuscationError::VerificationFailed)
+        }
+    }
 }
 
 /// Deterministic Domain B obfuscation cascade.
@@ -73,7 +107,9 @@ pub fn output_bytes() -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{output_bytes, DeterministicCascade, ObfuscationCascade, ObfuscationError};
+    use super::{
+        output_bytes, CascadeOutput, DeterministicCascade, ObfuscationCascade, ObfuscationError,
+    };
 
     #[test]
     fn deterministic_cascade_returns_fixed_size_output() {
@@ -87,6 +123,10 @@ mod tests {
 
         assert_eq!(out.bytes.len(), output_bytes());
         assert_ne!(out.bytes, vec![0u8; output_bytes()]);
+        assert_eq!(
+            out.as_array().expect("canonical output").len(),
+            output_bytes()
+        );
     }
 
     #[test]
@@ -114,6 +154,49 @@ mod tests {
         assert_eq!(
             cascade.apply(b"payload", b""),
             Err(ObfuscationError::InvalidDomain)
+        );
+    }
+
+    #[test]
+    fn cascade_output_rejects_noncanonical_length() {
+        let output = CascadeOutput {
+            bytes: vec![0u8; output_bytes() - 1],
+        };
+
+        assert_eq!(output.as_array(), Err(ObfuscationError::InvalidInputLength));
+    }
+
+    #[test]
+    fn deterministic_cascade_verifies_expected_output() {
+        let cascade = DeterministicCascade;
+        let expected = cascade.apply(b"payload", b"domain-a").unwrap();
+
+        cascade
+            .verify(b"payload", b"domain-a", &expected)
+            .expect("expected output verifies");
+    }
+
+    #[test]
+    fn deterministic_cascade_verification_rejects_tampering() {
+        let cascade = DeterministicCascade;
+        let mut expected = cascade.apply(b"payload", b"domain-a").unwrap();
+        expected.bytes[0] ^= 1;
+
+        assert_eq!(
+            cascade.verify(b"payload", b"domain-a", &expected),
+            Err(ObfuscationError::VerificationFailed)
+        );
+    }
+
+    #[test]
+    fn deterministic_cascade_verification_rejects_truncation() {
+        let cascade = DeterministicCascade;
+        let mut expected = cascade.apply(b"payload", b"domain-a").unwrap();
+        expected.bytes.pop();
+
+        assert_eq!(
+            cascade.verify(b"payload", b"domain-a", &expected),
+            Err(ObfuscationError::VerificationFailed)
         );
     }
 }
