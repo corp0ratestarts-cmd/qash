@@ -18,7 +18,10 @@ pub trait Halt {
 
 #[cfg(feature = "std")]
 pub mod smartcard {
+    use sha3::{Digest, Sha3_256};
     use std::fmt;
+
+    const IN_MEMORY_SIGNATURE_DOMAIN: &[u8] = b"QASH-DOMAIN-B-IN-MEMORY-SMARTCARD-SIGNATURE\0";
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct TokenDescriptor {
@@ -60,12 +63,29 @@ pub mod smartcard {
     }
 
     /// Minimal in-memory adapter that models a Domain-B token provider.
-    /// This is intentionally deterministic and test-friendly until a PKCS#11
-    /// backend is wired in.
+    ///
+    /// This is not a PKCS#11 or hardware-token implementation. It gives hosted
+    /// tests a fixed-size, domain-separated signing surface so PAL callers can
+    /// exercise key selection and signature verification without embedding raw
+    /// payload bytes into the signature artifact.
     #[derive(Debug, Clone)]
     pub struct InMemoryKeyStore {
         pub descriptor: TokenDescriptor,
         pub key_label: String,
+        pub signing_key: [u8; 32],
+    }
+
+    impl InMemoryKeyStore {
+        pub fn verify(&self, req: &SignRequest, signature: &[u8]) -> Result<(), SmartcardError> {
+            let expected = self.sign(req)?;
+            if signature == expected {
+                Ok(())
+            } else {
+                Err(SmartcardError::Provider(
+                    "signature verification failed".to_string(),
+                ))
+            }
+        }
     }
 
     impl KeyStore for InMemoryKeyStore {
@@ -80,12 +100,22 @@ pub mod smartcard {
             if req.key_label != self.key_label {
                 return Err(SmartcardError::KeyNotFound);
             }
-            // Deterministic pseudo-signature placeholder for PAL integration.
-            let mut out = b"QASH-SIGNATURE\0".to_vec();
-            out.extend_from_slice(req.key_label.as_bytes());
-            out.extend_from_slice(&req.payload);
-            Ok(out)
+            let mut hasher = Sha3_256::new();
+            hasher.update(IN_MEMORY_SIGNATURE_DOMAIN);
+            update_len_prefixed(&mut hasher, self.descriptor.provider.as_bytes());
+            hasher.update(self.descriptor.slot_id.to_le_bytes());
+            update_len_prefixed(&mut hasher, self.descriptor.label.as_bytes());
+            update_len_prefixed(&mut hasher, self.descriptor.serial.as_bytes());
+            update_len_prefixed(&mut hasher, req.key_label.as_bytes());
+            hasher.update(self.signing_key);
+            update_len_prefixed(&mut hasher, &req.payload);
+            Ok(hasher.finalize().to_vec())
         }
+    }
+
+    fn update_len_prefixed(hasher: &mut Sha3_256, bytes: &[u8]) {
+        hasher.update((bytes.len() as u64).to_le_bytes());
+        hasher.update(bytes);
     }
 }
 
