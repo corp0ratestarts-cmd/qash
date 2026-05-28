@@ -70,7 +70,7 @@ for dir in "${ALL_DIRS[@]}"; do
     # Lock-across-await detection:
     # Find lines where a Mutex/RwLock .lock() is called, then check if
     # .await appears within the next 20 lines (potential held-lock-across-await).
-    while IFS=: read -r _ lineno line; do
+    while IFS=: read -r lineno line; do
       [ -z "$lineno" ] && continue
       end=$(( lineno + 20 ))
       total=$(wc -l < "$file")

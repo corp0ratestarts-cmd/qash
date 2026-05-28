@@ -1,0 +1,12 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running tests/phase2r_preconditions.rs (target/debug/deps/phase2r_preconditions-c119137e25640633)
+
+running 6 tests
+test phase2r_state_root_commitment_matches_buffered_preimage ... ok
+test phase2r_single_pass_admission_is_order_independent_with_tx1 ... ok
+test phase2r_max_validator_epoch_replay_is_repeatable ... ok
+test phase2r_streaming_state_root_matches_buffered_for_varied_states ... ok
+test phase2r_tx_heavy_prevalidation_is_input_order_independent ... ok
+test phase2r_tx_heavy_apply_all_matches_prevalidation_plan ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.41s

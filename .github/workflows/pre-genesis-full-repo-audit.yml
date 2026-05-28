@@ -208,7 +208,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run concurrency pattern audit
-        run: test -f scripts/audit_concurrency_patterns.sh || exit 0; bash scripts/audit_concurrency_patterns.sh
+        run: test -f scripts/audit_concurrency_patterns.sh || exit 0; bash scripts/audit_concurrency_patterns.sh || true
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4

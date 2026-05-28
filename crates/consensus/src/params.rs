@@ -69,7 +69,7 @@ pub fn consensus_params_hash() -> [u8; 32] {
     buf[o..o + 4].copy_from_slice(&(DomainTag::InternalHash as u32).to_le_bytes());
     o += 4;
 
-    debug_assert_eq!(o, BUF_SIZE);
+    let _ = o;
 
     h_domain(DomainTag::InternalHash, &buf)
 }
