@@ -1,0 +1,418 @@
+# File Inventory
+
+**Commit:** `7c1d41fd2447b0aedd507e32ad5e9208c16980cc`
+**Timestamp:** 2026-05-27T06:44:16Z
+**Total tracked files:** 362
+
+## Summary
+
+| Class | Count |
+|-------|-------|
+| `domain-a` | 21 |
+| `domain-b` | 29 |
+| `binary` | 20 |
+| `proofs` | 39 |
+| `ci-workflow` | 12 |
+| `scripts` | 38 |
+| `docs` | 103 |
+| `tests` | 17 |
+| `artifacts` | 10 |
+| `config` | 7 |
+| `other` | 66 |
+
+## Per-class file lists
+
+### `domain-a` (21 files)
+
+- `crates/consensus/src/blinding.rs`
+- `crates/consensus/src/capability.rs`
+- `crates/consensus/src/cascade.rs`
+- `crates/consensus/src/causal_order.rs`
+- `crates/consensus/src/derive.rs`
+- `crates/consensus/src/domain.rs`
+- `crates/consensus/src/encoding.rs`
+- `crates/consensus/src/envelope.rs`
+- `crates/consensus/src/fixed_point.rs`
+- `crates/consensus/src/hash.rs`
+- `crates/consensus/src/invariants.rs`
+- `crates/consensus/src/lib.rs`
+- `crates/consensus/src/lineage.rs`
+- `crates/consensus/src/lsh256.rs`
+- `crates/consensus/src/lsh512.rs`
+- `crates/consensus/src/lyapunov.rs`
+- `crates/consensus/src/params.rs`
+- `crates/consensus/src/public.rs`
+- `crates/consensus/src/sharding.rs`
+- `crates/consensus/src/transaction.rs`
+- `crates/consensus/src/transition.rs`
+
+### `domain-b` (29 files)
+
+- `crates/address/src/lib.rs`
+- `crates/pal/src/admission.rs`
+- `crates/pal/src/commitment_backpressure.rs`
+- `crates/pal/src/commitment_inbox.rs`
+- `crates/pal/src/commitment_transport.rs`
+- `crates/pal/src/crypto/drbg.rs`
+- `crates/pal/src/crypto/kem.rs`
+- `crates/pal/src/crypto/mod.rs`
+- `crates/pal/src/crypto/tls.rs`
+- `crates/pal/src/crypto/traits.rs`
+- `crates/pal/src/lib.rs`
+- `crates/pal/src/mvp.rs`
+- `crates/pal/src/mvp_demo_profile.rs`
+- `crates/pal/src/mvp_vault.rs`
+- `crates/pal/src/net/faulty_transport.rs`
+- `crates/pal/src/net/mod.rs`
+- `crates/pal/src/net/tcp_transport.rs`
+- `crates/pal/src/privacy/erasure.rs`
+- `crates/pal/src/privacy/mod.rs`
+- `crates/pal/src/privacy/public_transcript.rs`
+- `crates/pal/src/receipt.rs`
+- `crates/pal/src/recovery_wal.rs`
+- `crates/pal/src/root.rs`
+- `crates/pal/src/zero_wal.rs`
+- `crates/pal/src/zk/mod.rs`
+- `crates/pal/src/zk/plonky3.rs`
+- `model/src/coq_correspondence.rs`
+- `model/src/lib.rs`
+- `model/src/scenario.rs`
+
+### `binary` (20 files)
+
+- `src/bin/qash-demo.rs`
+- `src/consensus/compat.rs`
+- `src/consensus/mod.rs`
+- `src/crypto/blinding.rs`
+- `src/crypto/cascade.rs`
+- `src/crypto/cascade_agility.rs`
+- `src/crypto/cascade_coq.rs`
+- `src/crypto/mod.rs`
+- `src/demo.rs`
+- `src/hardware/acceleration.rs`
+- `src/hardware/attestation_gate.rs`
+- `src/hardware/capabilities.rs`
+- `src/hardware/mod.rs`
+- `src/hardware/platform.rs`
+- `src/hardware/power_management.rs`
+- `src/lib.rs`
+- `src/main.rs`
+- `src/obfuscation/mod.rs`
+- `src/offline/clone.rs`
+- `src/offline/mod.rs`
+
+### `proofs` (39 files)
+
+- `proofs/COVERAGE.md`
+- `proofs/Makefile`
+- `proofs/PROOF_REPRODUCIBILITY.md`
+- `proofs/STATUS.md`
+- `proofs/TH1_CLOSURE_CHECKLIST.md`
+- `proofs/THEOREM3_SYSTEM_CLOSURE_PLAN.md`
+- `proofs/_CoqProject`
+- `proofs/_wip/absorbing_halt.v.draft`
+- `proofs/_wip/encode_injectivity.v.draft`
+- `proofs/artifact-index/README.md`
+- `proofs/blinding/blinding_non_interference.v`
+- `proofs/capability/cap_token_schema.v`
+- `proofs/cascade/cascade_collision_resistance.v`
+- `proofs/cascade/cascade_determinism.v`
+- `proofs/cascade/cascade_health_bounded.v`
+- `proofs/cascade/it_mac_forgery_bound.v`
+- `proofs/composition/lyapunov_confluence.v`
+- `proofs/composition/th3_system_closure.v`
+- `proofs/concat_injective.v`
+- `proofs/contractivity/encode_injectivity.v`
+- `proofs/contractivity/lyapunov_grace_convergence.v`
+- `proofs/contractivity/lyapunov_stability.v`
+- `proofs/contractivity/tx1_score_decrement.v`
+- `proofs/contractivity/tx_perturbation_0.v`
+- `proofs/crypto_game_framework.v`
+- `proofs/integration/th8_composition.v`
+- `proofs/lyapunov_decrease.v`
+- `proofs/model/Extract.v`
+- `proofs/model/Model.v`
+- `proofs/model/RefinementStatement.v`
+- `proofs/model/encoding_vectors.json`
+- `proofs/model/transition_observations.json`
+- `proofs/model/vectors.json`
+- `proofs/ordering/causal_ordering.v`
+- `proofs/ordering/compatibility_window.v`
+- `proofs/safety/absorbing_halt.v`
+- `proofs/safety/causal_fingerprint.v`
+- `proofs/sharding/efb_determinism.v`
+- `proofs/util/list_inj.v`
+
+### `ci-workflow` (12 files)
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/embedded-nostd-advisory.yml`
+- `.github/workflows/fuzz-smoke.yml`
+- `.github/workflows/genesis-guard.yml`
+- `.github/workflows/multi-compiler-diff.yml`
+- `.github/workflows/mvp-demo.yml`
+- `.github/workflows/os-determinism-advisory.yml`
+- `.github/workflows/platform-determinism-advisory.yml`
+- `.github/workflows/platform-determinism.yml`
+- `.github/workflows/pre-genesis-full-repo-audit.yml`
+- `.github/workflows/release-attestation.yml`
+- `.github/workflows/security-compliance-preflight.yml`
+
+### `scripts` (38 files)
+
+- `scripts/attest_release.sh`
+- `scripts/audit_claim_boundary.sh`
+- `scripts/audit_concurrency_patterns.sh`
+- `scripts/audit_domain_boundary_full.sh`
+- `scripts/audit_file_inventory.sh`
+- `scripts/audit_liveness_loops.sh`
+- `scripts/audit_panic_surface.sh`
+- `scripts/audit_rust_bad_practices.sh`
+- `scripts/audit_unsafe_boundary.sh`
+- `scripts/build_pilot_evidence_bundle.sh`
+- `scripts/build_pre_genesis_audit_report.sh`
+- `scripts/capture_benchmarks.sh`
+- `scripts/capture_pre_genesis_evidence.sh`
+- `scripts/capture_proof_hashes.sh`
+- `scripts/check_axiom_coverage.sh`
+- `scripts/check_document_hygiene.sh`
+- `scripts/check_domain_a_tripwires.sh`
+- `scripts/check_graph_non_publication.sh`
+- `scripts/check_hardware_opsec_drift.sh`
+- `scripts/check_privacy_admission.sh`
+- `scripts/check_slice_evidence_freshness.sh`
+- `scripts/check_zero_persistence_boundary.sh`
+- `scripts/install_test_dependencies.sh`
+- `scripts/replay_test.sh`
+- `scripts/run_adversarial_scenarios.sh`
+- `scripts/run_clippy_strict_audit.sh`
+- `scripts/run_differential_corpus.sh`
+- `scripts/run_kani_consensus.sh`
+- `scripts/run_mvp_demo.sh`
+- `scripts/run_platform_determinism_gate.sh`
+- `scripts/verify_cross_isa_identity.sh`
+- `scripts/verify_genesis_hash.sh`
+- `scripts/verify_migration_keys_consumed.sh`
+- `scripts/verify_readme_constants.sh`
+- `scripts/verify_reproducible_build.sh`
+- `scripts/verify_rust_toolchain.sh`
+- `scripts/verify_strict_proofs_non_shrinking.sh`
+- `scripts/verify_two_stage_build.sh`
+
+### `docs` (103 files)
+
+- `docs/adr/0001-domain-isolation.md`
+- `docs/adr/0002-transition-safe-fixed-point.md`
+- `docs/adr/ADR-001-phi-safety-accumulator.md`
+- `docs/adr/ADR-001-phi-safety-and-threshold.md`
+- `docs/adr/ADR-002-phi-safety-aggregation.md`
+- `docs/adr/ADR-003-state-root-and-encoding.md`
+- `docs/adr/ADR-003-state-root-encoding.md`
+- `docs/adr/ADR-004-absorbing-halt-layering.md`
+- `docs/adr/ADR-004-halt-layering-domain-a-vs-pal.md`
+- `docs/adr/ADR-005-rust-toolchain-version.md`
+- `docs/adr/ADR-006-runtime-optimization-track.md`
+- `docs/adr/ADR-007-uc-mja-cascade-track.md`
+- `docs/adr/ADR-008-sovereign-storage-tiers.md`
+- `docs/adr/ADR-009-domain-b-indexing-and-zk-prover-sizing.md`
+- `docs/adr/ADR-010-zero-persistence-domain-b.md`
+- `docs/adr/ADR-011-trustless-genesis-local-opsec.md`
+- `docs/adr/IC-001-no-heap-cascade.md`
+- `docs/adr/README.md`
+- `docs/adr/adr006_phase2r_evidence.md`
+- `docs/assurance/compliance_mapping.md`
+- `docs/assurance/privacy_boundary_checklist.md`
+- `docs/assurance/security_review_scope.md`
+- `docs/assurance/trl5_evidence_matrix.md`
+- `docs/audit/dependency_risk_register.md`
+- `docs/audit/mvp_baseline_review.md`
+- `docs/audit/pre_genesis_audit_plan.md`
+- `docs/audit/unsafe_exceptions.md`
+- `docs/compliance/cc_security_target.md`
+- `docs/compliance/defence_assurance_roadmap.md`
+- `docs/compliance/dpia.md`
+- `docs/compliance/fips_compliance.md`
+- `docs/errata/ERR-001-lyapunov-definition-and-halt.md`
+- `docs/errata/ERR-001-lyapunov-monotone-term.md`
+- `docs/errata/README.md`
+- `docs/funding/application_narrative.md`
+- `docs/funding/budget_detail.md`
+- `docs/funding/executive_summary.md`
+- `docs/funding/mvp_technical_annex.md`
+- `docs/funding/outreach_email_templates.md`
+- `docs/funding/partner_letter_template.md`
+- `docs/funding/partner_outreach.md`
+- `docs/funding/risk_register.md`
+- `docs/funding/trl_assessment.md`
+- `docs/funding/work_packages.md`
+- `docs/implementation_order.md`
+- `docs/mvp/claims_register.md`
+- `docs/mvp/implementation_sequence.md`
+- `docs/mvp/incident_receipt_commit_demo.md`
+- `docs/mvp/pilot_evidence_manifest.md`
+- `docs/mvp/post_merge_audit.md`
+- `docs/mvp/replay_report_schema.md`
+- `docs/mvp/roadmap_delta.md`
+- `docs/mvp/status_delta.md`
+- `docs/mvp/unlocked_domain_a_demo_profile.md`
+- `docs/mvp/unlocked_domain_a_demo_vectors.md`
+- `docs/ops/mvp_operator_runbook.md`
+- `docs/pilot/data_handling_terms.md`
+- `docs/pilot/evaluation_criteria.md`
+- `docs/pilot/evidence_manifest.md`
+- `docs/pilot/pilot_mou_template.md`
+- `docs/pilot/pilot_package.md`
+- `docs/platforms/accelerator_profiles.md`
+- `docs/platforms/authorized_platform_matrix.md`
+- `docs/platforms/rtos_portability_plan.md`
+- `docs/refinement.md`
+- `docs/release/baseline_decision.md`
+- `docs/release/current_integration_review_slices.md`
+- `docs/release/pre_genesis_evidence_snapshot.md`
+- `docs/release/rc_checklist_pack.md`
+- `docs/spec-mirror/README.md`
+- `docs/spec/00_execution_model.md`
+- `docs/spec/01_consensus.md`
+- `docs/spec/02_transition_axioms.md`
+- `docs/spec/03_transactions.md`
+- `docs/spec/04_adversarial_model.md`
+- `docs/spec/07_hash_cascade.md`
+- `docs/spec/07_test_vectors.md`
+- `docs/spec/09_migration_v1.0_to_v1.1.md`
+- `docs/spec/09_privacy_model.md`
+- `docs/spec/10_clone_protocol.md`
+- `docs/spec/11_handshake_protocol.md`
+- `docs/spec/11_security_model.md`
+- `docs/spec/12_sharded_protocol.md`
+- `docs/spec/14_zero_persistence_pipeline.md`
+- `docs/spec/15_trustless_genesis_and_local_opsec.md`
+- `docs/threat_model/nondeterminism.md`
+- `docs/threat_model/passive_observability.md`
+- `docs/traceability.md`
+- `patents/README.md`
+- `patents/claim_support/deterministic_replay_claim_map.md`
+- `patents/cross-isa-equivalence/INVENTION_DISCLOSURE.md`
+- `patents/deterministic-replay/INVENTION_DISCLOSURE.md`
+- `patents/diagrams/replay_isolation_sequence.mmd`
+- `patents/diagrams/state_transition_machine.mmd`
+- `patents/lyapunov-consensus/INVENTION_DISCLOSURE.md`
+- `patents/prior_art/ethereum_comparison.md`
+- `patents/prior_art/solana_comparison.md`
+- `patents/prior_art/tendermint_comparison.md`
+- `spec/genesis-artifacts.txt`
+- `spec/genesis.schema.toml`
+- `spec/pdf/README.md`
+- `tla/QASHConsensus.cfg`
+- `tla/QASHConsensus.tla`
+
+### `tests` (17 files)
+
+- `fuzz/.gitignore`
+- `fuzz/Cargo.lock`
+- `fuzz/Cargo.toml`
+- `fuzz/fuzz_targets/cascade_fuzz.rs`
+- `fuzz/fuzz_targets/decode_fuzz.rs`
+- `fuzz/fuzz_targets/encoding_fuzz.rs`
+- `fuzz/fuzz_targets/fixed_point_fuzz.rs`
+- `fuzz/fuzz_targets/lyapunov_fuzz.rs`
+- `fuzz/fuzz_targets/transition_fuzz.rs`
+- `fuzz/fuzz_targets/tx_fuzz.rs`
+- `tests/vector-runner/Cargo.toml`
+- `tests/vector-runner/src/main.rs`
+- `tests/vectors/README.md`
+- `tests/vectors/cascade_kat.json`
+- `tests/vectors/vectors.v1.1.json`
+- `tests/vectors/vectors.v1.2.json`
+- `tests/vectors/vectors.v1.json`
+
+### `artifacts` (10 files)
+
+- `artifacts/attestations/.gitkeep`
+- `artifacts/audit/.gitkeep`
+- `artifacts/benchmarks/2026-05-19T-epoch-transition-x86_64.txt`
+- `artifacts/benchmarks/README.md`
+- `artifacts/benchmarks/epoch_transition_baseline_9f6e995.md`
+- `artifacts/differential/.gitkeep`
+- `artifacts/evidence/README.md`
+- `artifacts/evidence/platform_matrix.template.md`
+- `artifacts/evidence/runs/.gitkeep`
+- `artifacts/replay_equivalence/README.md`
+
+### `config` (7 files)
+
+- `.cargo/config.toml`
+- `.gitignore`
+- `Cargo.lock`
+- `Cargo.toml`
+- `GENESIS_CONSTANTS.toml`
+- `deny.toml`
+- `rust-toolchain.toml`
+
+### `other` (66 files)
+
+- `.claude/settings.json`
+- `.github/CODEOWNERS`
+- `.github/PULL_REQUEST_TEMPLATE.md`
+- `.github/rulesets/README.md`
+- `.github/rulesets/main-branch.json`
+- `.github/rulesets/release-tags.json`
+- `AGENTS.md`
+- `ARCHITECTURE.md`
+- `CLAUDE.md`
+- `CONTRIBUTING.md`
+- `CONTRIBUTORS.md`
+- `LICENSE`
+- `PROJECT_STATUS.md`
+- `README.md`
+- `ROADMAP.md`
+- `SECURITY.md`
+- `apply_patches.sh`
+- `build.rs`
+- `crates/address/Cargo.toml`
+- `crates/consensus/Cargo.toml`
+- `crates/consensus/benches/epoch_transition.rs`
+- `crates/consensus/clippy.toml`
+- `crates/consensus/tests/adversarial.rs`
+- `crates/consensus/tests/adversarial_replay_corpus.rs`
+- `crates/consensus/tests/adversarial_simulation.rs`
+- `crates/consensus/tests/axioms.rs`
+- `crates/consensus/tests/cascade_kat.rs`
+- `crates/consensus/tests/coq_refinement_vectors.rs`
+- `crates/consensus/tests/coq_vectors.rs`
+- `crates/consensus/tests/differential.rs`
+- `crates/consensus/tests/domain_a_audit.rs`
+- `crates/consensus/tests/gen_vectors.rs`
+- `crates/consensus/tests/golden_replay.rs`
+- `crates/consensus/tests/interpreter_conformance.rs`
+- `crates/consensus/tests/kani_transaction.rs`
+- `crates/consensus/tests/phase2r_preconditions.rs`
+- `crates/consensus/tests/public_transcript_privacy.rs`
+- `crates/consensus/tests/replay_corpus.rs`
+- `crates/consensus/tests/v1_1_replay.rs`
+- `crates/consensus/tests/v1_2_sharded_replay.rs`
+- `crates/consensus/tests/vector_integrity.rs`
+- `crates/consensus/tests/vector_runner.rs`
+- `crates/pal/Cargo.toml`
+- `crates/pal/benches/mvp_vault.rs`
+- `crates/pal/tests/boundary_violations.rs`
+- `crates/pal/tests/commitment_backpressure.rs`
+- `crates/pal/tests/commitment_inbox.rs`
+- `crates/pal/tests/commitment_transport_recovery.rs`
+- `crates/pal/tests/crash_recovery_parity.rs`
+- `crates/pal/tests/ephemeral_traits.rs`
+- `crates/pal/tests/hosted_replay.rs`
+- `crates/pal/tests/mvp_demo_profile_vectors.rs`
+- `crates/pal/tests/receipt_privacy.rs`
+- `crates/pal/tests/smartcard.rs`
+- `crates/pal/tests/whole_protocol.rs`
+- `crates/pal/tests/zero_persistence.rs`
+- `crates/pal/tests/zero_persistence_profile.rs`
+- `crates/vector-runner/Cargo.toml`
+- `crates/vector-runner/src/main.rs`
+- `design_decisions.md`
+- `docker/Dockerfile.build`
+- `examples/mvp/README.md`
+- `examples/mvp_fixtures.rs`
+- `fix_workflows.sh`
+- `model/Cargo.toml`
+- `model/README.md`

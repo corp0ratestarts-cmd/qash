@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running tests/vector_integrity.rs (target/debug/deps/vector_integrity-0ca6362abf53c40b)
+
+running 3 tests
+test cascade_kat_has_required_fields_and_minimum_count ... ok
+test vectors_v1_has_required_fields_and_minimum_count ... ok
+test vectors_v1_2_has_required_sharded_roots ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

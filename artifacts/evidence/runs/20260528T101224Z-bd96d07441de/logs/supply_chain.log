@@ -1,0 +1,19 @@
+warning[license-not-encountered]: license was not encountered
+   ┌─ /home/debian/Downloads/QASH/qash/deny.toml:22:6
+   │
+22 │     "0BSD",
+   │      ━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /home/debian/Downloads/QASH/qash/deny.toml:17:6
+   │
+17 │     "ISC",
+   │      ━━━ unmatched license allowance
+
+warning[unnecessary-skip]: skip 'hybrid-array' applied to a crate with only one version
+   ┌─ /home/debian/Downloads/QASH/qash/deny.toml:44:15
+   │
+44 │     { name = "hybrid-array" },
+   │               ━━━━━━━━━━━━ unnecessary skip configuration
+
+advisories ok, bans ok, licenses ok, sources ok

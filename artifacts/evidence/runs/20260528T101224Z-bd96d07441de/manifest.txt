@@ -1,0 +1,103 @@
+# Pre-Genesis Evidence Bundle
+
+Captured (UTC): 20260528T105135Z
+Evidence freshness timestamp (UTC): 20260528T105135Z
+Commit: eaa8f614842d47af2e4b7501cb77326a2681ef86
+Commit short: eaa8f614842d
+Rust: rustc 1.95.0 (59807616e 2026-04-14)
+Cargo: cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+Coq: The Coq Proof Assistant, version 8.16.1
+Kani: cargo-kani 0.67.0
+
+## Working Tree
+
+ M .github/workflows/pre-genesis-full-repo-audit.yml
+ M artifacts/audit/concurrency_patterns.md
+ M artifacts/audit/pre_genesis_full_repo_audit.json
+ M artifacts/audit/pre_genesis_full_repo_audit.md
+ M artifacts/evidence/runs/20260528T101224Z-bd96d07441de/logs/diff_check.log
+ M artifacts/evidence/runs/20260528T101224Z-bd96d07441de/manifest.txt
+ M scripts/audit_concurrency_patterns.sh
+?? artifacts/github-runs/
+?? artifacts/local-logs/
+
+## Command Summary
+
+== document_hygiene ==
+$ bash scripts/check_document_hygiene.sh
+status: PASS
+
+== privacy_admission ==
+$ bash scripts/check_privacy_admission.sh
+status: PASS
+
+== diff_check ==
+$ git diff --check
+status: PASS
+
+== fmt_check ==
+$ cargo fmt --all -- --check
+status: PASS
+
+== v1_2_sharded_replay ==
+$ cargo test -p qash-consensus --test v1_2_sharded_replay
+status: PASS
+
+== vector_integrity ==
+$ cargo test -p qash-consensus --test vector_integrity
+status: PASS
+
+== coq_refinement_vectors ==
+$ cargo test -p qash-consensus --test coq_refinement_vectors
+status: PASS
+
+== phase2r_preconditions ==
+$ cargo test -p qash-consensus --test phase2r_preconditions
+status: PASS
+
+== consensus_bench_compile ==
+$ cargo bench -p qash-consensus --no-run
+status: PASS
+
+== workspace_tests ==
+$ cargo test --workspace
+status: PASS
+
+== pal_std_tests ==
+$ cargo test -p qash-pal --features std
+status: PASS
+
+== proofs ==
+$ make -C proofs
+status: PASS
+
+== cargo_metadata ==
+$ cargo metadata --offline --format-version 1 > artifacts/evidence/runs/20260528T101224Z-bd96d07441de/cargo-metadata.json
+status: PASS
+
+== supply_chain ==
+$ env CARGO_HOME=/tmp/qash-cargo-deny.BjdLKv cargo deny check --disable-fetch --metadata-path artifacts/evidence/runs/20260528T101224Z-bd96d07441de/cargo-metadata.json
+status: PASS
+
+== kani_consensus ==
+$ scripts/run_kani_consensus.sh
+status: PASS
+
+## Slice Command Statuses
+
+| Slice | Command | Status | Log |
+| --- | --- | --- | --- |
+| Slice 1 | `cargo test -p qash-consensus --test v1_2_sharded_replay` | PASS | artifacts/evidence/runs/20260528T101224Z-bd96d07441de/logs/v1_2_sharded_replay.log |
+| Slice 1 | `cargo test -p qash-consensus --test vector_integrity` | PASS | artifacts/evidence/runs/20260528T101224Z-bd96d07441de/logs/vector_integrity.log |
+| Slice 1 | `make -C proofs` | PASS | artifacts/evidence/runs/20260528T101224Z-bd96d07441de/logs/proofs.log |
+| Slice 2 | `cargo test -p qash-pal --features std` | PASS | artifacts/evidence/runs/20260528T101224Z-bd96d07441de/logs/pal_std_tests.log |
+| Slice 3 | `make -C proofs` | PASS | artifacts/evidence/runs/20260528T101224Z-bd96d07441de/logs/proofs.log |
+| Slice 3 | `cargo test -p qash-consensus --test coq_refinement_vectors` | PASS | artifacts/evidence/runs/20260528T101224Z-bd96d07441de/logs/coq_refinement_vectors.log |
+| Slice 4 | `bash scripts/check_document_hygiene.sh` | PASS | artifacts/evidence/runs/20260528T101224Z-bd96d07441de/logs/document_hygiene.log |
+| Slice 4 | `cargo test -p qash-consensus --test phase2r_preconditions` | PASS | artifacts/evidence/runs/20260528T101224Z-bd96d07441de/logs/phase2r_preconditions.log |
+| Slice 4 | `cargo bench -p qash-consensus --no-run` | PASS | artifacts/evidence/runs/20260528T101224Z-bd96d07441de/logs/consensus_bench_compile.log |
+| Slice 4 | `bash scripts/capture_pre_genesis_evidence.sh` | PASS | self |
+
+== oscal_assessment ==
+oscal_file: artifacts/evidence/runs/20260528T101224Z-bd96d07441de/oscal-assessment.json
+overall: pass (pass=15 fail=0)

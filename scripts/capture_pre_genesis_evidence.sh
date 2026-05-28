@@ -243,6 +243,9 @@ run_step document_hygiene bash scripts/check_document_hygiene.sh
 run_step privacy_admission bash scripts/check_privacy_admission.sh
 run_step diff_check git diff --check
 run_step fmt_check cargo fmt --all -- --check
+run_step v1_2_sharded_replay cargo test -p qash-consensus --test v1_2_sharded_replay
+run_step vector_integrity cargo test -p qash-consensus --test vector_integrity
+run_step coq_refinement_vectors cargo test -p qash-consensus --test coq_refinement_vectors
 run_step phase2r_preconditions cargo test -p qash-consensus --test phase2r_preconditions
 run_step consensus_bench_compile cargo bench -p qash-consensus --no-run
 run_step workspace_tests cargo test --workspace
