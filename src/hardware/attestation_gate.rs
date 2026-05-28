@@ -158,11 +158,15 @@ pub struct SoftwareHashMerkleAttestation {
 
 impl SoftwareHashMerkleAttestation {
     pub fn new() -> Self {
-        Self { platform_identity: software_merkle_identity_hash() }
+        Self {
+            platform_identity: software_merkle_identity_hash(),
+        }
     }
 
     pub fn with_identity(identity: [u8; 32]) -> Self {
-        Self { platform_identity: identity }
+        Self {
+            platform_identity: identity,
+        }
     }
 
     fn compute_root(&self) -> [u8; 32] {
@@ -199,7 +203,9 @@ impl SoftwareHashMerkleAttestation {
 }
 
 impl Default for SoftwareHashMerkleAttestation {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AttestationGate for SoftwareHashMerkleAttestation {
@@ -215,19 +221,31 @@ impl AttestationGate for SoftwareHashMerkleAttestation {
     }
 
     fn verify_quote(&self, quote: &AttestationQuote) -> Result<(), AttestationGateError> {
-        let ver = quote.bytes.first().ok_or(AttestationGateError::VerificationFailed)?;
+        if quote.bytes.len() != 97 {
+            return Err(AttestationGateError::VerificationFailed);
+        }
+        let ver = quote
+            .bytes
+            .first()
+            .ok_or(AttestationGateError::VerificationFailed)?;
         if *ver != 0x01 {
             return Err(AttestationGateError::VerificationFailed);
         }
-        let nonce: &[u8; 32] = quote.bytes.get(1..33)
+        let nonce: &[u8; 32] = quote
+            .bytes
+            .get(1..33)
             .ok_or(AttestationGateError::VerificationFailed)?
             .try_into()
             .map_err(|_| AttestationGateError::VerificationFailed)?;
-        let claimed_root: &[u8; 32] = quote.bytes.get(33..65)
+        let claimed_root: &[u8; 32] = quote
+            .bytes
+            .get(33..65)
             .ok_or(AttestationGateError::VerificationFailed)?
             .try_into()
             .map_err(|_| AttestationGateError::VerificationFailed)?;
-        let claimed_body: &[u8; 32] = quote.bytes.get(65..97)
+        let claimed_body: &[u8; 32] = quote
+            .bytes
+            .get(65..97)
             .ok_or(AttestationGateError::VerificationFailed)?
             .try_into()
             .map_err(|_| AttestationGateError::VerificationFailed)?;
@@ -380,7 +398,10 @@ mod tests {
         let gate = SoftwareHashMerkleAttestation::new();
         let mut quote = gate.generate_quote(&nonce()).unwrap();
         quote.bytes[33] ^= 0xff;
-        assert_eq!(gate.verify_quote(&quote), Err(AttestationGateError::VerificationFailed));
+        assert_eq!(
+            gate.verify_quote(&quote),
+            Err(AttestationGateError::VerificationFailed)
+        );
     }
 
     #[test]
@@ -389,7 +410,10 @@ mod tests {
         let gate = SoftwareHashMerkleAttestation::new();
         let mut quote = gate.generate_quote(&nonce()).unwrap();
         quote.bytes[65] ^= 0xff;
-        assert_eq!(gate.verify_quote(&quote), Err(AttestationGateError::VerificationFailed));
+        assert_eq!(
+            gate.verify_quote(&quote),
+            Err(AttestationGateError::VerificationFailed)
+        );
     }
 
     #[test]
@@ -398,7 +422,10 @@ mod tests {
         let gate_a = SoftwareHashMerkleAttestation::with_identity([0xAAu8; 32]);
         let gate_b = SoftwareHashMerkleAttestation::with_identity([0xBBu8; 32]);
         let quote = gate_a.generate_quote(&nonce()).unwrap();
-        assert_eq!(gate_b.verify_quote(&quote), Err(AttestationGateError::VerificationFailed));
+        assert_eq!(
+            gate_b.verify_quote(&quote),
+            Err(AttestationGateError::VerificationFailed)
+        );
     }
 
     #[test]
@@ -407,6 +434,21 @@ mod tests {
         let gate = SoftwareHashMerkleAttestation::new();
         let mut quote = gate.generate_quote(&nonce()).unwrap();
         quote.bytes.truncate(50);
-        assert_eq!(gate.verify_quote(&quote), Err(AttestationGateError::VerificationFailed));
+        assert_eq!(
+            gate.verify_quote(&quote),
+            Err(AttestationGateError::VerificationFailed)
+        );
+    }
+
+    #[test]
+    fn merkle_extended_quote_fails() {
+        use super::SoftwareHashMerkleAttestation;
+        let gate = SoftwareHashMerkleAttestation::new();
+        let mut quote = gate.generate_quote(&nonce()).unwrap();
+        quote.bytes.push(0x00);
+        assert_eq!(
+            gate.verify_quote(&quote),
+            Err(AttestationGateError::VerificationFailed)
+        );
     }
 }

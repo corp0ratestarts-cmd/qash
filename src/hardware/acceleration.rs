@@ -123,7 +123,11 @@ fn u256_add_wrapping(a: U256, b: U256) -> (U256, bool) {
 }
 
 fn u256_lt(a: U256, b: U256) -> bool {
-    if a.hi != b.hi { a.hi < b.hi } else { a.lo < b.lo }
+    if a.hi != b.hi {
+        a.hi < b.hi
+    } else {
+        a.lo < b.lo
+    }
 }
 
 fn u256_sub(a: U256, b: U256) -> U256 {
@@ -136,7 +140,11 @@ fn u256_mod_add(a: U256, b: U256, p: U256) -> U256 {
     let a = if u256_lt(a, p) { a } else { u256_mod(a, p) };
     let b = if u256_lt(b, p) { b } else { u256_mod(b, p) };
     let (sum, overflow) = u256_add_wrapping(a, b);
-    if overflow || !u256_lt(sum, p) { u256_sub(sum, p) } else { sum }
+    if overflow || !u256_lt(sum, p) {
+        u256_sub(sum, p)
+    } else {
+        sum
+    }
 }
 
 /// Modular multiplication via binary double-and-add.
@@ -202,7 +210,10 @@ fn u256_shl(v: U256, shift: usize) -> U256 {
     }
     if shift >= 128 {
         let s = shift.saturating_sub(128);
-        U256 { lo: 0, hi: v.lo << s }
+        U256 {
+            lo: 0,
+            hi: v.lo << s,
+        }
     } else {
         let lo = v.lo << shift;
         let carry = v.lo >> (128_usize.saturating_sub(shift));
@@ -299,7 +310,9 @@ mod tests {
     fn field_add_basic() {
         let b = SoftwareAccelerationBackend;
         // 3 + 4 mod 7 = 0
-        let r = b.accelerate_field_ops(&le32(3), &le32(4), &le32(7), FieldOp::Add).unwrap();
+        let r = b
+            .accelerate_field_ops(&le32(3), &le32(4), &le32(7), FieldOp::Add)
+            .unwrap();
         assert_eq!(&r[..8], &0u64.to_le_bytes());
     }
 
@@ -307,7 +320,9 @@ mod tests {
     fn field_add_with_wrap() {
         let b = SoftwareAccelerationBackend;
         // 5 + 5 mod 7 = 3
-        let r = b.accelerate_field_ops(&le32(5), &le32(5), &le32(7), FieldOp::Add).unwrap();
+        let r = b
+            .accelerate_field_ops(&le32(5), &le32(5), &le32(7), FieldOp::Add)
+            .unwrap();
         assert_eq!(&r[..8], &3u64.to_le_bytes());
     }
 
@@ -315,7 +330,9 @@ mod tests {
     fn field_mul_basic() {
         let b = SoftwareAccelerationBackend;
         // 3 * 4 mod 7 = 5
-        let r = b.accelerate_field_ops(&le32(3), &le32(4), &le32(7), FieldOp::Mul).unwrap();
+        let r = b
+            .accelerate_field_ops(&le32(3), &le32(4), &le32(7), FieldOp::Mul)
+            .unwrap();
         assert_eq!(&r[..8], &5u64.to_le_bytes());
     }
 
@@ -323,7 +340,9 @@ mod tests {
     fn field_mod_basic() {
         let b = SoftwareAccelerationBackend;
         // 10 mod 7 = 3
-        let r = b.accelerate_field_ops(&le32(10), &le32(0), &le32(7), FieldOp::Mod).unwrap();
+        let r = b
+            .accelerate_field_ops(&le32(10), &le32(0), &le32(7), FieldOp::Mod)
+            .unwrap();
         assert_eq!(&r[..8], &3u64.to_le_bytes());
     }
 

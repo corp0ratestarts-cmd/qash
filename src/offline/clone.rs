@@ -248,7 +248,11 @@ impl CloneHop {
         if epoch_offset >= MAX_OFFLINE_EPOCHS {
             return Err(CloneHopError::EpochOffsetExceedsMax);
         }
-        Ok(Self { channel, hop_index, epoch_offset })
+        Ok(Self {
+            channel,
+            hop_index,
+            epoch_offset,
+        })
     }
 
     /// True if this is the final hop (hop_index == MAX_OFFLINE_HOPS - 1).
@@ -366,14 +370,21 @@ mod tests {
 
     #[test]
     fn wifi_direct_has_largest_capacity() {
-        assert!(CloneChannel::WifiDirect.max_chunk_bytes() > CloneChannel::QrCode.max_chunk_bytes());
+        assert!(
+            CloneChannel::WifiDirect.max_chunk_bytes() > CloneChannel::QrCode.max_chunk_bytes()
+        );
         assert!(CloneChannel::WifiDirect.max_chunk_bytes() > CloneChannel::LoRa.max_chunk_bytes());
     }
 
     #[test]
     fn clone_hop_validates_bounds() {
         assert!(CloneHop::new(CloneChannel::Ble, 0, 0).is_ok());
-        assert!(CloneHop::new(CloneChannel::Ble, MAX_OFFLINE_HOPS - 1, MAX_OFFLINE_EPOCHS - 1).is_ok());
+        assert!(CloneHop::new(
+            CloneChannel::Ble,
+            MAX_OFFLINE_HOPS - 1,
+            MAX_OFFLINE_EPOCHS - 1
+        )
+        .is_ok());
         assert_eq!(
             CloneHop::new(CloneChannel::Ble, MAX_OFFLINE_HOPS, 0).unwrap_err(),
             CloneHopError::HopIndexExceedsMax

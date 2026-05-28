@@ -104,10 +104,7 @@ impl Module {
     }
 
     /// Verify a previously generated attestation quote.
-    pub fn verify_attestation(
-        &self,
-        quote: &AttestationQuote,
-    ) -> Result<(), AttestationGateError> {
+    pub fn verify_attestation(&self, quote: &AttestationQuote) -> Result<(), AttestationGateError> {
         self.attestation.verify_quote(quote)
     }
 }
