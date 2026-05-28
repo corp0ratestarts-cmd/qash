@@ -24,7 +24,9 @@ const COMMITMENT_WAL_FILE: &str = "commitments.wal";
 const IMPORTED_COMMITMENTS_FILE: &str = "imported_commitments.bin";
 const IMPORTS_DIR: &str = "imports";
 const IMPORTS_MANIFEST_FILE: &str = "imports/manifest.json";
-const PUBLIC_COMMITMENTS_HEADER: &[u8] = b"QASH-MVP-PUBLIC-COMMITMENTS\0";
+pub const PUBLIC_COMMITMENTS_HEADER: &[u8] = b"QASH-MVP-PUBLIC-COMMITMENTS\0";
+const DISCLOSURE_MAGIC: &[u8] = b"QASH-MVP-DISCLOSURE\0";
+const DISCLOSURE_VERSION: u32 = 1;
 const VAULT_SALT_BYTES: usize = 32;
 const MANIFEST_MAGIC: &str = "QASH-MVP-INCIDENT-RECEIPT-DEMO\n";
 const WAL_MAGIC: &[u8; 8] = b"QMVPWAL\0";
@@ -37,8 +39,10 @@ pub enum MvpVaultError {
     Tx(TxMvpReceiptCommitError),
     InvalidWorkspace(&'static str),
     InvalidWal(&'static str),
+    InvalidDisclosure(&'static str),
     ReceiptNotFound,
     DuplicateReceipt,
+    DisclosureMismatch,
 }
 
 impl From<io::Error> for MvpVaultError {
@@ -64,6 +68,14 @@ pub struct PrivateIncidentReceipt {
 pub struct CommitmentWalRecord {
     pub tx: TxMvpReceiptCommit,
     pub public_export: TxMvpReceiptCommitPublicExport,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MvpDisclosureBundle {
+    pub version: u32,
+    pub receipt_id: [u8; 32],
+    pub public_export: TxMvpReceiptCommitPublicExport,
+    pub body: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -366,12 +378,20 @@ impl MvpReceiptVault {
             }
             Err(err) => return Err(MvpVaultError::Io(err)),
         };
+        let public_export = self
+            .read_commitments()?
+            .into_iter()
+            .find(|record| record.public_export.tx_commitment == receipt_id)
+            .map(|record| record.public_export)
+            .ok_or(MvpVaultError::ReceiptNotFound)?;
 
-        let mut out = Vec::new();
-        out.extend_from_slice(b"QASH-MVP-DISCLOSURE\0");
-        out.extend_from_slice(&receipt_id);
-        out.extend_from_slice(&(body.len() as u64).to_le_bytes());
-        out.extend_from_slice(&body);
+        let bundle = MvpDisclosureBundle {
+            version: DISCLOSURE_VERSION,
+            receipt_id,
+            public_export,
+            body,
+        };
+        let out = bundle.encode();
 
         let disclosure_path = self.root.join(DISCLOSURE_DIR).join(hex32(receipt_id));
         let mut disclosure_file = OpenOptions::new()
@@ -391,6 +411,118 @@ impl MvpReceiptVault {
     fn receipt_path(&self, receipt_id: [u8; 32]) -> PathBuf {
         self.root.join(VAULT_DIR).join(hex32(receipt_id))
     }
+}
+
+impl MvpDisclosureBundle {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(
+            DISCLOSURE_MAGIC.len() + 4 + 32 + TX_MVP_PUBLIC_EXPORT_BYTES + 8 + self.body.len(),
+        );
+        out.extend_from_slice(DISCLOSURE_MAGIC);
+        out.extend_from_slice(&self.version.to_le_bytes());
+        out.extend_from_slice(&self.receipt_id);
+        out.extend_from_slice(&self.public_export.encode());
+        out.extend_from_slice(&(self.body.len() as u64).to_le_bytes());
+        out.extend_from_slice(&self.body);
+        out
+    }
+
+    pub fn decode(bytes: &[u8]) -> Result<Self, MvpVaultError> {
+        let min_len = DISCLOSURE_MAGIC.len() + 4 + 32 + TX_MVP_PUBLIC_EXPORT_BYTES + 8;
+        if bytes.len() < min_len {
+            return Err(MvpVaultError::InvalidDisclosure(
+                "truncated disclosure bundle",
+            ));
+        }
+        if &bytes[..DISCLOSURE_MAGIC.len()] != DISCLOSURE_MAGIC {
+            return Err(MvpVaultError::InvalidDisclosure("invalid disclosure magic"));
+        }
+        let mut pos = DISCLOSURE_MAGIC.len();
+        let version = u32::from_le_bytes(
+            bytes[pos..pos + 4]
+                .try_into()
+                .map_err(|_| MvpVaultError::InvalidDisclosure("truncated disclosure version"))?,
+        );
+        pos += 4;
+        if version != DISCLOSURE_VERSION {
+            return Err(MvpVaultError::InvalidDisclosure(
+                "unsupported disclosure version",
+            ));
+        }
+        let mut receipt_id = [0u8; 32];
+        receipt_id.copy_from_slice(&bytes[pos..pos + 32]);
+        pos += 32;
+        let public_export =
+            TxMvpReceiptCommitPublicExport::decode(&bytes[pos..pos + TX_MVP_PUBLIC_EXPORT_BYTES])?;
+        pos += TX_MVP_PUBLIC_EXPORT_BYTES;
+        let body_len =
+            u64::from_le_bytes(bytes[pos..pos + 8].try_into().map_err(|_| {
+                MvpVaultError::InvalidDisclosure("truncated disclosure body length")
+            })?);
+        pos += 8;
+        let body_len = usize::try_from(body_len).map_err(|_| {
+            MvpVaultError::InvalidDisclosure("disclosure body length overflows usize")
+        })?;
+        if bytes.len() != pos + body_len {
+            return Err(MvpVaultError::InvalidDisclosure(
+                "disclosure body length mismatch",
+            ));
+        }
+        let body = bytes[pos..].to_vec();
+        Ok(Self {
+            version,
+            receipt_id,
+            public_export,
+            body,
+        })
+    }
+}
+
+pub fn decode_public_commitments(
+    data: &[u8],
+) -> Result<Vec<TxMvpReceiptCommitPublicExport>, MvpVaultError> {
+    if data.len() < PUBLIC_COMMITMENTS_HEADER.len()
+        || &data[..PUBLIC_COMMITMENTS_HEADER.len()] != PUBLIC_COMMITMENTS_HEADER
+    {
+        return Err(MvpVaultError::InvalidWal(
+            "invalid public commitments header",
+        ));
+    }
+    let records_data = &data[PUBLIC_COMMITMENTS_HEADER.len()..];
+    if !records_data
+        .len()
+        .is_multiple_of(TX_MVP_PUBLIC_EXPORT_BYTES)
+    {
+        return Err(MvpVaultError::InvalidWal(
+            "truncated public commitments record",
+        ));
+    }
+    let mut out = Vec::with_capacity(records_data.len() / TX_MVP_PUBLIC_EXPORT_BYTES);
+    for chunk in records_data.chunks_exact(TX_MVP_PUBLIC_EXPORT_BYTES) {
+        out.push(TxMvpReceiptCommitPublicExport::decode(chunk)?);
+    }
+    Ok(out)
+}
+
+pub fn verify_disclosure_bundle(
+    disclosure: &[u8],
+    public_commitments: &[u8],
+) -> Result<MvpDisclosureBundle, MvpVaultError> {
+    let bundle = MvpDisclosureBundle::decode(disclosure)?;
+    if bundle.public_export.tx_commitment != bundle.receipt_id {
+        return Err(MvpVaultError::DisclosureMismatch);
+    }
+    if bundle.public_export.payload_commitment != payload_commitment(&bundle.body) {
+        return Err(MvpVaultError::DisclosureMismatch);
+    }
+    let exports = decode_public_commitments(public_commitments)?;
+    if !exports
+        .iter()
+        .any(|export| export.tx_commitment == bundle.receipt_id && export == &bundle.public_export)
+    {
+        return Err(MvpVaultError::DisclosureMismatch);
+    }
+    Ok(bundle)
 }
 
 pub fn payload_commitment(body: &[u8]) -> [u8; 32] {
@@ -632,7 +764,7 @@ fn hex32(bytes: [u8; 32]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{MvpReceiptVault, MvpVaultError};
+    use super::{verify_disclosure_bundle, MvpDisclosureBundle, MvpReceiptVault, MvpVaultError};
     use std::fs;
     use std::path::PathBuf;
 
@@ -745,6 +877,60 @@ mod tests {
             .windows(b"second synthetic incident".len())
             .any(|w| w == b"second synthetic incident"));
         let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn disclosure_bundle_verifies_against_public_commitments() {
+        let path = temp_workspace("verify-disclosure");
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        let receipt = vault
+            .issue_receipt(
+                10,
+                fixture_bytes(FixtureKind::FirstNonce),
+                b"first synthetic incident",
+                fixture_bytes(FixtureKind::DisclosureCommitment),
+            )
+            .unwrap();
+        let public = vault.export_public_commitments().unwrap();
+        let disclosure = vault.disclose_receipt(receipt.receipt_id).unwrap();
+
+        let bundle = verify_disclosure_bundle(&disclosure, &public).unwrap();
+        assert_eq!(bundle.receipt_id, receipt.receipt_id);
+        assert_eq!(bundle.body, b"first synthetic incident");
+        assert_eq!(bundle.public_export.tx_commitment, receipt.receipt_id);
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn disclosure_bundle_rejects_body_tampering() {
+        let path = temp_workspace("verify-disclosure-tamper");
+        let vault = MvpReceiptVault::init(&path).unwrap();
+        let receipt = vault
+            .issue_receipt(
+                10,
+                fixture_bytes(FixtureKind::FirstNonce),
+                b"first synthetic incident",
+                fixture_bytes(FixtureKind::DisclosureCommitment),
+            )
+            .unwrap();
+        let public = vault.export_public_commitments().unwrap();
+        let mut disclosure = vault.disclose_receipt(receipt.receipt_id).unwrap();
+        let last = disclosure.last_mut().unwrap();
+        *last ^= 0x01;
+
+        assert!(matches!(
+            verify_disclosure_bundle(&disclosure, &public),
+            Err(MvpVaultError::DisclosureMismatch)
+        ));
+        let _ = fs::remove_dir_all(&path);
+    }
+
+    #[test]
+    fn disclosure_bundle_rejects_truncated_bytes() {
+        assert!(matches!(
+            MvpDisclosureBundle::decode(b"short"),
+            Err(MvpVaultError::InvalidDisclosure(_))
+        ));
     }
 
     #[test]

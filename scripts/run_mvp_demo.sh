@@ -9,8 +9,10 @@
 #
 # Then verifies:
 #   - public commitment export does NOT contain private incident body text
+#   - selected disclosure verifies against the public commitment export
 #   - selected disclosure contains the selected receipt body
 #   - selected disclosure does NOT contain the other receipt body
+#   - public evidence export excludes private disclosure/body material
 #   - replay completes deterministically (root is stable on second run)
 #
 # Scope: Domain B demonstrator only. Not a production payment, settlement,
@@ -26,6 +28,7 @@ NODE_B_DIR="${ARTIFACT_DIR}/node-b"
 COMMITMENTS_FILE="${ARTIFACT_DIR}/public_commitments.bin"
 NODE_B_EXPORT="${ARTIFACT_DIR}/node-b-commitments.bin"
 DISCLOSURE_FILE="${ARTIFACT_DIR}/disclosure.bin"
+EVIDENCE_DIR="${ARTIFACT_DIR}/public-evidence"
 
 BODY_ONE="synthetic incident alpha"
 BODY_TWO="synthetic incident beta"
@@ -99,6 +102,10 @@ $DEMO disclose \
     --receipt-id "${RECEIPT_ONE_ID}" \
     --out "${DISCLOSURE_FILE}"
 
+$DEMO verify-disclosure \
+    --disclosure "${DISCLOSURE_FILE}" \
+    --commitments "${COMMITMENTS_FILE}"
+
 # ── Multi-operator import (v0.3) ───────────────────────────────────────────
 echo "[8/9] multi-operator import: node-b issues a receipt and node-a imports it..."
 $DEMO init --dir "${NODE_B_DIR}"
@@ -144,6 +151,11 @@ if [[ "${NEW_RECORDS}" != "0" ]]; then
 fi
 echo "dedup check: 0 new records on re-import (all marked as duplicates)"
 
+echo "[evidence] exporting public operator evidence bundle..."
+$DEMO status --dir "${NODE_DIR}" --json
+$DEMO export-evidence --dir "${NODE_DIR}" --out "${EVIDENCE_DIR}"
+$DEMO verify-evidence --evidence "${EVIDENCE_DIR}"
+
 # ── Assertions ─────────────────────────────────────────────────────────────
 echo ""
 echo "=== Verifying privacy boundaries ==="
@@ -163,6 +175,20 @@ if grep -qF "${BODY_TWO}" "${COMMITMENTS_FILE}" 2>/dev/null; then
     fail=1
 else
     echo "PASS: public commitments do not contain '${BODY_TWO}'"
+fi
+
+if grep -R -qF "${BODY_ONE}" "${EVIDENCE_DIR}" 2>/dev/null; then
+    echo "FAIL: public evidence bundle contains body one text" >&2
+    fail=1
+else
+    echo "PASS: public evidence bundle does not contain '${BODY_ONE}'"
+fi
+
+if [[ -e "${EVIDENCE_DIR}/disclosure.bin" ]]; then
+    echo "FAIL: public evidence bundle includes disclosure.bin" >&2
+    fail=1
+else
+    echo "PASS: public evidence bundle excludes disclosure.bin"
 fi
 
 # Selected disclosure must contain the selected receipt body.
@@ -193,6 +219,7 @@ echo "Artifacts written to ${ARTIFACT_DIR}/"
 echo "  ${COMMITMENTS_FILE}  (node-a commitment-only public export)"
 echo "  ${NODE_B_EXPORT}  (node-b commitment-only public export)"
 echo "  ${DISCLOSURE_FILE}  (selected receipt disclosure)"
+echo "  ${EVIDENCE_DIR}/  (public evidence bundle)"
 echo ""
 echo "Claim boundary: this demonstrator is not a payment instrument,"
 echo "settlement rail, credential system, or production deployment."

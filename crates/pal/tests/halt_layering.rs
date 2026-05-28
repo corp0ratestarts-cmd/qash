@@ -5,9 +5,7 @@ use qash_consensus::{
     lyapunov::{ConvergenceWindow, ValidatorMetrics},
     EpochInput, EpochState, FixedPoint, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
 };
-use qash_pal::hosted::{
-    CanonicalInput, CanonicalValidatorUpdate, Host, PreparedHalt,
-};
+use qash_pal::hosted::{CanonicalInput, CanonicalValidatorUpdate, Host, PreparedHalt};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -55,8 +53,7 @@ fn consensus_spike_input(validator_count: u32, divergence_raw: i64) -> EpochInpu
 }
 
 fn hosted_spike_input(epoch: u64, validator_count: u32, divergence_raw: i64) -> CanonicalInput {
-    let mut input =
-        CanonicalInput::idle(epoch, validator_count).expect("idle input must be valid");
+    let mut input = CanonicalInput::idle(epoch, validator_count).expect("idle input must be valid");
     input.updates[0] = Some(CanonicalValidatorUpdate {
         divergence_raw,
         conflict_raw: divergence_raw / 4,
@@ -105,8 +102,7 @@ fn pal_absorbing_halt_preparation_zeroizes_and_marks_domain_b_actions() {
     let mut host = Host::new(&path).expect("host can be created");
     let mut critical_memory = [0xA5u8; 64];
 
-    let prepared =
-        host.prepare_absorbing_halt(&mut critical_memory, HaltReason::LyapunovViolation);
+    let prepared = host.prepare_absorbing_halt(&mut critical_memory, HaltReason::LyapunovViolation);
 
     assert!(critical_memory.iter().all(|b| *b == 0));
     assert_eq!(prepared.reason, HaltReason::LyapunovViolation);
@@ -135,8 +131,7 @@ fn pal_halt_preparation_cannot_perturb_domain_a_state_roots() {
             .expect("first noisy epoch applies");
 
         let mut critical_memory = [0x5Au8; 32];
-        let _prepared =
-            host.prepare_absorbing_halt(&mut critical_memory, HaltReason::HaltFlagSet);
+        let _prepared = host.prepare_absorbing_halt(&mut critical_memory, HaltReason::HaltFlagSet);
 
         let input1 = hosted_spike_input(noisy_state.epoch, noisy_state.validator_count, 7_000);
         host.apply_canonical_input(&mut noisy_state, &input1)
