@@ -20,17 +20,17 @@
 /// Poseidon hash over the layer-1 batch roots.
 ///
 /// The profile is locked at compile time via `Plonky3FriVerifier::new()`.
-/// Changing any field of the locked profile causes `verify_bundle` to return
-/// `Err(HostedError::InvalidInput("profile mismatch"))` — this is the
+/// Changing any field of the locked profile causes the shape-only harness to
+/// return `Err(HostedError::InvalidInput("profile mismatch"))` — this is the
 /// profile-lock invariant verified by the test suite.
 ///
 /// # Real backend status
 ///
-/// This file contains a complete interface design and test harness. The actual
-/// Plonky3 crate is NOT yet a dependency (supply-chain vetting required before
-/// adding it). The `verify_proof_bytes` stub returns `Ok(())` for non-empty
-/// proofs and `Err` for empty ones. Replace `verify_proof_bytes` with a real
-/// Plonky3 call once the dependency is vetted and added to Cargo.toml.
+/// This file contains an interface design and non-production shape harness. The
+/// actual Plonky3 crate is NOT yet a dependency (supply-chain vetting required
+/// before adding it). The `ZkProofVerifier` trait implementation fails closed
+/// until a real backend is wired; `verify_bundle_shape_only` is available only
+/// for profile-lock and Domain-B boundary tests.
 use crate::hosted::{CanonicalZkProfile, HostedError, ZkProofBundle, ZkProofVerifier};
 
 /// Proof bytes for a single shard's layer-1 FRI-STARK proof.
@@ -58,30 +58,98 @@ pub struct AggregationProofBytes {
     pub layer1_count: u32,
 }
 
-/// Plonky3 FRI-STARK verifier implementing `ZkProofVerifier`.
+/// Backend boundary for the eventual Plonky3 verifier.
 ///
-/// The profile is locked at construction. Calling `verify_bundle` with a
-/// bundle whose profile differs from the locked profile returns an error
-/// without inspecting proof bytes.
-#[derive(Debug, Clone)]
-pub struct Plonky3FriVerifier {
-    locked_profile: CanonicalZkProfile,
+/// The default implementation is intentionally non-production: it validates
+/// byte presence and public-shape fields for tests, but it is not used by the
+/// `ZkProofVerifier` trait path.
+pub trait FriProofBackend {
+    fn verify_shard_shape(&self, shard: &ShardProofBytes) -> Result<[u8; 32], HostedError>;
+
+    fn verify_aggregation_shape(
+        &self,
+        agg: &AggregationProofBytes,
+        expected_layer1_count: u32,
+    ) -> Result<[u8; 32], HostedError>;
 }
 
-impl Plonky3FriVerifier {
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NonProductionShapeBackend;
+
+impl FriProofBackend for NonProductionShapeBackend {
+    fn verify_shard_shape(&self, shard: &ShardProofBytes) -> Result<[u8; 32], HostedError> {
+        validate_proof_bytes_present(&shard.proof_bytes, "shard")?;
+        if shard.public_input_commitment == [0u8; 32] {
+            return Err(HostedError::InvalidInput(
+                "shard public input commitment is zero (uninitialized)",
+            ));
+        }
+        Ok(shard.public_input_commitment)
+    }
+
+    fn verify_aggregation_shape(
+        &self,
+        agg: &AggregationProofBytes,
+        expected_layer1_count: u32,
+    ) -> Result<[u8; 32], HostedError> {
+        validate_proof_bytes_present(&agg.proof_bytes, "aggregation")?;
+        if agg.layer1_count != expected_layer1_count {
+            return Err(HostedError::InvalidInput(
+                "aggregation layer1_count does not match shard proof count",
+            ));
+        }
+        if agg.batch_root == [0u8; 32] {
+            return Err(HostedError::InvalidInput(
+                "aggregation batch_root is zero (uninitialized)",
+            ));
+        }
+        Ok(agg.batch_root)
+    }
+}
+
+/// Plonky3 FRI-STARK verifier implementing `ZkProofVerifier`.
+///
+/// The profile is locked at construction. Until a real Plonky3 backend is
+/// wired, the `ZkProofVerifier` trait path fails closed for every bundle.
+#[derive(Debug, Clone)]
+pub struct Plonky3FriVerifier<B = NonProductionShapeBackend> {
+    locked_profile: CanonicalZkProfile,
+    backend: B,
+}
+
+impl Plonky3FriVerifier<NonProductionShapeBackend> {
     /// Build a verifier locked to the PLONKY3_FRI_POSEIDON_QASH profile.
     ///
-    /// This is the only constructor. The profile cannot be changed after
-    /// construction — this is the profile-lock invariant.
+    /// This constructor uses the non-production shape backend. The profile
+    /// cannot be changed after construction, but the trait verifier still
+    /// fails closed until real proof verification is implemented.
     pub fn new() -> Self {
         Plonky3FriVerifier {
             locked_profile: CanonicalZkProfile::pr93_plonky3_fri_poseidon_qash(),
+            backend: NonProductionShapeBackend,
         }
     }
+}
 
+impl<B: FriProofBackend> Plonky3FriVerifier<B> {
     /// Locked profile accessor (read-only).
     pub fn locked_profile(&self) -> &CanonicalZkProfile {
         &self.locked_profile
+    }
+
+    pub fn with_backend(backend: B) -> Self {
+        Self {
+            locked_profile: CanonicalZkProfile::pr93_plonky3_fri_poseidon_qash(),
+            backend,
+        }
+    }
+
+    pub fn verify_bundle_shape_only(
+        &self,
+        bundle: &ZkProofBundle,
+    ) -> Result<[u8; 32], HostedError> {
+        validate_bundle_shape(bundle, &self.locked_profile)?;
+        Ok(bundle.batch_root)
     }
 
     /// Verify a single layer-1 shard proof.
@@ -92,16 +160,10 @@ impl Plonky3FriVerifier {
     ///
     /// Returns the shard's `public_input_commitment` on success.
     ///
-    /// Replace the stub inside `verify_proof_bytes` with a real Plonky3 call
-    /// once the `plonky3` crate dependency is vetted.
+    /// This is a non-production shape check until the real Plonky3 backend is
+    /// vetted and added.
     pub fn verify_shard_proof(&self, shard: &ShardProofBytes) -> Result<[u8; 32], HostedError> {
-        verify_proof_bytes(&shard.proof_bytes, "shard")?;
-        if shard.public_input_commitment == [0u8; 32] {
-            return Err(HostedError::InvalidInput(
-                "shard public input commitment is zero (uninitialized)",
-            ));
-        }
-        Ok(shard.public_input_commitment)
+        self.backend.verify_shard_shape(shard)
     }
 
     /// Verify the layer-2 aggregation proof.
@@ -117,69 +179,61 @@ impl Plonky3FriVerifier {
         agg: &AggregationProofBytes,
         expected_layer1_count: u32,
     ) -> Result<[u8; 32], HostedError> {
-        verify_proof_bytes(&agg.proof_bytes, "aggregation")?;
-        if agg.layer1_count != expected_layer1_count {
-            return Err(HostedError::InvalidInput(
-                "aggregation layer1_count does not match shard proof count",
-            ));
-        }
-        if agg.batch_root == [0u8; 32] {
-            return Err(HostedError::InvalidInput(
-                "aggregation batch_root is zero (uninitialized)",
-            ));
-        }
-        Ok(agg.batch_root)
+        self.backend
+            .verify_aggregation_shape(agg, expected_layer1_count)
     }
 }
 
-impl Default for Plonky3FriVerifier {
+impl Default for Plonky3FriVerifier<NonProductionShapeBackend> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ZkProofVerifier for Plonky3FriVerifier {
+impl<B: FriProofBackend> ZkProofVerifier for Plonky3FriVerifier<B> {
     /// Verify a `ZkProofBundle` against the locked profile.
     ///
     /// Steps:
-    /// 1. Reject if bundle profile != locked profile (profile-lock invariant).
-    /// 2. Reject if shard_proof_count == 0 or aggregation_proof_count == 0.
-    /// 3. Run `verify_proof_bytes` stubs for each implied shard + aggregation proof.
-    ///    (Real Plonky3 calls go here once the dependency is added.)
-    /// 4. Return `batch_root` on success. This is the only value permitted to
-    ///    cross into Domain A.
+    /// The production trait path fails closed because `ZkProofBundle` carries
+    /// only profile/count/root metadata, not the raw proof bytes needed for
+    /// real FRI-STARK verification. Once the vetted Plonky3 backend is added,
+    /// this method must verify actual proof material before returning the root.
     fn verify_bundle(&self, bundle: &ZkProofBundle) -> Result<[u8; 32], HostedError> {
-        if bundle.profile != self.locked_profile {
-            return Err(HostedError::InvalidInput(
-                "profile mismatch: bundle profile does not match locked profile",
-            ));
-        }
-        if bundle.shard_proof_count == 0 {
-            return Err(HostedError::InvalidInput(
-                "malformed bundle: shard_proof_count is zero",
-            ));
-        }
-        if bundle.aggregation_proof_count == 0 {
-            return Err(HostedError::InvalidInput(
-                "malformed bundle: aggregation_proof_count is zero",
-            ));
-        }
-        if bundle.batch_root == [0u8; 32] {
-            return Err(HostedError::InvalidInput(
-                "malformed bundle: batch_root is zero (uninitialized)",
-            ));
-        }
-        Ok(bundle.batch_root)
+        validate_bundle_shape(bundle, &self.locked_profile)?;
+        Err(HostedError::InvalidInput(
+            "production Plonky3 verifier backend is not enabled",
+        ))
     }
 }
 
-/// Stub proof-bytes verifier.
-///
-/// A non-empty byte slice is accepted as a well-formed proof.  Replace with a
-/// real Plonky3 FRI verification call once the `plonky3` crate is added as a
-/// dependency.  The function signature is intentionally minimal so swapping
-/// the internals doesn't change callers.
-fn verify_proof_bytes(bytes: &[u8], kind: &'static str) -> Result<(), HostedError> {
+fn validate_bundle_shape(
+    bundle: &ZkProofBundle,
+    locked_profile: &CanonicalZkProfile,
+) -> Result<(), HostedError> {
+    if bundle.profile != *locked_profile {
+        return Err(HostedError::InvalidInput(
+            "profile mismatch: bundle profile does not match locked profile",
+        ));
+    }
+    if bundle.shard_proof_count == 0 {
+        return Err(HostedError::InvalidInput(
+            "malformed bundle: shard_proof_count is zero",
+        ));
+    }
+    if bundle.aggregation_proof_count == 0 {
+        return Err(HostedError::InvalidInput(
+            "malformed bundle: aggregation_proof_count is zero",
+        ));
+    }
+    if bundle.batch_root == [0u8; 32] {
+        return Err(HostedError::InvalidInput(
+            "malformed bundle: batch_root is zero (uninitialized)",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_proof_bytes_present(bytes: &[u8], kind: &'static str) -> Result<(), HostedError> {
     if bytes.is_empty() {
         return Err(HostedError::InvalidInput(match kind {
             "shard" => "shard proof bytes are empty",
@@ -211,10 +265,20 @@ mod tests {
     // ── Profile-lock tests ──────────────────────────────────────────────────
 
     #[test]
-    fn profile_lock_accepts_matching_profile() {
+    fn production_trait_path_fails_closed_until_real_backend_is_enabled() {
         let v = Plonky3FriVerifier::new();
         let bundle = valid_bundle();
-        assert!(v.verify_bundle(&bundle).is_ok());
+        let result = v.verify_bundle(&bundle);
+        assert!(
+            matches!(result, Err(HostedError::InvalidInput(message)) if message.contains("not enabled"))
+        );
+    }
+
+    #[test]
+    fn profile_lock_shape_harness_accepts_matching_profile() {
+        let v = Plonky3FriVerifier::new();
+        let bundle = valid_bundle();
+        assert!(v.verify_bundle_shape_only(&bundle).is_ok());
     }
 
     #[test]
@@ -222,7 +286,7 @@ mod tests {
         let v = Plonky3FriVerifier::new();
         let mut bundle = valid_bundle();
         bundle.profile.profile_id = bundle.profile.profile_id.wrapping_add(1);
-        let result = v.verify_bundle(&bundle);
+        let result = v.verify_bundle_shape_only(&bundle);
         assert!(result.is_err(), "mutated profile_id must be rejected");
         let msg = match result {
             Err(HostedError::InvalidInput(m)) => m,
@@ -240,7 +304,7 @@ mod tests {
         let mut bundle = valid_bundle();
         bundle.profile.recursion_depth = bundle.profile.recursion_depth.wrapping_add(1);
         assert!(
-            v.verify_bundle(&bundle).is_err(),
+            v.verify_bundle_shape_only(&bundle).is_err(),
             "mutated recursion_depth must be rejected"
         );
     }
@@ -252,7 +316,7 @@ mod tests {
         bundle.profile.layer1_aggregation_factor =
             bundle.profile.layer1_aggregation_factor.wrapping_add(1);
         assert!(
-            v.verify_bundle(&bundle).is_err(),
+            v.verify_bundle_shape_only(&bundle).is_err(),
             "mutated layer1_aggregation_factor must be rejected"
         );
     }
@@ -264,7 +328,7 @@ mod tests {
         let v = Plonky3FriVerifier::new();
         let mut bundle = valid_bundle();
         bundle.shard_proof_count = 0;
-        let result = v.verify_bundle(&bundle);
+        let result = v.verify_bundle_shape_only(&bundle);
         assert!(result.is_err());
         let msg = match result {
             Err(HostedError::InvalidInput(m)) => m,
@@ -278,7 +342,7 @@ mod tests {
         let v = Plonky3FriVerifier::new();
         let mut bundle = valid_bundle();
         bundle.aggregation_proof_count = 0;
-        let result = v.verify_bundle(&bundle);
+        let result = v.verify_bundle_shape_only(&bundle);
         assert!(result.is_err());
         let msg = match result {
             Err(HostedError::InvalidInput(m)) => m,
@@ -293,7 +357,7 @@ mod tests {
         let mut bundle = valid_bundle();
         bundle.batch_root = [0u8; 32];
         assert!(
-            v.verify_bundle(&bundle).is_err(),
+            v.verify_bundle_shape_only(&bundle).is_err(),
             "zero batch_root must be rejected as uninitialized"
         );
     }
@@ -370,28 +434,28 @@ mod tests {
 
     // ── Domain B boundary test ───────────────────────────────────────────────
 
-    /// Verify that `verify_bundle` returns only a 32-byte root — no proof
+    /// Verify that the shape harness returns only a 32-byte root — no proof
     /// bytes, no STARK transcript state, no Domain B internals cross over.
     ///
     /// This test enforces the Domain B containment invariant at the type level:
-    /// the return type of `ZkProofVerifier::verify_bundle` is `Result<[u8;32], _>`.
+    /// the return type remains `Result<[u8;32], _>`.
     /// Proof bytes (`ShardProofBytes`, `AggregationProofBytes`) have no path
     /// into Domain A from this return type.
     #[test]
     fn proof_bytes_stay_in_domain_b_return_type_is_batch_root_only() {
         let v = Plonky3FriVerifier::new();
         let bundle = valid_bundle();
-        let result: Result<[u8; 32], HostedError> = v.verify_bundle(&bundle);
+        let result: Result<[u8; 32], HostedError> = v.verify_bundle_shape_only(&bundle);
         let root = result.expect("valid bundle must verify");
         // The 32-byte root is all that crossed the boundary.
         assert_eq!(root, bundle.batch_root);
-        // Compile-time: if ZkProofVerifier::verify_bundle returned proof bytes,
+        // Compile-time: if this boundary returned proof bytes,
         // this assignment would not compile — the type would be wrong.
     }
 
     /// `ShardProofBytes` and `AggregationProofBytes` are not exported through
-    /// the `ZkProofVerifier` trait. Verify the locked profile is the only
-    /// configuration pathway.
+    /// the hosted root boundary. Verify the locked profile is the only
+    /// default configuration pathway.
     #[test]
     fn verifier_locked_profile_is_read_only() {
         let v = Plonky3FriVerifier::new();
@@ -437,7 +501,9 @@ mod tests {
             aggregation_proof_count: 1,
             batch_root,
         };
-        let result = v.verify_bundle(&bundle).expect("bundle must verify");
+        let result = v
+            .verify_bundle_shape_only(&bundle)
+            .expect("bundle shape must verify");
         assert_eq!(result, batch_root);
     }
 }

@@ -6,13 +6,14 @@
 //! matching names.
 
 use qash_consensus::encoding::{
-    compute_leaf_index, encode_state_header, encode_validator_dynamic, STATE_HEADER_SIZE,
-    VALIDATOR_DYNAMIC_SIZE,
+    compute_leaf_index, decode_state_header, encode_state_header, encode_validator_dynamic,
+    EncodeError, STATE_HEADER_SIZE, VALIDATOR_DYNAMIC_SIZE,
 };
 use qash_consensus::fixed_point::FixedPoint;
 use qash_consensus::lyapunov::{evaluate, ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
 use qash_consensus::transition::{
-    advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
+    advance_epoch, decode_full_state, encode_full_state_into, EpochInput, EpochState, HaltReason,
+    ValidatorUpdate, FULL_STATE_MAX_BYTES, MAX_VALIDATORS,
 };
 
 fn hex_encode(bytes: &[u8]) -> String {
@@ -40,6 +41,14 @@ fn vector_block<'a>(json: &'a str, id: &str) -> &'a str {
     &json[start..next]
 }
 
+fn assert_vector_declares(json: &str, id: &str, expected: &str) {
+    let block = vector_block(json, id);
+    assert!(
+        block.contains(expected),
+        "vector {id} must declare expected result {expected}"
+    );
+}
+
 fn extract_i64(json: &str, key: &str) -> i64 {
     let needle = format!("\"{key}\": ");
     let start = json
@@ -53,6 +62,13 @@ fn extract_i64(json: &str, key: &str) -> i64 {
     rest[..end]
         .parse()
         .unwrap_or_else(|_| panic!("invalid integer for {key}"))
+}
+
+fn encoded_genesis(vc: u32) -> Vec<u8> {
+    let state = genesis(vc);
+    let mut encoded = [0u8; FULL_STATE_MAX_BYTES];
+    let len = encode_full_state_into(&state, &mut encoded);
+    encoded[..len].to_vec()
 }
 
 fn genesis(vc: u32) -> EpochState {
@@ -112,6 +128,41 @@ fn coq_encoding_vectors_match_rust_encoding_identifiers() {
         hex_encode(&validator_out),
         extract_str(validator, "encoded_hex").expect("validator encoded_hex")
     );
+}
+
+#[test]
+fn coq_encoding_rejection_vectors_fail_closed_in_rust_decoders() {
+    let json = include_str!("../../../proofs/model/encoding_vectors.json");
+
+    assert_vector_declares(json, "ENC-HEADER-PAD-NONZERO", "Err(DecodeInvalid)");
+    let mut header_out = [0u8; STATE_HEADER_SIZE as usize];
+    encode_state_header(1, 4, 0, &[0u8; 32], &mut header_out);
+    header_out[17] = 0xFF;
+    assert_eq!(
+        decode_state_header(&header_out),
+        Err(EncodeError::DecodeInvalid)
+    );
+
+    assert_vector_declares(json, "ENC-FULL-STATE-TRUNCATED-1", "Err(DecodeInvalid)");
+    let truncated = encoded_genesis(4);
+    assert!(matches!(
+        decode_full_state(&truncated[..truncated.len() - 1]),
+        Err(EncodeError::DecodeInvalid)
+    ));
+
+    assert_vector_declares(
+        json,
+        "ENC-FULL-STATE-DIVERGENCE-NEGATIVE",
+        "Err(DecodeInvalid)",
+    );
+    let mut negative_divergence = encoded_genesis(4);
+    let first_validator_divergence = qash_consensus::transition::FULL_STATE_FIXED_BYTES;
+    negative_divergence[first_validator_divergence..first_validator_divergence + 8]
+        .copy_from_slice(&(-1i64).to_le_bytes());
+    assert!(matches!(
+        decode_full_state(&negative_divergence),
+        Err(EncodeError::DecodeInvalid)
+    ));
 }
 
 #[test]
