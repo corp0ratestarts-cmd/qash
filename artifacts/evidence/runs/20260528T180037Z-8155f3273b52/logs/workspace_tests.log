@@ -1,0 +1,847 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running unittests src/lib.rs (target/debug/deps/qash-ff83d7718923c5aa)
+
+running 36 tests
+test crypto::blinding::tests::blinding_health_rejects_missing_epoch_key ... ok
+test crypto::blinding::tests::blinding_health_inactive_for_none_mode ... ok
+test crypto::cascade_agility::tests::schedule_boundaries ... ok
+test crypto::cascade_coq::tests::weighted_term_no_overflow ... ok
+test crypto::cascade_coq::tests::ch_zero_when_no_failures ... ok
+test crypto::cascade_coq::tests::ch_p_when_all_fail ... ok
+test hardware::acceleration::tests::software_backend_rejects_empty_domain ... ok
+test hardware::attestation_gate::tests::local_evidence_quote_binds_nonce ... ok
+test hardware::attestation_gate::tests::local_evidence_quote_rejects_bad_shape ... ok
+test hardware::attestation_gate::tests::local_evidence_quote_rejects_tampering ... ok
+test hardware::attestation_gate::tests::local_evidence_quote_rejects_wrong_measurement_gate ... ok
+test hardware::attestation_gate::tests::local_evidence_quote_roundtrips ... ok
+test hardware::attestation_gate::tests::unimplemented_gate_fails_closed ... ok
+test hardware::capabilities::tests::probe_is_reporting_only_and_non_panicking ... ok
+test hardware::platform::tests::known_architectures_map_to_descriptors ... ok
+test hardware::platform::tests::platform_probe_reports_current_kind ... ok
+test hardware::power_management::tests::in_memory_manager_defaults_to_active ... ok
+test hardware::power_management::tests::in_memory_manager_records_requested_states ... ok
+test hardware::power_management::tests::unimplemented_manager_fails_closed ... ok
+test obfuscation::tests::cascade_output_rejects_noncanonical_length ... ok
+test hardware::acceleration::tests::software_backend_hash_cascade_is_deterministic ... ok
+test crypto::blinding::tests::blinding_health_accepts_derived_epoch_key ... ok
+test obfuscation::tests::deterministic_cascade_rejects_empty_domain ... ok
+test hardware::acceleration::tests::software_backend_binds_domain_and_input ... ok
+test hardware::acceleration::tests::software_backend_measurement_is_stable ... ok
+test crypto::blinding::tests::blinding_roundtrip_with_derived_key ... ok
+test obfuscation::tests::deterministic_cascade_binds_domain_and_input ... ok
+test offline::clone::tests::cascade_input_encodes_index_epoch_payload ... ok
+test crypto::blinding::tests::epoch_key_differs_across_epochs ... ok
+test crypto::blinding::tests::epoch_key_is_deterministic ... ok
+test obfuscation::tests::deterministic_cascade_returns_fixed_size_output ... ok
+test obfuscation::tests::deterministic_cascade_verifies_expected_output ... ok
+test obfuscation::tests::deterministic_cascade_verification_rejects_tampering ... ok
+test obfuscation::tests::deterministic_cascade_is_stable_for_same_domain_and_input ... ok
+test obfuscation::tests::deterministic_cascade_verification_rejects_truncation ... ok
+test offline::clone::tests::verify_l7_rejects_wrong_seed ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/main.rs (target/debug/deps/qash-16e156188e998842)
+
+running 9 tests
+test demo::tests::demo_help_is_successful ... ok
+test demo::tests::hex32_parser_rejects_bad_values ... ok
+test demo::tests::unknown_command_is_rejected ... ok
+test demo::tests::import_commitments_missing_file_flag_is_error ... ok
+test demo::tests::list_imports_on_empty_workspace ... ok
+test demo::tests::demo_local_flow_runs ... ok
+test demo::tests::evidence_verification_rejects_tampered_public_commitments ... ok
+test demo::tests::import_commitments_and_list_flow ... ok
+test demo::tests::disclosure_verify_status_and_evidence_export_flow ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running unittests src/bin/qash-demo.rs (target/debug/deps/qash_demo-9d93decba54a455f)
+
+running 9 tests
+test demo::tests::demo_help_is_successful ... ok
+test demo::tests::hex32_parser_rejects_bad_values ... ok
+test demo::tests::unknown_command_is_rejected ... ok
+test demo::tests::import_commitments_missing_file_flag_is_error ... ok
+test demo::tests::list_imports_on_empty_workspace ... ok
+test demo::tests::demo_local_flow_runs ... ok
+test demo::tests::evidence_verification_rejects_tampered_public_commitments ... ok
+test demo::tests::import_commitments_and_list_flow ... ok
+test demo::tests::disclosure_verify_status_and_evidence_export_flow ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (target/debug/deps/qash_address-994394b1926a5713)
+
+running 10 tests
+test tests::f4jumble_is_not_identity ... ok
+test tests::encode_format ... ok
+test tests::f4jumble_inv_is_not_identity ... ok
+test tests::address_uses_only_bech32_charset ... ok
+test tests::encode_decode_roundtrip ... ok
+test tests::wrong_hrp_rejected ... ok
+test tests::different_leaves_produce_different_addresses ... ok
+test tests::f4jumble_encode_decode_roundtrip ... ok
+test tests::tampered_address_rejected ... ok
+test tests::zero_leaf_roundtrip ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/qash_consensus-fd73aef0b4de5ee1)
+
+running 183 tests
+test blinding::tests::dilithium_scalar_none_is_zeroes ... ok
+test blinding::tests::split_none_mode_share0_is_key ... ok
+test capability::tests::all_variants_roundtrip ... ok
+test capability::tests::unknown_codes_rejected ... ok
+test blinding::tests::prf_shares_differ_from_key ... ok
+test blinding::tests::epoch_prf_is_deterministic ... ok
+test blinding::tests::different_epoch_keys_different_scalars ... ok
+test blinding::tests::split_and_reconstruct_roundtrip ... ok
+test blinding::tests::none_mode_equals_unkeyed ... ok
+test blinding::tests::epoch_prf_uses_key ... ok
+test blinding::tests::dilithium_scalar_prf_nonzero_deterministic ... ok
+test causal_order::tests::compute_sort_key_deterministic ... ok
+test causal_order::tests::compute_sort_key_kat_zeros ... ok
+test causal_order::tests::compute_sort_key_payload_hash_distinguishes ... ok
+test causal_order::tests::compute_sort_key_seed_distinguishes ... ok
+test causal_order::tests::compute_sort_key_shard_distinguishes ... ok
+test causal_order::tests::sort_key_from_payload_matches_explicit ... ok
+test cascade::tests::h_cascade_returns_64_nonzero_bytes ... ok
+test cascade::tests::derive_differs_by_epoch ... ok
+test cascade::tests::h_cascade_is_deterministic ... ok
+test cascade::tests::keyed_differs_from_unkeyed ... ok
+test cascade::tests::derive_is_deterministic ... ok
+test derive::tests::all_paths_are_distinct ... ok
+test derive::tests::gf128_mul_commutative ... ok
+test derive::tests::gf128_mul_identity ... ok
+test cascade::tests::keyed_with_empty_key_equals_unkeyed ... ok
+test derive::tests::gf128_mul_zero ... ok
+test derive::tests::path_f_lsh512_deterministic ... ok
+test cascade::tests::h_cascade_differs_by_input ... ok
+test derive::tests::path_h_kupyna_deterministic ... ok
+test derive::tests::avalanche_single_bit_in_seed ... ok
+test envelope::tests::causal_sort_key_ordering ... ok
+test envelope::tests::v1_0_envelope_fields ... ok
+test derive::tests::output_is_nonzero ... ok
+test envelope::tests::v1_2_envelope_fields ... ok
+test envelope::tests::version_constants_distinct ... ok
+test fixed_point::tests::checked_add_overflow_is_error ... ok
+test fixed_point::tests::checked_div_by_zero_is_error ... ok
+test fixed_point::tests::checked_div_overflow_is_error ... ok
+test fixed_point::tests::checked_mul_overflow_is_error ... ok
+test fixed_point::tests::checked_sub_overflow_is_error ... ok
+test fixed_point::tests::floor_div_examples ... ok
+test fixed_point::tests::floor_div_i128_min_div_negative_one_is_error ... ok
+test fixed_point::tests::floor_div_matches_euclidean_semantics_for_sign_mixed_inputs ... ok
+test fixed_point::tests::mul_rescales ... ok
+test fixed_point::tests::to_i64_bounds_are_checked ... ok
+test hash::tests::cascade_determinism_same_input ... ok
+test hash::tests::domain_tags_have_correct_values ... ok
+test derive::tests::derive_is_deterministic ... ok
+test hash::tests::h_domain_deterministic ... ok
+test hash::tests::h_domain_different_inputs_produce_different_output ... ok
+test hash::tests::h_domain_different_tags_produce_different_output ... ok
+test hash::tests::h_domain_state_root_hello_known_vector ... ok
+test hash::tests::sha3_256_known_vector ... ok
+test invariants::tests::conflict_above_scale_fails ... ok
+test invariants::tests::divergence_above_scale_fails ... ok
+test invariants::tests::divergence_negative_fails ... ok
+test invariants::tests::inactive_slots_beyond_vc_not_checked ... ok
+test derive::tests::different_epoch_differs ... ok
+test invariants::tests::max_valid_metrics_passes ... ok
+test invariants::tests::slash_accum_negative_fails ... ok
+test invariants::tests::valid_genesis_passes ... ok
+test invariants::tests::valid_halted_state_passes ... ok
+test invariants::tests::validator_count_exceeds_max_fails ... ok
+test lineage::tests::advance_epoch1_slot0_set ... ok
+test lineage::tests::commit_different_depth_differs ... ok
+test lineage::tests::advance_epoch2_slot1_set ... ok
+test envelope::tests::v1_1_envelope_fields ... ok
+test lineage::tests::genesis_header_is_all_zeroes ... ok
+test lineage::tests::skip_distances_are_powers_of_two ... ok
+test lineage::tests::commit_is_deterministic ... ok
+test lineage::tests::verify_ancestor_depth0_is_false ... ok
+test derive::tests::different_seed_differs ... ok
+test lineage::tests::slot0_known_vector ... ok
+test lineage::tests::verify_ancestor_insufficient_headers ... ok
+test lineage::tests::verify_ancestor_depth1 ... ok
+test lineage::tests::verify_ancestor_depth2 ... ok
+test lsh256::tests::determinism ... ok
+test lineage::tests::verify_exact_depth1_roundtrip ... ok
+test lsh256::tests::avalanche_single_bit ... ok
+test lsh256::tests::lsh256_official_kat ... ok
+test lsh256::tests::sc_recurrence_word0 ... ok
+test lsh256::tests::domain_separation ... ok
+test lsh256::tests::sigma_is_permutation ... ok
+test lsh256::tests::tau_is_permutation ... ok
+test lsh256::tests::parts_matches_lsh256 ... ok
+test derive::tests::different_validator_id_differs ... ok
+test lsh512::tests::avalanche_single_bit ... ok
+test lsh512::tests::determinism ... ok
+test lsh512::tests::domain_separation ... ok
+test lsh256::tests::output_length ... ok
+test lsh512::tests::lsh512_stability_kat ... ok
+test lsh512::tests::sigma_is_permutation ... ok
+test lsh512::tests::sc_recurrence_word0 ... ok
+test lsh512::tests::parts_matches_lsh512 ... ok
+test lsh256::tests::two_block_message ... ok
+test lsh512::tests::tau_is_permutation ... ok
+test lsh512::tests::output_length ... ok
+test lyapunov::tests::delta_window_epsilon_plus_one_halts ... ok
+test lyapunov::tests::phi_halt_triggers_at_threshold ... ok
+test lsh512::tests::lsh512_differs_from_lsh256 ... ok
+test lyapunov::tests::push_shifts_correctly ... ok
+test lyapunov::tests::phi_safety_sums_across_validators ... ok
+test lyapunov::tests::phi_halt_triggers_one_over_threshold ... ok
+test lyapunov::tests::delta_window_equal_epsilon_does_not_halt ... ok
+test sharding::tests::efb_rejects_unsorted_or_missing_shards ... ok
+test sharding::tests::receipt_inclusion_rejects_overdeep_path ... ok
+test lsh512::tests::two_block_message ... ok
+test sharding::tests::receipt_id_binds_epoch_shards_nonce_and_payload ... ok
+test sharding::tests::shard_assignment_rejects_zero_shards ... ok
+test sharding::tests::shard_assignment_is_deterministic ... ok
+test sharding::tests::zk_profile_locks_pr93_shape_without_verifying_proofs ... ok
+test derive::tests::verify_rejects_tampered ... ok
+test sharding::tests::receipt_epoch_anchor_rejects_replay ... ok
+test sharding::tests::receipt_inclusion_rejects_tampered_path ... ok
+test sharding::tests::efb_is_deterministic_for_sorted_shards ... ok
+test derive::tests::verify_roundtrip ... ok
+test transaction::tests::apply_tx_0_rejects_out_of_range_slot_index ... ok
+test sharding::tests::receipt_inclusion_verifies_merkle_path ... ok
+test transaction::tests::candidate_total_order_breaks_equal_sort_key_by_tx_id ... ok
+test transaction::tests::parse_tx0_nonzero_payload_rejected ... ok
+test transaction::tests::parse_tx1_reads_target_and_delta ... ok
+test transaction::tests::parse_tx0_invalid_version_rejected ... ok
+test transaction::tests::apply_all_filters_inadmissible_tx1_without_mutation ... ok
+test transaction::tests::apply_all_accepts_tx1_and_commits_projected_validator_metrics ... ok
+test transaction::tests::apply_all_idempotent_with_empty_txs ... ok
+test transaction::tests::prevalidate_all_replayed_nonce_is_rejected_without_advancing_projection ... ok
+test transaction::tests::prevalidate_all_reports_nonce_overflow_without_mutating_state ... ok
+test transaction::tests::prevalidate_all_impl_with_updated_validators_sees_fresh_divergence ... ok
+test transaction::tests::tx0_unknown_author_rejected ... ok
+test transaction::tests::tx0_wrong_nonce_rejected ... ok
+test transaction::tests::apply_all_conflicting_same_nonce_transactions_deduplicate_by_nonce_progression ... ok
+test transaction::tests::tx1_decrements_target_divergence_and_advances_author_nonce ... ok
+test transaction::tests::tx1_rejects_delta_above_current_divergence ... ok
+test transition::tests::cascade_health_in_state_root_commitment ... ok
+test transaction::tests::tx0_noop_advances_nonce ... ok
+test transaction::tests::prevalidate_all_impl_matches_prevalidate_all_with_same_validators ... ok
+test transition::tests::decode_rejects_extended_zero_sharding_roots ... ok
+test transaction::tests::apply_all_ordering_is_deterministic ... ok
+test transaction::tests::sort_order_is_identical_for_reversed_input_batch ... ok
+test transition::tests::entropy_seed_advances_nonzero ... ok
+test transition::tests::evaluate_projected_known_values ... ok
+test transition::tests::evaluate_projected_phi_safety_sums_across_validators ... ok
+test transition::tests::incompatible_version_halt_roundtrip ... ok
+test transition::tests::cascade_health_resets_on_high_divergence ... ok
+test transition::tests::cascade_health_increments_on_clean_epochs ... ok
+test transition::tests::full_state_roundtrip_preserves_sharding_roots ... ok
+test transition::tests::lyapunov_delta_one_over_epsilon_halts ... ok
+test transition::tests::phi_safety_halts_at_threshold_before_commit ... ok
+test transition::tests::phi_safety_halts_one_over_threshold_before_commit ... ok
+test transition::tests::lyapunov_delta_equal_epsilon_does_not_halt ... ok
+test transition::tests::projected_view_compute_root_matches_full_state_genesis ... ok
+test transition::tests::projected_view_compute_root_matches_full_state_with_sharding_roots ... ok
+test transition::tests::projected_view_compute_root_matches_full_state_with_metrics ... ok
+test transaction::tests::prevalidate_all_accepts_multiple_sorted_txs_from_same_validator ... ok
+test transition::tests::sharded_epoch_requires_v1_2_protocol ... ok
+test transition::tests::state_root_genesis_is_zero ... ok
+test transition::tests::streaming_state_root_parity_genesis_shape ... ok
+test transition::tests::sharded_epoch_commits_efb_to_public_transcript ... ok
+test transition::tests::cascade_health_saturates_at_depth ... ok
+test transition::tests::state_root_chains_via_prior_root ... ok
+test transition::tests::streaming_state_root_parity_nonzero_prior_root ... ok
+test transition::tests::streaming_state_root_parity_with_full_sharding_roots ... ok
+test transition::tests::validate_epoch_accepts_within_window ... ok
+test transition::tests::streaming_state_root_parity_with_receipt_root_only ... ok
+test transition::tests::validate_epoch_rejects_pre_genesis ... ok
+test transaction::tests::prevalidate_all_out_of_order_same_author_sequence_converges_deterministically ... ok
+test transition::tests::streaming_state_root_parity_with_validators_and_window ... ok
+test transition::tests::validate_epoch_rejects_too_far_future ... ok
+test transition::tests::validate_epoch_zero_skew_accepts_only_current ... ok
+test transition::tests::validate_epoch_overflow_on_add ... ok
+test transition::tests::failure_after_first_transaction_halts_without_partial_commit ... ok
+test transition::tests::validate_rejects_conflict_out_of_bounds ... ok
+test transition::tests::validate_rejects_slash_decrease ... ok
+test transition::tests::validate_rejects_update_beyond_count ... ok
+test transition::tests::validate_rejects_divergence_out_of_bounds ... ok
+test transition::tests::validate_rejects_wrong_update_count ... ok
+test transition::tests::version_gate_rejects_v1_0_after_window ... ok
+test transition::tests::tx_nonce_overflow_halts_without_partial_commit ... ok
+test transition::tests::version_gate_accepts_v1_0_before_window ... ok
+test transition::tests::version_gate_accepts_v1_1_after_window ... ok
+test transition::tests::multiple_transactions_from_same_validator_commit_precomputed_nonce ... ok
+test transition::tests::streaming_state_root_parity_max_validators ... ok
+
+test result: ok. 183 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/adversarial.rs (target/debug/deps/adversarial-40c5d2d83dc26804)
+
+running 36 tests
+test adversarial_far_future_nonce_rejected ... ok
+test adversarial_conflict_exceeds_scale ... ok
+test adversarial_divergence_exceeds_scale ... ok
+test adversarial_halt_absorbing_decode_invalid ... ok
+test adversarial_halt_absorbing_arith_overflow ... ok
+test adversarial_encoding_injectivity_slash_accum ... ok
+test adversarial_encoding_injectivity_epoch ... ok
+test adversarial_encoding_injectivity_validator_id ... ok
+test adversarial_future_nonce_rejected ... ok
+test adversarial_halt_absorbing_halt_flag_set ... ok
+test adversarial_halt_absorbing_epoch_overflow ... ok
+test adversarial_invalid_version_rejected ... ok
+test adversarial_malformed_envelope_empty ... ok
+test adversarial_malformed_envelope_too_short ... ok
+test adversarial_duplicate_tx_in_batch_is_idempotent ... ok
+test adversarial_halt_absorbing_roundtrip_failure ... ok
+test adversarial_halt_absorbing_lyapunov_violation ... ok
+test adversarial_encoding_injectivity_nonce ... ok
+test adversarial_negative_conflict_halts ... ok
+test adversarial_phi_safety_halt_triggers_at_threshold ... ok
+test adversarial_negative_divergence_halts ... ok
+test adversarial_lyapunov_violation_triggers_halt ... ok
+test adversarial_max_slash_boundary_is_valid ... ok
+test adversarial_non_validator_tx_end_to_end_rejected ... ok
+test adversarial_partition_same_inputs_same_root ... ok
+test adversarial_unknown_tx_type_rejected ... ok
+test adversarial_unknown_author_rejected ... ok
+test adversarial_slash_decrease_halts ... ok
+test adversarial_version_zero_rejected ... ok
+test adversarial_tx0_state_locality ... ok
+test adversarial_partition_halt_is_deterministic ... ok
+test adversarial_zeroed_author_id_rejected ... ok
+test adversarial_update_count_mismatch_halts ... ok
+test adversarial_update_beyond_validator_count ... ok
+test adversarial_tx0_replay_rejected ... ok
+test adversarial_tx_batch_order_is_irrelevant ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/adversarial_replay_corpus.rs (target/debug/deps/adversarial_replay_corpus-1b90e0ea1639f48a)
+
+running 3 tests
+test adversarial_replay_corpus_decode_invalid_is_deterministic ... ok
+test adversarial_replay_corpus_epsilon_boundary_is_accepted ... ok
+test adversarial_replay_corpus_tx1_valid_and_invalid_paths_are_deterministic ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/adversarial_simulation.rs (target/debug/deps/adversarial_simulation-54815f6711ed3d87)
+
+running 23 tests
+test sim1_boundary_is_exact_at_50003 ... ok
+test sim1_minimum_halt_d_triggers_h1_one_validator ... ok
+test sim1_one_below_minimum_d_does_not_halt ... ok
+test sim10_rolling_window_raises_required_divergence ... ok
+test sim2_grief_cost_1_validator ... ok
+test sim2_grief_cost_4_validators ... ok
+test sim3_single_validator_halts_2_validator_set ... ok
+test sim10_minimum_attack_duration_is_window_size_plus_one ... ok
+test sim5_d_at_epsilon_produces_v_equal_epsilon ... ok
+test sim3_single_validator_halts_16_validator_set ... ok
+test sim3_single_validator_halts_4_validator_set ... ok
+test sim4_coalition_of_3_at_epsilon_each_triggers_halt ... ok
+test sim7_post_decode_invalid_halt_absorbs ... ok
+test sim5_joint_v_at_epsilon_does_not_halt ... ok
+test sim4_single_validator_at_epsilon_does_not_halt ... ok
+test sim6_spike_before_window_full_does_not_halt ... ok
+test sim6_spike_after_exactly_window_size_idle_halts ... ok
+test sim9_halt_finality_under_varied_attacks ... ok
+test sim8_entropy_seed_does_not_affect_lyapunov_halt_decision ... ok
+test sim7_stale_epoch_input_rejected ... ok
+test sim2_grief_cost_128_validators ... ok
+test sim3_single_validator_halts_1024_validator_set ... ok
+test sim2_grief_cost_1024_validators ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/axioms.rs (target/debug/deps/axioms-9b99deaa9d0e5593)
+
+running 24 tests
+test axiom_a6_tx0_does_not_clear_halt ... ok
+test axiom_a6_halt_flag_never_clears ... ok
+test axiom_a3_tx0_mutation_footprint ... ok
+test axiom_all_halt_reasons_roundtrip ... ok
+test axiom_consensus_zero_validators_accepted ... ok
+test axiom_a1_distinct_inputs_produce_distinct_roots ... ok
+test axiom_a8_form_a_tx0_zero_perturbation ... ok
+test axiom_entropy_advances_nonzero ... ok
+test axiom_delta_window_above_epsilon_halts ... ok
+test axiom_entropy_seed_binding ... ok
+test axiom_a1_determinism_with_updates ... ok
+test axiom_a4_encoding_preservation_multi_epoch ... ok
+test axiom_a5_replay_invariance_identical_sequence ... ok
+test axiom_model_runtime_parity_boundary_epsilon ... ok
+test axiom_tx0_wire_nonce_parsed_correctly ... ok
+test axiom_tx0_wire_author_id_parsed_correctly ... ok
+test axiom_tx0_wire_type_byte_is_checked ... ok
+test axiom_delta_window_at_epsilon_does_not_halt ... ok
+test axiom_tx0_wire_version_byte_is_checked ... ok
+test axiom_model_runtime_parity_halt_triggering ... ok
+test axiom_entropy_chain_is_deterministic ... ok
+test axiom_model_runtime_parity_nominal ... ok
+test axiom_nonce_sequential_chain ... ok
+test axiom_consensus_max_validators_accepted ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/cascade_kat.rs (target/debug/deps/cascade_kat-e6b3bf3f5d155117)
+
+running 2 tests
+test cascade_kat_empty_input_fast ... ok
+test cascade_kat_all_vectors ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/coq_refinement_vectors.rs (target/debug/deps/coq_refinement_vectors-9fd436a11d105fc6)
+
+running 3 tests
+test coq_encoding_vectors_match_rust_encoding_identifiers ... ok
+test coq_encoding_rejection_vectors_fail_closed_in_rust_decoders ... ok
+test coq_lyapunov_transition_observations_match_advance_epoch ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/coq_vectors.rs (target/debug/deps/coq_vectors-3ba5bc9bc9f15e0d)
+
+running 1 test
+test coq_model_parity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/differential.rs (target/debug/deps/differential-b974f48440016fe0)
+
+running 10 tests
+test diff_th5_phi_safety_bounded ... ok
+test diff_th4b_slash_decrease_rejected ... ok
+test diff_th1_encode_decode_extended ... ok
+test diff_tx1_score_decrement_nonincreasing ... ok
+test diff_th6_halt_absorbing ... ok
+test diff_th4a_slash_accum_never_decreases ... ok
+test diff_th6_lyapunov_halt_irreversible ... ok
+test diff_th3a_no_halt_decreasing_v ... ok
+test diff_th3a_no_halt_constant_metrics ... ok
+test diff_tx0_v_convergence_unchanged ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+
+     Running tests/domain_a_audit.rs (target/debug/deps/domain_a_audit-f310ddcd4c36b3f2)
+
+running 48 tests
+test encoding_audit::decode_state_header_wrong_version_rejected ... ok
+test encoding_audit::decode_state_header_canonical_bytes_unique ... ok
+test encoding_audit::decode_state_header_nonzero_padding_rejected ... ok
+test encoding_audit::decode_vd_boundary_valid ... ok
+test encoding_audit::decode_vd_divergence_above_scale_rejected ... ok
+test encoding_audit::decode_vd_i128_min_all_fields_rejected ... ok
+test encoding_audit::decode_vd_negative_conflict_rejected ... ok
+test encoding_audit::decode_vd_negative_slash_rejected ... ok
+test encoding_audit::decode_vd_conflict_above_scale_rejected ... ok
+test encoding_audit::state_header_roundtrip ... ok
+test encoding_audit::decode_vd_slash_above_i64_max_rejected ... ok
+test encoding_audit::decode_vd_negative_divergence_rejected ... ok
+test fixed_point_audit::checked_div_by_zero_is_error ... ok
+test fixed_point_audit::checked_add_i128_max_overflows ... ok
+test fixed_point_audit::checked_mul_scale_times_scale_overflows ... ok
+test fixed_point_audit::checked_sub_i128_min_underflows ... ok
+test fixed_point_audit::encode_decode_roundtrip_extremes ... ok
+test fixed_point_audit::floor_div_by_zero_is_error ... ok
+test fixed_point_audit::floor_div_min_over_neg1_is_error ... ok
+test fixed_point_audit::floor_div_rounding_all_sign_combinations ... ok
+test fixed_point_audit::to_i64_boundary_values_succeed ... ok
+test fixed_point_audit::to_i64_out_of_range_errors ... ok
+test hash_audit::domain_tag_wire_values_stable ... ok
+test hash_audit::h_domain_empty_input_is_deterministic ... ok
+test hash_audit::tag_prefix_changes_output_vs_raw_sha3 ... ok
+test hash_audit::h_domain_state_root_hello_kat ... ok
+test hash_audit::h_domain_long_input_deterministic ... ok
+test lyapunov_audit::evaluate_unbounded_metric_rejected ... ok
+test lyapunov_audit::evaluate_zero_validators_all_zero ... ok
+test lyapunov_audit::phi_safety_exact_threshold_triggers_halt ... ok
+test lyapunov_audit::phi_safety_just_below_threshold_no_halt ... ok
+test lyapunov_audit::window_is_full_after_window_size_pushes ... ok
+test hash_audit::all_domain_tags_produce_distinct_hashes ... ok
+test lyapunov_audit::window_min_value_empty_is_zero ... ok
+test encoding_audit::decode_full_state_boundary_and_truncation_rejections ... ok
+test lyapunov_audit::evaluate_max_validators_large_slash_succeeds_or_overflows ... ok
+test transaction_audit::parse_tx0_unknown_type_rejected ... ok
+test transaction_audit::parse_tx0_short_input_rejected ... ok
+test lyapunov_audit::evaluate_max_validators_no_overflow ... ok
+test encoding_audit::decode_full_state_noncanonical_and_invalid_fields_rejected ... ok
+test transaction_audit::sort_key_is_deterministic ... ok
+test transaction_audit::nonce_overflow_at_u64_max_is_error ... ok
+test transaction_audit::sort_key_changes_with_entropy ... ok
+test transaction_audit::apply_all_nonce_overflow_does_not_mutate_state ... ok
+test transaction_audit::duplicate_tx_same_nonce_only_applied_once ... ok
+test transaction_audit::tx_from_last_slot_is_admissible ... ok
+test transaction_audit::tx_id_sensitive_to_nonce_change ... ok
+test transaction_audit::two_txs_same_author_sequential_nonces_at_least_one_applies ... ok
+
+test result: ok. 48 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/gen_vectors.rs (target/debug/deps/gen_vectors-9f6f5cc157746644)
+
+running 4 tests
+test _scratch_check_v1_vectors ... ignored
+test _scratch_epoch2_root ... ignored
+test gen_coq_vectors ... ignored
+test gen_replay_snapshots ... ignored
+
+test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/golden_replay.rs (target/debug/deps/golden_replay-0428a5d397edfddb)
+
+running 26 tests
+test golden_params_gate_v0 ... ok
+test halt_reason_decode_invalid_on_slash_decrease ... ok
+test halt_reason_decode_invalid_on_bad_update_count ... ok
+test full_epoch_with_tx0 ... ok
+test halt_freezes_entire_state_except_halt_reason ... ok
+test roundtrip_full_state_empty_validators ... ok
+test roundtrip_full_state_four_validators ... ok
+test golden_halt_reason_preserved ... ok
+test prop_fixed_point_add_nonneg ... ok
+test roundtrip_halted_state ... ok
+test state_header_nonzero_padding_rejected ... ok
+test state_header_roundtrip ... ok
+test state_header_version_mismatch_rejected ... ok
+test roundtrip_full_state_with_window ... ok
+test state_root_canonical_seq_print ... ok
+test state_root_canonical_seq_golden ... ok
+test state_root_changes_each_epoch ... ok
+test prop_lyapunov_nonneg ... ok
+test tx0_changes_state_root_vs_no_tx0_path ... ok
+test window_check_precedes_push ... ok
+test within_epsilon_does_not_halt ... ok
+test state_root_is_deterministic ... ok
+test prop_halt_is_absorbing ... ok
+test prop_encode_decode_roundtrip ... ok
+test prop_window_roundtrip ... ok
+test prop_state_root_deterministic ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running tests/interpreter_conformance.rs (target/debug/deps/interpreter_conformance-7b07957879d8fa12)
+
+running 1 test
+test interpreter_conformance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 17.92s
+
+     Running tests/kani_transaction.rs (target/debug/deps/kani_transaction-730aaf2af2cb16ce)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/phase2r_preconditions.rs (target/debug/deps/phase2r_preconditions-008c9eac9c79f254)
+
+running 6 tests
+test phase2r_state_root_commitment_matches_buffered_preimage ... ok
+test phase2r_single_pass_admission_is_order_independent_with_tx1 ... ok
+test phase2r_streaming_state_root_matches_buffered_for_varied_states ... ok
+test phase2r_max_validator_epoch_replay_is_repeatable ... ok
+test phase2r_tx_heavy_apply_all_matches_prevalidation_plan ... ok
+test phase2r_tx_heavy_prevalidation_is_input_order_independent ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.41s
+
+     Running tests/public_transcript_privacy.rs (target/debug/deps/public_transcript_privacy-3fff70f8b68d551e)
+
+running 2 tests
+test public_transcript_is_root_only ... ok
+test public_transcript_type_name_has_no_graph_or_identity_surface ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/replay_corpus.rs (target/debug/deps/replay_corpus-92041ec7d0aa1221)
+
+running 4 tests
+test replay_corpus_epoch_3 ... ok
+test replay_corpus_epoch_0 ... ok
+test replay_corpus_epoch_1 ... ok
+test replay_binary_corpus ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/v1_1_replay.rs (target/debug/deps/v1_1_replay-225f68512b5da492)
+
+running 2 tests
+test gen_v1_1_corpus ... ignored
+test v1_1_corpus_matches_pinned ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/v1_2_sharded_replay.rs (target/debug/deps/v1_2_sharded_replay-67e7dc6222481f89)
+
+running 2 tests
+test gen_v1_2_sharded_corpus ... ignored
+test v1_2_sharded_corpus_matches_pinned ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/vector_integrity.rs (target/debug/deps/vector_integrity-f517135bbb49acaf)
+
+running 3 tests
+test cascade_kat_has_required_fields_and_minimum_count ... ok
+test vectors_v1_2_has_required_sharded_roots ... ok
+test vectors_v1_has_required_fields_and_minimum_count ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vector_runner.rs (target/debug/deps/vector_runner-f48b21f0ec8b06bd)
+
+running 2 tests
+test regen ... ignored
+test vector_runner_all ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/qash_model-f2b9b7ab1aed311c)
+
+running 7 tests
+test tests::run_stops_at_halt ... ok
+test tests::genesis_auto_ids_sequential ... ok
+test tests::step_absorbs_on_halt ... ok
+test tests::step_is_deterministic ... ok
+test tests::step_advances_epoch ... ok
+test tests::near_halt_scenario_triggers_lyapunov_halt ... ok
+test tests::idle_trace_has_zero_v_convergence ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/root.rs (target/debug/deps/qash_pal-9b3efeacc84850a1)
+
+running 73 tests
+test commitment_inbox::tests::drops_duplicate_epoch_state_root ... ok
+test commitment_transport::tests::commitment_frame_round_trips ... ok
+test commitment_backpressure::tests::transitions_from_admit_to_throttle_to_reject ... ok
+test admission::tests::process_envelope_returns_only_commitment ... ok
+test admission::tests::process_envelope_rejects_bad_schema_without_payload_error ... ok
+test commitment_backpressure::tests::reset_window_allows_new_admission ... ok
+test commitment_transport::tests::in_memory_transport_round_trips_frame ... ok
+test commitment_inbox::tests::drains_reordered_frames_by_epoch ... ok
+test crypto::drbg::tests::try_new_rejects_long_personalization_without_panic ... ok
+test crypto::drbg::tests::try_new_returns_entropy_failure ... ok
+test crypto::drbg::tests::drbg_is_deterministic_same_seed ... ok
+test crypto::tls::tests::log_pseudonym_changes_with_input ... ok
+test crypto::drbg::tests::drbg_different_personalization_differs ... ok
+test crypto::drbg::tests::try_generate_key_matches_infallible_path_for_same_entropy ... ok
+test crypto::drbg::tests::generate_seed_64_is_nonzero ... ok
+test crypto::tls::tests::log_pseudonym_is_deterministic ... ok
+test crypto::tls::tests::no_tls_is_rejected ... ok
+test crypto::tls::tests::sslv3_is_rejected ... ok
+test crypto::tls::tests::tls_12_is_accepted ... ok
+test crypto::tls::tests::tls_11_is_rejected ... ok
+test crypto::tls::tests::log_pseudonym_truncates_to_16_bytes ... ok
+test crypto::tls::tests::log_pseudonym_is_not_raw_pk ... ok
+test crypto::drbg::tests::drbg_sequential_outputs_differ ... ok
+test crypto::tls::tests::tls_10_is_rejected ... ok
+test crypto::tls::tests::tls_13_is_accepted ... ok
+test crypto::drbg::tests::drbg_outputs_are_nonzero ... ok
+test crypto::traits::tests::standard_suite_hash_binds_all_input ... ok
+test mvp::tests::duplicate_epoch_nonce_is_rejected ... ok
+test mvp::tests::invalid_domain_tag_is_rejected ... ok
+test crypto::traits::tests::standard_suite_tagged_hash_differs_from_untagged ... ok
+test mvp::tests::invalid_version_is_rejected ... ok
+test crypto::traits::tests::standard_suite_hash_is_deterministic ... ok
+test mvp::tests::fixed_size_encoding_roundtrips ... ok
+test mvp::tests::public_export_excludes_raw_nonce_and_domain_tag ... ok
+test mvp_vault::tests::disclosure_bundle_rejects_truncated_bytes ... ok
+test crypto::drbg::tests::fill_bytes_partial_block ... ok
+test mvp_demo_profile::tests::malformed_public_export_bytes_fail_closed ... ok
+test mvp_demo_profile::tests::replay_root_is_order_sensitive_transcript_order_is_the_rule ... ok
+test mvp_demo_profile::tests::public_export_bytes_decode_and_replay ... ok
+test mvp_vault::tests::import_of_empty_public_commitments_returns_zero ... ok
+test mvp_vault::tests::import_of_corrupted_export_header_is_rejected ... ok
+test mvp_vault::tests::disclosure_of_unknown_receipt_is_rejected ... ok
+test mvp_vault::tests::replay_report_json_schema_has_required_fields ... ok
+test mvp_vault::tests::duplicate_epoch_nonce_is_rejected ... ok
+test mvp_vault::tests::import_allows_replay_but_not_disclosure ... ok
+test mvp_vault::tests::disclosure_bundle_rejects_body_tampering ... ok
+test mvp_vault::tests::disclosure_bundle_verifies_against_public_commitments ... ok
+test mvp_vault::tests::issue_receipt_keeps_private_body_out_of_public_export ... ok
+test mvp_vault::tests::reopened_vault_rebuilds_epoch_nonce_index ... ok
+test net::faulty_transport::tests::always_drop_delivers_nothing ... ok
+test net::faulty_transport::tests::flush_reorder_buf_drains_partial_window ... ok
+test net::faulty_transport::tests::no_faults_delivers_all_frames ... ok
+test net::faulty_transport::tests::reorder_window_delivers_in_lifo_order ... ok
+test net::tcp_transport::tests::tcp_transport_multi_frame_sequence ... ok
+test net::tcp_transport::tests::tcp_transport_round_trips_single_frame ... ok
+test privacy::erasure::tests::disclosure_domain_correct ... ok
+test privacy::erasure::tests::shred_key_preserves_audit_context ... ok
+test privacy::erasure::tests::shred_key_returns_stable_commitment ... ok
+test privacy::erasure::tests::shred_prevents_decryption ... ok
+test privacy::public_transcript::tests::public_transcript_no_graph_field ... ok
+test receipt::tests::receipt_public_root_is_commitment_only ... ok
+test receipt::tests::shred_commitment_is_completion_of_request ... ok
+test recovery_wal::tests::record_round_trips ... ok
+test zero_wal::tests::in_memory_wal_persists_commitments_only ... ok
+test zero_wal::tests::shred_commitment_maps_to_dedicated_record ... ok
+test zero_wal::tests::validated_effect_maps_to_commitment_record ... ok
+test mvp_vault::tests::wal_truncated_to_header_plus_record_magic_only_is_rejected ... ok
+test mvp_vault::tests::wrong_wal_header_magic_is_rejected ... ok
+test mvp_vault::tests::disclosure_exports_only_selected_receipt ... ok
+test mvp_vault::tests::truncated_wal_record_is_rejected ... ok
+test mvp_vault::tests::replay_root_is_stable_across_two_sequential_reads ... ok
+test mvp_vault::tests::wal_record_body_payload_corruption_is_detected_on_reopen ... ok
+test mvp_vault::tests::wrong_wal_record_magic_is_rejected ... ok
+
+test result: ok. 73 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/boundary_violations.rs (target/debug/deps/boundary_violations-6811a6dd03163f2e)
+
+running 9 tests
+test commitment_transport_round_trips_public_transcript_without_raw_txs ... ok
+test static_attestation_verifier_rejects_quote_mismatch ... ok
+test host_new_rejects_file_with_invalid_magic ... ok
+test apply_rejects_validator_count_mismatch_and_leaves_state_unchanged ... ok
+test empty_log_replay_returns_genesis_state ... ok
+test apply_rejects_epoch_mismatch_and_leaves_state_unchanged ... ok
+test replay_rejects_truncated_record ... ok
+test consensus_halt_propagates_and_is_not_written_to_wal ... ok
+test domain_b_observations_do_not_affect_domain_a_state_root ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/commitment_backpressure.rs (target/debug/deps/commitment_backpressure-162e215a0463914c)
+
+running 2 tests
+test backpressure_window_reset_is_counter_only ... ok
+test backpressure_admits_then_throttles_then_rejects_commitment_frames ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/commitment_inbox.rs (target/debug/deps/commitment_inbox-b5d68aadc7c6d8f3)
+
+running 3 tests
+test inbox_drains_reordered_commitments_by_epoch ... ok
+test inbox_drops_duplicate_epoch_and_state_root ... ok
+test inbox_handles_delayed_arrival_in_later_drain ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/commitment_transport_recovery.rs (target/debug/deps/commitment_transport_recovery-1bedd4071063e7f1)
+
+running 1 test
+test commitment_transport_and_recovery_wal_round_trip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/crash_recovery_parity.rs (target/debug/deps/crash_recovery_parity-4727fb9bd9ca53a0)
+
+running 3 tests
+test corrupted_wal_header_fails_gracefully ... ok
+test empty_wal_replays_as_genesis ... ok
+test crash_mid_wal_replay_matches_clean_run ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/ephemeral_traits.rs (target/debug/deps/ephemeral_traits-ded5c5ecaf10d715)
+
+running 1 test
+test admission_error_debug_is_redacted ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/halt_layering.rs (target/debug/deps/halt_layering-645391c181e436ad)
+
+running 3 tests
+test domain_a_absorbing_halt_is_deterministic_and_replayable ... ok
+test pal_absorbing_halt_preparation_zeroizes_and_marks_domain_b_actions ... ok
+test pal_halt_preparation_cannot_perturb_domain_a_state_roots ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/hosted_replay.rs (target/debug/deps/hosted_replay-83e54a823e00bf8e)
+
+running 2 tests
+test replaying_persisted_input_log_from_genesis_matches_crashed_state_root ... ok
+test replaying_same_persisted_log_twice_from_genesis_is_identical ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/mvp_demo_profile_vectors.rs (target/debug/deps/mvp_demo_profile_vectors-e8a63a543941ed57)
+
+running 3 tests
+test invalid_public_export_shapes_fail_closed ... ok
+test public_exports_decode_and_replay_to_stable_root ... ok
+test public_export_replay_is_order_sensitive_until_order_rule_is_defined ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/receipt_privacy.rs (target/debug/deps/receipt_privacy-be76b468a3d4dbc2)
+
+running 3 tests
+test atomic_shred_helper_persists_only_completed_commitment ... ok
+test receipt_roots_can_be_persisted_without_receipt_body ... ok
+test receipt_vault_exposes_commitments_and_completed_shreds_only ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/smartcard.rs (target/debug/deps/smartcard-14e34d787c4b4c6e)
+
+running 6 tests
+test sign_rejects_empty_payload ... ok
+test sign_rejects_unknown_key ... ok
+test token_descriptor_round_trip ... ok
+test in_memory_signature_is_deterministic_fixed_size_and_redacted ... ok
+test in_memory_signature_binds_payload_key_and_token ... ok
+test in_memory_signature_verification_rejects_tampering ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/whole_protocol.rs (target/debug/deps/whole_protocol-3be83893518e955b)
+
+running 3 tests
+test hosted_zk_bundle_accepts_only_pr93_profile_shape ... ok
+test hosted_whole_protocol_rejects_malformed_sharded_input_without_persistence ... ok
+test hosted_whole_protocol_sharded_replay_is_deterministic ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/zero_persistence.rs (target/debug/deps/zero_persistence-b8247b8f75d9a2c6)
+
+running 2 tests
+test admission_to_wal_persists_commitment_only ... ok
+test zero_persistence_wal_has_no_payload_record_shape ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/zero_persistence_profile.rs (target/debug/deps/zero_persistence_profile-39ac4e35b524f4bd)
+
+running 1 test
+test production_profile_uses_commitment_only_path ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests qash
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests qash_address
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests qash_consensus
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests qash_model
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests qash_pal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

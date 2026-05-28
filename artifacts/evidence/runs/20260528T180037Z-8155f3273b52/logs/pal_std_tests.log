@@ -1,0 +1,211 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/root.rs (target/debug/deps/qash_pal-645183a637751a0e)
+
+running 73 tests
+test admission::tests::process_envelope_rejects_bad_schema_without_payload_error ... ok
+test commitment_backpressure::tests::reset_window_allows_new_admission ... ok
+test admission::tests::process_envelope_returns_only_commitment ... ok
+test commitment_backpressure::tests::transitions_from_admit_to_throttle_to_reject ... ok
+test commitment_inbox::tests::drains_reordered_frames_by_epoch ... ok
+test commitment_inbox::tests::drops_duplicate_epoch_state_root ... ok
+test commitment_transport::tests::commitment_frame_round_trips ... ok
+test commitment_transport::tests::in_memory_transport_round_trips_frame ... ok
+test crypto::drbg::tests::drbg_different_personalization_differs ... ok
+test crypto::drbg::tests::drbg_is_deterministic_same_seed ... ok
+test crypto::drbg::tests::drbg_outputs_are_nonzero ... ok
+test crypto::drbg::tests::fill_bytes_partial_block ... ok
+test crypto::drbg::tests::drbg_sequential_outputs_differ ... ok
+test crypto::tls::tests::log_pseudonym_changes_with_input ... ok
+test crypto::tls::tests::log_pseudonym_is_deterministic ... ok
+test crypto::drbg::tests::try_new_rejects_long_personalization_without_panic ... ok
+test crypto::tls::tests::no_tls_is_rejected ... ok
+test crypto::tls::tests::log_pseudonym_is_not_raw_pk ... ok
+test crypto::tls::tests::sslv3_is_rejected ... ok
+test crypto::tls::tests::log_pseudonym_truncates_to_16_bytes ... ok
+test crypto::tls::tests::tls_10_is_rejected ... ok
+test crypto::tls::tests::tls_11_is_rejected ... ok
+test crypto::tls::tests::tls_12_is_accepted ... ok
+test crypto::tls::tests::tls_13_is_accepted ... ok
+test crypto::drbg::tests::try_generate_key_matches_infallible_path_for_same_entropy ... ok
+test crypto::drbg::tests::try_new_returns_entropy_failure ... ok
+test mvp::tests::fixed_size_encoding_roundtrips ... ok
+test crypto::traits::tests::standard_suite_hash_is_deterministic ... ok
+test crypto::traits::tests::standard_suite_hash_binds_all_input ... ok
+test mvp::tests::invalid_domain_tag_is_rejected ... ok
+test crypto::drbg::tests::generate_seed_64_is_nonzero ... ok
+test mvp::tests::invalid_version_is_rejected ... ok
+test crypto::traits::tests::standard_suite_tagged_hash_differs_from_untagged ... ok
+test mvp_vault::tests::disclosure_bundle_rejects_truncated_bytes ... ok
+test mvp::tests::public_export_excludes_raw_nonce_and_domain_tag ... ok
+test mvp_demo_profile::tests::malformed_public_export_bytes_fail_closed ... ok
+test mvp::tests::duplicate_epoch_nonce_is_rejected ... ok
+test mvp_demo_profile::tests::public_export_bytes_decode_and_replay ... ok
+test mvp_demo_profile::tests::replay_root_is_order_sensitive_transcript_order_is_the_rule ... ok
+test mvp_vault::tests::import_of_corrupted_export_header_is_rejected ... ok
+test mvp_vault::tests::import_of_empty_public_commitments_returns_zero ... ok
+test mvp_vault::tests::disclosure_of_unknown_receipt_is_rejected ... ok
+test mvp_vault::tests::replay_report_json_schema_has_required_fields ... ok
+test mvp_vault::tests::duplicate_epoch_nonce_is_rejected ... ok
+test mvp_vault::tests::disclosure_bundle_verifies_against_public_commitments ... ok
+test mvp_vault::tests::disclosure_bundle_rejects_body_tampering ... ok
+test mvp_vault::tests::reopened_vault_rebuilds_epoch_nonce_index ... ok
+test mvp_vault::tests::issue_receipt_keeps_private_body_out_of_public_export ... ok
+test mvp_vault::tests::import_allows_replay_but_not_disclosure ... ok
+test net::faulty_transport::tests::always_drop_delivers_nothing ... ok
+test net::faulty_transport::tests::flush_reorder_buf_drains_partial_window ... ok
+test net::faulty_transport::tests::no_faults_delivers_all_frames ... ok
+test net::faulty_transport::tests::reorder_window_delivers_in_lifo_order ... ok
+test net::tcp_transport::tests::tcp_transport_multi_frame_sequence ... ok
+test net::tcp_transport::tests::tcp_transport_round_trips_single_frame ... ok
+test privacy::erasure::tests::disclosure_domain_correct ... ok
+test privacy::erasure::tests::shred_key_preserves_audit_context ... ok
+test privacy::erasure::tests::shred_key_returns_stable_commitment ... ok
+test privacy::erasure::tests::shred_prevents_decryption ... ok
+test privacy::public_transcript::tests::public_transcript_no_graph_field ... ok
+test receipt::tests::receipt_public_root_is_commitment_only ... ok
+test receipt::tests::shred_commitment_is_completion_of_request ... ok
+test recovery_wal::tests::record_round_trips ... ok
+test zero_wal::tests::in_memory_wal_persists_commitments_only ... ok
+test zero_wal::tests::shred_commitment_maps_to_dedicated_record ... ok
+test zero_wal::tests::validated_effect_maps_to_commitment_record ... ok
+test mvp_vault::tests::wal_truncated_to_header_plus_record_magic_only_is_rejected ... ok
+test mvp_vault::tests::wrong_wal_header_magic_is_rejected ... ok
+test mvp_vault::tests::disclosure_exports_only_selected_receipt ... ok
+test mvp_vault::tests::truncated_wal_record_is_rejected ... ok
+test mvp_vault::tests::replay_root_is_stable_across_two_sequential_reads ... ok
+test mvp_vault::tests::wrong_wal_record_magic_is_rejected ... ok
+test mvp_vault::tests::wal_record_body_payload_corruption_is_detected_on_reopen ... ok
+
+test result: ok. 73 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/boundary_violations.rs (target/debug/deps/boundary_violations-3ff35dfc41fd618d)
+
+running 9 tests
+test commitment_transport_round_trips_public_transcript_without_raw_txs ... ok
+test static_attestation_verifier_rejects_quote_mismatch ... ok
+test host_new_rejects_file_with_invalid_magic ... ok
+test apply_rejects_validator_count_mismatch_and_leaves_state_unchanged ... ok
+test empty_log_replay_returns_genesis_state ... ok
+test apply_rejects_epoch_mismatch_and_leaves_state_unchanged ... ok
+test replay_rejects_truncated_record ... ok
+test consensus_halt_propagates_and_is_not_written_to_wal ... ok
+test domain_b_observations_do_not_affect_domain_a_state_root ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/commitment_backpressure.rs (target/debug/deps/commitment_backpressure-7f4d5cd4e52d614e)
+
+running 2 tests
+test backpressure_admits_then_throttles_then_rejects_commitment_frames ... ok
+test backpressure_window_reset_is_counter_only ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/commitment_inbox.rs (target/debug/deps/commitment_inbox-231af754951c568c)
+
+running 3 tests
+test inbox_drops_duplicate_epoch_and_state_root ... ok
+test inbox_drains_reordered_commitments_by_epoch ... ok
+test inbox_handles_delayed_arrival_in_later_drain ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/commitment_transport_recovery.rs (target/debug/deps/commitment_transport_recovery-1ed384110c4da28d)
+
+running 1 test
+test commitment_transport_and_recovery_wal_round_trip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/crash_recovery_parity.rs (target/debug/deps/crash_recovery_parity-26c884f7df2ebe4e)
+
+running 3 tests
+test corrupted_wal_header_fails_gracefully ... ok
+test empty_wal_replays_as_genesis ... ok
+test crash_mid_wal_replay_matches_clean_run ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/ephemeral_traits.rs (target/debug/deps/ephemeral_traits-1bbadd1d480d784b)
+
+running 1 test
+test admission_error_debug_is_redacted ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/halt_layering.rs (target/debug/deps/halt_layering-d57c3232d15d9af3)
+
+running 3 tests
+test domain_a_absorbing_halt_is_deterministic_and_replayable ... ok
+test pal_absorbing_halt_preparation_zeroizes_and_marks_domain_b_actions ... ok
+test pal_halt_preparation_cannot_perturb_domain_a_state_roots ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/hosted_replay.rs (target/debug/deps/hosted_replay-a5907d1265b5b938)
+
+running 2 tests
+test replaying_persisted_input_log_from_genesis_matches_crashed_state_root ... ok
+test replaying_same_persisted_log_twice_from_genesis_is_identical ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/mvp_demo_profile_vectors.rs (target/debug/deps/mvp_demo_profile_vectors-ee0689163003bfce)
+
+running 3 tests
+test invalid_public_export_shapes_fail_closed ... ok
+test public_export_replay_is_order_sensitive_until_order_rule_is_defined ... ok
+test public_exports_decode_and_replay_to_stable_root ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/receipt_privacy.rs (target/debug/deps/receipt_privacy-7d856ae593c75c5e)
+
+running 3 tests
+test atomic_shred_helper_persists_only_completed_commitment ... ok
+test receipt_vault_exposes_commitments_and_completed_shreds_only ... ok
+test receipt_roots_can_be_persisted_without_receipt_body ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/smartcard.rs (target/debug/deps/smartcard-61cf37430d1e52e1)
+
+running 6 tests
+test in_memory_signature_is_deterministic_fixed_size_and_redacted ... ok
+test sign_rejects_empty_payload ... ok
+test sign_rejects_unknown_key ... ok
+test token_descriptor_round_trip ... ok
+test in_memory_signature_verification_rejects_tampering ... ok
+test in_memory_signature_binds_payload_key_and_token ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/whole_protocol.rs (target/debug/deps/whole_protocol-ad2bcee9c79e449d)
+
+running 3 tests
+test hosted_zk_bundle_accepts_only_pr93_profile_shape ... ok
+test hosted_whole_protocol_rejects_malformed_sharded_input_without_persistence ... ok
+test hosted_whole_protocol_sharded_replay_is_deterministic ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/zero_persistence.rs (target/debug/deps/zero_persistence-de619bc8f4a6abc6)
+
+running 2 tests
+test admission_to_wal_persists_commitment_only ... ok
+test zero_persistence_wal_has_no_payload_record_shape ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/zero_persistence_profile.rs (target/debug/deps/zero_persistence_profile-466b507e7028fdb0)
+
+running 1 test
+test production_profile_uses_commitment_only_path ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests qash_pal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

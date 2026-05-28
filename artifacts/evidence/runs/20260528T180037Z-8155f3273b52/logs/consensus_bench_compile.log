@@ -1,0 +1,3 @@
+    Finished `bench` profile [optimized] target(s) in 0.05s
+  Executable benches src/lib.rs (target/release/deps/qash_consensus-a2c74ea0a2125f22)
+  Executable benches/epoch_transition.rs (target/release/deps/epoch_transition-95306026f999b413)
