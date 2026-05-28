@@ -12,4 +12,6 @@ pub use attestation_gate::{
 };
 pub use capabilities::HardwareCapabilities;
 pub use platform::{PlatformDescriptor, PlatformKind};
-pub use power_management::{PowerError, PowerManager, PowerState, UnimplementedPowerManager};
+pub use power_management::{
+    InMemoryPowerManager, PowerError, PowerManager, PowerState, UnimplementedPowerManager,
+};
