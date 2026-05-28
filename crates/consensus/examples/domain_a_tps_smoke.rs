@@ -19,7 +19,9 @@ use qash_consensus::{
     fixed_point::FixedPoint,
     lyapunov::{ConvergenceWindow, ValidatorMetrics},
     transaction::{TX0_WIRE_BYTES, TX_HEADER_BYTES, TX_TYPE_NOOP, TX_VERSION},
-    transition::{advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS},
+    transition::{
+        advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
+    },
 };
 use std::{env, time::Instant};
 
@@ -74,9 +76,7 @@ fn parse_config() -> Result<Config, String> {
                 cfg.shards = shards;
             }
             "--help" | "-h" => {
-                println!(
-                    "usage: domain_a_tps_smoke [--iters N] [--warmup N] [--shards 1,4,16,64]"
-                );
+                println!("usage: domain_a_tps_smoke [--iters N] [--warmup N] [--shards 1,4,16,64]");
                 std::process::exit(0);
             }
             other => return Err(format!("unknown argument: {other}")),
@@ -244,7 +244,10 @@ fn main() {
     };
 
     println!("# Domain A TPS smoke model");
-    println!("iters={} warmup={} shards={:?}", cfg.iters, cfg.warmup, cfg.shards);
+    println!(
+        "iters={} warmup={} shards={:?}",
+        cfg.iters, cfg.warmup, cfg.shards
+    );
     println!("note=CPU-only Domain A; shard model is independent-shard linear capacity, not network throughput");
 
     let scenarios = [
@@ -273,7 +276,12 @@ fn main() {
                     println!();
                 }
                 Err(err) => {
-                    eprintln!("scenario={} validators={} error={}", scenario.name(), vc, err);
+                    eprintln!(
+                        "scenario={} validators={} error={}",
+                        scenario.name(),
+                        vc,
+                        err
+                    );
                     std::process::exit(1);
                 }
             }
