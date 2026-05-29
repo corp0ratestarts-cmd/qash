@@ -1102,9 +1102,9 @@ for a QASH node to be "correct."
 
 ---
 
-### 1-A: Effect-Capability Token Architecture
+### 1-A: Effect-Capability Token Architecture ✓ LANDED
 
-**Branch:** `codex/semantic-closure/effect-capability-tokens`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-J (CapToken stub must exist first)
 
 **Problem:** Domain A transition functions accept raw byte inputs from Domain B. A malformed,
@@ -1199,9 +1199,9 @@ through `validate_envelope_effect`. The compiler enforces this at the call site.
 
 ---
 
-### 1-B: Causal Fingerprint Coinduction
+### 1-B: Causal Fingerprint Coinduction ✓ LANDED
 
-**Branch:** `codex/semantic-closure/causal-fingerprint`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B (sort_key), 2-I (causal_ordering.v)
 
 **Problem:** The current safety relation (`gov_safe`) checks that two execution
@@ -1264,9 +1264,9 @@ and trace-equivalence (what receipt privacy requires).
 
 ---
 
-### 1-C: Lyapunov Confluence Proof
+### 1-C: Lyapunov Confluence Proof ✓ LANDED
 
-**Branch:** `codex/semantic-closure/lyapunov-confluence`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-D (cascade health tracking), existing `lyapunov.rs`
 
 **Problem:** The current Lyapunov proofs (TH-1 through TH-5) establish that the potential
@@ -1326,9 +1326,9 @@ decrease interval, which the fixed-point arithmetic constrains uniquely.
 
 ---
 
-### 1-D: Verified Interpreter Conformance
+### 1-D: Verified Interpreter Conformance ✓ LANDED
 
-**Branch:** `codex/semantic-closure/interpreter-conformance`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-K (replay corpus), `proofs/model/RefinementStatement.v` (already exists)
 
 **Problem:** `proofs/model/RefinementStatement.v` establishes RT-1 through RT-4 as axiom-backed
@@ -1417,9 +1417,9 @@ Any divergence is an `AX2_rust_refinement` violation and blocks merge.
 
 ---
 
-### 3-A: Code-Based Masking and Redundantly Bitsliced NTT
+### 3-A: Code-Based Masking and Redundantly Bitsliced NTT ✓ LANDED
 
-**Branch:** `codex/domain-b-hardening/cbm-bitsliced-ntt`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Scope:** Domain B only (`crates/pal/src/crypto/`)
 
 **Problem:** Dilithium5 and ML-KEM-768 NTT implementations on commodity hardware leak
@@ -1500,9 +1500,9 @@ must enable it and document the choice in their security posture.
 
 ---
 
-### 3-B: Rowhammer Defence (SoftTRR / CATT)
+### 3-B: Rowhammer Defence (SoftTRR / CATT) ✓ LANDED
 
-**Branch:** `codex/domain-b-hardening/rowhammer-defence`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Scope:** Deployment documentation + kernel module configuration guidance
 
 **Problem:** Rowhammer attacks on DDR4/LPDDR4 can flip bits in adjacent DRAM rows.
@@ -1573,9 +1573,9 @@ For high-assurance validator deployments:
 
 ---
 
-### 3-C: Hancke-Kuhn Distance-Bounding for Proximity Channels
+### 3-C: Hancke-Kuhn Distance-Bounding for Proximity Channels ✓ LANDED
 
-**Branch:** `codex/domain-b-hardening/distance-bounding`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Scope:** Domain B PAL (`crates/pal/src/proximity/`)
 
 **Problem:** If QASH is deployed with NFC/BLE proximity-based admission channels (e.g.,
