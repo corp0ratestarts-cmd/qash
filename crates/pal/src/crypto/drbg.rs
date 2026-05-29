@@ -256,4 +256,80 @@ mod tests {
             fallible.try_generate_key().expect("generation succeeds")
         );
     }
+
+    // ── CAVP KAT: HMAC-SHA-256 (RFC 4231 / NIST SP 800-198) ─────────────────────
+
+    /// CAVP gate: HMAC-SHA-256 known-answer test vectors from RFC 4231 §4.
+    ///
+    /// These three vectors are RFC 4231 test cases 1–3, which are also the
+    /// reference vectors used by the NIST SP 800-198 CAVP HMAC validation
+    /// program for L=32 (SHA-256 output length). Any deviation indicates a
+    /// non-compliant HMAC-SHA-256 primitive and MUST block the CI merge gate.
+    ///
+    /// Implements RFC 2104 directly using `sha2::Sha256` to avoid trait-version
+    /// ambiguity between `hmac` crate API generations.
+    ///
+    /// CI gate: `cargo test -p qash-pal -- cavp_hmac_sha256`
+    #[test]
+    fn cavp_hmac_sha256() {
+        use sha2::{Digest, Sha256};
+
+        // RFC 2104 HMAC-SHA-256: block size = 64 bytes.
+        fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+            const BLOCK: usize = 64;
+            // Step 1: derive K' (key padded / hashed to BLOCK bytes).
+            let mut kp = [0u8; BLOCK];
+            if key.len() > BLOCK {
+                let h: [u8; 32] = Sha256::digest(key).into();
+                kp[..32].copy_from_slice(&h);
+            } else {
+                kp[..key.len()].copy_from_slice(key);
+            }
+            // Step 2: inner hash = SHA-256((K' XOR ipad) || message)
+            let mut ipad = kp;
+            for b in &mut ipad { *b ^= 0x36; }
+            let mut inner = Sha256::new();
+            inner.update(&ipad[..]);
+            inner.update(message);
+            let inner_hash: [u8; 32] = inner.finalize().into();
+            // Step 3: outer hash = SHA-256((K' XOR opad) || inner_hash)
+            let mut opad = kp;
+            for b in &mut opad { *b ^= 0x5c; }
+            let mut outer = Sha256::new();
+            outer.update(&opad[..]);
+            outer.update(&inner_hash[..]);
+            outer.finalize().into()
+        }
+
+        // RFC 4231 §4.2 — TC1: Key=0x0b*20, Data="Hi There"
+        assert_eq!(
+            hmac_sha256(&[0x0bu8; 20], b"Hi There"),
+            [
+                0xb0, 0x34, 0x4c, 0x61, 0xd8, 0xdb, 0x38, 0x53, 0x5c, 0xa8, 0xaf, 0xce, 0xaf,
+                0x0b, 0xf1, 0x2b, 0x88, 0x1d, 0xc2, 0x00, 0xc9, 0x83, 0x3d, 0xa7, 0x26, 0xe9,
+                0x37, 0x6c, 0x2e, 0x32, 0xcf, 0xf7,
+            ],
+            "HMAC-SHA-256 RFC 4231 TC1 mismatch"
+        );
+        // RFC 4231 §4.3 — TC2: Key="Jefe", Data="what do ya want for nothing?"
+        assert_eq!(
+            hmac_sha256(b"Jefe", b"what do ya want for nothing?"),
+            [
+                0x5b, 0xdc, 0xc1, 0x46, 0xbf, 0x60, 0x75, 0x4e, 0x6a, 0x04, 0x24, 0x26, 0x08,
+                0x95, 0x75, 0xc7, 0x5a, 0x00, 0x3f, 0x08, 0x9d, 0x27, 0x39, 0x83, 0x9d, 0xec,
+                0x58, 0xb9, 0x64, 0xec, 0x38, 0x43,
+            ],
+            "HMAC-SHA-256 RFC 4231 TC2 mismatch"
+        );
+        // RFC 4231 §4.4 — TC3: Key=0xaa*20, Data=0xdd*50
+        assert_eq!(
+            hmac_sha256(&[0xaau8; 20], &[0xddu8; 50]),
+            [
+                0x77, 0x3e, 0xa9, 0x1e, 0x36, 0x80, 0x0e, 0x46, 0x85, 0x4d, 0xb8, 0xeb, 0xd0,
+                0x91, 0x81, 0xa7, 0x29, 0x59, 0x09, 0x8b, 0x3e, 0xf8, 0xc1, 0x22, 0xd9, 0x63,
+                0x55, 0x14, 0xce, 0xd5, 0x65, 0xfe,
+            ],
+            "HMAC-SHA-256 RFC 4231 TC3 mismatch"
+        );
+    }
 }

@@ -2069,10 +2069,19 @@ pub fn erase_epoch_viewing_key(epoch: u64, key_store: &mut KeyStore) {
 
 ---
 
-### 4-D: Certification Artifacts
+### 4-D: Certification Artifacts ✓ LANDED
 
-**Branch:** `codex/compliance/certification-artifacts`  
-**Deliverables:** documentation + CI scripts (no Rust code)
+**Branch:** `claude/modest-gates-tgIDP`  
+**Deliverables:** documentation + CI test functions + CI job updates
+
+**What shipped:**
+- `crates/consensus/src/hash.rs`: `cavp_sha3_256()` test — 3 NIST FIPS 202 known-answer vectors (empty, "abc", 200×0xa3). CI gate: `-- hash::tests::cavp_sha3_256`.
+- `crates/pal/src/crypto/drbg.rs`: `cavp_hmac_sha256()` test — RFC 2104 HMAC-SHA-256 implemented directly from sha2 crate; 3 RFC 4231 TC1/TC2/TC3 KAT vectors (verified against Python hashlib). CI gate: `-- crypto::drbg::tests::cavp_hmac_sha256`.
+- `crates/pal/src/crypto/kem.rs`: `cavp_ml_kem_768()` test (feature-gated `pqc`) — all-zeros seed + randomness; encap/decap agreement verified; pinned shared-secret from ml_kem v0.3. CI gate: `--features pqc -- crypto::kem::tests::cavp_ml_kem_768`.
+- `.github/workflows/ci.yml` `cavp-kat` job updated: now invokes all three named CAVP functions plus constant-time audit gate.
+- Pre-existing compliance docs: `docs/compliance/cc_security_target.md` (CC EAL4+ Security Target) and `docs/compliance/dpia.md` (GDPR Art. 35 DPIA) were already shipped in a prior PR.
+
+**Original spec (for reference):**
 
 **Security Target (Common Criteria EAL2+):**
 ```

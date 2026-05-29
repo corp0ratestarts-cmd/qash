@@ -297,5 +297,11 @@ jobs:
         run: rustup toolchain install
       - name: Verify pinned Rust toolchain
         run: ./scripts/verify_rust_toolchain.sh
-      - name: Run SHA3-256 CAVP KAT vectors
-        run: cargo test -p qash-consensus --no-default-features -- hash::tests --nocapture
+      - name: Run SHA3-256 CAVP KAT vectors (NIST FIPS 202)
+        run: cargo test -p qash-consensus --no-default-features -- hash::tests::cavp_sha3_256 --nocapture
+      - name: Run HMAC-SHA-256 CAVP KAT vectors (RFC 4231 / NIST SP 800-198)
+        run: cargo test -p qash-pal -- crypto::drbg::tests::cavp_hmac_sha256 --nocapture
+      - name: Run ML-KEM-768 CAVP KAT vectors (FIPS 203)
+        run: cargo test -p qash-pal --features pqc -- crypto::kem::tests::cavp_ml_kem_768 --nocapture
+      - name: Constant-time audit gate
+        run: cargo test -p qash-pal -p qash-pal --tests -- constant_time_audit --nocapture
