@@ -32,7 +32,7 @@ pub use relay::{
 pub use transport::{
     crc16_ccitt, decode_ultrasonic_frame, encode_ultrasonic_frame, BleTransport, ChunkFrame,
     CloneTransport, FrameError, LoRaTransport, NfcTransport, QrTransport, TransportError,
-    UltrasonicError, WifiDirectTransport, FRAME_VERSION, MAX_COMPRESSED_PAYLOAD,
-    MAX_ULTRASONIC_PAYLOAD, SIG_BYTES, ULTRASONIC_SYNC,
+    UltrasonicError, UltrasonicTransport, WifiDirectTransport, FRAME_VERSION,
+    MAX_COMPRESSED_PAYLOAD, MAX_ULTRASONIC_PAYLOAD, SIG_BYTES, ULTRASONIC_SYNC,
 };
 pub use wipe::{WipeError, WipeSignal, WIPE_MAGIC, WIPE_SIGNAL_BYTES, WIPE_VERSION};

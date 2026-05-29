@@ -4,7 +4,7 @@
 // provides:
 //   frame.rs     — §10.7 chunk wire format (VERSION/EPOCH/SIG header)
 //   ultrasonic.rs — §10.2 FSK/CRC physical framing (fully spec'd)
-//   stubs.rs     — §10.1 transport stubs for QR, NFC, BLE, WiFi-Direct, LoRa
+//   stubs.rs     — §10.1 transport stubs for QR, NFC, BLE, WiFi-Direct, LoRa, Ultrasonic
 //                  (interface complete; hardware integration deferred)
 //
 // Transport priority order (§10.3, highest-bandwidth first):
@@ -22,7 +22,9 @@ pub mod stubs;
 pub mod ultrasonic;
 
 pub use frame::{ChunkFrame, FrameError, FRAME_VERSION, MAX_COMPRESSED_PAYLOAD, SIG_BYTES};
-pub use stubs::{BleTransport, LoRaTransport, NfcTransport, QrTransport, WifiDirectTransport};
+pub use stubs::{
+    BleTransport, LoRaTransport, NfcTransport, QrTransport, UltrasonicTransport, WifiDirectTransport,
+};
 pub use ultrasonic::{
     crc16_ccitt, decode_frame as decode_ultrasonic_frame, encode_frame as encode_ultrasonic_frame,
     UltrasonicError, MAX_ULTRASONIC_PAYLOAD, SYNC as ULTRASONIC_SYNC,

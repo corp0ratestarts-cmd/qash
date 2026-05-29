@@ -1,4 +1,4 @@
-// Transport stubs for QR, NFC, BLE, WiFi-Direct, LoRa (spec §10.1).
+// Transport stubs for QR, NFC, BLE, WiFi-Direct, LoRa, Ultrasonic (spec §10.1).
 //
 // Each stub implements `CloneTransport` with the correct MTU and name, but
 // returns `TransportError::NotAvailable` for send/recv until the platform
@@ -14,6 +14,7 @@
 //   without a real BLE stack.  Advertisement payloads must NOT contain the
 //   validator identity — only epoch counter + ephemeral session token.
 
+use super::ultrasonic::MAX_ULTRASONIC_PAYLOAD;
 use super::{CloneTransport, TransportError};
 
 /// QR code transport stub.  MTU: 2048 bytes (QR capacity at ECC level M).
@@ -163,6 +164,40 @@ impl CloneTransport for LoRaTransport {
     }
 }
 
+/// Ultrasonic FSK transport stub (spec §10.2).  MTU: 255 bytes (MAX_ULTRASONIC_PAYLOAD).
+///
+/// Carrier of last resort (transport priority 6): 24 kHz Mark / 24.5 kHz Space,
+/// binary FSK at ≤ 1200 baud.  Physical layer (ADC/DAC, FSK demodulation) is
+/// handled by the platform HAL; this stub holds the interface.
+///
+/// `send()` receives chunk payload bytes; the HAL wraps them in the §10.2
+/// physical frame (SYNC || LEN || PAYLOAD || CRC16) before modulation.
+pub struct UltrasonicTransport;
+
+impl CloneTransport for UltrasonicTransport {
+    fn max_frame_bytes(&self) -> usize {
+        MAX_ULTRASONIC_PAYLOAD
+    }
+
+    fn name(&self) -> &'static str {
+        "Ultrasonic"
+    }
+
+    fn send(&self, frame: &[u8]) -> Result<(), TransportError> {
+        if frame.len() > self.max_frame_bytes() {
+            return Err(TransportError::FrameTooLarge {
+                max: self.max_frame_bytes(),
+                got: frame.len(),
+            });
+        }
+        Err(TransportError::NotAvailable)
+    }
+
+    fn recv(&self) -> Result<Option<Vec<u8>>, TransportError> {
+        Err(TransportError::NotAvailable)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -176,6 +211,7 @@ mod tests {
             &BleTransport::new(),
             &WifiDirectTransport,
             &LoRaTransport,
+            &UltrasonicTransport,
         ];
         for t in transports {
             assert!(t.max_frame_bytes() > 0, "{} has zero MTU", t.name());
@@ -218,5 +254,27 @@ mod tests {
         assert_eq!(BleTransport::new().name(), "BLE");
         assert_eq!(WifiDirectTransport.name(), "WiFi_Direct");
         assert_eq!(LoRaTransport.name(), "LoRa");
+        assert_eq!(UltrasonicTransport.name(), "Ultrasonic");
+    }
+
+    #[test]
+    fn ultrasonic_mtu_matches_max_ultrasonic_payload() {
+        assert_eq!(UltrasonicTransport.max_frame_bytes(), MAX_ULTRASONIC_PAYLOAD);
+    }
+
+    #[test]
+    fn ultrasonic_is_lowest_mtu_transport() {
+        // Priority 6 (carrier of last resort) — tightest bandwidth constraint.
+        assert!(UltrasonicTransport.max_frame_bytes() <= LoRaTransport.max_frame_bytes());
+        assert!(UltrasonicTransport.max_frame_bytes() <= NfcTransport.max_frame_bytes());
+    }
+
+    #[test]
+    fn ultrasonic_rejects_oversized_frame() {
+        let big = vec![0u8; UltrasonicTransport.max_frame_bytes() + 1];
+        assert!(matches!(
+            UltrasonicTransport.send(&big),
+            Err(TransportError::FrameTooLarge { .. })
+        ));
     }
 }
