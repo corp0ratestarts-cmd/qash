@@ -308,4 +308,4 @@ jobs:
       - name: Run Plonky3 FRI-STARK 2-layer recursion corpus KAT (QASH PR#93 profile)
         run: cargo test -p qash-pal --features "plonky3,std" -- two_layer_recursion_corpus_kat_commitment two_layer_pipeline_e2e_fibonacci --nocapture
       - name: Run adversarial shard-capture simulation (5-A gate)
-        run: cargo test -p qash-consensus --no-default-features --test shard_capture_simulation --nocapture
+        run: cargo test -p qash-consensus --no-default-features --test shard_capture_simulation -- --nocapture
