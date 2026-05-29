@@ -90,11 +90,16 @@ fn prf_hk(key: &[u8; 32], nonce: &[u8; 16], label: &[u8]) -> [u8; HK_ROUNDS / 8]
 mod tests {
     use super::*;
 
+    // Fixed test vectors — not production keys or nonces.
+    const TV_KEY: [u8; 32] = [0x42u8; 32];
+    const TV_NONCE: [u8; 16] = [0x99u8; 16];
+    const TV_CHALLENGES_ALT: [u8; HK_ROUNDS / 8] = [0xAAu8; HK_ROUNDS / 8]; // alternating bits
+    const TV_CHALLENGES_ZERO: [u8; HK_ROUNDS / 8] = [0u8; HK_ROUNDS / 8]; // all-zero → use R0
+    const TV_KEY2: [u8; 32] = [0x11u8; 32];
+    const TV_NONCE2: [u8; 16] = [0x22u8; 16];
+
     fn make_verifier() -> HanckeKuhnVerifier {
-        let key = [0x42u8; 32];
-        let nonce = [0x99u8; 16];
-        let challenges = [0xAAu8; HK_ROUNDS / 8]; // alternating bits
-        HanckeKuhnVerifier::new(&key, &nonce, challenges)
+        HanckeKuhnVerifier::new(&TV_KEY, &TV_NONCE, TV_CHALLENGES_ALT)
     }
 
     #[test]
@@ -106,13 +111,8 @@ mod tests {
 
     #[test]
     fn response_mismatch_is_detected() {
-        let key = [0x42u8; 32];
-        let nonce = [0x99u8; 16];
-        let challenges = [0u8; HK_ROUNDS / 8]; // all zeros → must use R0
-        let v2 = HanckeKuhnVerifier::new(&key, &nonce, challenges);
-        // The correct response for round 0 is (r0[0] >> 0) & 1
-        // Pass the inverted bit
-        let correct_r0_bit = prf_hk(&key, &nonce, b"R0")[0] & 1;
+        let v2 = HanckeKuhnVerifier::new(&TV_KEY, &TV_NONCE, TV_CHALLENGES_ZERO);
+        let correct_r0_bit = prf_hk(&TV_KEY, &TV_NONCE, b"R0")[0] & 1;
         let wrong_bit = correct_r0_bit ^ 1;
         let result = v2.verify_round(0, wrong_bit, 0);
         assert!(matches!(result, Err(DistanceBoundingError::ResponseMismatch { round: 0 })));
@@ -120,25 +120,18 @@ mod tests {
 
     #[test]
     fn correct_response_within_timing_bound_succeeds() {
-        let key = [0x42u8; 32];
-        let nonce = [0x99u8; 16];
-        let challenges = [0u8; HK_ROUNDS / 8]; // all zeros → use R0
-        let v = HanckeKuhnVerifier::new(&key, &nonce, challenges);
-        let correct_bit = prf_hk(&key, &nonce, b"R0")[0] & 1;
+        let v = HanckeKuhnVerifier::new(&TV_KEY, &TV_NONCE, TV_CHALLENGES_ZERO);
+        let correct_bit = prf_hk(&TV_KEY, &TV_NONCE, b"R0")[0] & 1;
         assert!(v.verify_round(0, correct_bit, 100).is_ok());
     }
 
     #[test]
     fn prf_hk_is_deterministic() {
-        let key = [0x11u8; 32];
-        let nonce = [0x22u8; 16];
-        assert_eq!(prf_hk(&key, &nonce, b"R0"), prf_hk(&key, &nonce, b"R0"));
+        assert_eq!(prf_hk(&TV_KEY2, &TV_NONCE2, b"R0"), prf_hk(&TV_KEY2, &TV_NONCE2, b"R0"));
     }
 
     #[test]
     fn prf_hk_r0_differs_from_r1() {
-        let key = [0x11u8; 32];
-        let nonce = [0x22u8; 16];
-        assert_ne!(prf_hk(&key, &nonce, b"R0"), prf_hk(&key, &nonce, b"R1"));
+        assert_ne!(prf_hk(&TV_KEY2, &TV_NONCE2, b"R0"), prf_hk(&TV_KEY2, &TV_NONCE2, b"R1"));
     }
 }
