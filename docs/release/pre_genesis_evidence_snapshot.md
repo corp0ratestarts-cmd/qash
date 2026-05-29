@@ -1,12 +1,35 @@
 # Pre-Genesis Evidence Snapshot
 
-**Date:** 2026-05-21
-**Status:** Draft evidence handoff, not a genesis-lock decision.
+**Date:** 2026-05-29
+**Status:** Post-merge evidence handoff, not a genesis-lock decision.
 
 This snapshot records the evidence shape for the current pre-genesis integration
 RC. It is intentionally narrower than a release candidate: it documents what can
 be reviewed now and what remains blocked before any genesis lock or performance
 claim.
+
+## Current Repository State
+
+As of 2026-05-29, the previously open integration slices have been merged to
+`main`:
+
+- PR #208 merged the pre-genesis evidence tooling and final evidence manifest
+  path reconciliation.
+- PR #210 merged the Phase 2 Domain B stubs for hardware acceleration,
+  software-hash-Merkle attestation, consensus attestation wiring, and offline
+  clone scaffolding.
+- There are no open PRs.
+- Issue #209 remains the terminal external blocker: the normative
+  `spec/pdf/QASH_Spec_v1.0.pdf` is not present, so genesis-lock reconciliation
+  cannot proceed.
+
+The current post-merge local verification on `main` passed:
+
+```bash
+git diff --check
+cargo fmt --all -- --check
+cargo test --workspace
+```
 
 ## Current Review Slices
 
@@ -68,6 +91,9 @@ The following claims are supported by current repo artifacts:
 - Hosted PAL replay and whole-protocol sharded replay are scaffolded.
 - PR #93 sharding/ZK design feedback is represented in canonical docs and code.
 - Raw transcript and ad hoc root-spec additions are rejected by CI.
+- Domain B hardware/offline stubs are present as deterministic, software-backed
+  scaffolds for pre-genesis review; they are not production hardware-backed
+  attestation or deployment claims.
 
 ## Claims Not Yet Allowed
 
@@ -78,14 +104,15 @@ The following claims require future evidence:
 - Production Plonky3 verification.
 - Sub-50ms finality or tx-heavy performance claims without archived benchmark
   artifacts.
-- Phase 2-R runtime optimization completion.
+- Genesis-lock reconciliation before `spec/pdf/QASH_Spec_v1.0.pdf` is committed
+  and traceability is verified against it.
 
 ## Next Execution Tracks
 
-1. Land the current integration branch in reviewable slices.
+1. Keep `main` green while waiting for the normative PDF artifact tracked by
+   issue #209.
 2. Archive proof, replay, PAL, Kani, and document-hygiene evidence for the exact
    reviewed commit with `bash scripts/capture_pre_genesis_evidence.sh`.
-3. Start Phase 2-R only after tx-heavy benchmarks and parity tests exist.
-4. Keep production PAL/ZK backend work separate from Phase 2-R.
-5. Reconcile normative PDF, traceability, genesis hash, and release sign-off
+3. Keep production PAL/ZK backend work separate from pre-genesis scaffold work.
+4. Reconcile normative PDF, traceability, genesis hash, and release sign-off
    before any lock/reference tag decision.

@@ -1,11 +1,16 @@
 # Current Integration Review Slices
 
-**Date:** 2026-05-21
+**Date:** 2026-05-29
 **Scope:** Pre-genesis integration RC, not a genesis-lock decision.
 
-Review the current integration branch as the following logical slices. Keep the
-slices separate in PRs or commits when possible; if they remain in one branch,
-use this file as the review map.
+**Current state:** The review slices below have been merged to `main` as of
+PR #208 and PR #210. This file remains the review map for the merged
+pre-genesis RC surface. It is not a release approval and not a genesis-lock
+decision.
+
+Review the merged pre-genesis RC surface as the following logical slices. Keep
+future changes separated by slice in PRs or commits when possible, and use this
+file as the review map.
 
 ## Slice 1: Sharding and EFB Scaffold
 
@@ -42,6 +47,30 @@ Review focus:
 - Domain B transport, attestation, and proof-bundle material does not feed nondeterminism into Domain A.
 - Hosted replay remains deterministic.
 - Production networking, hardware attestation, and Plonky3 verification remain explicitly out of scope.
+
+## Slice 2a: Domain B Hardware and Offline Stubs
+
+Primary files:
+- `src/consensus/mod.rs`
+- `src/hardware/acceleration.rs`
+- `src/hardware/attestation_gate.rs`
+- `src/hardware/mod.rs`
+- `src/offline/clone.rs`
+- `src/offline/mod.rs`
+
+Required evidence:
+- `cargo test --lib attestation`
+- `cargo test --workspace`
+- `cargo fmt --all -- --check`
+- `git diff --check`
+
+Review focus:
+- Software-backed attestation quotes are exact-shape checked and bind nonce,
+  identity, genesis parameter hash, and quote digest material.
+- Test nonce and identity fixtures are domain-separated derived values, not
+  hard-coded cryptographic literals.
+- Hardware/offline code remains Domain B scaffold material and does not create
+  a production hardware-backed attestation or deployment claim.
 
 ## Slice 3: Proof and Refinement Closure
 
@@ -98,3 +127,7 @@ bash scripts/capture_pre_genesis_evidence.sh
 
 Use the newest timestamped `manifest.txt` under `artifacts/evidence/` as the
 current passing bundle.
+
+The terminal external blocker for genesis lock is issue #209: commit the
+normative `spec/pdf/QASH_Spec_v1.0.pdf`, then reconcile `docs/traceability.md`,
+`GENESIS_CONSTANTS.toml`, and release sign-off evidence against that exact PDF.

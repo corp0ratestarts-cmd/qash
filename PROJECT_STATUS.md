@@ -5,7 +5,7 @@
 > are, and what the priority order for closing them is. It is updated as milestones
 > are reached.
 >
-> Last updated: 2026-05-21. Based on internal review, the current CI workflow,
+> Last updated: 2026-05-29. Based on internal review, the current CI workflow,
 > and an independent external audit of the architecture, workspace, and consensus
 > implementation.
 >
@@ -37,14 +37,28 @@ For full context see `README.md`, `design_decisions.md`, and `docs/spec/00_execu
 | Consensus core correctness | **Strong** | `no_std`, `forbid(unsafe_code)`, determinism constraints fully enforced |
 | Formal proof coverage | **Strong, pre-genesis** | TH-3 local arithmetic plus executable-step closure, TX-0/TX-1 perturbation proofs, EFB determinism, refinement statement, and extraction surface are checked by `make -C proofs all`; see `proofs/STATUS.md` and `proofs/COVERAGE.md` |
 | Proof CI pipeline | **Automated for active Coq proofs** | `.github/workflows/ci.yml` installs Coq, rejects active `Admitted`/`admit` markers, checks new axioms against `proofs/COVERAGE.md`, compiles active `.v` files including `model/Extract.v`, records `.vo` SHA-256 hashes, and uploads version/hash artifacts |
-| Runtime / PAL implementation | **Integration scaffold** | PAL has hosted replay, WAL-style replay tests, whole-protocol harnesses, commitment transport, attestation verifier interfaces, and a ZK proof-bundle boundary; production networking, hardware attestation, Plonky3 verification, and crash-recovery hardening remain open |
+| Runtime / PAL implementation | **Integration scaffold** | PAL has hosted replay, WAL-style replay tests, whole-protocol harnesses, commitment transport, attestation verifier interfaces, and a ZK proof-bundle boundary; root-level Domain B stubs now include software acceleration, software-hash-Merkle attestation, and offline clone scaffolds. Production networking, hardware-backed attestation, Plonky3 verification, and crash-recovery hardening remain open. |
 | Fuzzing infrastructure | **Expanded** | honggfuzz harness covers encoding, decode, transition, fixed-point, lyapunov, cascade, and tx targets; fuzz-smoke CI gate runs all targets |
 | Performance benchmarks | **Scheduled** | PR #93 runtime review is recorded as Phase 2-R: single-pass tx admission, deterministic total-order sorting, streaming state-root hashing, `ProjectedView`, and tx-heavy Criterion gates before genesis-lock performance claims |
 | Reproducible builds | **Done** | `rust-toolchain.toml` pins 1.95.0; `docker/Dockerfile.build` pins full build+proof environment; `release-attestation.yml` CI job verifies byte-identical two-stage builds and records SHA-256 manifests under `artifacts/attestations/` with 365-day retention |
 | Adversarial simulation | **Done** | 23-test suite across 10 scenarios: halt-trigger boundary, liveness suppression, coordinated spike, nonce replay, max-field saturation, slash monotonicity, halt irreversibility, grace period |
 | Deep module audits | **Done** | `fixed_point.rs`, `encoding.rs`, `lyapunov.rs`, `hash.rs`, `transaction.rs` audited and hardened with boundary/adversarial tests (PRs #69, #71) |
 | Multi-compiler differential | **Done** | opt-level=0 vs opt-level=3 required gate + cranelift advisory; weekly scheduled CI (PR #65) |
-| Genesis / production readiness | **Pre-genesis RC, not locked** | Protocol evidence is converging, but genesis lock waits on traceability artifact reconciliation, normative PDF finalization, full cross-ISA evidence review, and production PAL decisions |
+| Genesis / production readiness | **Pre-genesis RC, not locked** | Protocol evidence is converging, but genesis lock is blocked on the missing normative PDF tracked in issue #209. Traceability artifact reconciliation, final genesis hash lock, release sign-off, and production PAL decisions remain gated on that artifact. |
+
+## Current Post-Merge State
+
+As of 2026-05-29:
+
+- `main` includes the pre-genesis evidence tooling update from PR #208.
+- `main` includes the Phase 2 Domain B stub slice from PR #210.
+- There are no open PRs.
+- The only open GitHub issue is #209: provide `spec/pdf/QASH_Spec_v1.0.pdf`
+  for genesis-lock reconciliation.
+- Local post-merge verification passed:
+  - `git diff --check`
+  - `cargo fmt --all -- --check`
+  - `cargo test --workspace`
 
 ---
 
