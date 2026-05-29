@@ -57,6 +57,7 @@ suite_korea = []
 # the production `Plonky3ProductionBackend` with hardcoded BabyBear+Poseidon2
 # round constants (no trusted setup, transparent STARKs).
 hardened = []
+sca-hardened = []
 plonky3 = [
     "dep:p3-uni-stark", "dep:p3-baby-bear", "dep:p3-field",
     "dep:p3-symmetric", "dep:p3-merkle-tree", "dep:p3-fri",

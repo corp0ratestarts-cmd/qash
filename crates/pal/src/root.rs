@@ -1,4 +1,6 @@
 pub mod admission;
+#[cfg(feature = "sca-hardened")]
+pub mod signing;
 #[cfg(feature = "hardened")]
 pub mod hardening;
 pub mod proximity;

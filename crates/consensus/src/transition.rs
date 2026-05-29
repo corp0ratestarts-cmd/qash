@@ -2,6 +2,9 @@
 
 use crate::encoding::EncodeError;
 use crate::envelope::{PROTOCOL_VERSION_V1_1, PROTOCOL_VERSION_V1_2};
+/// Protocol version constant for v1.0 envelopes (wire value 0x1000).
+/// After `COMPATIBILITY_WINDOW` epochs, v1.0 envelopes are rejected with H8.
+pub use crate::envelope::PROTOCOL_VERSION_V1_0;
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
 use crate::hash::{h_domain, h_domain_finish, h_domain_start, DomainTag};
 use crate::lyapunov::{
@@ -52,7 +55,12 @@ pub enum HaltReason {
 }
 
 impl HaltReason {
-    fn from_u8(v: u8) -> Result<Self, EncodeError> {
+    /// Serialize to wire byte. Inverse of `from_u8`.
+    pub fn to_u8(self) -> u8 {
+        self as u8
+    }
+
+    pub(crate) fn from_u8(v: u8) -> Result<Self, EncodeError> {
         match v {
             0x00 => Ok(HaltReason::None),
             0x01 => Ok(HaltReason::LyapunovViolation),
@@ -812,6 +820,24 @@ pub fn validate_envelope_epoch(
     Ok(())
 }
 
+/// Reject v1.0 envelopes after the compatibility window.
+/// Returns Ok(()) during the window or for v1.1+ envelopes.
+///
+/// `compatibility_window` is the last epoch at which v1.0 is still accepted;
+/// envelopes with `current_epoch > compatibility_window` and
+/// `envelope_version < PROTOCOL_VERSION_V1_1` are rejected with
+/// `HaltReason::IncompatibleVersion` (H8).
+pub fn validate_envelope_version(
+    envelope_version: u32,
+    current_epoch: u64,
+    compatibility_window: u64,
+) -> Result<(), HaltReason> {
+    if current_epoch > compatibility_window && envelope_version < PROTOCOL_VERSION_V1_1 {
+        return Err(HaltReason::IncompatibleVersion);
+    }
+    Ok(())
+}
+
 fn step_1_validate(state: &EpochState, input: &EpochInput) -> Result<(), TransitionHalt> {
     // H8: after the compatibility window, reject any v1.0 envelope.
     if state.epoch >= COMPATIBILITY_WINDOW && input.protocol_version < PROTOCOL_VERSION_V1_1 {
@@ -1479,6 +1505,36 @@ mod tests {
         let mut input = idle_input(4);
         input.protocol_version = crate::envelope::PROTOCOL_VERSION_V1_0;
         assert!(advance_epoch(&mut state, &input, &[]).is_ok());
+    }
+
+    // ------------------------------------------------------------------
+    // 2-F: validate_envelope_version — standalone pure function tests
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn halt_reason_incompatible_version_roundtrips() {
+        let r = HaltReason::IncompatibleVersion;
+        assert_eq!(HaltReason::from_u8(r.to_u8()), Ok(r));
+        assert_eq!(r.to_u8(), 0x08);
+    }
+
+    #[test]
+    fn validate_envelope_version_rejects_v10_after_window() {
+        assert_eq!(
+            validate_envelope_version(PROTOCOL_VERSION_V1_0, 101, 100),
+            Err(HaltReason::IncompatibleVersion)
+        );
+    }
+
+    #[test]
+    fn validate_envelope_version_accepts_v10_at_or_before_window() {
+        assert!(validate_envelope_version(PROTOCOL_VERSION_V1_0, 100, 100).is_ok());
+        assert!(validate_envelope_version(PROTOCOL_VERSION_V1_0, 50, 100).is_ok());
+    }
+
+    #[test]
+    fn validate_envelope_version_accepts_v11_after_window() {
+        assert!(validate_envelope_version(PROTOCOL_VERSION_V1_1, 200, 100).is_ok());
     }
 
     #[test]

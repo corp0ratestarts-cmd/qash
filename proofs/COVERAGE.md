@@ -148,6 +148,14 @@ the full three-layer correspondence chain and extraction pipeline.
 
 ---
 
+## Version Gating (2-F)
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| Version gating: `HaltReason::IncompatibleVersion = 0x08` (H8) round-trips through encode/decode; `validate_envelope_version` rejects v1.0 envelopes after `compatibility_window=100` epochs; v1.0 accepted at or before window; v1.1+ accepted regardless of epoch; `advance_epoch` enforces the gate via `step_1_validate` | §3, GENESIS [cascade] compatibility_window | **CI-VERIFIED** | — (formal proof deferred to 2-I) | `crates/consensus/src/transition.rs` | `transition::tests::halt_reason_incompatible_version_roundtrips`; `transition::tests::validate_envelope_version_rejects_v10_after_window`; `transition::tests::validate_envelope_version_accepts_v10_at_or_before_window`; `transition::tests::validate_envelope_version_accepts_v11_after_window`; `axioms::axiom_all_halt_reasons_roundtrip` |
+
+---
+
 ## Domain Crossing Properties (1-A)
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
@@ -167,11 +175,11 @@ the full three-layer correspondence chain and extraction pipeline.
 | Status | Count |
 |--------|-------|
 | **PROVED** | 42 |
-| **CI-VERIFIED** | 5 |
+| **CI-VERIFIED** | 6 |
 | **AXIOM** | 3 |
 | **PLACEHOLDER** | 6 |
 | **MISSING** | 0 |
-| **Total** | 49 |
+| **Total** | 50 |
 
 ---
 
