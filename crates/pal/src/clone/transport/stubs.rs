@@ -259,7 +259,10 @@ mod tests {
 
     #[test]
     fn ultrasonic_mtu_matches_max_ultrasonic_payload() {
-        assert_eq!(UltrasonicTransport.max_frame_bytes(), MAX_ULTRASONIC_PAYLOAD);
+        assert_eq!(
+            UltrasonicTransport.max_frame_bytes(),
+            MAX_ULTRASONIC_PAYLOAD
+        );
     }
 
     #[test]

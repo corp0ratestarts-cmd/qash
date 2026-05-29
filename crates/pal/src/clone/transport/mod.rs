@@ -23,7 +23,8 @@ pub mod ultrasonic;
 
 pub use frame::{ChunkFrame, FrameError, FRAME_VERSION, MAX_COMPRESSED_PAYLOAD, SIG_BYTES};
 pub use stubs::{
-    BleTransport, LoRaTransport, NfcTransport, QrTransport, UltrasonicTransport, WifiDirectTransport,
+    BleTransport, LoRaTransport, NfcTransport, QrTransport, UltrasonicTransport,
+    WifiDirectTransport,
 };
 pub use ultrasonic::{
     crc16_ccitt, decode_frame as decode_ultrasonic_frame, encode_frame as encode_ultrasonic_frame,
