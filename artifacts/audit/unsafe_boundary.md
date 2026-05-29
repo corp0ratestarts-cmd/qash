@@ -1,10 +1,10 @@
 # Unsafe Boundary Audit
 
-**Commit:** `7c1d41fd2447b0aedd507e32ad5e9208c16980cc`
-**Timestamp:** 2026-05-27T07:04:03Z
+**Commit:** `ab7e98bce18b58dea533c1fd5648ea10dd92648b`  
+**Timestamp:** 2026-05-29T13:35:14Z  
 **Domain A status:** ✅ PASS
 **Domain B missing SAFETY comment:** 0 advisory finding(s)
-**Domain B with SAFETY comment:** 0 compliant site(s)
+**Domain B with SAFETY comment:** 8 compliant site(s)
 
 ## Policy
 
@@ -29,7 +29,17 @@ unsafe\s*(\{|fn\s|impl\s|trait\s|extern\s)
 
 ## Domain B results (advisory)
 
-✅ No unsafe found in Domain B.
+### Compliant unsafe sites (have // SAFETY: comment or exception entry)
+
+- ✅ `crates/pal/src/zk/fib_air.rs:39:         let (prefix, shorts, suffix) = unsafe { self.align_to::<FibRow<F>>() };`
+- ✅ `crates/pal/src/zk/fib_air.rs:101:     let (prefix, rows, suffix) = unsafe { values.align_to_mut::<FibRow<QashVal>>() };`
+- ✅ `crates/pal/src/hardening.rs:21: unsafe impl Send for RowhammerGuard {}`
+- ✅ `crates/pal/src/hardening.rs:36:     pub unsafe fn register_region(&mut self, ptr: *mut u8, len: usize) {`
+- ✅ `crates/pal/src/hardening.rs:46:     pub unsafe fn refresh_all(&self) {`
+- ✅ `crates/pal/src/hardening.rs:64: unsafe fn softtrr_refresh_region(ptr: *mut u8, len: usize) {`
+- ✅ `crates/pal/src/hardening.rs:77: unsafe fn softtrr_refresh_region(_ptr: *mut u8, _len: usize) {`
+- ✅ `crates/pal/src/admission.rs:75:             unsafe { core::ptr::write_volatile(byte, 0) };`
+
 
 ## cargo geiger count summary (advisory)
 
