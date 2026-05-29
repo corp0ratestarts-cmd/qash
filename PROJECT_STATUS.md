@@ -262,7 +262,7 @@ These are required for independent auditability and long-term trust.
    - `proofs/model/RefinementStatement.v`: RT-1 … RT-4 formally proved; AX2_rust_refinement axiom with documented justification; `rust_RT1` … `rust_RT4` corollaries
    - `proofs/model/Extract.v`: Coq extraction pipeline to OCaml, checked by `make -C proofs all`
    - `docs/refinement.md`: three-layer correspondence chain, Coq-to-Rust definition mapping, extraction usage, axiom stack, and strengthening roadmap
-   - Coverage: 18 PROVED, 4 CI-VERIFIED, 3 AXIOM, 2 PLACEHOLDER (see `proofs/COVERAGE.md`)
+   - Coverage: 42 PROVED, 4 CI-VERIFIED, 3 AXIOM, 6 PLACEHOLDER (see `proofs/COVERAGE.md`)
 
 10. **Multi-compiler differential testing** ✓ COMPLETE:
     - `.github/workflows/multi-compiler-diff.yml`: scheduled weekly CI job with two gates:
@@ -294,10 +294,10 @@ These are fixed constraints that no future work will alter:
 
 | Status | Count | Meaning |
 |--------|-------|----------|
-| PROVED | 18 | Coq theorem, compiles, zero `Admitted` |
+| PROVED | 42 | Coq theorem, compiles, zero `Admitted` |
 | CI-VERIFIED | 4 | Verified by cross-ISA CI or KAT vectors |
 | AXIOM | 3 | Assumed property rows with documented justification; not provable from first principles |
-| PLACEHOLDER | 2 | Coq file exists, body axiomatised or reduction target deferred; full proof deferred |
+| PLACEHOLDER | 6 | Coq file exists, body axiomatised or reduction target deferred; full proof deferred |
 | MISSING | 0 | |
 
 Full matrix: `proofs/COVERAGE.md`

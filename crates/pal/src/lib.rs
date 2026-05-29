@@ -1012,4 +1012,267 @@ pub mod hosted {
         *pos += 8;
         Ok(i64::from_le_bytes(out))
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
+
+        fn tmp_log(label: &str) -> std::path::PathBuf {
+            use std::sync::atomic::{AtomicU64, Ordering};
+            static CTR: AtomicU64 = AtomicU64::new(0);
+            let n = CTR.fetch_add(1, Ordering::Relaxed);
+            std::env::temp_dir().join(format!(
+                "qash-pal-{label}-{}-{n}.log",
+                std::process::id()
+            ))
+        }
+
+        fn test_genesis(validator_count: u32) -> EpochState {
+            let mut validator_ids = [[0u8; 48]; MAX_VALIDATORS];
+            for i in 0..validator_count as usize {
+                validator_ids[i][0..4].copy_from_slice(&(i as u32).to_le_bytes());
+            }
+            EpochState {
+                epoch: 0,
+                halt_reason: HaltReason::None,
+                entropy_seed: [0u8; 32],
+                validators: [ValidatorMetrics::ZERO; MAX_VALIDATORS],
+                validator_count,
+                convergence_window: ConvergenceWindow::new(),
+                nonces: [0u64; MAX_VALIDATORS],
+                validator_ids,
+                cascade_health: 0,
+                causal_fingerprint: [0u8; 32],
+                state_root: [0u8; 32],
+                receipt_root: [0u8; 32],
+                efb_root: [0u8; 32],
+            }
+        }
+
+        // --- Host lifecycle ---
+
+        #[test]
+        fn host_new_creates_empty_state() {
+            let path = tmp_log("t");
+            let host = Host::new(&path).expect("Host::new");
+            assert_eq!(host.attestation_quote(), [0u8; 256]);
+            assert!(!host.reset_requested());
+            assert_eq!(host.sent_frames(), &[] as &[Vec<u8>]);
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[test]
+        fn host_apply_canonical_input_advances_epoch() {
+            let path = tmp_log("t");
+            let mut host = Host::new(&path).expect("Host::new");
+            let mut state = test_genesis(4);
+            assert_eq!(state.epoch, 0);
+
+            let input = CanonicalInput::idle(0, 4).unwrap();
+            host.apply_canonical_input(&mut state, &input).expect("advance");
+            assert_eq!(state.epoch, 1);
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[test]
+        fn host_replay_from_genesis_reproduces_state() {
+            let path = tmp_log("t");
+            let mut host = Host::new(&path).expect("Host::new");
+            let genesis_state = test_genesis(4);
+            let mut state = genesis_state;
+
+            let input = CanonicalInput::idle(0, 4).unwrap();
+            host.apply_canonical_input(&mut state, &input).expect("advance");
+            let root_after_one = state.state_root;
+
+            let replayed = host.replay_from_genesis(genesis_state).expect("replay");
+            assert_eq!(replayed.state_root, root_after_one);
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[test]
+        fn host_epoch_mismatch_is_rejected() {
+            let path = tmp_log("t");
+            let mut host = Host::new(&path).expect("Host::new");
+            let mut state = test_genesis(4);
+
+            let wrong_epoch_input = CanonicalInput::idle(99, 4).unwrap();
+            assert!(matches!(
+                host.apply_canonical_input(&mut state, &wrong_epoch_input),
+                Err(HostedError::InvalidInput(_))
+            ));
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[test]
+        fn host_network_frame_roundtrip() {
+            let path = tmp_log("t");
+            let mut host = Host::new(&path).expect("Host::new");
+
+            assert!(host.recv_network_frame().is_none());
+            host.enqueue_network_frame(vec![1, 2, 3]);
+            host.enqueue_network_frame(vec![4, 5]);
+            assert_eq!(host.recv_network_frame(), Some(vec![1, 2, 3]));
+            assert_eq!(host.recv_network_frame(), Some(vec![4, 5]));
+            assert!(host.recv_network_frame().is_none());
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[test]
+        fn host_sent_frames_accumulate() {
+            let path = tmp_log("t");
+            let mut host = Host::new(&path).expect("Host::new");
+            host.send_network_frame(b"hello");
+            host.send_network_frame(b"world");
+            assert_eq!(host.sent_frames(), &[b"hello".to_vec(), b"world".to_vec()]);
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[test]
+        fn host_attestation_quote_roundtrip() {
+            let path = tmp_log("t");
+            let mut host = Host::new(&path).expect("Host::new");
+            let quote = [0xABu8; 256];
+            host.set_attestation_quote(quote);
+            assert_eq!(host.attestation_quote(), quote);
+            let _ = std::fs::remove_file(&path);
+        }
+
+        #[test]
+        fn host_prepare_absorbing_halt_zeroes_memory_and_sets_reset() {
+            let path = tmp_log("t");
+            let mut host = Host::new(&path).expect("Host::new");
+            let mut critical = [0xFFu8; 64];
+            let prepared = host.prepare_absorbing_halt(&mut critical, HaltReason::None);
+            assert!(critical.iter().all(|b| *b == 0), "critical memory not zeroed");
+            assert!(host.reset_requested());
+            assert!(prepared.critical_memory_zeroized);
+            assert!(prepared.scheduler_disable_requested);
+            assert!(prepared.watchdog_reset_requested);
+            let _ = std::fs::remove_file(&path);
+        }
+
+        // --- InMemoryCommitmentTransport ---
+
+        #[test]
+        fn commitment_transport_send_recv_roundtrip() {
+            let mut transport = InMemoryCommitmentTransport::new();
+            assert!(transport.recv_commitment().unwrap().is_none());
+
+            let frame = CommitmentFrame {
+                epoch: 7,
+                state_root: [0x11u8; 32],
+                receipt_root: [0x22u8; 32],
+                efb_root: [0x33u8; 32],
+                validator_id: [0x44u8; 48],
+                attestation_quote: [0x55u8; 256],
+            };
+            transport.send_commitment(&frame).unwrap();
+            let received = transport.recv_commitment().unwrap().expect("frame");
+            assert_eq!(received.epoch, 7);
+            assert_eq!(received.state_root, [0x11u8; 32]);
+            assert_eq!(received.validator_id, [0x44u8; 48]);
+        }
+
+        #[test]
+        fn commitment_transport_empty_after_recv() {
+            let mut transport = InMemoryCommitmentTransport::new();
+            let frame = CommitmentFrame {
+                epoch: 1,
+                state_root: [0u8; 32],
+                receipt_root: [0u8; 32],
+                efb_root: [0u8; 32],
+                validator_id: [0u8; 48],
+                attestation_quote: [0u8; 256],
+            };
+            transport.send_commitment(&frame).unwrap();
+            let _ = transport.recv_commitment().unwrap();
+            assert!(transport.recv_commitment().unwrap().is_none());
+        }
+
+        // --- StaticZkProofVerifier ---
+
+        #[test]
+        fn zk_verifier_accepts_matching_bundle() {
+            let profile = CanonicalZkProfile::pr93_plonky3_fri_poseidon_qash();
+            let batch_root = [0xCAu8; 32];
+            let verifier = StaticZkProofVerifier {
+                accepted_profile: profile.clone(),
+                accepted_batch_root: batch_root,
+            };
+            let bundle = ZkProofBundle {
+                profile,
+                shard_proof_count: 4,
+                aggregation_proof_count: 1,
+                batch_root,
+            };
+            assert_eq!(verifier.verify_bundle(&bundle).unwrap(), batch_root);
+        }
+
+        #[test]
+        fn zk_verifier_rejects_wrong_profile() {
+            let profile = CanonicalZkProfile::pr93_plonky3_fri_poseidon_qash();
+            let wrong_profile = CanonicalZkProfile {
+                profile_id: 0xFF,
+                recursion_depth: 0,
+                layer1_aggregation_factor: 0,
+            };
+            let batch_root = [0x01u8; 32];
+            let verifier = StaticZkProofVerifier {
+                accepted_profile: profile,
+                accepted_batch_root: batch_root,
+            };
+            let bundle = ZkProofBundle {
+                profile: wrong_profile,
+                shard_proof_count: 1,
+                aggregation_proof_count: 1,
+                batch_root,
+            };
+            assert!(matches!(
+                verifier.verify_bundle(&bundle),
+                Err(HostedError::InvalidInput(_))
+            ));
+        }
+
+        #[test]
+        fn zk_verifier_rejects_wrong_batch_root() {
+            let profile = CanonicalZkProfile::pr93_plonky3_fri_poseidon_qash();
+            let batch_root = [0x01u8; 32];
+            let verifier = StaticZkProofVerifier {
+                accepted_profile: profile.clone(),
+                accepted_batch_root: batch_root,
+            };
+            let bundle = ZkProofBundle {
+                profile,
+                shard_proof_count: 1,
+                aggregation_proof_count: 1,
+                batch_root: [0x02u8; 32],
+            };
+            assert!(matches!(
+                verifier.verify_bundle(&bundle),
+                Err(HostedError::InvalidInput(_))
+            ));
+        }
+
+        #[test]
+        fn zk_verifier_rejects_empty_proof_counts() {
+            let profile = CanonicalZkProfile::pr93_plonky3_fri_poseidon_qash();
+            let batch_root = [0x01u8; 32];
+            let verifier = StaticZkProofVerifier {
+                accepted_profile: profile.clone(),
+                accepted_batch_root: batch_root,
+            };
+            let bundle = ZkProofBundle {
+                profile,
+                shard_proof_count: 0,
+                aggregation_proof_count: 1,
+                batch_root,
+            };
+            assert!(matches!(
+                verifier.verify_bundle(&bundle),
+                Err(HostedError::InvalidInput(_))
+            ));
+        }
+    }
 }
