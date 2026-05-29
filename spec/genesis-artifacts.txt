@@ -10,12 +10,14 @@
 # this manifest changes the artifact set and therefore changes the computed
 # hash.
 #
-# Pre-lock note: `spec/pdf/QASH_Spec_v1.0.pdf` is not committed yet. Until it
-# is added, all PDF quotes/page references remain provisional and the resulting
-# digest is not deployment-authoritative.
+# Pre-lock note: `spec/pdf/QASH_Spec_v1.0.pdf` is now committed (provisional).
+# All PDF quotes/page references remain provisional until manually verified
+# against the committed PDF. genesis_status remains "provisional" and
+# deployment_authoritative remains false until that verification is complete.
 GENESIS_CONSTANTS.toml
 spec/genesis.schema.toml
 spec/pdf/README.md
+spec/pdf/QASH_Spec_v1.0.pdf
 docs/traceability.md
 docs/errata/README.md
 docs/errata/ERR-001-lyapunov-definition-and-halt.md
