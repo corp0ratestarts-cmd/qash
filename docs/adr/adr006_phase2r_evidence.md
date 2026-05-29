@@ -90,11 +90,11 @@ All changes in Phase 2-R are confined to Domain B:
 
 No files under `crates/consensus/` were modified. No Domain A types, state fields, or arithmetic expressions were changed. Cross-domain contamination check: no Domain B value flows into a Domain A computation as a result of these changes.
 
-## Remaining 2-R work (not yet landed)
+## Remaining 2-R work
 
 | Item | Status | Gate |
 |------|--------|------|
-| O(n log n) sort replacement | Deferred | Profiling evidence required first; insertion sort is correct for n ≤ 1024 |
+| O(n log n) sort replacement | **Landed** (branch `claude/modest-gates-tgIDP`, commit `2636a4e`) | Evidence archived at `artifacts/benchmarks/epoch_transition_sort_d729fcc.md` |
 | `ProjectedView` struct | **Landed** (PR #183) | Parity verified by 3 tests |
 | Validator directory | Deferred | Only if profiling shows lookup cost dominates |
 | Cross-ISA parity for PR #167 byte-read path | Open | Requires aarch64/riscv64gc CI run |
@@ -148,3 +148,47 @@ before any external throughput claims.
 - Coq proof files: **unchanged**
 - `ProjectedView` is not exported from the crate and has no protocol-facing presence
 - Cross-domain contamination: no Domain B value introduced or changed
+
+---
+
+# ADR-006 Phase 2-R Evidence Note (Domain A — Sort Replacement, 2026-05-29)
+
+**Scope:** Domain A (`crates/consensus/src/transaction.rs`)  
+**Branch:** `claude/modest-gates-tgIDP`, commit `2636a4e`
+
+## Changes
+
+### O(n log n) sort replacement
+
+The O(n²) insertion sort over `CandidateTx` entries in `prevalidate_all` was replaced
+with `entries[..valid].sort_unstable_by(|a, b| ...)` using `core::cmp::Ordering` — no
+`std`, no alloc, Domain A safe.
+
+The `candidate_after` comparator function was removed as dead code. The replacement
+comparator is inline and produces identical `(sort_key, tx_id)` ascending order.
+
+## Benchmark evidence
+
+Full before/after numbers archived at `artifacts/benchmarks/epoch_transition_sort_d729fcc.md`.
+
+Key improvements (n=1024, worst-case reversed input):
+- `advance_epoch_reversed_tx_batch/1024`: 12.6 ms → 8.9 ms (**-29.9%**)
+- `advance_epoch_full_tx_batch/1024`: 12.5 ms → 8.4 ms (**-33.1%**)
+- `prevalidate_tx0/1024`: 12.2 ms → 8.9 ms (**-27.7%**)
+
+Insertion sort is O(n²) worst-case for reversed input; `sort_unstable_by` (introsort)
+is O(n log n) in all cases. The improvement scales super-linearly with n, confirming
+the algorithmic root cause.
+
+## Parity evidence
+
+- `transaction::tests::sort_order_is_identical_for_reversed_input_batch` — same
+  `applied_count` and `next_nonces` regardless of input order. Passes.
+- All `phase2r_preconditions` tests pass.
+
+## Domain boundary assertion
+
+- Wire format: **unchanged**
+- `GENESIS_CONSTANTS.toml`: **unchanged**
+- Coq proof files: **unchanged**
+- Cross-domain contamination: none

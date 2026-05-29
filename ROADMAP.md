@@ -73,8 +73,8 @@ that are already normalized into canonical docs and tests.
 - [x] Normalize provisional ZK profile shape and recursion plan into canonical docs.
 - [x] Add CI/document-hygiene protections against raw transcript artifacts.
 - [x] Isolate runtime optimization recommendations into a dedicated ADR/phase.
-- [ ] Implement Phase 2-R runtime refactors with byte-for-byte parity gates.
-- [ ] Add archived tx-heavy/commit-path benchmark evidence for performance claims.
+- [x] Implement Phase 2-R runtime refactors with byte-for-byte parity gates.
+- [x] Add archived tx-heavy/commit-path benchmark evidence for performance claims.
 - [ ] Ship Domain B production Plonky3 verifier backend with profile-lock tests.
 - [ ] Extend hosted whole-protocol sharded replay evidence to explicit cross-ISA bundles.
 
