@@ -153,9 +153,9 @@ the full three-layer correspondence chain and extraction pipeline.
 | **PROVED** | 42 |
 | **CI-VERIFIED** | 4 |
 | **AXIOM** | 3 |
-| **PLACEHOLDER** | 2 |
+| **PLACEHOLDER** | 6 |
 | **MISSING** | 0 |
-| **Total** | 44 |
+| **Total** | 48 |
 
 ---
 
@@ -171,3 +171,7 @@ known proof debt that should be discharged before mainnet.
 | Blinding PRF | H_cascade_keyed is a PRF | Qualitative (`cascade_prf_security`) and quantitative (`cascade_prf_quantitative_bound` with `adv_le`) axioms in place. Full proof in SSProve; current axioms non-vacuous. |
 | IT-MAC | GF(2¹²⁸) forgery bound 16/2¹²⁸ | Arithmetic cap proved; `ghash_poly_mac_au_bound` typed (adv_le), `it_mac_forgery_bound_16` proved. AU game proof still open (SSProve/CryptHOL target). |
 | AX2-refinement | Coq ↔ Rust observational equivalence | Axiom `AX2_rust_refinement` in `model/RefinementStatement.v`; supported by 10 CI test vectors. Strengthen by adding more vectors to `vectors.json`/`coq_vectors.rs`, or by embedding Rust semantics in Coq (RustBelt / K-Rust, post-v1.1). |
+| TH-P1 (dep) | Cascade avalanche property | `privacy/cascade_avalanche_property.v` — placeholder axiom; deferred to Domain B blinding spec revision. Proof requires SSProve/CryptHOL formalisation of the L1 random oracle model and 5-way XOR combiner. |
+| TH-P1 (dep) | ORAM access non-interference | `privacy/oblivious_access_non_interference.v` — placeholder axiom; deferred to Domain B blinding spec revision and blinding_params definition. |
+| TH-P2 (dep) | ZK membership proof soundness | `privacy/receipt_proof_soundness.v` — placeholder axiom; deferred to receipt spec (`06_receipts.md`) and Plonky3 FRI-STARK integration. |
+| P8 | Blinding health Lyapunov monotonicity | `privacy/blinding_health_metric.v` — placeholder axioms; deferred to §P8 metric and weight definition in Domain B blinding spec. `blinding_health` Lyapunov factor is not yet implemented in `lyapunov.rs`. |
