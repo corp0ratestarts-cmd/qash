@@ -126,7 +126,10 @@ mod tests {
             let ch = CascadeHealthFactor::compute(fail, 1_000_000);
             let term = ch.chi_term();
             assert!(term >= 0, "chi_term negative at fail={fail}");
-            assert!(term <= CHI * (P as i128), "chi_term overflow at fail={fail}");
+            assert!(
+                term <= CHI * (P as i128),
+                "chi_term overflow at fail={fail}"
+            );
         }
     }
 }
