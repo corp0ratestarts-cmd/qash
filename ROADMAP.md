@@ -255,7 +255,7 @@ compat_version_floor = "1.0.0"
 
 ---
 
-### 2-R: Core Runtime Optimization - PARTIALLY LANDED
+### 2-R: Core Runtime Optimization ✓ LANDED
 
 **Source:** Latest PR #93 runtime-performance review.
 
@@ -302,9 +302,9 @@ interfaces, wire formats, hash preimages, or Domain A invariants.
 
 ---
 
-### 2-C: Epoch Skew Validation
+### 2-C: Epoch Skew Validation ✓ LANDED
 
-**Branch:** `codex/v1.1-epoch-semantics`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B (needs `Envelope` struct)
 
 **Goal:** Reject envelopes with epochs too far in the past or future. Prevents time-based
@@ -353,9 +353,9 @@ epoch_skew_bound = 1     # Δ: max future epochs to accept
 
 ---
 
-### 2-D: Cascade Health Tracking
+### 2-D: Cascade Health Tracking ✓ LANDED
 
-**Branch:** `codex/v1.1-cascade-health`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B (needs `Envelope.cascade_health` field)
 
 **Goal:** Track protocol health across consecutive epochs; gate finality on
@@ -429,9 +429,9 @@ cascade_health_factor = 50000  # Lyapunov weight coefficient (FixedPoint raw)
 
 ---
 
-### 2-E: Lineage Compression (Skip-List)
+### 2-E: Lineage Compression (Skip-List) ✓ LANDED
 
-**Branch:** `codex/v1.1-lineage-skiplist`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B
 
 **Goal:** Replace unbounded parent-list history with a bounded O(log N) skip-list.
@@ -491,9 +491,9 @@ Wire format: 10 × 32 = 320 bytes per epoch state.
 
 ---
 
-### 2-F: Version Gating and Compatibility Window
+### 2-F: Version Gating and Compatibility Window ✓ LANDED
 
-**Branch:** `codex/v1.1-version-gating`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-D (needs `compatibility_window` constant), 2-B (needs `Envelope.version`)
 
 **Changes in `crates/consensus/src/transition.rs`:**
@@ -535,9 +535,9 @@ to include 0x08.
 
 ---
 
-### 2-G: ML-KEM-768 PQC KEM (Domain B only)
+### 2-G: ML-KEM-768 PQC KEM (Domain B only) ✓ LANDED
 
-**Branch:** `codex/v1.1-pqc-kem`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** nothing (Domain B, no Domain A changes)
 
 **This does NOT touch Domain A at all.** It is entirely in `crates/pal/` or a new
@@ -617,9 +617,9 @@ pub fn xwing_combine(
 
 ---
 
-### 2-H: FIPS and Data Protection (Domain B only)
+### 2-H: FIPS and Data Protection (Domain B only) ✓ LANDED
 
-**Branch:** `codex/v1.1-fips-compliance`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** nothing (Domain B only)
 
 **No Domain A changes.** All `unsafe` in PAL is already under audit.
@@ -683,9 +683,9 @@ pub fn log_pseudonym(pk: &[u8]) -> String {
 
 ---
 
-### 2-I: Formal Proofs for v1.1 Properties
+### 2-I: Formal Proofs for v1.1 Properties ✓ LANDED
 
-**Branch:** `codex/v1.1-proofs`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B, 2-C, 2-D, 2-F (needs stable interfaces before Coq models are written)
 
 **New Coq files in `proofs/`:**
@@ -760,9 +760,9 @@ coqc -Q . QASH ordering/compatibility_window.v
 
 ---
 
-### 2-J: Semantic Closure (Compile-time Domain Gating)
+### 2-J: Semantic Closure (Compile-time Domain Gating) ✓ LANDED
 
-**Branch:** `codex/v1.1-semantic-closure`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B (needs the new types to gate)
 
 **Goal:** Prevent Domain B values from flowing into Domain A computations
@@ -840,9 +840,9 @@ pub fn check_state_invariants(state: &EpochState) -> Result<(), HaltReason> {
 
 ---
 
-### 2-K: Replay Corpus and v1.1 Conformance Tests
+### 2-K: Replay Corpus and v1.1 Conformance Tests ✓ LANDED
 
-**Branch:** `codex/v1.1-replay-corpus`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** all Domain A changes (2-B through 2-F) merged
 
 **Deliverables:**
@@ -891,9 +891,9 @@ pub fn check_state_invariants(state: &EpochState) -> Result<(), HaltReason> {
 
 ---
 
-### 2-L: Semantic Closure Completion — Confluence & Verified Interpreter
+### 2-L: Semantic Closure Completion — Confluence & Verified Interpreter ✓ LANDED
 
-**Branch:** `codex/v1.1-semantic-closure-ext`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-E (skip-list), 2-I (proofs), 2-J (CapToken stub)
 
 #### Causal Fingerprint Coinduction (Domain A)
@@ -931,9 +931,9 @@ cargo test -p qash-consensus --test interpreter_conformance -- --nocapture
 
 ---
 
-### 2-M: Hardware & Physical Hardening (Domain B, feature-gated)
+### 2-M: Hardware & Physical Hardening (Domain B, feature-gated) ✓ LANDED
 
-**Branch:** `codex/v1.1-domain-b-hardening`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-G, 2-H  
 **Feature gate:** All behind `#[cfg(feature = "hardened")]`
 
@@ -962,9 +962,9 @@ insmod deploy/kernel-modules/softtrr.ko && dmesg | grep "SoftTRR: active"
 
 ---
 
-### 2-N: Privacy Model Specification & PublicTranscript (Domain B)
+### 2-N: Privacy Model Specification & PublicTranscript (Domain B) ✓ LANDED
 
-**Branch:** `codex/v1.1-privacy-model`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-J
 
 #### Privacy Specification
@@ -1005,9 +1005,9 @@ cargo test -p qash-pal privacy::receipt::tests::shred_prevents_decryption
 
 ---
 
-### 2-O: Crypto-Agility Traits & Sovereign Suite Gates (Domain B)
+### 2-O: Crypto-Agility Traits & Sovereign Suite Gates (Domain B) ✓ LANDED
 
-**Branch:** `codex/v1.1-sovereign-profiles`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-G, 2-H
 
 #### Crypto-Agility Trait Layer (`crates/pal/src/crypto/`)
@@ -1044,9 +1044,9 @@ git diff crates/consensus/ # must be empty after feature toggle
 
 ---
 
-### 2-P: Certification Artifacts
+### 2-P: Certification Artifacts ✓ LANDED
 
-**Branch:** `codex/v1.1-cert-artifacts`  
+**Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-H, 2-N, 2-O
 
 #### FIPS 140-3 CAVP CI
