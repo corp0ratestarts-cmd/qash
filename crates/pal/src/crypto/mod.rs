@@ -12,6 +12,7 @@
 #[cfg(feature = "pqc")]
 pub mod kem;
 
+pub mod agility;
 pub mod drbg;
 pub mod tls;
 pub mod traits;
