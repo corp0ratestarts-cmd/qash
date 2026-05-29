@@ -423,4 +423,97 @@ mod tests {
         let c2 = commitment_of_public_values(&[0u32, 1u32, 22u32]);
         assert_ne!(c1, c2);
     }
+
+    // ── Two-layer recursion corpus KAT ───────────────────────────────────────
+    //
+    // Pins the `public_input_commitment` and `batch_root` for the Fibonacci AIR
+    // test fixture under the QASH FRI-STARK profile. These values are
+    // deterministic (SHA3-256 of the public values as 4-byte LE) and serve as
+    // the 2-layer recursion profile lock: any change to `commitment_of_public_values`
+    // or the public-input wire format must update these expected values.
+    //
+    // Public values: a=0, b=1, x=fib(8)=21 (Fibonacci AIR, trace height 8).
+    // Layer-1 shard count: 4 (matching the shape-only tests in plonky3.rs).
+
+    #[test]
+    fn two_layer_recursion_corpus_kat_commitment() {
+        // Known-answer: SHA3-256(0x00000000 ‖ 0x01000000 ‖ 0x15000000)
+        // (each u32 as 4-byte little-endian, Fibonacci a=0,b=1,x=21)
+        let expected: [u8; 32] = [
+            0xe2, 0x30, 0xd0, 0x0c, 0x11, 0xd6, 0xf9, 0x18,
+            0x7e, 0x96, 0x81, 0xd2, 0xca, 0x27, 0x3f, 0x90,
+            0x73, 0x04, 0xe2, 0x32, 0xf8, 0xe0, 0x19, 0xc2,
+            0xcf, 0x7b, 0x24, 0xfd, 0x2d, 0x2e, 0x30, 0xa6,
+        ];
+        let pv = vec![0u32, 1u32, 21u32];
+        assert_eq!(
+            commitment_of_public_values(&pv),
+            expected,
+            "public_input_commitment KAT mismatch — \
+             update expected value if public-input wire format changed"
+        );
+    }
+
+    #[test]
+    fn two_layer_pipeline_e2e_fibonacci() {
+        // Full 2-layer roundtrip using the real Plonky3 backend (test config):
+        //   Layer 1: 4 shard proofs (Fibonacci AIR, a=0,b=1,x=21, trace height 8)
+        //   Layer 2: 1 aggregation proof (same AIR, same trace, layer1_count=4)
+        // Verifies that:
+        //   - build_shard_proof_bytes generates a verifiable proof
+        //   - build_aggregation_proof_bytes generates a verifiable proof
+        //   - batch_root from aggregation matches the pinned commitment KAT
+        let backend = make_fib_backend();
+        let pv = vec![0u32, 1u32, 21u32];
+        let layer1_count = 4u32;
+
+        // Build and verify 4 layer-1 shard proofs.
+        let mut shard_roots: Vec<[u8; 32]> = Vec::new();
+        for shard_id in 0..layer1_count {
+            let trace = generate_fib_trace(0, 1, 8);
+            let (proof_bytes, commitment) =
+                build_shard_proof_bytes(backend.config(), backend.air(), trace, pv.clone())
+                    .expect("shard proof generation failed");
+            let shard = ShardProofBytes {
+                shard_id,
+                proof_bytes,
+                public_input_commitment: commitment,
+            };
+            let root = backend
+                .verify_shard_shape(&shard)
+                .expect("layer-1 shard proof must verify");
+            assert_eq!(root, commitment, "shard root must match commitment");
+            shard_roots.push(root);
+        }
+        assert_eq!(shard_roots.len(), layer1_count as usize);
+
+        // Build and verify the layer-2 aggregation proof.
+        let agg_trace = generate_fib_trace(0, 1, 8);
+        let (agg_proof_bytes, batch_root) = build_aggregation_proof_bytes(
+            backend.config(),
+            backend.air(),
+            agg_trace,
+            pv.clone(),
+            layer1_count,
+        )
+        .expect("aggregation proof generation failed");
+
+        let agg = AggregationProofBytes {
+            proof_bytes: agg_proof_bytes,
+            batch_root,
+            layer1_count,
+        };
+        let verified_root = backend
+            .verify_aggregation_shape(&agg, layer1_count)
+            .expect("layer-2 aggregation proof must verify");
+        assert_eq!(verified_root, batch_root);
+
+        // Batch root must equal the commitment KAT value (since it's derived
+        // from the same public_values via commitment_of_public_values).
+        let expected_batch_root = commitment_of_public_values(&pv);
+        assert_eq!(
+            batch_root, expected_batch_root,
+            "batch_root must match commitment KAT for Fibonacci pv=[0,1,21]"
+        );
+    }
 }

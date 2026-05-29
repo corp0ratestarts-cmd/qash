@@ -1904,7 +1904,7 @@ Any code path that would add a new field to the public surface MUST:
 
 ---
 
-### 5-A: Sharded Protocol Structure and EFB ✓ SCAFFOLDED
+### 5-A: Sharded Protocol Structure and EFB ✓ LANDED
 
 **Source:** PR #93 design-review transcript, extracted into repo-native files.
 
@@ -1937,13 +1937,19 @@ deterministic assignment → shard commitments → EFB → public transcript. Th
 removes the earlier ambiguity where `shard_id` appeared only inside causal
 ordering.
 
-**Remaining before genesis lock:**
-- STARK batch verifier feature gate and transparent proof statement.
-- Production Plonky3 backend for the fixed PR #93 profile.
-- Poseidon circuit transcript bound to QASH-native public commitments.
-- 2-layer recursion corpus: shard validity proofs, 16:1 aggregation proofs,
-  EFB batch-root verification.
-- Adversarial shard-capture simulation using configured bond weights.
+**Additionally landed (branch `claude/modest-gates-tgIDP`):**
+- `crates/pal/src/zk/`: Production Plonky3 FRI-STARK backend (`backend.rs`,
+  `profile.rs`, `fib_air.rs`) using real p3-* crates behind `--features plonky3,std`.
+  `Plonky3ProductionBackend<A>` implements `FriProofBackend` using `p3-uni-stark::prove`
+  and `verify`; BabyBear field, Poseidon2 inner hash, 100-query FRI (≈100-bit security).
+- `crates/pal/src/zk/backend.rs`: `two_layer_recursion_corpus_kat_commitment` KAT
+  pins `commitment_of_public_values([0,1,21])` = `e230d00c...`; `two_layer_pipeline_e2e_fibonacci`
+  runs the complete 4-shard layer-1 + 1-layer-2 aggregation proof roundtrip.
+- `crates/consensus/tests/shard_capture_simulation.rs`: 5 adversarial shard-capture
+  simulation tests (SIM-SC-1 through SIM-SC-5) covering uniform distribution, 25%
+  adversary minority capture bound, bond weight sensitivity, epoch seed rotation, and
+  40% adversary full-capture resistance over 100 independent epochs.
+- CI gate in `cavp-kat` job: Plonky3 2-layer KAT and shard-capture simulation.
 
 ### 4-B: PublicTranscript Type-System Enforcement ✓ LANDED
 
