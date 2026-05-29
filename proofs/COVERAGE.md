@@ -132,6 +132,14 @@ the full three-layer correspondence chain and extraction pipeline.
 
 ---
 
+## Epoch Skew Validation (2-C)
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| Epoch skew validation: envelopes with epoch < genesis_epoch or epoch > current + skew_bound are rejected; overflow on checked_add → EpochOverflow | §3, GENESIS epoch.timing.epoch_skew_bound | **CI-VERIFIED** | — (formal proof deferred to 2-I) | `crates/consensus/src/transition.rs` | `transition::tests::validate_epoch_rejects_pre_genesis`; `transition::tests::validate_epoch_rejects_too_far_future`; `transition::tests::validate_epoch_accepts_within_window`; `transition::tests::validate_epoch_overflow_on_add` |
+
+---
+
 ## Domain Crossing Properties (1-A)
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |

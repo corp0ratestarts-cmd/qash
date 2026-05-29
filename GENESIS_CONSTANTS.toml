@@ -28,6 +28,7 @@ duration_ms = 500
 max_control_loop_latency_ms = 450
 sync_tolerance_ms = 50
 epoch_counter_seed = "0xQASH_EPOCH_PRNG_SEED_2026"
+epoch_skew_bound = 1     # Δ: max future epochs to accept
 
 [obfuscation]
 method = "concatenation_injective"
