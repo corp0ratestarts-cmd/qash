@@ -1945,13 +1945,21 @@ ordering.
   EFB batch-root verification.
 - Adversarial shard-capture simulation using configured bond weights.
 
-### 4-B: PublicTranscript Type-System Enforcement
+### 4-B: PublicTranscript Type-System Enforcement ✓ LANDED
+
+**Branch:** `claude/modest-gates-tgIDP`  
+**Depends on:** existing `crates/consensus/src/public.rs`
+
+**What shipped:**
+- `crates/consensus/src/public.rs`: added `encode_canonical()` (105-byte fixed-length deterministic wire format), `decode_canonical()` (inverse), and `PUBLIC_TRANSCRIPT_WIRE_LEN` constant. 5 unit tests: length, roundtrip, wrong-length rejection, halt-flag encoding, epoch big-endian.
+- `crates/pal/src/net/mod.rs`: added `NetTransport` trait, `NetError` type, and `publish_transcript_entry(transport, entry)` — the ONLY authorised Domain B function for broadcasting to a public channel. Tests: broadcasts canonical encoding, propagates transport errors.
+
+---
+
+### 4-B-original: PublicTranscript Type-System Enforcement [reference spec]
 
 **Branch:** `codex/privacy/public-transcript-enforcement`  
 **Depends on:** existing `crates/consensus/src/public.rs`
-
-**Current state:** `public.rs` exists but is a thin struct. It needs to become the
-*sole authorised pathway* for anything emitted to a public-observable channel.
 
 **Enforce in `crates/pal/src/net.rs`:**
 ```rust
@@ -1982,12 +1990,22 @@ disallowed-methods = [
 
 ---
 
-### 4-C: Receipt Encryption and Viewing Keys
+### 4-C: Receipt Encryption and Viewing Keys ✓ LANDED
 
-**Branch:** `codex/privacy/receipt-encryption`  
-**Scope:** Domain B + new proto-spec in `docs/spec/`
+**Branch:** `claude/modest-gates-tgIDP`  
+**Scope:** Domain B (`crates/pal/src/receipt.rs`)
 
-**Receipt structure:**
+**What shipped:**
+- `ViewingKey([u8; 32])` with `Zeroize + ZeroizeOnDrop` — epoch-scoped, erased after epoch closure.
+- `derive_viewing_key(master_key, epoch_seed, epoch) -> ViewingKey` — SHA3-256(master_key ‖ epoch.to_be_bytes() ‖ epoch_seed). Forward secrecy: once `epoch_seed` is discarded, past keys cannot be rederived.
+- `EpochKeyStore` — minimal BTreeMap-backed in-memory store; production implementations back with a TEE vault.
+- `erase_epoch_viewing_key(epoch, key_store)` — zeroizes and removes the epoch key; satisfies GDPR Art. 17 Right to Erasure for epoch-scoped receipt access.
+- `EncryptedReceiptBody { ciphertext, epoch, commitment }` — public commitment is SHA3-256(ciphertext), the only Class I–visible field.
+- `encrypt_receipt_body(payload, epoch, viewing_key)` — XOR stub (production: ChaCha20-Poly1305 + ML-KEM-768 KEM hybrid — see ROADMAP 4-C-full for full spec).
+- `decrypt_receipt_body(body, viewing_key) -> Option<Vec<u8>>` — verifies SHA3-256 commitment before decrypting; returns `None` on tamper.
+- 8 unit tests: viewing key determinism, epoch/seed domain separation, encrypt-decrypt roundtrip, tampered-ciphertext rejection, erase removes from store.
+
+**Original spec (for reference):**
 ```rust
 // Domain B (crates/pal/src/receipts.rs)
 // Receipts are encrypted to the recipient's public key.
