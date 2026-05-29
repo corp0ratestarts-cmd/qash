@@ -9,7 +9,7 @@ pub use acceleration::{
 };
 pub use attestation_gate::{
     AttestationGate, AttestationGateError, AttestationQuote, LocalEvidenceAttestationGate,
-    UnimplementedAttestationGate,
+    SoftwareHashMerkleAttestation, UnimplementedAttestationGate,
 };
 pub use capabilities::HardwareCapabilities;
 pub use platform::{PlatformDescriptor, PlatformKind};
