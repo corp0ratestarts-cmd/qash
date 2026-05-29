@@ -1,6 +1,9 @@
 pub mod admission;
 #[cfg(feature = "sca-hardened")]
 pub mod signing;
+/// Threshold signing stubs (TALUS/Quorus). Domain B only.
+#[cfg(feature = "threshold-signing")]
+pub mod threshold;
 #[cfg(feature = "hardened")]
 pub mod hardening;
 pub mod proximity;

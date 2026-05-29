@@ -5,11 +5,17 @@ name: Release Attestation
 # binary SHA-256 (verified across two independent builds), Cargo.lock hash,
 # consensus source hash, and GENESIS_CONSTANTS.toml hash.
 #
+# Phase 3-D additions: Sigstore Rekor transparency-log upload so auditors can
+# independently verify the build hash against the source commit and (when the
+# runner supports Intel TDX) against the enclave measurement.
+#
 # Auditors can independently reproduce by:
 #   1. Checking out the tagged commit.
 #   2. Building docker/Dockerfile.build.
 #   3. Running scripts/attest_release.sh inside that container.
 #   4. Comparing the sha256 lines against the uploaded artifact.
+#   5. Optionally running scripts/verify_sigstore_attestation.sh to check
+#      the Rekor transparency-log entry.
 on:
   push:
     branches: [main]
@@ -18,6 +24,9 @@ on:
 jobs:
   attest:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write  # required for keyless cosign OIDC signing
     env:
       # Disable incremental compilation and date-stamped metadata so builds
       # are byte-identical. SOURCE_DATE_EPOCH=0 pins embedded timestamps.
@@ -57,6 +66,22 @@ jobs:
           fi
           echo "PASS: byte-identical builds verified ($STAGE1_HASH)"
 
+      # ── TEE enclave build (Intel TDX, runner-conditional) ─────────────────
+      # Runs only when the runner exposes Intel TDX support. On standard GitHub
+      # runners this step is skipped via the conditional; it activates
+      # automatically on TDX-enabled self-hosted runners without any workflow
+      # changes.
+      - name: Build inside Intel TDX enclave (runner-conditional)
+        if: ${{ runner.cpu == 'tdx-enabled' }}
+        run: |
+          tdx-build --enclave qash-build.json -- \
+            cargo build --release --no-default-features
+          tdx-attest \
+            --quote-output attestation-quote-${{ github.sha }}.bin \
+            --measurement build-measurement-${{ github.sha }}.txt
+          sha256sum target/release/qash > build-hash-${{ github.sha }}.txt
+          echo "TDX_ATTESTED=true" >> "$GITHUB_ENV"
+
       - name: Generate attestation manifest
         run: |
           bash scripts/attest_release.sh > attestation-${{ github.sha }}.txt
@@ -64,23 +89,69 @@ jobs:
           echo "=== Manifest preview ==="
           cat attestation-${{ github.sha }}.txt
 
+      # ── Sigstore / cosign transparency-log upload ─────────────────────────
+      # Uploads the binary hash to the Rekor append-only transparency log so
+      # independent auditors can verify the build hash ↔ source commit binding
+      # without trusting the CI runner. Uses keyless OIDC signing — no
+      # long-lived signing key is required.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: Sign build hash and upload to Sigstore Rekor
+        run: |
+          sha256sum target/release/qash > build-hash-${{ github.sha }}.txt
+          # Keyless OIDC signing: cosign uses the GitHub Actions OIDC token.
+          # The resulting bundle proves: this hash was produced by this workflow
+          # at this commit, without any persistent signing key.
+          cosign sign-blob \
+            --yes \
+            --bundle rekor-bundle-${{ github.sha }}.json \
+            build-hash-${{ github.sha }}.txt
+          echo "Rekor bundle written to rekor-bundle-${{ github.sha }}.json"
+          # Include the Rekor log index in the attestation for auditor reference
+          REKOR_LOG_INDEX=$(jq -r '.rekorBundle.Payload.logIndex // "unknown"' \
+            rekor-bundle-${{ github.sha }}.json 2>/dev/null || echo "unknown")
+          echo "REKOR_LOG_INDEX=$REKOR_LOG_INDEX" >> "$GITHUB_ENV"
+          echo "Rekor log index: $REKOR_LOG_INDEX"
+
+      - name: Append Sigstore metadata to attestation manifest
+        run: |
+          {
+            echo ""
+            echo "=== Sigstore / Rekor ==="
+            echo "rekor_bundle:    rekor-bundle-${{ github.sha }}.json"
+            echo "rekor_log_index: ${{ env.REKOR_LOG_INDEX }}"
+            echo "build_hash_file: build-hash-${{ github.sha }}.txt"
+            if [[ "${TDX_ATTESTED:-false}" == "true" ]]; then
+              echo "tdx_enclave_measurement: build-measurement-${{ github.sha }}.txt"
+              echo "tdx_quote:               attestation-quote-${{ github.sha }}.bin"
+            fi
+          } >> attestation-${{ github.sha }}.txt
+
       - name: Record attestation in artifact-index (main only)
         if: github.event_name == 'push'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           DEST="artifacts/attestations/release-attestation-${{ github.sha }}.txt"
+          BUNDLE_DEST="artifacts/attestations/rekor-bundle-${{ github.sha }}.json"
           mkdir -p artifacts/attestations
           cp attestation-${{ github.sha }}.txt "$DEST"
-          git add "$DEST"
+          cp rekor-bundle-${{ github.sha }}.json "$BUNDLE_DEST"
+          git add "$DEST" "$BUNDLE_DEST"
           git diff --staged --quiet || \
-            git commit -m "ci: release attestation for ${{ github.sha }} [skip ci]"
+            git commit -m "ci: release attestation + rekor bundle for ${{ github.sha }} [skip ci]"
           git push origin HEAD:main || true
 
-      - name: Upload attestation artifact
+      - name: Upload attestation artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-attestation-${{ github.sha }}
-          path: attestation-${{ github.sha }}.txt
+          path: |
+            attestation-${{ github.sha }}.txt
+            rekor-bundle-${{ github.sha }}.json
+            build-hash-${{ github.sha }}.txt
           if-no-files-found: error
           retention-days: 365

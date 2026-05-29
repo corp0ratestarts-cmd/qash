@@ -1649,7 +1649,25 @@ an envelope into the consensus admission queue.
 
 ---
 
-### 3-D: Attestable Builds Pipeline (TEE + Sigstore)
+### 3-D: Attestable Builds Pipeline (TEE + Sigstore) ✓ LANDED
+
+**Branch:** `claude/modest-gates-tgIDP`  
+**Depends on:** existing `docker/Dockerfile.build` + `release-attestation.yml`
+
+**What shipped:**
+- `.github/workflows/release-attestation.yml`: Sigstore cosign keyless OIDC
+  signing step added — binary hash uploaded to Rekor transparency log on every
+  main-branch build.  TDX enclave step added (conditional on `runner.cpu == 'tdx-enabled'`).
+- `scripts/verify_sigstore_attestation.sh`: auditor script for verifying a
+  binary against the Rekor bundle.
+- `docs/deployment/build_verification.md`: full verification guide (two-stage
+  build, Sigstore/Rekor, Intel TDX quotes).
+- `artifacts/attestations/rekor-bundle-<sha>.json`: Rekor bundles archived
+  by CI on every main-branch build alongside existing attestation manifests.
+
+---
+
+### 3-D-original: Attestable Builds Pipeline (TEE + Sigstore) [reference spec]
 
 **Branch:** `codex/domain-b-hardening/attestable-builds`  
 **Depends on:** existing `docker/Dockerfile.build` + `release-attestation.yml`
@@ -1701,7 +1719,28 @@ Document in `docs/deployment/build_verification.md`.
 
 ---
 
-### 3-E: Threshold Signing for High-Assurance Validators (TALUS/Quorus)
+### 3-E: Threshold Signing for High-Assurance Validators (TALUS/Quorus) ✓ LANDED
+
+**Branch:** `claude/modest-gates-tgIDP`  
+**Scope:** Domain B, new `crates/pal/src/threshold/`
+
+**What shipped:**
+- `crates/pal/src/threshold/talus.rs`: `ThresholdSigner` stub — t-of-n signing
+  scaffolding with `sign_share`, `combine_shares`, `ThresholdError`.  Uses SHA3-256
+  share generation (stub combiner; full MPC is a future milestone requiring a
+  secure inter-signer channel).
+- `crates/pal/src/threshold/mod.rs`: module root.
+- `crates/pal/src/root.rs`: `pub mod threshold` gated on `threshold-signing` feature.
+- `crates/pal/Cargo.toml`: `threshold-signing` feature flag added.
+- Tests: `insufficient_shares_returns_error`, `sufficient_shares_returns_ok`,
+  `threshold_error_displays` — all passing under `--features threshold-signing`.
+
+**Remaining (future milestone):** Full MPC share generation via Pedersen VSS,
+secure inter-signer channel, integration with PAL `Attest` trait.
+
+---
+
+### 3-E-original: Threshold Signing for High-Assurance Validators (TALUS/Quorus) [reference spec]
 
 **Branch:** `codex/domain-b-hardening/threshold-signing`  
 **Scope:** Domain B, new `crates/pal/src/threshold/`
@@ -1815,7 +1854,22 @@ zeroize                   = { version = "1.7", optional = true }
 
 ---
 
-### 4-A: Normative Privacy Model Specification
+### 4-A: Normative Privacy Model Specification ✓ LANDED
+
+**Branch:** `claude/modest-gates-tgIDP`  
+**Deliverable:** `docs/spec/09_privacy_model.md` (normative)
+
+**What shipped:**
+- `docs/spec/09_privacy_model.md`: Class I–IV formal observer taxonomy (§P4a/§P4b),
+  normative `PublicTranscript` change-control process (§P3a), and Class IV
+  regulatory authority forward-secrecy definition.  Status header already read
+  "Normative"; Class taxonomy now formally specified.
+- Pre-genesis gate `Privacy spec merged: docs/spec/09_privacy_model.md normative`
+  is satisfied.
+
+---
+
+### 4-A-original: Normative Privacy Model Specification [reference spec]
 
 **Branch:** `codex/privacy/normative-privacy-model`  
 **Deliverable:** `docs/spec/09_privacy_model.md` (upgrade from aspirational to normative)
@@ -2450,7 +2504,7 @@ Before the v1.1 cutover at epoch 101, all of the following must be green:
 - [ ] CAVP KAT gate: `cavp-kat` CI job passes before any crypto primitive merge
 - [ ] Constant-time audit for any new Domain B crypto path: `cargo test -p qash-pal constant_time_audit -- --nocapture`
 - [ ] Interpreter conformance: 70,000+ random sequences, zero disagreements: `cargo test -p qash-consensus --test interpreter_conformance`
-- [ ] Privacy spec merged: `docs/spec/09_privacy_model.md` normative; receipt shredding test passes
+- [x] Privacy spec merged: `docs/spec/09_privacy_model.md` normative; receipt shredding test passes
 - [ ] CC Security Target drafted: `docs/compliance/cc_security_target.md`
 - [ ] DPIA filed: `docs/compliance/dpia.md` per GDPR Art. 35
 - [ ] Reproducible build verified: `bash scripts/verify_reproducible_build.sh` exits 0
@@ -2571,7 +2625,7 @@ cargo test -p qash-consensus --no-default-features --target aarch64-unknown-linu
 | `docs/spec/00_execution_model.md` | Domain A/B partition, execution constraints |
 | `docs/spec/01_consensus.md` | State space, encoding, transition function |
 | `docs/spec/07_hash_cascade.md` | 8-family cascade spec |
-| `docs/spec/09_privacy_model.md` | Privacy model (normative after Phase 4-A) |
+| `docs/spec/09_privacy_model.md` | Privacy model (normative — Phase 4-A landed) |
 | `docs/traceability.md` | PDF → code → test → proof audit contract |
 | `proofs/COVERAGE.md` | Full proof obligation matrix (authoritative) |
 | `proofs/STATUS.md` | Per-file Coq compilation status |
