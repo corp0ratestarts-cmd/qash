@@ -35,6 +35,7 @@ pub enum UltrasonicError {
     BadSync,
     CrcMismatch,
     LengthMismatch,
+    TrailingBytes,
 }
 
 impl std::fmt::Display for UltrasonicError {
@@ -45,6 +46,7 @@ impl std::fmt::Display for UltrasonicError {
             UltrasonicError::BadSync => write!(f, "bad sync preamble"),
             UltrasonicError::CrcMismatch => write!(f, "CRC16 mismatch"),
             UltrasonicError::LengthMismatch => write!(f, "LEN field does not match payload"),
+            UltrasonicError::TrailingBytes => write!(f, "trailing bytes after CRC"),
         }
     }
 }
@@ -83,8 +85,12 @@ pub fn decode_frame(bytes: &[u8]) -> Result<Vec<u8>, UltrasonicError> {
         return Err(UltrasonicError::PayloadTooLarge(len));
     }
     let payload_end = 6 + len;
-    if bytes.len() < payload_end + 2 {
+    let frame_end = payload_end + 2;
+    if bytes.len() < frame_end {
         return Err(UltrasonicError::LengthMismatch);
+    }
+    if bytes.len() > frame_end {
+        return Err(UltrasonicError::TrailingBytes);
     }
     let payload = &bytes[6..payload_end];
     let expected_crc = crc16_ccitt(&(len as u16).to_le_bytes(), payload);
@@ -179,6 +185,16 @@ mod tests {
         assert_eq!(
             decode_frame(&[0u8; 4]).unwrap_err(),
             UltrasonicError::FrameTooShort
+        );
+    }
+
+    #[test]
+    fn decode_rejects_trailing_bytes() {
+        let mut frame = encode_frame(b"data").unwrap();
+        frame.push(0x00); // one extra byte after CRC
+        assert_eq!(
+            decode_frame(&frame).unwrap_err(),
+            UltrasonicError::TrailingBytes
         );
     }
 
