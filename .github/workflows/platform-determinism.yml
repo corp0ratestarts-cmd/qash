@@ -8,12 +8,15 @@ on:
 
 jobs:
   # Compares CONSENSUS STATE ROOTS (not binary hashes) across ISAs — verifies TH-7.
-  # Step 1: compute the canonical state root on the native x86_64 runner.
-  # This becomes the reference that all cross-compiled targets must match.
+  # Step 1: compute the canonical state roots on the native x86_64 runner.
+  # These become the references that all cross-compiled targets must match.
   native-root:
     runs-on: ubuntu-latest
     outputs:
       state_root: ${{ steps.capture.outputs.state_root }}
+      pal_state_root: ${{ steps.capture_pal.outputs.pal_state_root }}
+      pal_efb_root: ${{ steps.capture_pal.outputs.pal_efb_root }}
+      pal_receipt_root: ${{ steps.capture_pal.outputs.pal_receipt_root }}
     steps:
       - uses: actions/checkout@v4
       - name: Install pinned Rust toolchain
@@ -32,6 +35,27 @@ jobs:
         run: |
           cargo test -p qash-consensus --no-default-features --test v1_1_replay v1_1_corpus_matches_pinned
           cargo test -p qash-consensus --no-default-features --test v1_2_sharded_replay v1_2_sharded_corpus_matches_pinned
+      # ── Hosted whole-protocol sharded replay cross-ISA evidence (TH-7) ──────
+      # Captures state_root, efb_root, receipt_root from a 5-epoch PAL sharded
+      # replay. The golden test in whole_protocol.rs pins these values; the
+      # cross-verify job re-runs them on aarch64 and riscv64gc to confirm that
+      # the hosted PAL layer is also ISA-invariant, not just the consensus kernel.
+      - name: Capture hosted whole-protocol sharded roots (native)
+        id: capture_pal
+        run: |
+          OUTPUT=$(cargo test -p qash-pal --features std --test whole_protocol \
+                    -- whole_protocol_sharded_canonical_roots_print --nocapture 2>/dev/null)
+          PAL_SR=$(echo  "$OUTPUT" | grep 'CANONICAL_SHARDED_STATE_ROOT_5_EPOCHS'   | head -1)
+          PAL_EFB=$(echo "$OUTPUT" | grep 'CANONICAL_SHARDED_EFB_ROOT_5_EPOCHS'     | head -1)
+          PAL_RR=$(echo  "$OUTPUT" | grep 'CANONICAL_SHARDED_RECEIPT_ROOT_5_EPOCHS' | head -1)
+          echo "pal_state_root=${PAL_SR}"   >> "$GITHUB_OUTPUT"
+          echo "pal_efb_root=${PAL_EFB}"    >> "$GITHUB_OUTPUT"
+          echo "pal_receipt_root=${PAL_RR}" >> "$GITHUB_OUTPUT"
+          echo "Native PAL sharded roots: state=${PAL_SR} efb=${PAL_EFB} receipt=${PAL_RR}"
+      - name: Assert hosted whole-protocol sharded golden roots (native)
+        run: |
+          cargo test -p qash-pal --features std --test whole_protocol \
+            whole_protocol_sharded_canonical_roots_golden
 
   # Step 2: cross-compile and run via QEMU user-static (no Docker required).
   # Uses .cargo/config.toml runners: qemu-aarch64-static -L /usr/aarch64-linux-gnu
@@ -73,7 +97,7 @@ jobs:
             echo "  ${{ matrix.target }}: ${ROOT}"
             exit 1
           fi
-          echo "OK: roots match"
+          echo "OK: consensus roots match"
       - name: Run full test suite on ${{ matrix.target }}
         run: |
           cargo test -p qash-consensus --no-default-features \
@@ -86,3 +110,38 @@ jobs:
           cargo test -p qash-consensus --no-default-features \
             --target ${{ matrix.target }} \
             --test v1_2_sharded_replay v1_2_sharded_corpus_matches_pinned
+      # ── Hosted whole-protocol sharded replay cross-ISA evidence (TH-7) ──────
+      - name: Run hosted whole-protocol sharded golden roots on ${{ matrix.target }}
+        run: |
+          cargo test -p qash-pal --features std --test whole_protocol \
+            --target ${{ matrix.target }} \
+            whole_protocol_sharded_canonical_roots_golden
+      - name: Compare hosted PAL sharded roots against native reference
+        run: |
+          OUTPUT=$(cargo test -p qash-pal --features std --test whole_protocol \
+                    --target ${{ matrix.target }} \
+                    -- whole_protocol_sharded_canonical_roots_print --nocapture 2>/dev/null)
+          PAL_SR=$(echo  "$OUTPUT" | grep 'CANONICAL_SHARDED_STATE_ROOT_5_EPOCHS'   | head -1)
+          PAL_EFB=$(echo "$OUTPUT" | grep 'CANONICAL_SHARDED_EFB_ROOT_5_EPOCHS'     | head -1)
+          PAL_RR=$(echo  "$OUTPUT" | grep 'CANONICAL_SHARDED_RECEIPT_ROOT_5_EPOCHS' | head -1)
+          FAIL=0
+          if [ "${PAL_SR}"  != "${{ needs.native-root.outputs.pal_state_root }}" ];   then
+            echo "ERROR: pal state_root divergence on ${{ matrix.target }}"
+            echo "  native:  ${{ needs.native-root.outputs.pal_state_root }}"
+            echo "  target:  ${PAL_SR}"
+            FAIL=1
+          fi
+          if [ "${PAL_EFB}" != "${{ needs.native-root.outputs.pal_efb_root }}" ];     then
+            echo "ERROR: pal efb_root divergence on ${{ matrix.target }}"
+            echo "  native:  ${{ needs.native-root.outputs.pal_efb_root }}"
+            echo "  target:  ${PAL_EFB}"
+            FAIL=1
+          fi
+          if [ "${PAL_RR}"  != "${{ needs.native-root.outputs.pal_receipt_root }}" ]; then
+            echo "ERROR: pal receipt_root divergence on ${{ matrix.target }}"
+            echo "  native:  ${{ needs.native-root.outputs.pal_receipt_root }}"
+            echo "  target:  ${PAL_RR}"
+            FAIL=1
+          fi
+          if [ "$FAIL" = "1" ]; then exit 1; fi
+          echo "OK: PAL sharded roots match native on ${{ matrix.target }}"
