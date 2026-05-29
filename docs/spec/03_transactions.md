@@ -425,6 +425,15 @@ revision. Its design will exercise:
 
 `TX-2` will be added only after `TX-0` and `TX-1` are stable and CI-verified.
 
+### Post-genesis transaction types (economic)
+
+Economic transaction types — including value transfer, receipt-based
+payment, blinded fee markets, and application-layer state transitions —
+are **excluded from the v1.0/v1.1 genesis algebra** and are deferred to
+post-genesis application-layer protocols or successor networks. No economic
+semantics are encoded in `GENESIS_CONSTANTS.toml`. The genesis transaction
+registry (`𝕋`) is closed at `{TX-0, TX-1}`.
+
 ---
 
 ## §7 — Replay and Idempotence

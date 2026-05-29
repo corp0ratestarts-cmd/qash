@@ -166,6 +166,20 @@
 
 ---
 
+### P5-0: Bat Immunology Tolerance Model (§11.5, TH-GC)
+
+| Field | Value |
+|-------|-------|
+| **PDF §** | §11.5 (Tolerance-Based Divergence Containment) |
+| **PDF quote** | `PDF-SILENT`: the bat immunology metaphor is a conceptual mapping; the formal mathematical bound is defined in `docs/spec/01_consensus.md §5` and the Coq proofs. |
+| **Code** | `crates/consensus/src/lyapunov.rs` — `tolerance_margin_remaining()` returns `EPSILON_HALT - delta_window`, the remaining margin before halt. `EPSILON_HONEST = 2_000` (honest ISA variance bound); `EPSILON_HALT = 20_000` (halt threshold); safety margin = 10×. |
+| **Test / Vector** | `lyapunov.rs::tests::tolerance_margin_remaining_at_zero_delta`; `lyapunov.rs::tests::tolerance_margin_remaining_at_epsilon_honest`; `golden_replay.rs::axiom_delta_window_at_epsilon_does_not_halt`. |
+| **Proof** | `TH_GC_grace_no_halt`, `TH_GC_honest_steps_no_halt` — honest epochs with δ ≤ ε_honest never trigger halt. `TH_GC_tolerance_margin_positive` — 10× safety margin between ε_honest and ε_halt is formally positive. All in `contractivity/lyapunov_grace_convergence.v`. |
+| **Status** | ✅ |
+| **Gap** | The biological metaphor ("clonal deletion", "cross-reactive tolerance") is a documentation aid only; the mathematical bound is fully formalised and CI-enforced. |
+
+---
+
 ### P5-2: Plonky3 FRI-STARK 2-Layer Recursion KAT (5-A)
 
 | Field | Value |

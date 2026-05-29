@@ -33,6 +33,8 @@ docs/adr/ADR-003-state-root-encoding.md
 docs/adr/ADR-004-absorbing-halt-layering.md
 docs/adr/ADR-004-halt-layering-domain-a-vs-pal.md
 docs/adr/ADR-005-rust-toolchain-version.md
+docs/adr/ADR-006-runtime-optimization-track.md
+docs/adr/ADR-012-streaming-state-root-encoding.md
 docs/adr/IC-001-no-heap-cascade.md
 docs/spec/00_execution_model.md
 docs/spec/01_consensus.md

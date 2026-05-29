@@ -460,6 +460,45 @@ See 00_execution_model.md §E3 for the full allocation policy.
 
 ---
 
+## §3.11 — Causal Fingerprint
+
+The **Causal Fingerprint** is a rolling hash that accumulates every epoch
+transition into a single 32-byte value, guaranteeing that two sequences
+with the same final fingerprint had identical transition histories. It is
+the mechanism that makes the Coq bisimulation proofs (TH-5, RT-1 through
+RT-4) executable and cross-ISA verifiable.
+
+### Definition
+
+```
+F_0  = genesis_seed               // fixed in GENESIS_CONSTANTS.toml
+F_t  = H_domain(CAUSAL_FP, F_{t-1} ∥ epoch_le ∥ sort_root)
+```
+
+where:
+- `H_domain` is the standard domain-separated SHA3-256 used throughout Domain A
+- `CAUSAL_FP = 0x07` is the domain tag for causal fingerprint operations
+- `epoch_le` is the 8-byte little-endian encoding of the epoch counter `t`
+- `sort_root` is the SHA3-256 over the canonically-ordered transaction set at epoch `t`
+
+### Properties
+
+| Property | Proof |
+|----------|-------|
+| Determinism: equal inputs → equal fingerprint | `fingerprint_deterministic` in `safety/causal_fingerprint.v` |
+| Step injectivity: H(F,e,r) = H(F',e',r') → F=F', e=e', r=r' | `fp_step_injective` (from hash collision axiom) |
+| Chain injectivity: equal-length chains with equal terminal F had equal histories | `fingerprint_chain_injective` |
+| Bisimulation collapse prevention: fp-bisimilar sequences are identical | `bisim_collapse_prevented` |
+
+### Implementation
+
+`crates/consensus/src/transition.rs` computes `F_t` at step 8 of the
+transition function (after entropy advance, before state root). The
+fingerprint is committed into the state root preimage, ensuring that
+any two states with the same root also have the same causal history.
+
+---
+
 ## §4 — Stability Functions
 
 The protocol uses **two structurally distinct functions** with separate proof obligations.
