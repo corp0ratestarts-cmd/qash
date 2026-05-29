@@ -2500,17 +2500,17 @@ outside that boundary, or accepted by owner sign-off as a release-boundary assum
 
 Before the v1.1 cutover at epoch 101, all of the following must be green:
 
-- [ ] Sovereign profile tests pass: `cargo test --features suite_guomi` and `cargo test --features suite_korea`
-- [ ] CAVP KAT gate: `cavp-kat` CI job passes before any crypto primitive merge
-- [ ] Constant-time audit for any new Domain B crypto path: `cargo test -p qash-pal constant_time_audit -- --nocapture`
-- [ ] Interpreter conformance: 70,000+ random sequences, zero disagreements: `cargo test -p qash-consensus --test interpreter_conformance`
+- [x] Sovereign profile tests pass: `cargo test --features suite_guomi` and `cargo test --features suite_korea`
+- [x] CAVP KAT gate: `cavp-kat` CI job passes before any crypto primitive merge
+- [x] Constant-time audit for any new Domain B crypto path: `cargo test -p qash-pal constant_time_audit -- --nocapture`
+- [x] Interpreter conformance: 70,000+ random sequences, zero disagreements: `cargo test -p qash-consensus --test interpreter_conformance`
 - [x] Privacy spec merged: `docs/spec/09_privacy_model.md` normative; receipt shredding test passes
-- [ ] CC Security Target drafted: `docs/compliance/cc_security_target.md`
-- [ ] DPIA filed: `docs/compliance/dpia.md` per GDPR Art. 35
-- [ ] Reproducible build verified: `bash scripts/verify_reproducible_build.sh` exits 0
-- [ ] Confluence proof: `proofs/composition/lyapunov_confluence.v` compiles, zero `Admitted`
-- [ ] Causal fingerprint: `proofs/safety/causal_fingerprint.v` compiles, zero `Admitted`
-- [ ] Benchmark artifacts archived for every performance-sensitive change,
+- [x] CC Security Target drafted: `docs/compliance/cc_security_target.md`
+- [x] DPIA filed: `docs/compliance/dpia.md` per GDPR Art. 35
+- [x] Reproducible build verified: `bash scripts/verify_reproducible_build.sh` exits 0
+- [x] Confluence proof: `proofs/composition/lyapunov_confluence.v` compiles, zero `Admitted`
+- [x] Causal fingerprint: `proofs/safety/causal_fingerprint.v` compiles, zero `Admitted`
+- [x] Benchmark artifacts archived for every performance-sensitive change,
       including Phase 2-R tx-heavy and commit-path Criterion reports under
       `artifacts/benchmarks/`
 
