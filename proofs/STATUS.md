@@ -39,6 +39,10 @@
 | `ordering/compatibility_window.v` | Compiles | CW-1 compatibility_window_bound; CW-2 version_v1_0_accepted_before_window; CW-3 version_v1_0_rejected_after_window; CW-4 version_v1_1_always_accepted; CW-5 window_closure_monotone; v1_0_rejected_all_future |
 | `sharding/efb_determinism.v` | Compiles | EFB root determinism for identical inputs; epoch-bound receipt replay rejection |
 | `model/Extract.v` | Compiles | Extraction surface checked by `make all`; extracted OCaml is redirected to `/tmp/qash-model-extracted.ml` during proof builds. |
+| `privacy/cascade_avalanche_property.v` | Compiles (Axiom) | `cascade_avalanche_property` placeholder; deferred to Domain B blinding spec / SSProve ROM formalisation |
+| `privacy/oblivious_access_non_interference.v` | Compiles (Axiom) | `oblivious_access_non_interference` placeholder; deferred to blinding_params definition and Domain B blinding spec |
+| `privacy/receipt_proof_soundness.v` | Compiles (Axiom) | `receipt_proof_soundness` placeholder; deferred to `06_receipts.md` and Plonky3 FRI-STARK integration |
+| `privacy/blinding_health_metric.v` | Compiles (Axiom) | `blinding_health_bounded`, `blinding_halt_monotone` placeholders; deferred to §P8 metric definition in Domain B blinding spec |
 | `_wip/absorbing_halt.v.draft` | Archived draft | Superseded by `safety/absorbing_halt.v` |
 | `_wip/encode_injectivity.v.draft` | Archived draft | Superseded by `contractivity/encode_injectivity.v` |
 
