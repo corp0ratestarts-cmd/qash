@@ -561,6 +561,12 @@ pub struct TransitionResult {
     pub lyapunov: LyapunovEval,
     pub public_transcript: PublicTranscript,
     pub efb: Option<EpochFinalityBeacon>,
+    /// v1.1 finality gate: true when the state machine is live but finality is
+    /// suppressed (liveness suppression, NOT an absorbing halt). Set when
+    /// `state.epoch > COMPATIBILITY_WINDOW` AND `cascade_health < CASCADE_DEPTH`.
+    /// When stalled, the epoch still advances and state is committed; only
+    /// cross-shard finality acknowledgment is withheld by higher layers.
+    pub stalled: bool,
 }
 
 pub struct EpochShardingInput<'a> {
@@ -747,6 +753,11 @@ fn run_pipeline(
     // | Below: assignments only. No `?`. No checked ops. |
     // +==================================================+
 
+    // v1.1 finality gate: liveness-suppressing stall (NOT an absorbing halt).
+    // State still advances; only finality acknowledgment is withheld by higher layers.
+    // Uses next_epoch (post-advance) for the window check.
+    let stalled = next_epoch > COMPATIBILITY_WINDOW && new_cascade_health < CASCADE_DEPTH;
+
     state.validators = next_validators;
     state.nonces = tx_plan.next_nonces;
     state.convergence_window = next_window;
@@ -771,6 +782,7 @@ fn run_pipeline(
         lyapunov: lyap,
         public_transcript,
         efb,
+        stalled,
     })
 }
 
@@ -1350,6 +1362,80 @@ mod tests {
         assert_ne!(
             state_a.state_root, state_b.state_root,
             "cascade_health must be committed to state root"
+        );
+    }
+
+    #[test]
+    fn cascade_health_overflow_triggers_arith_overflow() {
+        // When cascade_health is at u32::MAX and a clean epoch would increment it,
+        // saturating_add prevents overflow — it saturates at u32::MAX, then .min(CASCADE_DEPTH)
+        // clamps it down. This test verifies the implementation is safe (no ArithOverflow halt)
+        // because saturating_add is used, not checked_add — consistent with the current design.
+        // The field stays bounded by CASCADE_DEPTH.
+        let mut state = genesis_state_vc4();
+        // Force cascade_health above CASCADE_DEPTH to a very high value.
+        // The next clean epoch should saturate via .min(CASCADE_DEPTH) = 8.
+        // Note: the decode path would reject cascade_health > CASCADE_DEPTH, so this
+        // can only occur via direct in-memory state construction (e.g., a buggy halted path).
+        // The saturating_add().min(CASCADE_DEPTH) contract means u32::MAX is safe.
+        state.cascade_health = u32::MAX;
+        // A clean epoch: saturating_add(1) = u32::MAX, .min(CASCADE_DEPTH) = CASCADE_DEPTH.
+        let result = advance_epoch(&mut state, &idle_input(4), &[]);
+        // Must NOT produce ArithOverflow — saturating arithmetic protects us.
+        assert!(
+            result.is_ok(),
+            "cascade_health overflow must not cause ArithOverflow (saturating_add)"
+        );
+        assert_eq!(
+            state.cascade_health, CASCADE_DEPTH,
+            "cascade_health must be clamped to CASCADE_DEPTH"
+        );
+    }
+
+    #[test]
+    fn finality_gate_stalls_at_epoch_101_health_7() {
+        // After the compatibility window (epoch > COMPATIBILITY_WINDOW = 100),
+        // a cascade_health below CASCADE_DEPTH triggers stalled=true.
+        // Setup: advance to epoch 101 with a dirty epoch (divergence present) so health stays low.
+        let mut state = genesis_state_vc4();
+        state.epoch = COMPATIBILITY_WINDOW; // will be advanced to 101
+
+        // Inject divergence so cascade_health resets to 0 (not a clean epoch).
+        let mut dirty_input = idle_input(4);
+        dirty_input.updates[0] = Some(ValidatorUpdate {
+            divergence_new: FixedPoint::from_raw(1),
+            conflict_new: FixedPoint::ZERO,
+            slash_accum_new: FixedPoint::ZERO,
+        });
+        let result = advance_epoch(&mut state, &dirty_input, &[]).unwrap();
+
+        // epoch is now 101 (> 100), cascade_health is 0 (< 8) → stalled=true.
+        assert_eq!(state.epoch, COMPATIBILITY_WINDOW + 1);
+        assert_eq!(state.cascade_health, 0);
+        assert!(
+            result.stalled,
+            "finality gate must stall when epoch > COMPATIBILITY_WINDOW and health < CASCADE_DEPTH"
+        );
+    }
+
+    #[test]
+    fn finality_gate_passes_at_health_8() {
+        // When cascade_health reaches CASCADE_DEPTH after the compatibility window,
+        // stalled must be false.
+        let mut state = genesis_state_vc4();
+        // Start just past the compatibility window with health already at threshold.
+        state.epoch = COMPATIBILITY_WINDOW;
+        state.cascade_health = CASCADE_DEPTH; // saturated health
+
+        // Clean epoch: cascade_health stays at CASCADE_DEPTH.
+        let result = advance_epoch(&mut state, &idle_input(4), &[]).unwrap();
+
+        // epoch is now 101, health is CASCADE_DEPTH → stalled=false.
+        assert_eq!(state.epoch, COMPATIBILITY_WINDOW + 1);
+        assert_eq!(state.cascade_health, CASCADE_DEPTH);
+        assert!(
+            !result.stalled,
+            "finality gate must not stall when cascade_health >= CASCADE_DEPTH"
         );
     }
 

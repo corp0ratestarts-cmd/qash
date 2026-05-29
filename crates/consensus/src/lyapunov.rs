@@ -14,6 +14,12 @@ pub const EPSILON: FixedPoint = FixedPoint::from_raw(20_000);
 /// Maximum safe Φ_safety value (raw fixed-point units) before H7 halt.
 pub const PHI_MAX_SAFE: FixedPoint = FixedPoint::from_raw(500_000_000);
 
+/// v1.1: cascade health threshold (from GENESIS_CONSTANTS.toml [cascade.health]).
+pub const CASCADE_HEALTH_THRESHOLD: u32 = 8;
+/// v1.1: weight applied to cascade health deficit in Lyapunov potential.
+/// Factor = 50_000 (from GENESIS_CONSTANTS.toml [cascade.health] cascade_health_factor).
+pub const CASCADE_HEALTH_FACTOR: i64 = 50_000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LyapunovError {
     Overflow,
@@ -135,6 +141,24 @@ pub fn evaluate(
     validators: &[ValidatorMetrics],
     window: &ConvergenceWindow,
 ) -> Result<LyapunovEval, LyapunovError> {
+    // Pass full health so the cascade deficit term is zero — equivalent to pre-v1.1 behaviour.
+    evaluate_with_cascade_health(validators, window, CASCADE_HEALTH_THRESHOLD)
+}
+
+/// v1.1: Lyapunov evaluation with cascade health deficit term.
+///
+/// Adds `χ · (health_threshold - cascade_health)` to V_total, where:
+/// - `χ = CASCADE_HEALTH_FACTOR = 50_000`
+/// - health deficit = `CASCADE_HEALTH_THRESHOLD.saturating_sub(cascade_health)`
+///
+/// When `cascade_health >= CASCADE_HEALTH_THRESHOLD`, the deficit is 0 and this
+/// is identical to `evaluate(validators, window)`. When health is below threshold,
+/// convergence pressure increases proportionally.
+pub fn evaluate_with_cascade_health(
+    validators: &[ValidatorMetrics],
+    window: &ConvergenceWindow,
+    cascade_health: u32,
+) -> Result<LyapunovEval, LyapunovError> {
     let mut v_sum = FixedPoint::ZERO;
     let mut sum_slash = FixedPoint::ZERO;
 
@@ -150,7 +174,16 @@ pub fn evaluate(
     }
 
     let phi = WEIGHT_S.checked_mul(sum_slash)?;
-    let v_total = v_sum.checked_add(phi)?;
+
+    // v1.1: cascade health deficit term — increases convergence pressure when health < threshold.
+    let health_deficit = CASCADE_HEALTH_THRESHOLD.saturating_sub(cascade_health) as i64;
+    let cascade_term = FixedPoint::from_raw(
+        health_deficit
+            .checked_mul(CASCADE_HEALTH_FACTOR)
+            .ok_or(LyapunovError::Overflow)? as i128,
+    );
+
+    let v_total = v_sum.checked_add(phi)?.checked_add(cascade_term)?;
     let phi_halt_triggered = phi.raw() >= PHI_MAX_SAFE.raw();
 
     // IMPORTANT: δ_window is checked against V_CONVERGENCE (v_sum), NOT V_total.
@@ -260,6 +293,56 @@ mod tests {
 
         assert_eq!(eval.phi_safety.raw(), PHI_MAX_SAFE.raw() + 1);
         assert!(eval.phi_halt_triggered);
+    }
+
+    // ------------------------------------------------------------------
+    // 2-D: Cascade health deficit term in Lyapunov potential
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn lyapunov_pressure_higher_at_health_0_than_health_7() {
+        // Same validators, same window — the only difference is cascade_health.
+        // health=0: deficit = 8, cascade_term = 8 * 50_000 = 400_000
+        // health=7: deficit = 1, cascade_term = 1 * 50_000 = 50_000
+        // So v_total at health=0 must exceed v_total at health=7.
+        let validators = [ValidatorMetrics::ZERO];
+        let window = ConvergenceWindow::new();
+
+        let eval_h0 =
+            evaluate_with_cascade_health(&validators, &window, 0).expect("health=0 must succeed");
+        let eval_h7 =
+            evaluate_with_cascade_health(&validators, &window, 7).expect("health=7 must succeed");
+
+        assert!(
+            eval_h0.v_total.raw() > eval_h7.v_total.raw(),
+            "v_total at health=0 ({}) must exceed v_total at health=7 ({})",
+            eval_h0.v_total.raw(),
+            eval_h7.v_total.raw(),
+        );
+        // Verify exact values: deficit=8 → term=400_000; deficit=1 → term=50_000
+        assert_eq!(eval_h0.v_total.raw(), 400_000);
+        assert_eq!(eval_h7.v_total.raw(), 50_000);
+    }
+
+    #[test]
+    fn lyapunov_cascade_term_zero_at_full_health() {
+        // At health == CASCADE_HEALTH_THRESHOLD (8), deficit = 0, so cascade_term = 0.
+        // v_total must equal v_convergence + phi (no additional term).
+        let validators = [ValidatorMetrics::ZERO];
+        let window = ConvergenceWindow::new();
+
+        let eval_full =
+            evaluate_with_cascade_health(&validators, &window, CASCADE_HEALTH_THRESHOLD)
+                .expect("full health must succeed");
+        let eval_base =
+            evaluate(&validators, &window).expect("base evaluate must succeed");
+
+        // cascade_health=8 ≥ threshold=8: term=0; must equal base evaluate.
+        assert_eq!(
+            eval_full.v_total.raw(),
+            eval_base.v_total.raw(),
+            "v_total must be identical to base evaluate at full health"
+        );
     }
 
     #[test]

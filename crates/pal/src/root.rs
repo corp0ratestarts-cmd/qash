@@ -1,4 +1,7 @@
 pub mod admission;
+#[cfg(feature = "hardened")]
+pub mod hardening;
+pub mod proximity;
 pub mod clone;
 pub mod commitment_backpressure;
 pub mod commitment_inbox;

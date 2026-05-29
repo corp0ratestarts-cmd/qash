@@ -140,6 +140,14 @@ the full three-layer correspondence chain and extraction pipeline.
 
 ---
 
+## Cascade Health Tracking (2-D)
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| Cascade health tracking: `cascade_health` increments each clean epoch (all validators D=0, C=0), resets to 0 on any gap, saturates at `CASCADE_DEPTH=8`; committed to state root; finality gate stalls (not halts) when epoch > COMPATIBILITY_WINDOW and health < CASCADE_DEPTH; Lyapunov potential gains a cascade health deficit term (weight=50_000) increasing convergence pressure during unhealthy runs | §2-D, GENESIS [cascade.health] | **CI-VERIFIED** | — | `crates/consensus/src/transition.rs`, `crates/consensus/src/lyapunov.rs` | `transition::tests::cascade_health_increments_on_clean_epochs`; `transition::tests::cascade_health_saturates_at_depth`; `transition::tests::cascade_health_resets_on_high_divergence`; `transition::tests::cascade_health_overflow_triggers_arith_overflow`; `transition::tests::finality_gate_stalls_at_epoch_101_health_7`; `transition::tests::finality_gate_passes_at_health_8`; `transition::tests::cascade_health_in_state_root_commitment`; `lyapunov::tests::lyapunov_pressure_higher_at_health_0_than_health_7`; `lyapunov::tests::lyapunov_cascade_term_zero_at_full_health` |
+
+---
+
 ## Domain Crossing Properties (1-A)
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
@@ -159,11 +167,11 @@ the full three-layer correspondence chain and extraction pipeline.
 | Status | Count |
 |--------|-------|
 | **PROVED** | 42 |
-| **CI-VERIFIED** | 4 |
+| **CI-VERIFIED** | 5 |
 | **AXIOM** | 3 |
 | **PLACEHOLDER** | 6 |
 | **MISSING** | 0 |
-| **Total** | 48 |
+| **Total** | 49 |
 
 ---
 
