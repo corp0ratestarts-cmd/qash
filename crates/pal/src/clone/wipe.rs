@@ -138,13 +138,13 @@ fn compute_signature(
     sig_h.update(WIPE_SIG_DOMAIN);
     sig_h.update(key);
     sig_h.update(issuer_pk);
-    sig_h.update(&body_hash);
+    sig_h.update(body_hash);
     let lo: [u8; 32] = sig_h.finalize().into();
 
     let mut sig_h2 = Sha3_256::new();
     sig_h2.update(WIPE_SIG_DOMAIN);
     sig_h2.update(b"ext\0");
-    sig_h2.update(&lo);
+    sig_h2.update(lo);
     let hi: [u8; 32] = sig_h2.finalize().into();
 
     let mut out = [0u8; 64];
