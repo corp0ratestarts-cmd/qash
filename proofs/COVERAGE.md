@@ -174,12 +174,12 @@ the full three-layer correspondence chain and extraction pipeline.
 
 | Status | Count |
 |--------|-------|
-| **PROVED** | 42 |
-| **CI-VERIFIED** | 6 |
+| **PROVED** | 43 |
+| **CI-VERIFIED** | 7 |
 | **AXIOM** | 3 |
-| **PLACEHOLDER** | 6 |
+| **PLACEHOLDER** | 2 |
 | **MISSING** | 0 |
-| **Total** | 50 |
+| **Total** | 55 |
 
 ---
 

@@ -150,6 +150,36 @@
 | **Status** | ⚠️ |
 | **Gap** | Hosted PAL replay determinism has integration coverage on the native test target; cross-ISA hosted replay artifacts and corrupt-log fuzzing remain future work. |
 
+## Phase 5 — Landed Features (PR #213)
+
+### P5-1: Sharded Protocol Structure and EFB (5-A)
+
+| Field | Value |
+|-------|-------|
+| **PDF §** | §12 (sharded protocol, provisional) |
+| **PDF quote** | `PDF-SILENT`: `docs/spec/12_sharded_protocol.md` is the normative source until the PDF is committed. |
+| **Code** | `crates/consensus/src/sharding.rs` — `assign_shard` computes `H_domain(ShardAssignment, epoch_seed ‖ validator_id ‖ bond_weight ‖ shard_count)` truncated mod `shard_count`; Domain A safe (no std, no unsafe, checked arithmetic). |
+| **Test / Vector** | `crates/consensus/tests/shard_capture_simulation.rs` — SIM-SC-1 (uniform distribution), SIM-SC-2 (25% adversary ≤5/10 epoch captures), SIM-SC-3 (bond weight sensitivity), SIM-SC-4 (epoch seed rotation), SIM-SC-5 (40% adversary 0/100 full captures). |
+| **Proof** | — (statistical simulation evidence; formal shard-security proof deferred) |
+| **Status** | ✅ |
+| **Gap** | Formal Coq shard-security bound proof deferred; simulation evidence gates are CI-enforced. |
+
+---
+
+### P5-2: Plonky3 FRI-STARK 2-Layer Recursion KAT (5-A)
+
+| Field | Value |
+|-------|-------|
+| **PDF §** | §12 (ZK proof aggregation, provisional) |
+| **PDF quote** | `PDF-SILENT`: commitment scheme and recursion profile specified in `docs/adr/` for QASH PR#93 profile. |
+| **Code** | `crates/pal/src/zk/backend.rs` — `ZkBackend::prove_shard` / `ZkBackend::aggregate_shards`; `commitment_of_public_values` computes SHA3-256 over BabyBear public inputs; `FibonacciAir` test circuit. Feature-gated `plonky3,std`. |
+| **Test / Vector** | `crates/pal/src/zk/backend.rs::tests::two_layer_recursion_corpus_kat_commitment` — pins SHA3-256(0x00000000 ‖ 0x01000000 ‖ 0x15000000) = `e230d00c…30a6`; `two_layer_pipeline_e2e_fibonacci` — full 4-shard layer-1 + 1 layer-2 aggregation roundtrip. |
+| **Proof** | — (KAT pins the commitment scheme; full soundness proof of FRI-STARK is in the Plonky3 upstream) |
+| **Status** | ✅ |
+| **Gap** | Production FRI config (128 queries, full security) is too slow for unit tests; test config uses minimal parameters. Production config validation deferred to deployment profiling. |
+
+---
+
 ## P1+ — Deferred Work Items
 
 | ID | PDF § | Topic | Deferred because |
