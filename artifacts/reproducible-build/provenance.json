@@ -1,0 +1,32 @@
+{
+  "_type": "https://in-toto.io/Statement/v0.1",
+  "predicateType": "https://slsa.dev/provenance/v0.2",
+  "subject": [
+    {
+      "name": "qash",
+      "digest": { "sha256": "a42c14f99e5b79f16255c67030e59c1c7a5afb53797b8b0d2472473d9a4569fb" }
+    }
+  ],
+  "predicate": {
+    "builder": { "id": "local-reproducible-build-script" },
+    "buildType": "https://github.com/corp0ratestarts-cmd/qash/scripts/verify_reproducible_build.sh",
+    "invocation": {
+      "configSource": {
+        "uri": "git+https://github.com/corp0ratestarts-cmd/qash",
+        "digest": { "sha1": "9f1222f407c6455476a13041ec9a1092e2cd6464" }
+      },
+      "environment": {
+        "SOURCE_DATE_EPOCH": "1780057629",
+        "RUST_VERSION": "rustc 1.95.0 (59807616e 2026-04-14)",
+        "CARGO_VERSION": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)"
+      }
+    },
+    "metadata": {
+      "buildStartedOn": "2026-05-29T12:27:23Z",
+      "reproducible": true,
+      "stage1_sha256": "a42c14f99e5b79f16255c67030e59c1c7a5afb53797b8b0d2472473d9a4569fb",
+      "stage2_sha256": "a42c14f99e5b79f16255c67030e59c1c7a5afb53797b8b0d2472473d9a4569fb",
+      "note": "Stub only — full Sigstore/SLSA attestation requires CI OIDC integration"
+    }
+  }
+}

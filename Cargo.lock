@@ -1052,6 +1052,7 @@ dependencies = [
  "sha3 0.10.9",
  "sm3",
  "static_assertions",
+ "subtle",
  "typenum",
  "zeroize",
 ]

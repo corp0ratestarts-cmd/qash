@@ -1,0 +1,7 @@
+Reproducible Build Verification
+================================
+Result:  PASS
+Commit:  9f1222f407c6 (9f1222f407c6455476a13041ec9a1092e2cd6464)
+Hash:    a42c14f99e5b79f16255c67030e59c1c7a5afb53797b8b0d2472473d9a4569fb
+Written: artifacts/reproducible-build/build-hashes.txt
+         artifacts/reproducible-build/provenance.json
