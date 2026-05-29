@@ -12,6 +12,7 @@ pub mod compression;
 pub mod cover_traffic;
 pub mod dedup;
 pub mod relay;
+pub mod wipe;
 
 pub use compression::{
     compress_chunk_payload, decompress_chunk_payload, is_compressed, CompressionError,
@@ -23,4 +24,5 @@ pub use cover_traffic::{
 };
 pub use dedup::ChunkRelayFilter;
 pub use relay::{BufferedChunk, RelayError, StoreForwardBuffer, MAX_BUFFERED_CHUNKS, MAX_EPOCH_AGE};
+pub use wipe::{WipeError, WipeSignal, WIPE_MAGIC, WIPE_SIGNAL_BYTES, WIPE_VERSION};
 

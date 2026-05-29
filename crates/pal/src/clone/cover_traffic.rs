@@ -54,7 +54,7 @@ pub fn make_dummy_payload(epoch: u64, seq: u64, relay_nonce: &[u8; 32]) -> [u8; 
     let mut h2 = Sha3_256::new();
     h2.update(DUMMY_DOMAIN);
     h2.update(b"ext\0");
-    h2.update(&digest);
+    h2.update(digest);
     let ext: [u8; 32] = h2.finalize().into();
     out[40..64].copy_from_slice(&ext[..24]);
     out
