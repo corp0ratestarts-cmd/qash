@@ -49,7 +49,9 @@ pub struct StoreForwardBuffer {
 
 impl StoreForwardBuffer {
     pub fn new() -> Self {
-        Self { queues: std::collections::BTreeMap::new() }
+        Self {
+            queues: std::collections::BTreeMap::new(),
+        }
     }
 
     /// Buffer `chunk` for `destination`.
@@ -130,7 +132,10 @@ mod tests {
     use super::*;
 
     fn chunk(epoch: u64) -> BufferedChunk {
-        BufferedChunk { chunk_epoch: epoch, bytes: vec![epoch as u8; 8] }
+        BufferedChunk {
+            chunk_epoch: epoch,
+            bytes: vec![epoch as u8; 8],
+        }
     }
 
     #[test]
@@ -167,7 +172,12 @@ mod tests {
         }
         assert_eq!(buf.total_buffered(), MAX_BUFFERED_CHUNKS);
         // One more should evict the oldest.
-        buf.enqueue(b"peer-x", chunk(MAX_BUFFERED_CHUNKS as u64), MAX_BUFFERED_CHUNKS as u64).unwrap();
+        buf.enqueue(
+            b"peer-x",
+            chunk(MAX_BUFFERED_CHUNKS as u64),
+            MAX_BUFFERED_CHUNKS as u64,
+        )
+        .unwrap();
         assert_eq!(buf.total_buffered(), MAX_BUFFERED_CHUNKS);
     }
 

@@ -66,7 +66,12 @@ impl WipeSignal {
         signing_key: &[u8; 32],
     ) -> Self {
         let sig = compute_signature(&session_id, epoch, &issuer_pk, signing_key);
-        Self { session_id, epoch, issuer_pk, signature: sig }
+        Self {
+            session_id,
+            epoch,
+            issuer_pk,
+            signature: sig,
+        }
     }
 
     /// Serialise to wire format (WIPE_SIGNAL_BYTES bytes).
@@ -102,7 +107,12 @@ impl WipeSignal {
         let epoch = u64::from_le_bytes(bytes[41..49].try_into().unwrap());
         let issuer_pk: [u8; 32] = bytes[49..81].try_into().unwrap();
         let signature: [u8; 64] = bytes[81..145].try_into().unwrap();
-        Ok(Self { session_id, epoch, issuer_pk, signature })
+        Ok(Self {
+            session_id,
+            epoch,
+            issuer_pk,
+            signature,
+        })
     }
 
     /// Verify the signature against `issuer_pk` using `verifier_key`.
@@ -111,7 +121,8 @@ impl WipeSignal {
     /// as the signing key (symmetric MAC). Substitute a PQC verify call when
     /// the Dilithium5 PAL backend is available.
     pub fn verify(&self, verifier_key: &[u8; 32]) -> Result<(), WipeError> {
-        let expected = compute_signature(&self.session_id, self.epoch, &self.issuer_pk, verifier_key);
+        let expected =
+            compute_signature(&self.session_id, self.epoch, &self.issuer_pk, verifier_key);
         if expected != self.signature {
             return Err(WipeError::SignatureInvalid);
         }
@@ -201,12 +212,18 @@ mod tests {
         let (sig, _) = test_signal();
         let mut bytes = sig.to_bytes();
         bytes[0] ^= 0xFF;
-        assert_eq!(WipeSignal::from_bytes(&bytes).unwrap_err(), WipeError::BadMagic);
+        assert_eq!(
+            WipeSignal::from_bytes(&bytes).unwrap_err(),
+            WipeError::BadMagic
+        );
     }
 
     #[test]
     fn from_bytes_rejects_wrong_length() {
-        assert_eq!(WipeSignal::from_bytes(&[0u8; 10]).unwrap_err(), WipeError::InvalidLength);
+        assert_eq!(
+            WipeSignal::from_bytes(&[0u8; 10]).unwrap_err(),
+            WipeError::InvalidLength
+        );
     }
 
     #[test]
@@ -214,7 +231,10 @@ mod tests {
         let (sig, _) = test_signal();
         let mut bytes = sig.to_bytes();
         bytes[8] = 0xFF; // version byte
-        assert_eq!(WipeSignal::from_bytes(&bytes).unwrap_err(), WipeError::UnknownVersion);
+        assert_eq!(
+            WipeSignal::from_bytes(&bytes).unwrap_err(),
+            WipeError::UnknownVersion
+        );
     }
 
     #[test]

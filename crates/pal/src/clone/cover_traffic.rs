@@ -39,7 +39,11 @@ const DUMMY_DOMAIN: &[u8] = b"QASH/clone/cover-traffic/v1\0";
 /// Output is DUMMY_MAGIC (8 bytes) followed by 56 bytes of pseudorandom filler
 /// derived from SHA3-256(DUMMY_DOMAIN || epoch_le8 || seq_le8 || relay_nonce).
 /// The filler makes the payload statistically indistinguishable from real data.
-pub fn make_dummy_payload(epoch: u64, seq: u64, relay_nonce: &[u8; 32]) -> [u8; DUMMY_PAYLOAD_BYTES] {
+pub fn make_dummy_payload(
+    epoch: u64,
+    seq: u64,
+    relay_nonce: &[u8; 32],
+) -> [u8; DUMMY_PAYLOAD_BYTES] {
     let mut h = Sha3_256::new();
     h.update(DUMMY_DOMAIN);
     h.update(epoch.to_le_bytes());
@@ -81,7 +85,11 @@ pub struct CoverTrafficScheduler {
 impl CoverTrafficScheduler {
     /// Create a scheduler with the given emission interval.
     pub fn new(interval_ms: u64) -> Self {
-        Self { interval_ms, last_emission_ms: 0, seq: 0 }
+        Self {
+            interval_ms,
+            last_emission_ms: 0,
+            seq: 0,
+        }
     }
 
     /// Create a scheduler at the genesis-canonical interval (one per epoch).

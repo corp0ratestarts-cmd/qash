@@ -27,7 +27,11 @@ STRICT_PROOFS := \
 	model/RefinementStatement.v \
 	model/Extract.v \
 	sharding/efb_determinism.v \
-	capability/cap_token_schema.v
+	capability/cap_token_schema.v \
+	privacy/cascade_avalanche_property.v \
+	privacy/oblivious_access_non_interference.v \
+	privacy/receipt_proof_soundness.v \
+	privacy/blinding_health_metric.v
 
 VFILES := $(STRICT_PROOFS)
 VOFILES := $(VFILES:.v=.vo)

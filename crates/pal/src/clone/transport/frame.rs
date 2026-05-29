@@ -75,7 +75,13 @@ impl ChunkFrame {
         if payload.len() > MAX_COMPRESSED_PAYLOAD {
             return Err(FrameError::PayloadTooLarge(payload.len()));
         }
-        Ok(Self { epoch, chunk_idx, chunk_total, payload, sig })
+        Ok(Self {
+            epoch,
+            chunk_idx,
+            chunk_total,
+            payload,
+            sig,
+        })
     }
 
     /// Serialise to wire bytes.
@@ -132,7 +138,13 @@ impl ChunkFrame {
         let mut sig = Box::new([0u8; SIG_BYTES]);
         sig.copy_from_slice(&bytes[payload_end..payload_end + SIG_BYTES]);
 
-        Ok(Self { epoch, chunk_idx, chunk_total, payload, sig })
+        Ok(Self {
+            epoch,
+            chunk_idx,
+            chunk_total,
+            payload,
+            sig,
+        })
     }
 }
 
@@ -173,12 +185,18 @@ mod tests {
     fn from_bytes_rejects_bad_version() {
         let mut bytes = test_frame().to_bytes();
         bytes[0] = 0xFF;
-        assert_eq!(ChunkFrame::from_bytes(&bytes).unwrap_err(), FrameError::BadVersion(0xFF));
+        assert_eq!(
+            ChunkFrame::from_bytes(&bytes).unwrap_err(),
+            FrameError::BadVersion(0xFF)
+        );
     }
 
     #[test]
     fn from_bytes_rejects_truncated() {
-        assert_eq!(ChunkFrame::from_bytes(&[0u8; 4]).unwrap_err(), FrameError::TooShort);
+        assert_eq!(
+            ChunkFrame::from_bytes(&[0u8; 4]).unwrap_err(),
+            FrameError::TooShort
+        );
     }
 
     #[test]

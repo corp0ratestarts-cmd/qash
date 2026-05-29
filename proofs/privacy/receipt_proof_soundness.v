@@ -15,9 +15,9 @@
       prover can produce a valid disclosure proof for a receipt not included
       in receipt_root without breaking the underlying hash commitment.
 
-      Formally: for any PPT prover P*,
-        Pr[Verify(receipt_root, π*, disclosure*) = 1 ∧
-           receipt* ∉ Receipts(receipt_root)] ≤ negl(λ)
+      Formally: for any adversarial prover P_star,
+        Pr[Verify(receipt_root, proof_star, disclosure_star) = 1 /\
+           receipt_star notin Receipts(receipt_root)] <= negl(lambda)
 
     Proof strategy (deferred):
       1. Specify the receipt commitment scheme (Merkle tree over

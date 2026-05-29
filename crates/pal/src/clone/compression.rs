@@ -45,17 +45,16 @@ pub fn decompress_chunk_payload(frame: &[u8]) -> Result<Vec<u8>, CompressionErro
     if &frame[..4] != COMPRESSED_MAGIC {
         return Err(CompressionError::InvalidFrame("bad magic"));
     }
-    let uncompressed_len =
-        u32::from_le_bytes([frame[4], frame[5], frame[6], frame[7]]) as usize;
+    let uncompressed_len = u32::from_le_bytes([frame[4], frame[5], frame[6], frame[7]]) as usize;
     if uncompressed_len > MAX_DECOMPRESSED_BYTES {
         return Err(CompressionError::PayloadTooLarge(uncompressed_len));
     }
-    let decompressed =
-        lz4_flex::decompress_size_prepended(&frame[8..]).map_err(|e| {
-            CompressionError::Lz4(e.to_string())
-        })?;
+    let decompressed = lz4_flex::decompress_size_prepended(&frame[8..])
+        .map_err(|e| CompressionError::Lz4(e.to_string()))?;
     if decompressed.len() != uncompressed_len {
-        return Err(CompressionError::InvalidFrame("length mismatch after decompression"));
+        return Err(CompressionError::InvalidFrame(
+            "length mismatch after decompression",
+        ));
     }
     Ok(decompressed)
 }
@@ -113,7 +112,10 @@ mod tests {
         let payload = vec![0xABu8; 4096];
         let frame = compress_chunk_payload(&payload).unwrap();
         // LZ4 should compress repetitive data significantly.
-        assert!(frame.len() < payload.len(), "LZ4 did not compress repetitive data");
+        assert!(
+            frame.len() < payload.len(),
+            "LZ4 did not compress repetitive data"
+        );
         let recovered = decompress_chunk_payload(&frame).unwrap();
         assert_eq!(recovered, payload);
     }

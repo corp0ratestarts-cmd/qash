@@ -168,12 +168,18 @@ mod tests {
         let mut frame = encode_frame(b"data").unwrap();
         let last = frame.len() - 1;
         frame[last] ^= 0x01;
-        assert_eq!(decode_frame(&frame).unwrap_err(), UltrasonicError::CrcMismatch);
+        assert_eq!(
+            decode_frame(&frame).unwrap_err(),
+            UltrasonicError::CrcMismatch
+        );
     }
 
     #[test]
     fn decode_rejects_short_frame() {
-        assert_eq!(decode_frame(&[0u8; 4]).unwrap_err(), UltrasonicError::FrameTooShort);
+        assert_eq!(
+            decode_frame(&[0u8; 4]).unwrap_err(),
+            UltrasonicError::FrameTooShort
+        );
     }
 
     #[test]

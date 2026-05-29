@@ -5,7 +5,7 @@
 
     Status: PLACEHOLDER — full proof deferred pending Domain B blinding spec
     revision and formalisation of the hash cascade model in SSProve/CryptHOL.
-    Admitted axiom below is non-vacuous: the property is a standard
+    Placeholder axiom below is non-vacuous: the property is a standard
     cryptographic assumption about SHA3-256 as a random oracle.
 
     Informal statement:

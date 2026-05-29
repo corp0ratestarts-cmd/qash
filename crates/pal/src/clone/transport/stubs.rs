@@ -20,8 +20,12 @@ use super::{CloneTransport, TransportError};
 pub struct QrTransport;
 
 impl CloneTransport for QrTransport {
-    fn max_frame_bytes(&self) -> usize { 2048 }
-    fn name(&self) -> &'static str { "QR_code" }
+    fn max_frame_bytes(&self) -> usize {
+        2048
+    }
+    fn name(&self) -> &'static str {
+        "QR_code"
+    }
 
     fn send(&self, frame: &[u8]) -> Result<(), TransportError> {
         if frame.len() > self.max_frame_bytes() {
@@ -42,8 +46,12 @@ impl CloneTransport for QrTransport {
 pub struct NfcTransport;
 
 impl CloneTransport for NfcTransport {
-    fn max_frame_bytes(&self) -> usize { 512 }
-    fn name(&self) -> &'static str { "NFC" }
+    fn max_frame_bytes(&self) -> usize {
+        512
+    }
+    fn name(&self) -> &'static str {
+        "NFC"
+    }
 
     fn send(&self, frame: &[u8]) -> Result<(), TransportError> {
         if frame.len() > self.max_frame_bytes() {
@@ -81,8 +89,12 @@ impl Default for BleTransport {
 }
 
 impl CloneTransport for BleTransport {
-    fn max_frame_bytes(&self) -> usize { 512 }
-    fn name(&self) -> &'static str { "BLE" }
+    fn max_frame_bytes(&self) -> usize {
+        512
+    }
+    fn name(&self) -> &'static str {
+        "BLE"
+    }
 
     fn send(&self, frame: &[u8]) -> Result<(), TransportError> {
         if frame.len() > self.max_frame_bytes() {
@@ -103,8 +115,12 @@ impl CloneTransport for BleTransport {
 pub struct WifiDirectTransport;
 
 impl CloneTransport for WifiDirectTransport {
-    fn max_frame_bytes(&self) -> usize { 65536 }
-    fn name(&self) -> &'static str { "WiFi_Direct" }
+    fn max_frame_bytes(&self) -> usize {
+        65536
+    }
+    fn name(&self) -> &'static str {
+        "WiFi_Direct"
+    }
 
     fn send(&self, frame: &[u8]) -> Result<(), TransportError> {
         if frame.len() > self.max_frame_bytes() {
@@ -125,8 +141,12 @@ impl CloneTransport for WifiDirectTransport {
 pub struct LoRaTransport;
 
 impl CloneTransport for LoRaTransport {
-    fn max_frame_bytes(&self) -> usize { 255 }
-    fn name(&self) -> &'static str { "LoRa" }
+    fn max_frame_bytes(&self) -> usize {
+        255
+    }
+    fn name(&self) -> &'static str {
+        "LoRa"
+    }
 
     fn send(&self, frame: &[u8]) -> Result<(), TransportError> {
         if frame.len() > self.max_frame_bytes() {
