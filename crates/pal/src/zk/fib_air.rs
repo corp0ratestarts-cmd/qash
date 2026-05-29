@@ -34,6 +34,8 @@ pub struct FibRow<F> {
 impl<F> Borrow<FibRow<F>> for [F] {
     fn borrow(&self) -> &FibRow<F> {
         debug_assert_eq!(self.len(), NUM_FIBONACCI_COLS);
+        // SAFETY: FibRow<F> is #[repr(C)] with the same field type F; the slice
+        // is exactly NUM_FIBONACCI_COLS elements so alignment and size match.
         let (prefix, shorts, suffix) = unsafe { self.align_to::<FibRow<F>>() };
         debug_assert!(prefix.is_empty());
         debug_assert!(suffix.is_empty());
@@ -94,6 +96,8 @@ impl<AB: AirBuilder> Air<AB> for FibonacciAir {
 pub fn generate_fib_trace(a: u64, b: u64, n: usize) -> RowMajorMatrix<QashVal> {
     assert!(n.is_power_of_two(), "trace height must be a power of two");
     let mut values = QashVal::zero_vec(n * NUM_FIBONACCI_COLS);
+    // SAFETY: FibRow<QashVal> is #[repr(C)] with field QashVal; the allocation
+    // is n*NUM_FIBONACCI_COLS elements, matching n FibRow entries exactly.
     let (prefix, rows, suffix) = unsafe { values.align_to_mut::<FibRow<QashVal>>() };
     assert!(prefix.is_empty());
     assert!(suffix.is_empty());

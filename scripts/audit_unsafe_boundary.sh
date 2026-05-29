@@ -65,7 +65,7 @@ has_exception_entry() {
 if [ -d "$DOMAIN_A_DIR" ]; then
   echo "Scanning Domain A ($DOMAIN_A_DIR) — unconditional blocking..."
   while IFS= read -r file; do
-    while IFS=: read -r _ lineno line; do
+    while IFS=: read -r lineno line; do
       # Skip lines that are the forbid/deny attribute itself
       if echo "$line" | grep -qE 'forbid\(unsafe_code\)|deny\(unsafe_code\)'; then
         continue
@@ -87,7 +87,7 @@ for domain_dir in "${DOMAIN_B_DIRS[@]}"; do
   if [ -d "$domain_dir" ]; then
     echo "Scanning Domain B ($domain_dir) — advisory..."
     while IFS= read -r file; do
-      while IFS=: read -r _ lineno line; do
+      while IFS=: read -r lineno line; do
         # Skip forbid/deny attribute lines
         if echo "$line" | grep -qE 'forbid\(unsafe_code\)|deny\(unsafe_code\)'; then
           continue

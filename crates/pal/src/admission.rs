@@ -69,6 +69,9 @@ impl<const N: usize> EphemeralEnvelope<N> {
 impl<const N: usize> Drop for EphemeralEnvelope<N> {
     fn drop(&mut self) {
         for byte in &mut self.data {
+            // SAFETY: `byte` is a mutable reference to a valid u8 within
+            // self.data; write_volatile ensures the compiler cannot elide the
+            // zero-write as "dead store" when the array goes out of scope.
             unsafe { core::ptr::write_volatile(byte, 0) };
         }
         self.len = 0;
