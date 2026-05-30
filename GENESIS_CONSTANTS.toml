@@ -6,7 +6,7 @@ deployment_authoritative = false
 artifact_manifest = "spec/genesis-artifacts.txt"
 deployment_model = "one-shot"
 governance = "zero"
-genesis_hash = "QASH-CASCADE-7:3471b698401c1182b9d41f28c84464cea48c5c94abfae605d16a04d8dd5fe815318b673e9efb3d9f81f02fab5aef9bf7f444e6d046232f61141769e779ac8d6c"
+genesis_hash = "QASH-CASCADE-7:4f4606fe57cb4fcf1cacf73275423fe0873a13a27a03a6ffc6f9a9ab021c70c2d60ef2013c226b16e3c128378823388997ffa83b1ca897e7518d46de905c1e44"
 
 [fixed_point]
 scale = 1_000_000
@@ -120,7 +120,7 @@ compat_version_floor = 0x1000
 [genesis.certificate]
 algorithm = "QASH-GRC-7-7-v2"
 # artifact_identity_root == genesis_hash (QASH-CASCADE-7 output); see [meta].
-work_root = "ARGON2ID:1116e04e108ec2082d0a7c4831b519283310d2761b07c4fceedd53e96d95237b7aa7794be22c999af5930ae97202030bc095ac894d333ded55020936a86bcdee"
+work_root = "ARGON2ID:860ca3fed225dcf6d5a2c54c29e8d83eb64c1c3f9649ef6b54c7f350c7c62ac003b7683bab9010c2b3e6be1cf93f640af06396c3f13efe32b5c141e89c22164b"
 
 [genesis.work]
 algorithm = "Argon2id"
@@ -131,7 +131,7 @@ output_bytes = 64
 salt_algorithm = "SHA3-512"
 salt_inputs = ["QASH:GRC:PROVISIONAL:ENTROPY", "genesis_hash_bytes"]
 salt_status = "provisional"
-# At lock time: salt = SHA3-512(locked_public_entropy || genesis_hash_bytes)
+# At lock time: salt = full 64-byte SHA3-512(locked_public_entropy || genesis_hash_bytes)
 
 [genesis.long_work]
 enabled = false

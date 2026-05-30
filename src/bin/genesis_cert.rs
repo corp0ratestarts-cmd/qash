@@ -44,7 +44,8 @@ fn main() {
     };
 
     // Argon2id work root — p=1 for single-lane sequential memory-hardness.
-    let work_root = compute_work_root(&genesis_hash_bytes, &provisional_salt[..32]);
+    // Use all 64 bytes of the SHA3-512 salt output; no truncation.
+    let work_root = compute_work_root(&genesis_hash_bytes, &provisional_salt);
 
     // Supply-chain hashes.
     let compiler_hash = sha3_256_hex(&compiler_version_bytes());
@@ -78,7 +79,7 @@ fn main() {
     println!("salt_algorithm = \"SHA3-512\"");
     println!("salt_inputs = [\"QASH:GRC:PROVISIONAL:ENTROPY\", \"genesis_hash_bytes\"]");
     println!("salt_status = \"provisional\"");
-    println!("# At lock time: salt = SHA3-512(locked_public_entropy || genesis_hash_bytes)");
+    println!("# At lock time: salt = full 64-byte SHA3-512(locked_public_entropy || genesis_hash_bytes)");
     println!();
     println!("[genesis.long_work]");
     println!("enabled = false");

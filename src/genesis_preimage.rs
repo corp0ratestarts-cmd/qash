@@ -84,9 +84,15 @@ pub fn canonicalize_genesis_constants(text: &str) -> String {
         let trimmed = line.trim();
 
         // Update section tracking on section headers.
-        if trimmed.starts_with('[') && !trimmed.starts_with("[[") {
-            in_grc_section = GRC_COMPUTED_SECTIONS.contains(&trimmed);
-            in_timestamps = trimmed == "[genesis.timestamps]";
+        if trimmed.starts_with('[') {
+            if trimmed.starts_with("[[") {
+                // Array table — reset to prevent stale section state.
+                in_grc_section = false;
+                in_timestamps = false;
+            } else {
+                in_grc_section = GRC_COMPUTED_SECTIONS.contains(&trimmed);
+                in_timestamps = trimmed == "[genesis.timestamps]";
+            }
         }
 
         // Always blank genesis_hash regardless of section.
