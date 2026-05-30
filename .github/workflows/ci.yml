@@ -231,22 +231,21 @@ jobs:
 
   osv-scan:
     runs-on: ubuntu-latest
-    # Advisory until known CVEs are audited, upgraded, or recorded as justified exceptions.
-    continue-on-error: true
+    # Blocking: any unignored CVE fails the job. Known exceptions are in osv-ignore.toml.
     steps:
       - uses: actions/checkout@v4
       - name: OSV dependency vulnerability scan
         id: osv-scan
-        continue-on-error: true
         uses: google/osv-scanner-action/osv-scanner-action@v2.3.8
         with:
           scan-args: |-
             --lockfile=Cargo.lock
-      - name: Record advisory OSV result
+            --config=osv-ignore.toml
+      - name: Fail on OSV findings
         if: steps.osv-scan.outcome == 'failure'
         run: |
-          echo "OSV advisory scan reported findings or a scanner error."
-          echo "Security review should inspect the OSV log, but this advisory job is not merge-blocking."
+          echo "OSV scan found unignored vulnerabilities. Add justified exceptions to osv-ignore.toml."
+          exit 1
 
   scorecard:
     runs-on: ubuntu-latest
@@ -309,3 +308,45 @@ jobs:
         run: cargo test -p qash-pal --features "plonky3,std" -- two_layer_recursion_corpus_kat_commitment two_layer_pipeline_e2e_fibonacci --nocapture
       - name: Run adversarial shard-capture simulation (5-A gate)
         run: cargo test -p qash-consensus --no-default-features --test shard_capture_simulation -- --nocapture
+
+  miri-consensus:
+    runs-on: ubuntu-latest
+    # Blocking on every PR touching crates/consensus/.
+    # Runs Miri on the consensus crate tests to catch undefined behaviour in safe-looking code.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Miri via rustup nightly
+        run: |
+          rustup toolchain install nightly --component miri
+          rustup override set nightly
+          cargo miri setup
+      - name: Run Miri on consensus unit tests
+        env:
+          MIRIFLAGS: "-Zmiri-strict-provenance"
+        run: cargo +nightly miri test -p qash-consensus --no-default-features
+
+  vector-integrity:
+    runs-on: ubuntu-latest
+    # Blocking: the golden test vector file must not drift without an ADR-003 version bump.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify golden vector file hash
+        run: |
+          if [ ! -f tests/vectors/vector-hashes.txt ]; then
+            echo "tests/vectors/vector-hashes.txt not found; cannot verify vector integrity." >&2
+            exit 1
+          fi
+          recorded=$(grep '^vectors.v1.json:' tests/vectors/vector-hashes.txt | cut -d: -f2 | tr -d ' ')
+          if [ -z "$recorded" ]; then
+            echo "No 'vectors.v1.json:' entry in tests/vectors/vector-hashes.txt" >&2
+            exit 1
+          fi
+          computed=$(sha256sum tests/vectors/vectors.v1.json | awk '{print $1}')
+          if [ "$computed" != "$recorded" ]; then
+            echo "Golden vector hash mismatch!" >&2
+            echo "  recorded: $recorded" >&2
+            echo "  computed: $computed" >&2
+            echo "Update tests/vectors/vector-hashes.txt and bump ADR-003 version to acknowledge the change." >&2
+            exit 1
+          fi
+          echo "Vector integrity check passed: $computed"

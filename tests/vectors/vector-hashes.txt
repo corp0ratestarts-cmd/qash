@@ -1,0 +1,6 @@
+# Golden test vector file hashes (SHA-256).
+# The CI vector-integrity job verifies these hashes on every build.
+# To update: recompute the hash (sha256sum tests/vectors/vectors.v1.json),
+# update the entry below, and bump the ADR-003 version in
+# docs/adr/ADR-003-state-root-and-encoding.md to acknowledge the change.
+vectors.v1.json: 00579bfe5115633cd58dc56ae2045d7f15d84e3701be217bb4939b5dc43d4ca0
