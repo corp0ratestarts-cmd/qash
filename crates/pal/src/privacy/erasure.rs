@@ -4,6 +4,11 @@
 //! which consumes the key by value so the key material is provably
 //! unrecoverable from memory after the call returns.
 //!
+//! Phase 10 extends this module with an erasure request lifecycle:
+//! `PendingLocate → Located → Shredding → ShredComplete`.
+//! `process_erasure_request` drives the request through all four states,
+//! returning `ShredKeyEvidence` on success or `ErasureError` on failure.
+//!
 //! This is one component of an erasure-handling design. Compliance with
 //! Art. 17 GDPR requires the full design plus legal assessment; this module
 //! delivers the implementation layer only. Do NOT claim "GDPR compliant" —
@@ -99,6 +104,80 @@ pub fn shred_key(key: ReceiptKey, epoch: u64, event_root: [u8; 32]) -> ShredKeyE
     }
 }
 
+// ── Erasure request lifecycle ─────────────────────────────────────────────────
+
+/// An erasure request from a data subject (Art. 17 GDPR) or operator.
+///
+/// Identifies the receipt to be erased by its encryption-key commitment (not
+/// the plaintext data, which the operator does not hold after encryption).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ErasureRequest {
+    /// SHA3-256 commitment of the receipt encryption key to be shredded.
+    pub receipt_commitment: [u8; 32],
+    /// Opaque requestor identifier (operator-defined; not logged as plaintext).
+    pub requestor_id: [u8; 32],
+    /// Protocol epoch at which the request was received.
+    pub epoch: u64,
+}
+
+/// Lifecycle state of an erasure request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErasureState {
+    /// Request received; key not yet located in the key store.
+    PendingLocate,
+    /// Key located in the key store; not yet shredded.
+    Located,
+    /// Shred operation in progress (key being consumed).
+    Shredding,
+    /// Shred complete; `ShredKeyEvidence` is available.
+    ShredComplete,
+}
+
+/// Errors that can occur during erasure request processing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErasureError {
+    /// No key matching `receipt_commitment` was found.
+    KeyNotFound,
+    /// The key was found but commitment verification failed (internal integrity error).
+    CommitmentMismatch,
+}
+
+/// A key store that can locate a `ReceiptKey` by its commitment.
+///
+/// Implementors must return `Some(key)` only when the key's `key_commitment`
+/// matches `commitment` exactly. No raw key material should be copied outside
+/// the returned `ReceiptKey`.
+pub trait KeyStore {
+    fn locate_by_commitment(&mut self, commitment: &[u8; 32]) -> Option<ReceiptKey>;
+}
+
+/// Drive an erasure request through the full lifecycle, returning evidence of
+/// the completed shred or an error if the key cannot be found.
+///
+/// State transitions: `PendingLocate → Located → Shredding → ShredComplete`.
+/// If the key is not found, returns `Err(ErasureError::KeyNotFound)` at the
+/// `PendingLocate` state — no partial state is emitted.
+///
+/// On success the returned `ShredKeyEvidence` should be persisted as WAL
+/// evidence before the caller considers the erasure complete.
+pub fn process_erasure_request<S: KeyStore>(
+    req: ErasureRequest,
+    store: &mut S,
+) -> Result<ShredKeyEvidence, ErasureError> {
+    // PendingLocate → Located
+    let key = store
+        .locate_by_commitment(&req.receipt_commitment)
+        .ok_or(ErasureError::KeyNotFound)?;
+
+    // Located: verify the commitment matches (integrity check)
+    if key.key_commitment != req.receipt_commitment {
+        return Err(ErasureError::CommitmentMismatch);
+    }
+
+    // Shredding → ShredComplete
+    Ok(shred_key(key, req.epoch, req.requestor_id))
+}
+
 fn commitment_of(material: &[u8; 32]) -> [u8; 32] {
     // Domain-tag-prefixed fold: tag || material, iterated SHA3-256 round.
     // This is a commitment binding, not a derivation; the key itself is the secret.
@@ -119,6 +198,77 @@ fn sha3_256(input: &[u8]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── KeyStore implementation for tests ─────────────────────────────────────
+
+    struct VecKeyStore(Vec<ReceiptKey>);
+
+    impl KeyStore for VecKeyStore {
+        fn locate_by_commitment(&mut self, commitment: &[u8; 32]) -> Option<ReceiptKey> {
+            if let Some(pos) = self
+                .0
+                .iter()
+                .position(|k| &k.key_commitment == commitment)
+            {
+                Some(self.0.remove(pos))
+            } else {
+                None
+            }
+        }
+    }
+
+    #[test]
+    fn process_erasure_request_success() {
+        let material = [0xCAu8; 32];
+        let key = ReceiptKey::new(material);
+        let commitment = key.key_commitment;
+        let mut store = VecKeyStore(vec![key]);
+
+        let req = ErasureRequest {
+            receipt_commitment: commitment,
+            requestor_id: [0x01u8; 32],
+            epoch: 42,
+        };
+
+        let evidence = process_erasure_request(req, &mut store).expect("erasure must succeed");
+        assert_eq!(evidence.key_commitment, commitment, "evidence must carry the key commitment");
+        assert_eq!(evidence.epoch, 42);
+        assert_eq!(evidence.event_root, [0x01u8; 32]);
+        // Key must be consumed from the store.
+        assert!(store.0.is_empty(), "key must be removed from store after shred");
+    }
+
+    #[test]
+    fn process_erasure_request_key_not_found() {
+        let mut store = VecKeyStore(vec![]);
+        let req = ErasureRequest {
+            receipt_commitment: [0xFFu8; 32],
+            requestor_id: [0x02u8; 32],
+            epoch: 1,
+        };
+        assert_eq!(
+            process_erasure_request(req, &mut store),
+            Err(ErasureError::KeyNotFound)
+        );
+    }
+
+    #[test]
+    fn process_erasure_request_wrong_commitment_key_not_found() {
+        // Key in store has a different commitment.
+        let key = ReceiptKey::new([0x11u8; 32]);
+        let mut store = VecKeyStore(vec![key]);
+        let req = ErasureRequest {
+            receipt_commitment: [0xFFu8; 32], // wrong commitment
+            requestor_id: [0x03u8; 32],
+            epoch: 5,
+        };
+        assert_eq!(
+            process_erasure_request(req, &mut store),
+            Err(ErasureError::KeyNotFound)
+        );
+        // Key must still be in store (not consumed).
+        assert_eq!(store.0.len(), 1);
+    }
 
     #[test]
     fn shred_key_returns_stable_commitment() {
