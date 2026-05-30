@@ -46,8 +46,10 @@ fi
 struct_usize=$(
   find "$CONSENSUS_SRC" -name '*.rs' | sort | while read -r f; do
     awk -v file="$f" '
-      # Track brace depth and whether we are inside a named struct body
-      /^[[:space:]]*(pub[[:space:]]*(crate[[:space:]]*)?\([^)]*\)[[:space:]]*)?struct[[:space:]]+[A-Za-z]/ {
+      # Track brace depth and whether we are inside a named struct body.
+      # Handles: pub, pub(crate), pub(super), pub(in path), attributes on preceding lines,
+      # generic structs (Foo<T>), and unit/tuple structs.
+      /^[[:space:]]*(#\[.*\][[:space:]]*)*(pub([[:space:]]*\([^)]*\))?[[:space:]]*)?struct[[:space:]]+[A-Za-z_][A-Za-z0-9_]*([[:space:]]*<[^>]*>)?[[:space:]]*\{/ {
         in_struct = 1; depth = 0
       }
       in_struct && /\{/ { depth++ }

@@ -160,6 +160,11 @@ jobs:
                  cargo +"$NIGHTLY_DATE" test -p qash-consensus --no-default-features \
                    state_root_canonical_seq_print -- --nocapture 2>/dev/null \
                  | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1)
+          if [ -z "$ROOT" ]; then
+            echo "FAIL: Cranelift root extraction failed — grep returned empty string." >&2
+            echo "The build may have succeeded but the test output pattern was not found." >&2
+            exit 1
+          fi
           echo "root=${ROOT}" >> "$GITHUB_OUTPUT"
           echo "Cranelift root: ${ROOT}"
 

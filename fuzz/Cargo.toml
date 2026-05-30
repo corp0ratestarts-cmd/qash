@@ -12,6 +12,7 @@ publish = false
 honggfuzz = "0.5"
 arbitrary = { version = "1", features = ["derive"] }
 qash-consensus = { path = "../crates/consensus", default-features = false }
+qash-pal = { path = "../crates/pal", features = ["std"] }
 
 [[bin]]
 name = "encoding_fuzz"
@@ -52,5 +53,11 @@ doc = false
 [[bin]]
 name = "tx_fuzz"
 path = "fuzz_targets/tx_fuzz.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "boundary_fuzz"
+path = "fuzz_targets/boundary_fuzz.rs"
 test = false
 doc = false
