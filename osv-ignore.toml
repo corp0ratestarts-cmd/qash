@@ -2,6 +2,9 @@
 # Each [[IgnoredVulns]] entry is a justified exception: known, triaged, and
 # accepted as low-risk. Adding an entry requires a reason comment explaining
 # the dependency path and why the advisory is accepted.
+#
+# Expiry policy: all entries must be re-reviewed on expiry. Set `expires` to
+# 90 days from the date the entry was last reviewed or added.
 
 # RUSTSEC-2023-0089: atomic-polyfill is unmaintained.
 # Dependency path: heapless 0.7 -> postcard -> qash-pal.
@@ -9,6 +12,7 @@
 [[IgnoredVulns]]
 id = "RUSTSEC-2023-0089"
 reason = "atomic-polyfill unmaintained; transitive via heapless 0.7->postcard->qash-pal; not Domain A"
+expires = "2026-08-28"
 
 # RUSTSEC-2024-0436: paste is unmaintained.
 # Dependency path: Plonky3 p3-* crates -> paste -> qash-pal.
@@ -16,3 +20,4 @@ reason = "atomic-polyfill unmaintained; transitive via heapless 0.7->postcard->q
 [[IgnoredVulns]]
 id = "RUSTSEC-2024-0436"
 reason = "paste unmaintained; proc-macro only, via Plonky3 p3-* in qash-pal; not Domain A"
+expires = "2026-08-28"

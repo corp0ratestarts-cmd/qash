@@ -1,7 +1,7 @@
 # Claim Boundary Scan
 
-**Commit:** `98e7313770bae1a8c53a0f500ff86853b0a7ddf3`  
-**Timestamp:** 2026-05-30T09:05:26Z  
+**Commit:** `493dfe665e409312f9bd88c0c2815497a25981b4`  
+**Timestamp:** 2026-05-30T12:29:15Z  
 **Status:** ✅ PASS — no violations
 
 ## Files scanned

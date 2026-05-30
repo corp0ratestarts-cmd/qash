@@ -2,14 +2,27 @@
 
 **Document type:** CC EAL4+ Security Target (design-phase draft)  
 **Date:** 2026-05-26  
-**Status:** Design-phase draft — not a certified evaluation document  
+**Status:** Design-phase draft — not evaluated or certified  
 **CC Standard:** ISO/IEC 15408-1:2022 (Common Criteria v3.1 Rev. 5)  
-**Assurance Level Target:** EAL4 augmented (EAL4+)
+**Assurance Level Target:** EAL4 augmented (EAL4+) — design-phase target only, not a certified claim
 
 > **Claim boundary:** This document is a design-phase draft Security Target.
 > Formal CC certification requires engagement with a NIST-accredited or
 > CCRA-recognised evaluation laboratory. "EAL4+" is the target assurance level,
 > not a certified claim.
+
+---
+
+## Status Vocabulary
+
+The following status labels are used throughout this document:
+
+| Status label | Meaning |
+|---|---|
+| N/A | Not applicable to this repo |
+| Internal alignment | Code/design follows the standard's approach; no external assessment |
+| Implementation complete / self-tested | Implemented with CI KATs; no external validation |
+| Externally certified | Formal certificate or report exists — none currently |
 
 ---
 
@@ -144,7 +157,7 @@ Target assurance level: **EAL4 augmented**.
 | ADV_TDS.3 | Basic modular design | Workspace layout, `docs/adr/`, `docs/implementation_order.md` |
 | AGD_OPE.1 | Operational user guidance | `GENESIS_CONSTANTS.toml` comments, `docs/` |
 | AGD_PRE.1 | Preparative procedures | `scripts/verify_rust_toolchain.sh`, toolchain pin in `rust-toolchain.toml` |
-| ATE_COV.2 | Analysis of coverage | `proofs/COVERAGE.md` — 42 PROVED, 4 CI-VERIFIED, 3 AXIOM |
+| ATE_COV.2 | Analysis of coverage | `proofs/COVERAGE.md` — 43 PROVED, 7 CI-VERIFIED, 3 AXIOM |
 | ATE_DPT.1 | Testing: basic design | `crates/consensus/tests/`, `crates/pal/tests/` |
 | ATE_FUN.1 | Functional testing | `cargo test --workspace`, `scripts/verify_two_stage_build.sh` |
 | ATE_IND.2 | Independent testing — sample | Kani harnesses (`scripts/run_kani_consensus.sh`) |
@@ -213,10 +226,12 @@ Bit-identical state roots on x86_64, aarch64, and riscv64gc are enforced by:
 
 ### 8.2 Proof Coverage Adequacy
 
-The 42 proved Coq theorems in `proofs/COVERAGE.md` cover all safety-critical
-properties listed in §5. The 3 AXIOM entries (`AX2-refinement`, `AX3-SHA3`,
-`blinding-PRF`) are documented with non-vacuous typed axioms and justify why
-full proofs are deferred. No MISSING entries exist.
+The 43 proved Coq theorems in `proofs/COVERAGE.md` cover all safety-critical
+properties listed in §5. There are also 7 CI-VERIFIED properties enforced by
+non-Coq CI (determinism replay, cascade KATs, and versioning/health tracking).
+The 3 AXIOM entries (`AX2-refinement`, `AX3-SHA3`, `blinding-PRF`) are
+documented with non-vacuous typed axioms and justify why full proofs are
+deferred. No MISSING entries exist.
 
 ---
 

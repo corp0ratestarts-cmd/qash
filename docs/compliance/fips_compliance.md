@@ -4,14 +4,31 @@
 > is not "FIPS validated." FIPS 140-3 module validation requires engagement with
 > a NIST-accredited CMVP lab. This document records implementation evidence
 > intended to support a future CMVP submission — not a current validation claim.
+> This module has **not yet been validated by CMVP**.
 
-This document maps FIPS 140-3 Level 3 (L3) requirements to their concrete
-implementations in `qash-pal` (Domain B). Where an L3 requirement is not yet
-satisfied, the gap and the planned phase are noted. Domain A (`qash-consensus`)
-is proof-eligible consensus logic and is explicitly **out of scope** for FIPS
-evaluation; it contains no FIPS-approved or non-approved algorithms.
+---
 
-### FIPS 140-3 Level 3 — requirement overview
+## Status Vocabulary
+
+The following status labels are used throughout this document:
+
+| Status label | Meaning |
+|---|---|
+| N/A | Not applicable to this repo |
+| Internal alignment | Code/design follows the standard's approach; no external assessment |
+| Implementation complete / self-tested | Implemented with CI KATs; no external validation |
+| Externally certified | Formal certificate or report exists — none currently |
+
+---
+
+This document maps FIPS 140-3 internal alignment (not validated) requirements to
+their concrete implementations in `qash-pal` (Domain B). Where a requirement is
+not yet satisfied, the gap and the planned phase are noted. Domain A
+(`qash-consensus`) is proof-eligible consensus logic and is explicitly **out of
+scope** for FIPS evaluation; it contains no FIPS-approved or non-approved
+algorithms.
+
+### FIPS 140-3 internal alignment (not validated) — requirement overview
 
 FIPS 140-3 builds incrementally: an L3 module must satisfy all L1 and L2
 requirements plus additional physical and identity-based constraints:
@@ -33,11 +50,17 @@ Section 10 Physical Security) to their QASH implementations.
 | Algorithm | Role | Implementation | Reference |
 |-----------|------|----------------|-----------|
 | ML-KEM-768 | Post-quantum KEM (CNSA 2.0) | `crates/pal/src/crypto/kem.rs` — `ml-kem` crate, feature `pqc` | FIPS 203 |
-| SHA3-256 | X-Wing combiner, Domain A state-root hashing | `crates/consensus/src/hash.rs` (Domain A); X-Wing combiner (Domain B) | FIPS 202 |
+| SHA3-256 | X-Wing combiner (Domain B — within FIPS module boundary) | X-Wing combiner (Domain B) in `crates/pal/src/` | FIPS 202 |
 | HMAC-SHA-256 DRBG | Deterministic random bit generation | `crates/pal/src/crypto/drbg.rs` — `hmac-drbg` crate | NIST SP 800-90A Rev.1 |
 | SHA-256 | HMAC-DRBG internal hash | Provided by `hmac-drbg` / `sha2` crate | FIPS 180-4 |
 | Dilithium5 | Primary post-quantum signature (planned) | `crates/pal/src/` (Phase 2-G extension) | FIPS 204 |
 | SLH-DSA-SHA3-256 | Anchor signature (planned) | `crates/pal/src/` (Phase 2-G extension) | FIPS 205 |
+
+> **Module boundary note:** Domain A (`crates/consensus/src/hash.rs`) also uses
+> SHA3-256 for state-root hashing, but this usage is **outside the FIPS module
+> boundary**. The FIPS module boundary covers Domain B / `crates/pal/src/crypto/`
+> only. Domain A SHA3-256 usage is proof-eligible consensus logic and is not
+> subject to FIPS module requirements.
 
 ---
 
