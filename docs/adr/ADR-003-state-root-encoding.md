@@ -1,6 +1,6 @@
 # ADR-003: Full State Encoding and State Root Commitment
 
-- **Status:** proposed
+- **Status:** Superseded by `ADR-003-state-root-and-encoding.md`
 - **PDF anchor:** §4.2, p. 10
 - **Traceability rows:** P0-2, P0-9
 

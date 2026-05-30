@@ -183,10 +183,30 @@ the full three-layer correspondence chain and extraction pipeline.
 
 ---
 
+## v1.0 Genesis-Lock Proof-Debt Classification
+
+Each AXIOM or PLACEHOLDER is classified by its v1.0 active claim boundary:
+
+- **ACCEPTED** — Active v1.0 assumption; formally acknowledged; genesis-lock allowed with this axiom in place.
+- **EXCLUDED** — Not part of the v1.0 active claim boundary; unclaimed functionality; no genesis-lock dependency.
+- **MUST-DISCHARGE** — Must be discharged before genesis lock. *(None currently.)*
+
+| ID | Classification | Rationale |
+|----|---------------|-----------|
+| GRC-7-7-v2 | **ACCEPTED** | Argon2id memory-hardness and beacon independence are accepted computational assumptions. No security proof of the GRC security reduction is claimed; the assumption is documented and bounded. |
+| TH-10 (cascade collision) | **ACCEPTED** | Cascade collision resistance is an accepted cryptographic assumption (AX-3). The v1.0 state-root commitment uses SHA3-256, not the cascade, so this is a post-genesis migration concern. The SHA3-256 collision resistance assumption (also AX-3) is the active v1.0 gate. |
+| Blinding PRF (H_cascade_keyed) | **EXCLUDED** | Domain B assumption; `H_cascade_keyed` is used for blinding key derivation, not Domain A state-root commitments. PRF security is not a v1.0 genesis-lock claim. |
+| IT-MAC (forgery bound) | **EXCLUDED** | The IT-MAC is used in the cascade derive path, which is a Domain B / Phase 2 feature. Not an active v1.0 Domain A claim. Exclude from genesis-lock scope. |
+| AX2-refinement | **ACCEPTED** | Compiler correctness axiom `AX2_rust_refinement` is accepted with 10 CI vector witnesses. The axiom is non-vacuous; its scope and limits are documented in `docs/refinement.md`. Strengthen post-v1.0 with additional vectors. |
+| Cascade avalanche (TH-P1) | **EXCLUDED** | Avalanche is an empirical/statistical property, not a core security claim. Reclassified from formal proof target to statistical/KAT evidence. See note in `cascade_avalanche_property.v`. Genesis security rests on collision/preimage resistance (AX-3), not avalanche. |
+| ORAM access non-interference (TH-P1) | **EXCLUDED** | Deferred to Domain B blinding spec; `blinding_params` not yet defined. Not a v1.0 genesis active claim. |
+| ZK membership proof soundness (TH-P2) | **EXCLUDED** | Deferred to Plonky3 FRI-STARK integration; production ZK verification is not a v1.0 claim. |
+| Blinding health Lyapunov monotonicity (P8) | **EXCLUDED** | `blinding_health` Lyapunov factor not implemented in `lyapunov.rs`. Not a v1.0 active feature. |
+
 ## Open proof obligations
 
 The following properties are axiomatised or placeholders. Each represents a
-known proof debt that should be discharged before mainnet.
+known proof debt; see classification table above for genesis-lock status.
 
 | ID | Property | Path to proof |
 |----|----------|---------------|
