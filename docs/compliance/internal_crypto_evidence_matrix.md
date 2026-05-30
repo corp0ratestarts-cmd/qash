@@ -96,4 +96,5 @@ The following algorithms/properties are explicitly **not claimed** for v1.0:
 - **ZK proofs as a consensus-layer claim**: Plonky3 is a Domain B operational feature; its presence does not make ZK verification part of the consensus state-root definition.
 - **Hardware attestation correctness**: TPM/TDX/SEV-SNP/ARM-CCA backends are scaffolds; correctness claims require platform-specific hardware access not available in the repo CI environment.
 - **Threshold signing correctness**: TALUS is a scaffold; not activated or claimed in v1.0.
-- **External certification / FIPS validation**: This matrix records internal evidence. FIPS validated, externally certified, or regulator-approved claims are not made. See `docs/security/SECURITY_POLICY.md`.
+<!-- claim-boundary-allow: explicit non-claim disclaimer listing prohibited phrases to clarify scope -->
+- **External certification / no FIPS validation**: This matrix records internal evidence only. No claim is made of FIPS validation, external certification, or regulatory approval. See `docs/security/SECURITY_POLICY.md`.

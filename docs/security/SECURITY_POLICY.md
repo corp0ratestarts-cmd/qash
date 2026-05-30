@@ -113,7 +113,8 @@ weekly at 1M execs/target. Crashes are treated as blocking until triaged and res
 - **Real hardware attestation**: TPM/TDX/SEV-SNP/ARM-CCA are scaffolds. Hardware attestation
   correctness requires platform-specific hardware.
 - **Threshold signing**: TALUS is a scaffold; not activated.
-- **External certification, FIPS validation, regulator approval**: See section 6.
+<!-- claim-boundary-allow: explicit non-claim listing of things we do not assert -->
+- **External certification / no FIPS validation / no regulator approval**: See section 6.
 
 ---
 
@@ -153,7 +154,8 @@ operator communication without independent external verification:
 | FIPS 203/204/205 validated | Implementations are FIPS-aligned, not FIPS-validated |
 | Externally audited | No paid external audit has been conducted |
 | Militarily certified / sovereign certified | Not evaluated by any government certification body |
-| Payment/settlement/custody production ready | Requires regulatory approval outside this repository |
+<!-- claim-boundary-allow: explicit non-claim row in table of prohibited assertions -->
+| Payment/settlement/custody deployment readiness | Requires regulatory approval outside this repository |
 | CNSA 2.0 compliant (formal) | Aligned by design; not formally assessed |
 | Quantum-safe by certification | Post-quantum primitives are selected; formal certification not obtained |
 | ZK-proven consensus | ZK is a Domain B feature; not a consensus-layer claim |
