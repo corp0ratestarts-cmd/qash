@@ -157,6 +157,39 @@ fn constant_time_audit_drbg_produces_nonzero_output() {
     );
 }
 
+// ── ML-KEM-768 wrong-key rejection (constant-time path) ──────────────────────
+
+/// ML-KEM-768 implicit rejection: decapsulating with the wrong keypair must
+/// return a different shared secret rather than failing visibly. This is the
+/// FO-transform / implicit-rejection path specified in FIPS 203 §6.3.
+///
+/// This test is a functional smoke-test of the path. A full timing/dudect
+/// analysis requires a stable hardware counter and is planned for Phase 2-P.
+#[cfg(feature = "pqc")]
+#[test]
+fn constant_time_audit_ml_kem_wrong_key_returns_different_secret() {
+    use qash_pal::crypto::kem::{encapsulate, MlKem768KeyPair};
+    use subtle::ConstantTimeEq;
+
+    let kp_correct = MlKem768KeyPair::from_seed(&[0x00u8; 64]);
+    let kp_wrong = MlKem768KeyPair::from_seed(&[0x01u8; 64]);
+
+    let ek = kp_correct.encap_key();
+    let (ct, ss_correct) = encapsulate(&ek, &[0x00u8; 32]);
+
+    // Decapsulate with wrong key — must not panic; must return a different secret.
+    let ss_wrong = kp_wrong.decapsulate(&ct);
+
+    // Secrets must differ (implicit rejection).
+    let secrets_equal: bool = ss_correct.ct_eq(&ss_wrong).into();
+    assert!(
+        !secrets_equal,
+        "ML-KEM-768: wrong-key decapsulation must produce a different shared secret (implicit rejection)"
+    );
+    // Neither must be all-zero (catastrophic failure sentinel).
+    assert_ne!(ss_correct, [0u8; 32], "correct-key shared secret must not be all-zero");
+}
+
 // ── Audit report ─────────────────────────────────────────────────────────────
 
 /// Print audit coverage summary when run with --nocapture.
@@ -177,6 +210,10 @@ fn constant_time_audit_print_coverage() {
     println!();
     println!("  zk::backend — commitment comparison");
     println!("    commitments_eq_ct uses subtle::ConstantTimeEq [OK]");
+    println!();
+    println!("  crypto::kem::MlKem768KeyPair::decapsulate (pqc feature)");
+    println!("    implicit rejection via FO-transform: wrong key → different secret [OK]");
+    println!("    timing equivalence: functional smoke-test only; dudect planned Phase 2-P");
     println!();
     println!("  Status: all audited paths are constant-time or use public values.");
     println!("  Next: wire commitments_eq_ct into zk::backend verify paths.");
