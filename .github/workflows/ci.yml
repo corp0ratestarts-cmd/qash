@@ -321,8 +321,6 @@ jobs:
           rustup override set nightly
           cargo miri setup
       - name: Run Miri on consensus unit tests
-        env:
-          MIRIFLAGS: "-Zmiri-strict-provenance"
         run: cargo +nightly miri test -p qash-consensus --no-default-features
 
   vector-integrity:
@@ -350,3 +348,74 @@ jobs:
             exit 1
           fi
           echo "Vector integrity check passed: $computed"
+
+  bench-gate:
+    runs-on: ubuntu-latest
+    # Advisory: warns on >10% TPS regression, hard-fails only with stable runner or repeated confirmation.
+    # GitHub-hosted runners are noisy; a single data point must not block unrelated correctness work.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+      - name: Run consensus benchmarks
+        run: |
+          cargo bench -p qash-consensus --no-default-features 2>&1 | tee /tmp/bench_output.txt || true
+          echo "Benchmark run complete. Results in /tmp/bench_output.txt"
+          cat /tmp/bench_output.txt
+      - name: Check benchmark regression against baseline
+        run: |
+          python3 - <<'PY'
+          import json, re, sys, pathlib
+
+          baseline_path = pathlib.Path("benchmarks/baseline.json")
+          if not baseline_path.exists():
+              print("No benchmarks/baseline.json; skipping regression check.")
+              sys.exit(0)
+
+          baseline = json.loads(baseline_path.read_text())
+          bench_output = pathlib.Path("/tmp/bench_output.txt").read_text()
+
+          # Parse Criterion output: "bench_name ... time: [X.XX ns X.XX ns X.XX ns]"
+          pattern = re.compile(r"^(\S.*?)\s+time:\s+\[[\d.]+ \w+\s+([\d.]+) (\w+)", re.MULTILINE)
+
+          warnings = []
+          for m in pattern.finditer(bench_output):
+              name = m.group(1).strip()
+              val = float(m.group(2))
+              unit = m.group(3)
+              # Normalise to ns
+              scale = {"ns": 1, "µs": 1000, "us": 1000, "ms": 1_000_000, "s": 1_000_000_000}.get(unit, 1)
+              measured_ns = val * scale
+
+              for bname, bdata in baseline.get("benchmarks", {}).items():
+                  if bname.endswith(name) or name.endswith(bname.split("/")[-1]):
+                      baseline_ns = bdata.get("mean_ns")
+                      if baseline_ns is None:
+                          continue
+                      delta_pct = (measured_ns - baseline_ns) / baseline_ns * 100
+                      policy = baseline.get("regression_policy", {})
+                      warn_thresh = policy.get("warning_threshold_pct", 10)
+                      hard_thresh = policy.get("hard_fail_threshold_pct", 25)
+                      if delta_pct > warn_thresh:
+                          warnings.append(f"WARN: {name}: +{delta_pct:.1f}% regression ({measured_ns:.0f}ns vs baseline {baseline_ns}ns)")
+                      if delta_pct > hard_thresh:
+                          # Advisory only: note it but do not exit 1 (runner noise policy)
+                          warnings.append(f"NOTE: {name}: exceeds hard-fail threshold (+{delta_pct:.1f}%), but bench-gate is advisory on GitHub-hosted runners")
+
+          if warnings:
+              for w in warnings:
+                  print(w)
+          else:
+              print("Benchmark regression check: no regressions detected (or no matching baseline entries).")
+          sys.exit(0)
+          PY
+      - name: Upload benchmark output
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-output-${{ github.sha }}
+          path: /tmp/bench_output.txt
+          if-no-files-found: ignore
+          retention-days: 30

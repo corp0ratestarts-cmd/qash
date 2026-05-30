@@ -1,0 +1,22 @@
+{
+  "description": "QASH Domain A benchmark baseline for regression gating",
+  "recorded_at": "2026-05-30",
+  "commit": "main@00c4a3b6",
+  "note": "Baseline recorded from GitHub-hosted ubuntu-latest runner. Performance on GitHub-hosted runners varies; a single data point must not trigger a hard fail. See ci.yml bench-gate job policy.",
+  "benchmarks": {
+    "epoch_transition/advance_epoch_1_validator": {
+      "mean_ns": null,
+      "note": "Populate by running: cargo bench -p qash-consensus --no-default-features 2>&1 | tee benchmarks/criterion_output.txt"
+    },
+    "epoch_transition/advance_epoch_1024_validators": {
+      "mean_ns": null,
+      "note": "Populate after first stable-runner run. Update manually for intentional trade-offs."
+    }
+  },
+  "regression_policy": {
+    "warning_threshold_pct": 10,
+    "hard_fail_threshold_pct": 25,
+    "hard_fail_requires": "stable_runner_or_repeated_confirmation",
+    "rationale": "GitHub-hosted runners are noisy. One data point must not block unrelated correctness work."
+  }
+}

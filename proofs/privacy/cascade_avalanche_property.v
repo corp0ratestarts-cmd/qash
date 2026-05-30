@@ -44,7 +44,7 @@
 (** Statistical placeholder — not a formal proof obligation for v1.0.
     The axiom is retained for structural completeness but is explicitly
     NOT in the v1.0 active claim boundary. See proofs/COVERAGE.md. *)
-Axiom cascade_avalanche_statistical :
+Axiom cascade_avalanche_property :
   forall (x x' : list bool),
   x <> x' ->
   (* Statistical claim: H_cascade(x) and H_cascade(x') differ in at least
