@@ -1,12 +1,12 @@
 [meta]
 version = "1.0.0"
-lock_algorithm = "SHA3-256"
+lock_algorithm = "QASH-CASCADE-7"
 genesis_status = "provisional"
 deployment_authoritative = false
 artifact_manifest = "spec/genesis-artifacts.txt"
 deployment_model = "one-shot"
 governance = "zero"
-genesis_hash = "SHA3-256:cca256a9ddec93d90785eb2a1e22b102af0cf802184972f6450d6112792ea762"
+genesis_hash = "QASH-CASCADE-7:3430a884eabf023b1ef4051dc2859e4cd7a227c7da437321e236c04720e0e8cb997fdf61ff4528a578db5fd9104122e76518d1ac07167859dd0dbc04127c5bbe"
 
 [fixed_point]
 scale = 1_000_000
@@ -69,8 +69,18 @@ emergency_wipe_signal = true          # validator may broadcast signed wipe comm
 primary_signature = "Dilithium5"
 anchor_signature = "SLH-DSA-SHA3-256"
 fallback_signature = "Falcon-512"
-hash_primitives = ["SHA3-256", "BLAKE3", "KangarooTwelve", "SM3", "Streebog"]
+hash_primitives = [
+  "SHA3-512", "BLAKE3-XOF-64", "KangarooTwelve-XOF-64",
+  "SM3-double-width", "Streebog-512", "Kupyna-512", "LSH-512"
+]
 pqc_agility_epoch = 10000
+
+[crypto.transport]
+kem           = "X-Wing"
+xwing_label   = "\\.//^\\XWingDraftCombiner09"
+classical_kem = "X25519"
+pqc_kem       = "ML-KEM-768"
+hash_combiner = "SHA3-256"
 
 [validation]
 interval_precision_digits = 12

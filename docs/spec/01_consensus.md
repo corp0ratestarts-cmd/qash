@@ -346,41 +346,41 @@ where `reason` is a protocol-defined error code. The error code is part of the c
 
 ### Genesis hash procedure (normative)
 
-At genesis lock time, the SHA3-256 of the canonical spec document set is computed and
-recorded in `GENESIS_CONSTANTS.toml` as `genesis_hash`. This commits the genesis network
-to an immutable document tree. `GENESIS_CONSTANTS.toml` itself is excluded to avoid circularity.
+At genesis lock time, the **QASH-CASCADE-7** hash of the canonical artifact set is
+computed and recorded in `GENESIS_CONSTANTS.toml` as `genesis_hash`. This commits
+the genesis network to an immutable document and artifact tree.
 
-**Document set** (concatenated in lexicographic file-path order):
+The artifact set and framing format are defined in `spec/genesis-artifacts.txt`.
+Each artifact is framed as:
 
 ```
-docs/spec/00_execution_model.md
-docs/spec/01_consensus.md
-docs/spec/02_transition_axioms.md
-docs/spec/03_transactions.md
+path_bytes ∥ NUL ∥ decimal_byte_length ∥ NUL ∥ file_bytes ∥ NUL
 ```
+
+`GENESIS_CONSTANTS.toml` is canonicalized during hashing by replacing the
+self-referential `genesis_hash` value with `QASH-CASCADE-7:<SELF>`.
 
 **Computation:**
 
 ```sh
-python3 -c "
-import hashlib, pathlib
-files = sorted([
-    'docs/spec/00_execution_model.md',
-    'docs/spec/01_consensus.md',
-    'docs/spec/02_transition_axioms.md',
-    'docs/spec/03_transactions.md',
-])
-h = hashlib.sha3_256()
-for f in files:
-    h.update(pathlib.Path(f).read_bytes())
-print('SHA3-256:' + h.hexdigest())
-"
+cargo run --bin genesis-hash -- <repo-root>
 ```
 
-**Format in `GENESIS_CONSTANTS.toml`:** `genesis_hash = "SHA3-256:<64 lowercase hex digits>"`
+Output format: `QASH-CASCADE-7:<128 lowercase hex digits>` (64-byte / 512-bit output
+from `H_cascade` as defined in `docs/spec/07_hash_cascade.md`).
 
-Any subsequent modification to the above four documents constitutes a new genesis and
-requires recomputing this value.
+**Format in `GENESIS_CONSTANTS.toml`:**
+`genesis_hash = "QASH-CASCADE-7:<128 lowercase hex digits>"`
+
+**Verification:**
+
+```sh
+./scripts/verify_genesis_hash.sh
+```
+
+Any modification to any artifact listed in `spec/genesis-artifacts.txt` constitutes
+a new genesis and requires recomputing this value with `[genesis-change-acknowledged]`
+noted in the commit or PR body.
 
 ---
 

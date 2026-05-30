@@ -4,7 +4,7 @@
 # order, with each file framed as:
 #   path UTF-8 bytes, NUL, decimal byte length, NUL, raw file bytes, NUL
 # `GENESIS_CONSTANTS.toml` is canonicalized during hashing by replacing the
-# self-referential `genesis_hash` value with `SHA3-256:<SELF>`.
+# self-referential `genesis_hash` value with `QASH-CASCADE-7:<SELF>`.
 #
 # This manifest is intentionally not included in the hash preimage. Changing
 # this manifest changes the artifact set and therefore changes the computed

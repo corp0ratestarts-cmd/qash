@@ -10,6 +10,7 @@ if [[ ! -f "${manifest}" ]]; then
   exit 1
 fi
 
+# Step 1: Validate manifest (dedup, path safety, required entries) via Python.
 python3 - "$repo_root" "$manifest" "$constants" <<'PY'
 from __future__ import annotations
 
@@ -43,35 +44,15 @@ if len(artifact_paths) != len(set(artifact_paths)):
 if "GENESIS_CONSTANTS.toml" not in artifact_paths:
     raise SystemExit("ERROR: manifest must include GENESIS_CONSTANTS.toml")
 
-h = hashlib.sha3_256()
 per_file: list[tuple[str, str, int]] = []
 for rel in artifact_paths:
     path = repo_root / rel
     if not path.is_file():
         raise SystemExit(f"ERROR: listed genesis artifact is missing: {rel}")
     data = path.read_bytes()
-    if rel == "GENESIS_CONSTANTS.toml":
-        text = data.decode("utf-8")
-        text, count = re.subn(
-            r'(?m)^(genesis_hash\s*=\s*)"SHA3-256:[0-9a-fA-F<>A-Z_:-]+"',
-            r'\1"SHA3-256:<SELF>"',
-            text,
-            count=1,
-        )
-        if count != 1:
-            raise SystemExit("ERROR: could not canonicalize genesis_hash in GENESIS_CONSTANTS.toml")
-        data = text.encode("utf-8")
-    framed = rel.encode("utf-8") + b"\0" + str(len(data)).encode("ascii") + b"\0" + data + b"\0"
-    h.update(framed)
     per_file.append((rel, hashlib.sha3_256(data).hexdigest(), len(data)))
 
-computed = "SHA3-256:" + h.hexdigest()
 constants_text = constants_path.read_text(encoding="utf-8")
-match = re.search(r'(?m)^genesis_hash\s*=\s*"(SHA3-256:[0-9a-fA-F]+)"', constants_text)
-if not match:
-    raise SystemExit("ERROR: GENESIS_CONSTANTS.toml does not contain a concrete SHA3-256 genesis_hash")
-recorded = match.group(1)
-
 status_match = re.search(r'(?m)^genesis_status\s*=\s*"([^"]+)"', constants_text)
 deploy_match = re.search(r'(?m)^deployment_authoritative\s*=\s*(true|false)', constants_text)
 status = status_match.group(1) if status_match else "unspecified"
@@ -81,26 +62,38 @@ print(f"artifact_manifest={manifest_path.relative_to(repo_root)}")
 print(f"artifact_count={len(per_file)}")
 for rel, digest, size in per_file:
     print(f"artifact sha3-256={digest} bytes={size} path={rel}")
-print(f"computed_genesis_hash={computed}")
-print(f"recorded_genesis_hash={recorded}")
 print(f"genesis_status={status}")
 print(f"deployment_authoritative={deploy}")
-
-if computed != recorded:
-    if status == "provisional" and deploy == "false":
-        print(
-            "notice=recorded genesis_hash differs from computed artifact-set hash; "
-            "allowed because genesis_status=provisional and deployment_authoritative=false"
-        )
-    else:
-        raise SystemExit("ERROR: recorded genesis_hash does not match computed artifact-set hash")
-
-pdf = repo_root / "spec/pdf/QASH_Spec_v1.0.pdf"
-if not pdf.exists():
-    if status != "provisional" or deploy != "false":
-        raise SystemExit(
-            "ERROR: normative PDF is absent; GENESIS_CONSTANTS.toml must mark "
-            "genesis_status=\"provisional\" and deployment_authoritative=false"
-        )
-    print("notice=normative PDF absent; hash is provisional and not deployment-authoritative")
 PY
+
+# Step 2: Compute the QASH-CASCADE-7 genesis hash via the Rust binary.
+computed="$(cargo run -q --bin genesis-hash -- "${repo_root}")"
+
+# Step 3: Extract the recorded genesis_hash from GENESIS_CONSTANTS.toml.
+recorded="$(grep -E '^genesis_hash\s*=' "${constants}" \
+  | sed -E 's/^genesis_hash\s*=\s*"([^"]+)".*/\1/')"
+
+echo "computed_genesis_hash=${computed}"
+echo "recorded_genesis_hash=${recorded}"
+
+constants_text="$(cat "${constants}")"
+status="$(echo "${constants_text}" | grep -E '^genesis_status' | sed -E 's/.*"([^"]+)".*/\1/' || echo unspecified)"
+deploy="$(echo "${constants_text}" | grep -E '^deployment_authoritative' | awk '{print $3}' || echo unspecified)"
+
+if [[ "${computed}" != "${recorded}" ]]; then
+  if [[ "${status}" == "provisional" && "${deploy}" == "false" ]]; then
+    echo "notice=recorded genesis_hash differs from computed artifact-set hash; allowed because genesis_status=provisional and deployment_authoritative=false"
+  else
+    echo "ERROR: recorded genesis_hash does not match computed artifact-set hash" >&2
+    exit 1
+  fi
+fi
+
+pdf="${repo_root}/spec/pdf/QASH_Spec_v1.0.pdf"
+if [[ ! -f "${pdf}" ]]; then
+  if [[ "${status}" != "provisional" || "${deploy}" != "false" ]]; then
+    echo "ERROR: normative PDF is absent; GENESIS_CONSTANTS.toml must mark genesis_status=\"provisional\" and deployment_authoritative=false" >&2
+    exit 1
+  fi
+  echo "notice=normative PDF absent; hash is provisional and not deployment-authoritative"
+fi
