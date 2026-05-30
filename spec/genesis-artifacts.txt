@@ -60,3 +60,4 @@ src/bin/genesis_hash.rs
 src/bin/genesis_cert.rs
 spec/genesis-artifacts.txt
 proofs/COVERAGE.md
+docs/GLOSSARY.md

@@ -81,6 +81,12 @@ jobs:
         env:
           HFUZZ_RUN_ARGS: "-N 10000 --exit_upon_crash -n 1"
 
+      - name: Smoke — boundary_fuzz (10 000 execs)
+        working-directory: fuzz
+        run: cargo hfuzz run boundary_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N 10000 --exit_upon_crash -n 1"
+
       - name: Upload crash artifacts
         if: failure()
         uses: actions/upload-artifact@v4
