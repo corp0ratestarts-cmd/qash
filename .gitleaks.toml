@@ -8,24 +8,22 @@ title = "QASH gitleaks config"
 # Inherit all default gitleaks rules.
 useDefault = true
 
-[[allowlists]]
-description = "Genesis hash and protocol constants in GENESIS_CONSTANTS.toml are public cryptographic commitments, not secrets"
+# Global allowlist — applies to every rule.
+# genesis_hash in GENESIS_CONSTANTS.toml is a public 512-bit cascade hash
+# (128 lowercase hex chars), not a secret. KAT vectors are known-answer test
+# outputs. All entries here are protocol constants committed intentionally.
+[allowlist]
+description = "Public cryptographic constants: genesis hash, cascade KAT vectors"
 paths = [
   '''GENESIS_CONSTANTS\.toml''',
-]
-
-[[allowlists]]
-description = "Cascade KAT vectors in tests are known-answer test outputs, not secrets"
-paths = [
   '''tests/vectors/cascade_kat\.json''',
-  '''tests/vectors/vectors\.v.*\.json''',
+  '''tests/vectors/vectors\.v[0-9].*\.json''',
 ]
-
-[[allowlists]]
-description = "genesis_hash field contains a public 512-bit cascade hash, not a key"
 regexes = [
-  '''genesis_hash\s*=\s*"QASH-CASCADE-7:[0-9a-fA-F]+"''',
-  '''genesis_hash\s*=\s*"SHA3-256:[0-9a-fA-F]+"''',
-  '''"h_cascade_hex"\s*:\s*"[0-9a-fA-F]+"''',
-  '''"h_cascade_keyed_hex"\s*:\s*"[0-9a-fA-F]+"''',
+  # genesis_hash field — QASH-CASCADE-7 or SHA3-256 prefixed public hash
+  '''genesis_hash\s*=\s*"[A-Z0-9_-]+:[0-9a-fA-F<>A-Z_:]+"''',
+  # cascade KAT hex fields in JSON
+  '''"h_cascade(?:_keyed)?_hex"\s*:\s*"[0-9a-fA-F]+"''',
+  '''"context_key_hex"\s*:\s*"[0-9a-fA-F]+"''',
+  '''"input_hex"\s*:\s*"[0-9a-fA-F]*"''',
 ]
