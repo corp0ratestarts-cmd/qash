@@ -24,7 +24,9 @@ unsafe impl Send for RowhammerGuard {}
 impl RowhammerGuard {
     /// Create a new guard with no regions registered.
     pub fn new() -> Self {
-        Self { sensitive_regions: Vec::new() }
+        Self {
+            sensitive_regions: Vec::new(),
+        }
     }
 
     /// Register a memory region for periodic refresh.

@@ -30,11 +30,7 @@ pub struct ViewingKey(pub [u8; 32]);
 /// cannot be rederived.
 ///
 /// Domain B only — never cross into Domain A.
-pub fn derive_viewing_key(
-    master_key: &[u8; 32],
-    epoch_seed: &[u8; 32],
-    epoch: u64,
-) -> ViewingKey {
+pub fn derive_viewing_key(master_key: &[u8; 32], epoch_seed: &[u8; 32], epoch: u64) -> ViewingKey {
     let mut h = Sha3_256::new();
     h.update(master_key);
     h.update(epoch.to_be_bytes());
@@ -96,7 +92,11 @@ pub struct EncryptedReceiptBody {
 /// This is a stub implementation using XOR masking. Production MUST use
 /// ChaCha20-Poly1305 (with ML-KEM-768 KEM for key establishment) — the
 /// interface is intentionally typed to allow replacement without API changes.
-pub fn encrypt_receipt_body(payload: &[u8], epoch: u64, viewing_key: &ViewingKey) -> EncryptedReceiptBody {
+pub fn encrypt_receipt_body(
+    payload: &[u8],
+    epoch: u64,
+    viewing_key: &ViewingKey,
+) -> EncryptedReceiptBody {
     // Stub: XOR each byte with the cycled viewing key bytes.
     let key_bytes = &viewing_key.0;
     let ciphertext: Vec<u8> = payload
@@ -105,19 +105,27 @@ pub fn encrypt_receipt_body(payload: &[u8], epoch: u64, viewing_key: &ViewingKey
         .map(|(i, b)| b ^ key_bytes[i % 32])
         .collect();
     let commitment = sha3_256_bytes(&ciphertext);
-    EncryptedReceiptBody { ciphertext, epoch, commitment }
+    EncryptedReceiptBody {
+        ciphertext,
+        epoch,
+        commitment,
+    }
 }
 
 /// Decrypt an `EncryptedReceiptBody` under `viewing_key`.
 ///
 /// Returns `None` if the commitment does not match (ciphertext tampered).
-pub fn decrypt_receipt_body(body: &EncryptedReceiptBody, viewing_key: &ViewingKey) -> Option<Vec<u8>> {
+pub fn decrypt_receipt_body(
+    body: &EncryptedReceiptBody,
+    viewing_key: &ViewingKey,
+) -> Option<Vec<u8>> {
     let computed_commitment = sha3_256_bytes(&body.ciphertext);
     if computed_commitment != body.commitment {
         return None;
     }
     let key_bytes = &viewing_key.0;
-    let plaintext: Vec<u8> = body.ciphertext
+    let plaintext: Vec<u8> = body
+        .ciphertext
         .iter()
         .enumerate()
         .map(|(i, b)| b ^ key_bytes[i % 32])

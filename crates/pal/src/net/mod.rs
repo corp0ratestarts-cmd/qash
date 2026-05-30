@@ -30,7 +30,7 @@ impl core::fmt::Display for NetError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::TransportFull => write!(f, "network transport buffer full"),
-            Self::IoError      => write!(f, "network transport I/O error"),
+            Self::IoError => write!(f, "network transport I/O error"),
         }
     }
 }
@@ -69,7 +69,9 @@ mod tests {
 
     impl CapturingTransport {
         fn new() -> Self {
-            Self { captured: core::cell::Cell::new(None) }
+            Self {
+                captured: core::cell::Cell::new(None),
+            }
         }
         fn last_bytes(&self) -> Option<[u8; PUBLIC_TRANSCRIPT_WIRE_LEN]> {
             self.captured.get()
@@ -89,16 +91,15 @@ mod tests {
     fn publish_transcript_entry_broadcasts_canonical_encoding() {
         let transport = CapturingTransport::new();
         let pt = PublicTranscript {
-            state_root:   [0xAAu8; 32],
+            state_root: [0xAAu8; 32],
             receipt_root: [0xBBu8; 32],
-            efb_root:     [0xCCu8; 32],
-            epoch:        42,
-            halt_flag:    false,
+            efb_root: [0xCCu8; 32],
+            epoch: 42,
+            halt_flag: false,
         };
         publish_transcript_entry(&transport, &pt).expect("broadcast ok");
         let received = transport.last_bytes().expect("bytes captured");
-        let decoded = PublicTranscript::decode_canonical(&received)
-            .expect("canonical decode ok");
+        let decoded = PublicTranscript::decode_canonical(&received).expect("canonical decode ok");
         assert_eq!(decoded, pt);
     }
 
@@ -111,11 +112,11 @@ mod tests {
             }
         }
         let pt = PublicTranscript {
-            state_root:   [0u8; 32],
+            state_root: [0u8; 32],
             receipt_root: [0u8; 32],
-            efb_root:     [0u8; 32],
-            epoch:        0,
-            halt_flag:    false,
+            efb_root: [0u8; 32],
+            epoch: 0,
+            halt_flag: false,
         };
         assert_eq!(
             publish_transcript_entry(&FailTransport, &pt),

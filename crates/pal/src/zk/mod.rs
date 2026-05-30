@@ -1,3 +1,4 @@
+pub mod backend;
 /// ZK proof verifier backends (Domain B only).
 ///
 /// Proof bytes are processed entirely within Domain B. The only value
@@ -6,4 +7,3 @@
 pub mod fib_air;
 pub mod plonky3;
 pub mod profile;
-pub mod backend;

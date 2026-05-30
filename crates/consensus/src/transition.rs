@@ -1,10 +1,10 @@
 //! Epoch transition (atomic, infallible commit phase).
 
 use crate::encoding::EncodeError;
-use crate::envelope::{PROTOCOL_VERSION_V1_1, PROTOCOL_VERSION_V1_2};
 /// Protocol version constant for v1.0 envelopes (wire value 0x1000).
 /// After `COMPATIBILITY_WINDOW` epochs, v1.0 envelopes are rejected with H8.
 pub use crate::envelope::PROTOCOL_VERSION_V1_0;
+use crate::envelope::{PROTOCOL_VERSION_V1_1, PROTOCOL_VERSION_V1_2};
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
 use crate::hash::{h_domain, h_domain_finish, h_domain_start, DomainTag};
 use crate::lyapunov::{

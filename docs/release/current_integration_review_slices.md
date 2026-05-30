@@ -1,12 +1,12 @@
 # Current Integration Review Slices
 
-**Date:** 2026-05-29
-**Scope:** Pre-genesis integration RC, not a genesis-lock decision.
+**Date:** 2026-05-30
+**Scope:** Post-GRC, pre-genesis. Not a genesis-lock decision.
 
-**Current state:** The review slices below have been merged to `main` as of
-PR #208 and PR #210. This file remains the review map for the merged
-pre-genesis RC surface. It is not a release approval and not a genesis-lock
-decision.
+**Current state:** PR #213 (CASCADE-7), #214 (GRC-7-7-v2), and #215 (preimage
+parity fixture) are merged to `main`. The GRC is complete. This file records the
+remaining review surface before Phase 1 genesis-lock prerequisites can be discharged.
+It is not a release approval and not a genesis-lock decision.
 
 Review the merged pre-genesis RC surface as the following logical slices. Keep
 future changes separated by slice in PRs or commits when possible, and use this

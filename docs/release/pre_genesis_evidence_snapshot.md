@@ -1,34 +1,42 @@
 # Pre-Genesis Evidence Snapshot
 
-**Date:** 2026-05-29
-**Status:** Post-merge evidence handoff, not a genesis-lock decision.
+**Date:** 2026-05-30
+**Status:** Post-GRC evidence snapshot. Genesis remains provisional; no genesis-lock decision yet.
 
-This snapshot records the evidence shape for the current pre-genesis integration
-RC. It is intentionally narrower than a release candidate: it documents what can
-be reviewed now and what remains blocked before any genesis lock or performance
-claim.
+This snapshot records the evidence shape after the GRC-7-7-v2 gate completed.
+It is intentionally narrower than a genesis-lock release candidate: it documents
+what is verified now and what remains as a prerequisite for Phase 1 (genesis lock).
 
 ## Current Repository State
 
-As of 2026-05-29, the previously open integration slices have been merged to
-`main`:
+As of 2026-05-30, the GRC and cascade hardening work is complete on `main`:
 
-- PR #208 merged the pre-genesis evidence tooling and final evidence manifest
-  path reconciliation.
-- PR #210 merged the Phase 2 Domain B stubs for hardware acceleration,
-  software-hash-Merkle attestation, consensus attestation wiring, and offline
-  clone scaffolding.
-- There are no open PRs.
-- Issue #209 remains the terminal external blocker: the normative
-  `spec/pdf/QASH_Spec_v1.0.pdf` is not present, so genesis-lock reconciliation
-  cannot proceed.
+- PR #213 landed QASH-CASCADE-7 cascade hardening (LSH-512, Kupyna-512, full L1 primitive suite).
+- PR #214 landed GRC-7-7-v2 certificate generator (`src/bin/genesis_cert.rs`), Argon2id
+  work-factor gate, and GRC certificate values in `GENESIS_CONSTANTS.toml`.
+- PR #215 replaced the weak GRC parity assertion with a real preimage fixture test
+  (`tests/genesis_preimage_parity.rs`).
 
-The current post-merge local verification on `main` passed:
+Genesis status: `provisional`, `deployment_authoritative = false`. The genesis hash
+diverges from the recorded value as expected (provisional state); `verify_genesis_hash.sh`
+exits 0 with a notice.
+
+Remaining phase-1 prerequisites before any genesis lock:
+- 1-A: Reconcile `spec/genesis.schema.toml` vs `GENESIS_CONSTANTS.toml` (v1.0 / v1.1 weight sections)
+- 1-B: Fix stale `02_test_vectors.md` cross-reference in `docs/spec/02_transition_axioms.md`
+- 1-C: Complete ADR-003 byte-layout spec; lock golden vectors as PDF-golden
+- 1-D: Manual PDF traceability verification (human task)
+- 1-E: Consolidate duplicate ADR-001 / ADR-003 variants
+- 1-F: Classify proof-debt by active claim boundary
+
+The current post-GRC local verification on `main` (2026-05-30) passed:
 
 ```bash
 git diff --check
 cargo fmt --all -- --check
-cargo test --workspace
+cargo test --workspace --no-default-features
+cargo clippy --workspace -- -D warnings
+bash scripts/verify_genesis_hash.sh   # exits 0 with provisional notice
 ```
 
 ## Current Review Slices

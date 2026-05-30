@@ -52,7 +52,10 @@ pub fn commitments_eq_ct(a: &[u8; 32], b: &[u8; 32]) -> bool {
 fn constant_time_audit_commitment_eq_ct_matches() {
     let a = [0x42u8; 32];
     let b = [0x42u8; 32];
-    assert!(commitments_eq_ct(&a, &b), "identical commitments must match");
+    assert!(
+        commitments_eq_ct(&a, &b),
+        "identical commitments must match"
+    );
 }
 
 #[test]
@@ -60,7 +63,10 @@ fn constant_time_audit_commitment_eq_ct_differs() {
     let a = [0x42u8; 32];
     let mut b = [0x42u8; 32];
     b[31] ^= 0x01;
-    assert!(!commitments_eq_ct(&a, &b), "differing commitments must not match");
+    assert!(
+        !commitments_eq_ct(&a, &b),
+        "differing commitments must not match"
+    );
 }
 
 // ── Threshold signing combine result ─────────────────────────────────────────
@@ -114,8 +120,12 @@ fn constant_time_audit_threshold_combine_differs_for_different_shares() {
     let share_0_msg2 = s_a.sign_share(b"message-two");
     let share_1_msg2 = s_b.sign_share(b"message-two");
 
-    let combined_1 = s_a.combine_shares(&[share_0_msg1, share_1_msg1], b"msg").expect("ok");
-    let combined_2 = s_a.combine_shares(&[share_0_msg2, share_1_msg2], b"msg").expect("ok");
+    let combined_1 = s_a
+        .combine_shares(&[share_0_msg1, share_1_msg1], b"msg")
+        .expect("ok");
+    let combined_2 = s_a
+        .combine_shares(&[share_0_msg2, share_1_msg2], b"msg")
+        .expect("ok");
 
     let mut arr_1 = [0u8; 32];
     let mut arr_2 = [0u8; 32];
@@ -141,7 +151,10 @@ fn constant_time_audit_drbg_produces_nonzero_output() {
     drbg.fill_bytes(&mut buf_b);
     // DRBG outputs should be non-zero and differ between calls
     assert_ne!(buf_a, [0u8; 32], "DRBG must produce non-zero output");
-    assert_ne!(buf_a, buf_b, "consecutive DRBG calls must produce distinct output");
+    assert_ne!(
+        buf_a, buf_b,
+        "consecutive DRBG calls must produce distinct output"
+    );
 }
 
 // ── Audit report ─────────────────────────────────────────────────────────────

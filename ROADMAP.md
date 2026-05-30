@@ -4,13 +4,12 @@ This document captures the complete project direction from current state through
 verified execution substrate in maximum technical detail. It is the authoritative reference for any
 developer, auditor, or formal methods contributor picking up this codebase.
 
-**Last updated:** 2026-05-27
-**Current state:** Pre-genesis integration RC. The repository contains v1.0,
-v1.1, and v1.2 implementation/proof evidence in flight, but genesis remains
-provisional and non-authoritative. Do not create `v1.0-reference` or lock
-`GENESIS_CONSTANTS.toml` until the pre-genesis evidence gate below is complete.
-PR #201 is merged on `main`; the main-branch Pre-Genesis Full-Repo Audit at
-commit `18154bc37e19ff27835b4dbaf16a3334406ae1ae` passed all blocking phases.
+**Last updated:** 2026-05-30
+**Current state:** Post-GRC, pre-genesis. PR #213 (QASH-CASCADE-7 cascade hardening),
+PR #214 (GRC-7-7-v2 certificate generator), and PR #215 (real preimage parity fixture) have
+all landed on `main`. The GRC is complete. Genesis remains provisional and non-authoritative.
+Do not create `v1.0-reference` or lock `GENESIS_CONSTANTS.toml` until traceability, normative
+PDF, ADR-003 finalization, and the final evidence bundle are reconciled (Phase 1-A through 1-F).
 
 **MVP claim boundary:** the offline incident-receipt commit demonstrator (Domain B
 local MVP) is governed by [`docs/mvp/claims_register.md`](docs/mvp/claims_register.md).

@@ -12,26 +12,28 @@
 //!
 //! Usage: cargo run --bin genesis-cert -- <repo-root>
 
-use std::{env, path::Path, process::Command};
 use argon2::{Algorithm, Argon2, Params, Version};
-use sha3::{Digest, Sha3_256, Sha3_512};
 use qash::genesis_preimage::build_preimage;
 use qash_consensus::cascade::{h_cascade, h_cascade_l1_primitives};
+use sha3::{Digest, Sha3_256, Sha3_512};
+use std::{env, path::Path, process::Command};
 
 fn main() {
-    let repo_root_str = env::args()
-        .nth(1)
-        .expect("usage: genesis-cert <repo-root>");
+    let repo_root_str = env::args().nth(1).expect("usage: genesis-cert <repo-root>");
     let repo_root = Path::new(&repo_root_str);
 
     // Build the canonical preimage (identical to genesis-hash).
     let preimage = build_preimage(repo_root);
     let genesis_hash_bytes = h_cascade(&preimage);
-    let genesis_hex: String = genesis_hash_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+    let genesis_hex: String = genesis_hash_bytes
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect();
 
     // Seven L1 hedge roots.
     let primitives = h_cascade_l1_primitives(&preimage);
-    let [sha3_512, blake3_xof_64, k12_xof_64, sm3_double, streebog_512, kupyna_512, lsh_512] = primitives;
+    let [sha3_512, blake3_xof_64, k12_xof_64, sm3_double, streebog_512, kupyna_512, lsh_512] =
+        primitives;
 
     // Provisional entropy salt: SHA3-512("QASH:GRC:PROVISIONAL:ENTROPY" || genesis_hash_bytes).
     // At lock time this is replaced with SHA3-512(locked_public_entropy || genesis_hash_bytes).
@@ -53,10 +55,8 @@ fn main() {
         &std::fs::read(repo_root.join("rust-toolchain.toml"))
             .expect("cannot read rust-toolchain.toml"),
     );
-    let cargo_lock_hash = sha3_256_hex(
-        &std::fs::read(repo_root.join("Cargo.lock"))
-            .expect("cannot read Cargo.lock"),
-    );
+    let cargo_lock_hash =
+        sha3_256_hex(&std::fs::read(repo_root.join("Cargo.lock")).expect("cannot read Cargo.lock"));
 
     // Print TOML sections.
     println!("# artifact_identity_root: QASH-CASCADE-7:{genesis_hex}");
@@ -79,7 +79,9 @@ fn main() {
     println!("salt_algorithm = \"SHA3-512\"");
     println!("salt_inputs = [\"QASH:GRC:PROVISIONAL:ENTROPY\", \"genesis_hash_bytes\"]");
     println!("salt_status = \"provisional\"");
-    println!("# At lock time: salt = full 64-byte SHA3-512(locked_public_entropy || genesis_hash_bytes)");
+    println!(
+        "# At lock time: salt = full 64-byte SHA3-512(locked_public_entropy || genesis_hash_bytes)"
+    );
     println!();
     println!("[genesis.long_work]");
     println!("enabled = false");
@@ -193,18 +195,21 @@ mod tests {
         use std::fs;
         use std::path::PathBuf;
 
-        let tmp: PathBuf = std::env::temp_dir()
-            .join(format!("qash-parity-{}", std::process::id()));
+        let tmp: PathBuf = std::env::temp_dir().join(format!("qash-parity-{}", std::process::id()));
         fs::create_dir_all(tmp.join("spec")).unwrap();
 
         // Manifest lists only GENESIS_CONSTANTS.toml.
-        fs::write(tmp.join("spec/genesis-artifacts.txt"), "GENESIS_CONSTANTS.toml\n").unwrap();
+        fs::write(
+            tmp.join("spec/genesis-artifacts.txt"),
+            "GENESIS_CONSTANTS.toml\n",
+        )
+        .unwrap();
 
         // Two GENESIS_CONSTANTS.toml files with identical non-GRC content but
         // different values in every GRC computed section.
         let make_toml = |suffix: &str| {
             let h128 = suffix.repeat(128 / suffix.len() + 1)[..128].to_string();
-            let h64  = suffix.repeat(64  / suffix.len() + 1)[..64].to_string();
+            let h64 = suffix.repeat(64 / suffix.len() + 1)[..64].to_string();
             format!(
                 "[meta]\n\
                  lock_algorithm = \"QASH-CASCADE-7\"\n\
@@ -272,8 +277,7 @@ mod tests {
     /// Uses small params to keep CI fast; production uses m=512 MiB.
     #[test]
     fn argon2_test_params_produce_output() {
-        let params = Params::new(8_192, 1, 1, Some(64))
-            .expect("invalid test params");
+        let params = Params::new(8_192, 1, 1, Some(64)).expect("invalid test params");
         let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
         let password = b"test-genesis-hash-bytes";
         let salt = b"test-provisional-salt-32bytes!!!";

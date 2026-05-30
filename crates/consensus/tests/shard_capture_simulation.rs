@@ -88,15 +88,17 @@ fn minority_adversary_cannot_dominate_every_shard() {
 
         let honest_assignments = assign_all(&seed, n_honest, bond, shard_count);
         let adv_assignments: Vec<u32> = (0..n_adv)
-            .map(|i| {
-                assign_shard(&seed, &validator_id(n_honest + i), shard_count, bond).unwrap()
-            })
+            .map(|i| assign_shard(&seed, &validator_id(n_honest + i), shard_count, bond).unwrap())
             .collect();
 
         let mut honest_counts = vec![0u32; shard_count as usize];
         let mut adv_counts = vec![0u32; shard_count as usize];
-        for &s in &honest_assignments { honest_counts[s as usize] += 1; }
-        for &s in &adv_assignments   { adv_counts[s as usize] += 1;   }
+        for &s in &honest_assignments {
+            honest_counts[s as usize] += 1;
+        }
+        for &s in &adv_assignments {
+            adv_counts[s as usize] += 1;
+        }
 
         // adv_count > total/2 → adv_count * 2 > total
         let any_majority = (0..shard_count as usize).any(|s| {
@@ -181,15 +183,17 @@ fn strong_adversary_cannot_guarantee_full_shard_capture() {
 
         let honest_assignments = assign_all(&seed, n_honest, bond, shard_count);
         let adv_assignments: Vec<u32> = (0..n_adv)
-            .map(|i| {
-                assign_shard(&seed, &validator_id(n_honest + i), shard_count, bond).unwrap()
-            })
+            .map(|i| assign_shard(&seed, &validator_id(n_honest + i), shard_count, bond).unwrap())
             .collect();
 
         let mut honest_counts = vec![0u32; shard_count as usize];
         let mut adv_counts = vec![0u32; shard_count as usize];
-        for &s in &honest_assignments { honest_counts[s as usize] += 1; }
-        for &s in &adv_assignments   { adv_counts[s as usize] += 1;   }
+        for &s in &honest_assignments {
+            honest_counts[s as usize] += 1;
+        }
+        for &s in &adv_assignments {
+            adv_counts[s as usize] += 1;
+        }
 
         // "Full capture" = adversary holds strict majority in every shard.
         let captured_all = (0..shard_count as usize).all(|s| {
