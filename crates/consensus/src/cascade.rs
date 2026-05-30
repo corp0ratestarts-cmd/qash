@@ -92,6 +92,26 @@ pub fn h_cascade_derive(parent_root: &[u8; 64], epoch: u64, seed: &[u8; 32]) -> 
 }
 
 // ---------------------------------------------------------------------------
+// §6: GRC hedge-root exposure
+// ---------------------------------------------------------------------------
+
+/// Returns the seven 64-byte L1 primitive outputs in slot order:
+/// [SHA3-512, BLAKE3-XOF-64, K12-XOF-64, SM3-double, Streebog-512, Kupyna-512, LSH-512].
+/// Used by the genesis certificate generator to populate [genesis.hedge_roots].
+/// Not part of the consensus path; Domain B use only.
+pub fn h_cascade_l1_primitives(input: &[u8]) -> [[u8; 64]; 7] {
+    [
+        l1_sha3_512(DOM_SEP_L1, input),
+        l1_blake3_64(DOM_SEP_L1, input),
+        l1_k12_64(DOM_SEP_L1, input),
+        l1_sm3_512(DOM_SEP_L1, input),
+        l1_streebog_512(DOM_SEP_L1, input),
+        l1_kupyna_512(DOM_SEP_L1, input),
+        l1_lsh_512(DOM_SEP_L1, input),
+    ]
+}
+
+// ---------------------------------------------------------------------------
 // L1 primitive implementations — spec §1, §6 (pure-Rust requirement)
 // All return 64 bytes for uniform 256-bit quantum collision resistance.
 // ---------------------------------------------------------------------------

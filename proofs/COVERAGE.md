@@ -179,7 +179,7 @@ the full three-layer correspondence chain and extraction pipeline.
 | **AXIOM** | 3 |
 | **PLACEHOLDER** | 2 |
 | **MISSING** | 0 |
-| **Total** | 55 |
+| **Total** | 56 |
 
 ---
 
@@ -190,6 +190,7 @@ known proof debt that should be discharged before mainnet.
 
 | ID | Property | Path to proof |
 |----|----------|---------------|
+| GRC-7-7-v2 | GRC-7-7-v2 genesis certificate — anti-grinding (Argon2id) and anti-precomputation (future public entropy) | **AXIOM** — anti-grinding is assumed from Argon2id memory-hardness (p=1, 512 MiB, t=3); anti-precomputation is assumed from independence of drand + NIST beacon + Bitcoin block entropy sources. `p=1` provides single-lane memory-hard sequential access, not a VDF. 7-of-7 hedge-root verification uses last-unbroken-root security model; formal proof of security reduction deferred. Implementation: `src/bin/genesis_cert.rs`; `crates/consensus/src/cascade.rs::h_cascade_l1_primitives`. |
 | TH-10 | Cascade collision resistance | Post-genesis migration item for cascade-backed commitments/proofs; it is not an active v1.0 Domain A state-root assumption. Axiom `cascade_collision_implies_sha3_collision`; wrapper theorem `TH10_cascade_collision_resistance` proved from it; `cascade_hash_injective` proved. Completing the full proof requires defining `cascade_hash` concretely and applying the SHA3 injectivity chain. |
 | TH-11 | H_cascade cross-ISA determinism | **Discharged** — `tests/cascade_kat.rs` pins 3 KAT vectors; `platform-determinism.yml` cross-verifies on aarch64 and riscv64gc via QEMU |
 | Blinding PRF | H_cascade_keyed is a PRF | Qualitative (`cascade_prf_security`) and quantitative (`cascade_prf_quantitative_bound` with `adv_le`) axioms in place. Full proof in SSProve; current axioms non-vacuous. |
