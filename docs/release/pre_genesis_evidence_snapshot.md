@@ -21,13 +21,18 @@ Genesis status: `provisional`, `deployment_authoritative = false`. The genesis h
 diverges from the recorded value as expected (provisional state); `verify_genesis_hash.sh`
 exits 0 with a notice.
 
-Remaining phase-1 prerequisites before any genesis lock:
-- 1-A: Reconcile `spec/genesis.schema.toml` vs `GENESIS_CONSTANTS.toml` (v1.0 / v1.1 weight sections)
-- 1-B: Fix stale `02_test_vectors.md` cross-reference in `docs/spec/02_transition_axioms.md`
-- 1-C: Complete ADR-003 byte-layout spec; lock golden vectors as PDF-golden
-- 1-D: Manual PDF traceability verification (human task)
-- 1-E: Consolidate duplicate ADR-001 / ADR-003 variants
-- 1-F: Classify proof-debt by active claim boundary
+Phase 1 prerequisite status (updated 2026-05-30):
+
+| Item | Status |
+|------|--------|
+| 1-A: Reconcile genesis schema v1.0/v1.1 weights | ✅ Done — two-section approach in `spec/genesis.schema.toml` |
+| 1-B: Fix stale `02_test_vectors.md` reference | ✅ Done — `docs/spec/02_transition_axioms.md` updated |
+| 1-C: ADR-003 full byte-layout spec | ✅ Done — normative spec in `docs/adr/ADR-003-state-root-and-encoding.md`; PDF-golden pending 1-D |
+| 1-D: Manual PDF traceability verification | ❌ Human task — not automatable |
+| 1-E: Consolidate duplicate ADR variants | ✅ Done — SUPERSEDED status in ADR-001/ADR-003 variants; README rewritten |
+| 1-F: Proof-debt classification | ✅ Done — `proofs/COVERAGE.md` has v1.0 genesis-lock proof-debt section |
+
+Remaining genesis-lock blocker: **Phase 1-D** (human PDF review) and then **Phase 1-G** (lock commit + v1.0-reference tag).
 
 The current post-GRC local verification on `main` (2026-05-30) passed:
 
@@ -115,12 +120,35 @@ The following claims require future evidence:
 - Genesis-lock reconciliation before `spec/pdf/QASH_Spec_v1.0.pdf` is committed
   and traceability is verified against it.
 
+## Phase 2–6 CI and Evidence Hardening (completed 2026-05-30)
+
+The following CI/evidence work is complete on branch `claude/modest-gates-tgIDP`:
+
+| Phase | Item | Status |
+|-------|------|--------|
+| 2-A | Domain A tripwires (f32/f64, HashMap, usize struct fields) | ✅ |
+| 2-B | Cranelift differential — blocking, pinned nightly | ✅ |
+| 2-C | Miri-consensus blocking job | ✅ |
+| 2-D | `boundary_fuzz` target (CommitmentFrame roundtrip) | ✅ |
+| 2-E | Golden vector hash lock (`vector-integrity` CI job) | ✅ |
+| 2-F | Bench-gate advisory job with `benchmarks/baseline.json` | ✅ |
+| 2-G | OSV scan promoted to blocking | ✅ |
+| 3-A | Blinding PRF proof — Coq theorems proved, COVERAGE.md updated | ✅ |
+| 3-B | IT-MAC forgery bound proof — Coq theorems proved, COVERAGE.md updated | ✅ |
+| 3-E | `proofs/REFINEMENT.md` — three-layer chain documentation | ✅ |
+| 4-A | Hardware attestation backend stubs (TPM2, TDX, SEV-SNP, ARM-CCA) | ✅ scaffold |
+| 5-A | `docs/compliance/internal_crypto_evidence_matrix.md` | ✅ |
+| 5-B | `docs/compliance/kat_policy.md` — KAT coverage policy | ✅ |
+| 5-C | `docs/security/SECURITY_POLICY.md` | ✅ |
+| 6-A | `docs/GLOSSARY.md` (in genesis artifacts) | ✅ |
+| 6-B | `docs/adr/README.md` — complete ADR index | ✅ |
+| 6-C | Fix `02_test_vectors.md` reference | ✅ |
+| 6-D | `docs/security/HAZOP.md` | ✅ |
+| 6-E | `.github/workflows/fuzz-extended.yml` — weekly 1M execs | ✅ |
+
 ## Next Execution Tracks
 
-1. Keep `main` green while waiting for the normative PDF artifact tracked by
-   issue #209.
-2. Archive proof, replay, PAL, Kani, and document-hygiene evidence for the exact
-   reviewed commit with `bash scripts/capture_pre_genesis_evidence.sh`.
-3. Keep production PAL/ZK backend work separate from pre-genesis scaffold work.
-4. Reconcile normative PDF, traceability, genesis hash, and release sign-off
-   before any lock/reference tag decision.
+1. Perform Phase 1-D: manual PDF traceability verification against `spec/pdf/QASH_Spec_v1.0.pdf`.
+2. Once 1-D is complete: run `cargo run --bin genesis-hash`, update `GENESIS_CONSTANTS.toml`,
+   flip `genesis_status = "locked"` and `deployment_authoritative = true`, tag `v1.0-reference`.
+3. Archive final evidence bundle with `bash scripts/capture_pre_genesis_evidence.sh`.

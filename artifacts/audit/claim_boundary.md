@@ -1,12 +1,12 @@
 # Claim Boundary Scan
 
-**Commit:** `959ddddd002b11d54a5872430e2ceeaefb09c2f2`  
-**Timestamp:** 2026-05-30T08:52:59Z  
+**Commit:** `98e7313770bae1a8c53a0f500ff86853b0a7ddf3`  
+**Timestamp:** 2026-05-30T09:05:26Z  
 **Status:** ✅ PASS — no violations
 
 ## Files scanned
 
-- **General scan:** 154 files (`.md`, `.toml`, `.txt` tracked by git, excluding exempt directories)
+- **General scan:** 155 files (`.md`, `.toml`, `.txt` tracked by git, excluding exempt directories)
 - **Excluded:** `docs/mvp/claims_register.md`, `docs/audit/`, `docs/platforms/`, `docs/release/`
 - **NOT excluded:** `docs/funding/`, `docs/compliance/`
 
