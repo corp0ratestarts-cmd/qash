@@ -8,6 +8,9 @@ name: Fuzz Extended (Weekly)
 # Does NOT block main-branch merges (this is a scheduled job, not a PR gate).
 # Crashes are tracked as artifacts and must be triaged.
 
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: '0 0 * * 0'
