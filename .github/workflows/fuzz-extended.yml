@@ -1,0 +1,132 @@
+name: Fuzz Extended (Weekly)
+
+# Weekly extended fuzzing run: 1M execs/target.
+# Scheduled Sunday 00:00 UTC.
+# Manual dispatch available for pre-release runs.
+#
+# Failures: notify via upload artifact + job failure annotation.
+# Does NOT block main-branch merges (this is a scheduled job, not a PR gate).
+# Crashes are tracked as artifacts and must be triaged.
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+    inputs:
+      exec_budget:
+        description: 'Number of executions per target (default: 1000000)'
+        required: false
+        default: '1000000'
+
+jobs:
+  fuzz-extended:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+      EXEC_BUDGET: ${{ github.event.inputs.exec_budget || '1000000' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+      - name: Verify pinned Rust toolchain
+        run: ./scripts/verify_rust_toolchain.sh
+
+      - name: Install honggfuzz system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential binutils-dev libunwind-dev liblzma-dev
+
+      - name: Cache cargo-hfuzz binary
+        id: cache-cargo-hfuzz
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-hfuzz
+          key: cargo-hfuzz-${{ runner.os }}-${{ hashFiles('fuzz/Cargo.lock') }}
+
+      - name: Install cargo-honggfuzz
+        if: steps.cache-cargo-hfuzz.outputs.cache-hit != 'true'
+        run: cargo install honggfuzz
+
+      - name: Restore corpus cache
+        uses: actions/cache@v4
+        with:
+          path: fuzz/hfuzz_workspace
+          key: fuzz-corpus-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            fuzz-corpus-${{ runner.os }}-
+
+      # Extended runs: -N $EXEC_BUDGET, -n 2 workers for throughput, --exit_upon_crash.
+      - name: Extended — encoding_fuzz
+        working-directory: fuzz
+        run: cargo hfuzz run encoding_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N ${{ env.EXEC_BUDGET }} --exit_upon_crash -n 2"
+
+      - name: Extended — cascade_fuzz
+        working-directory: fuzz
+        run: cargo hfuzz run cascade_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N ${{ env.EXEC_BUDGET }} --exit_upon_crash -n 2"
+
+      - name: Extended — decode_fuzz
+        working-directory: fuzz
+        run: cargo hfuzz run decode_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N ${{ env.EXEC_BUDGET }} --exit_upon_crash -n 2"
+
+      - name: Extended — transition_fuzz
+        working-directory: fuzz
+        run: cargo hfuzz run transition_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N ${{ env.EXEC_BUDGET }} --exit_upon_crash -n 2"
+
+      - name: Extended — fixed_point_fuzz
+        working-directory: fuzz
+        run: cargo hfuzz run fixed_point_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N ${{ env.EXEC_BUDGET }} --exit_upon_crash -n 2"
+
+      - name: Extended — lyapunov_fuzz
+        working-directory: fuzz
+        run: cargo hfuzz run lyapunov_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N ${{ env.EXEC_BUDGET }} --exit_upon_crash -n 2"
+
+      - name: Extended — tx_fuzz
+        working-directory: fuzz
+        run: cargo hfuzz run tx_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N ${{ env.EXEC_BUDGET }} --exit_upon_crash -n 2"
+
+      - name: Extended — boundary_fuzz
+        working-directory: fuzz
+        run: cargo hfuzz run boundary_fuzz
+        env:
+          HFUZZ_RUN_ARGS: "-N ${{ env.EXEC_BUDGET }} --exit_upon_crash -n 2"
+
+      - name: Save corpus cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: fuzz/hfuzz_workspace
+          key: fuzz-corpus-${{ runner.os }}-${{ github.sha }}
+
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-extended-crashes-${{ github.run_id }}
+          path: fuzz/hfuzz_workspace/
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Upload corpus snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-extended-corpus-${{ github.run_id }}
+          path: fuzz/hfuzz_workspace/
+          if-no-files-found: ignore
+          retention-days: 30
