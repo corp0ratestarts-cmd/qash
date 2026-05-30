@@ -166,6 +166,13 @@ impl CloneTransport for LoRaTransport {
 
 /// Ultrasonic FSK transport stub (spec §10.2).  MTU: 255 bytes (MAX_ULTRASONIC_PAYLOAD).
 ///
+/// **EXPERIMENTAL — optional transport.**  Acoustic hardware support is highly
+/// platform-fragmented: mobile devices, embedded SoCs, and desktop hosts vary
+/// widely in whether they expose a 24 kHz piezoelectric path at all, and OS
+/// audio stacks impose unpredictable latency.  Platform integrators SHOULD treat
+/// this transport as a best-effort carrier of last resort and MUST gracefully
+/// handle `TransportError::NotAvailable` on platforms without acoustic hardware.
+///
 /// Carrier of last resort (transport priority 6): 24 kHz Mark / 24.5 kHz Space,
 /// binary FSK at ≤ 1200 baud.  Physical layer (ADC/DAC, FSK demodulation) is
 /// handled by the platform HAL; this stub holds the interface.

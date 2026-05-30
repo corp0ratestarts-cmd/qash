@@ -4,18 +4,20 @@
 # order, with each file framed as:
 #   path UTF-8 bytes, NUL, decimal byte length, NUL, raw file bytes, NUL
 # `GENESIS_CONSTANTS.toml` is canonicalized during hashing by replacing the
-# self-referential `genesis_hash` value with `SHA3-256:<SELF>`.
+# self-referential `genesis_hash` value with `QASH-CASCADE-7:<SELF>`.
 #
 # This manifest is intentionally not included in the hash preimage. Changing
 # this manifest changes the artifact set and therefore changes the computed
 # hash.
 #
-# Pre-lock note: `spec/pdf/QASH_Spec_v1.0.pdf` is not committed yet. Until it
-# is added, all PDF quotes/page references remain provisional and the resulting
-# digest is not deployment-authoritative.
+# Pre-lock note: `spec/pdf/QASH_Spec_v1.0.pdf` is now committed (provisional).
+# All PDF quotes/page references remain provisional until manually verified
+# against the committed PDF. genesis_status remains "provisional" and
+# deployment_authoritative remains false until that verification is complete.
 GENESIS_CONSTANTS.toml
 spec/genesis.schema.toml
 spec/pdf/README.md
+spec/pdf/QASH_Spec_v1.0.pdf
 docs/traceability.md
 docs/errata/README.md
 docs/errata/ERR-001-lyapunov-definition-and-halt.md
@@ -31,6 +33,8 @@ docs/adr/ADR-003-state-root-encoding.md
 docs/adr/ADR-004-absorbing-halt-layering.md
 docs/adr/ADR-004-halt-layering-domain-a-vs-pal.md
 docs/adr/ADR-005-rust-toolchain-version.md
+docs/adr/ADR-006-runtime-optimization-track.md
+docs/adr/ADR-012-streaming-state-root-encoding.md
 docs/adr/IC-001-no-heap-cascade.md
 docs/spec/00_execution_model.md
 docs/spec/01_consensus.md

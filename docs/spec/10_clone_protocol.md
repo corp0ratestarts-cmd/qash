@@ -41,7 +41,17 @@ at this layer. The protocol processes the first valid received copy of each chun
 
 ---
 
-## §10.2 — Ultrasonic transport (§10.2 normative)
+## §10.2 — Ultrasonic transport (§10.2 normative; optional/experimental)
+
+> **Implementation note:** The ultrasonic transport is **optional and
+> experimental**.  Acoustic hardware support is highly platform-fragmented:
+> mobile SoCs, embedded targets, and desktop hosts vary widely in whether they
+> expose a 24 kHz piezoelectric path, and OS audio stacks impose unpredictable
+> latency.  Platform integrators MUST gracefully handle transport unavailability
+> (`TransportError::NotAvailable`) and SHOULD prefer higher-priority transports
+> (§10.3) whenever available.  The `UltrasonicTransport` PAL stub is present for
+> completeness; production deployment requires explicit platform HAL integration
+> and hardware qualification testing.
 
 The ultrasonic transport channel is admitted at genesis for deployment in
 radio-frequency-denied environments (Faraday cages, military-grade RF jamming,

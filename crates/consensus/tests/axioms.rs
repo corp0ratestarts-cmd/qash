@@ -462,7 +462,7 @@ fn axiom_delta_window_above_epsilon_halts() {
 // HaltReason encoding — all 6 variants decode correctly
 // ---------------------------------------------------------------------------
 
-/// All seven HaltReason codes must survive encode→decode roundtrip.
+/// All eight HaltReason codes must survive encode→decode roundtrip.
 #[test]
 fn axiom_all_halt_reasons_roundtrip() {
     let halt_codes: &[HaltReason] = &[
@@ -473,6 +473,7 @@ fn axiom_all_halt_reasons_roundtrip() {
         HaltReason::RoundtripFailure,
         HaltReason::HaltFlagSet,
         HaltReason::PhiSafetyViolation,
+        HaltReason::IncompatibleVersion,
     ];
     for &reason in halt_codes {
         let mut state = genesis_state();

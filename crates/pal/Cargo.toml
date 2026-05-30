@@ -17,8 +17,23 @@ sm3 = { version = "0.4", optional = true }
 getrandom = { version = "0.2", optional = true }
 typenum = "1.20.0"
 zeroize = { version = "1", features = ["derive"] }
+subtle   = { version = "2", default-features = false }
 static_assertions = "1"
 lz4_flex = { version = "0.11", default-features = false, features = ["frame"] }
+# Plonky3 FRI-STARK verifier stack (supply-chain vetted; gated by `plonky3` feature).
+p3-uni-stark  = { version = "0.5.3", optional = true }
+p3-baby-bear  = { version = "0.5.3", optional = true }
+p3-field      = { version = "0.5.3", optional = true }
+p3-symmetric  = { version = "0.5.3", optional = true }
+p3-merkle-tree = { version = "0.5.3", optional = true }
+p3-fri        = { version = "0.5.3", optional = true }
+p3-challenger = { version = "0.5.3", optional = true }
+p3-air        = { version = "0.5.3", optional = true }
+p3-matrix     = { version = "0.5.3", optional = true }
+p3-commit     = { version = "0.5.3", optional = true }
+p3-dft        = { version = "0.5.3", optional = true }
+postcard      = { version = "1", features = ["alloc"], optional = true }
+serde         = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 serde = { version = "1", default-features = false }
@@ -39,8 +54,15 @@ sovereign-hardened = ["zero-persistence"]
 pqc = ["ml-kem"]
 suite_guomi = ["sm3"]
 suite_korea = []
-# Gate the Plonky3 FRI-STARK verifier backend. The `plonky3` crate itself is
-# NOT yet a dependency (supply-chain vetting required). This feature compiles
-# the interface design, profile-lock tests, and Domain B containment harness.
-# Add `plonky3 = { version = "...", ... }` to [dependencies] once vetted.
-plonky3 = []
+# Plonky3 FRI-STARK verifier backend. Wires the p3-* crate stack and enables
+# the production `Plonky3ProductionBackend` with hardcoded BabyBear+Poseidon2
+# round constants (no trusted setup, transparent STARKs).
+hardened = []
+sca-hardened = []
+threshold-signing = []
+plonky3 = [
+    "dep:p3-uni-stark", "dep:p3-baby-bear", "dep:p3-field",
+    "dep:p3-symmetric", "dep:p3-merkle-tree", "dep:p3-fri",
+    "dep:p3-challenger", "dep:p3-air", "dep:p3-matrix",
+    "dep:p3-commit", "dep:p3-dft", "dep:postcard", "dep:serde",
+]

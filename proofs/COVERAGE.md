@@ -61,7 +61,7 @@ test(s) that exercise it at runtime.
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
 |----------|----------|--------|-------------|-----------|----------|
 | SHA3-256 collision resistance for v1.0 state-root commitments | §7, AX-3 | **AXIOM** | `AX3_sha3_assumed_injective` in `contractivity/encode_injectivity.v`; `sha3_256_collision_resistant` in `cascade/cascade_collision_resistance.v` | `src/hash.rs`, `src/transition.rs` | `hash.rs::tests::sha3_256_known_vector` (KAT); `vector_runner_all` (`state_root_commitment_genesis_epoch1`) |
-| Cascade collision resistance (reduction to L1 primitive; post-genesis migration item, not active for v1.0 Domain A state roots) | §4c | **PLACEHOLDER** | `cascade_collision_implies_sha3_collision` (axiom) + `TH10_cascade_collision_resistance` (proved wrapper) in `cascade/cascade_collision_resistance.v` — typed reduction axiom (non-vacuous); `cascade_hash_injective` proved from it | `src/cascade.rs` | — |
+| QASH-CASCADE-7 genesis collision resistance: requires all 7 L1 primitives (SHA3-512, BLAKE3-XOF, KangarooTwelve-XOF, SM3-double-width, Streebog-512, Kupyna-512, LSH-512) to be simultaneously broken, OR SHA3-512 (L2 binding / L7 finalization) to be broken. Trust class: ASSUMED (computational, not proved) | §4c, AX-3 | **AXIOM** | `cascade_collision_implies_sha3_collision` (axiom) + `TH10_cascade_collision_resistance` (proved wrapper) in `cascade/cascade_collision_resistance.v` — typed reduction axiom (non-vacuous); `cascade_hash_injective` proved from it | `src/cascade.rs` | `tests/cascade_kat.rs::cascade_kat_all_vectors` |
 | Cascade health CH_t ∈ [0, p]; χ·CH_t no i128 overflow | §4c | **PROVED** | `ch_t_upper_bound`, `ch_term_admissible` in `cascade/cascade_health_bounded.v` | `src/crypto/cascade_coq.rs` (`CascadeHealthFactor`, `P`, `CHI`) | `cascade_coq::tests::ch_t_*`, `chi_term_*` |
 | Blinding non-interference (PRF security of H_cascade_keyed) | §6 | **AXIOM** | `cascade_prf_security` (qualitative) + `cascade_prf_quantitative_bound` (typed adv_le bound) in `blinding/blinding_non_interference.v` | `src/blinding.rs` | `blinding.rs::tests::*` |
 | 8-family cascade IT-MAC forgery ≤ 16/2¹²⁸ | §derive | **PLACEHOLDER** | `cascade/it_mac_forgery_bound.v`: arithmetic cap proved; `ghash_poly_mac_au_bound` typed axiom (adv_le, non-vacuous); `it_mac_forgery_bound_16` proved | `src/derive.rs` | `derive::tests::gf128_mul_*` |
@@ -132,6 +132,30 @@ the full three-layer correspondence chain and extraction pipeline.
 
 ---
 
+## Epoch Skew Validation (2-C)
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| Epoch skew validation: envelopes with epoch < genesis_epoch or epoch > current + skew_bound are rejected; overflow on checked_add → EpochOverflow | §3, GENESIS epoch.timing.epoch_skew_bound | **CI-VERIFIED** | — (formal proof deferred to 2-I) | `crates/consensus/src/transition.rs` | `transition::tests::validate_epoch_rejects_pre_genesis`; `transition::tests::validate_epoch_rejects_too_far_future`; `transition::tests::validate_epoch_accepts_within_window`; `transition::tests::validate_epoch_overflow_on_add` |
+
+---
+
+## Cascade Health Tracking (2-D)
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| Cascade health tracking: `cascade_health` increments each clean epoch (all validators D=0, C=0), resets to 0 on any gap, saturates at `CASCADE_DEPTH=8`; committed to state root; finality gate stalls (not halts) when epoch > COMPATIBILITY_WINDOW and health < CASCADE_DEPTH; Lyapunov potential gains a cascade health deficit term (weight=50_000) increasing convergence pressure during unhealthy runs | §2-D, GENESIS [cascade.health] | **CI-VERIFIED** | — | `crates/consensus/src/transition.rs`, `crates/consensus/src/lyapunov.rs` | `transition::tests::cascade_health_increments_on_clean_epochs`; `transition::tests::cascade_health_saturates_at_depth`; `transition::tests::cascade_health_resets_on_high_divergence`; `transition::tests::cascade_health_overflow_triggers_arith_overflow`; `transition::tests::finality_gate_stalls_at_epoch_101_health_7`; `transition::tests::finality_gate_passes_at_health_8`; `transition::tests::cascade_health_in_state_root_commitment`; `lyapunov::tests::lyapunov_pressure_higher_at_health_0_than_health_7`; `lyapunov::tests::lyapunov_cascade_term_zero_at_full_health` |
+
+---
+
+## Version Gating (2-F)
+
+| Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
+|----------|----------|--------|-------------|-----------|---------|
+| Version gating: `HaltReason::IncompatibleVersion = 0x08` (H8) round-trips through encode/decode; `validate_envelope_version` rejects v1.0 envelopes after `compatibility_window=100` epochs; v1.0 accepted at or before window; v1.1+ accepted regardless of epoch; `advance_epoch` enforces the gate via `step_1_validate` | §3, GENESIS [cascade] compatibility_window | **CI-VERIFIED** | — (formal proof deferred to 2-I) | `crates/consensus/src/transition.rs` | `transition::tests::halt_reason_incompatible_version_roundtrips`; `transition::tests::validate_envelope_version_rejects_v10_after_window`; `transition::tests::validate_envelope_version_accepts_v10_at_or_before_window`; `transition::tests::validate_envelope_version_accepts_v11_after_window`; `axioms::axiom_all_halt_reasons_roundtrip` |
+
+---
+
 ## Domain Crossing Properties (1-A)
 
 | Property | Spec ref | Status | Coq theorem | Rust file | Test ID |
@@ -150,12 +174,12 @@ the full three-layer correspondence chain and extraction pipeline.
 
 | Status | Count |
 |--------|-------|
-| **PROVED** | 42 |
-| **CI-VERIFIED** | 4 |
+| **PROVED** | 43 |
+| **CI-VERIFIED** | 7 |
 | **AXIOM** | 3 |
-| **PLACEHOLDER** | 6 |
+| **PLACEHOLDER** | 2 |
 | **MISSING** | 0 |
-| **Total** | 48 |
+| **Total** | 55 |
 
 ---
 

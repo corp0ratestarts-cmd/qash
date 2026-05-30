@@ -35,6 +35,7 @@ pub enum FrameError {
     PayloadTooLarge(usize),
     SigAreaMissing,
     LengthMismatch,
+    TrailingBytes,
 }
 
 impl std::fmt::Display for FrameError {
@@ -45,6 +46,7 @@ impl std::fmt::Display for FrameError {
             FrameError::PayloadTooLarge(n) => write!(f, "compressed payload too large: {n}"),
             FrameError::SigAreaMissing => write!(f, "signature area missing or truncated"),
             FrameError::LengthMismatch => write!(f, "compressed_len field does not match payload"),
+            FrameError::TrailingBytes => write!(f, "trailing bytes after signature"),
         }
     }
 }
@@ -132,11 +134,15 @@ impl ChunkFrame {
         }
         let payload = bytes[HEADER_BYTES..payload_end].to_vec();
 
-        if bytes.len() < payload_end + SIG_BYTES {
+        let frame_end = payload_end + SIG_BYTES;
+        if bytes.len() < frame_end {
             return Err(FrameError::SigAreaMissing);
         }
+        if bytes.len() > frame_end {
+            return Err(FrameError::TrailingBytes);
+        }
         let mut sig = Box::new([0u8; SIG_BYTES]);
-        sig.copy_from_slice(&bytes[payload_end..payload_end + SIG_BYTES]);
+        sig.copy_from_slice(&bytes[payload_end..frame_end]);
 
         Ok(Self {
             epoch,
@@ -218,6 +224,16 @@ mod tests {
         assert_eq!(
             ChunkFrame::new(0, 0, 1, big, Box::new([0u8; SIG_BYTES])).unwrap_err(),
             FrameError::PayloadTooLarge(MAX_COMPRESSED_PAYLOAD + 1)
+        );
+    }
+
+    #[test]
+    fn from_bytes_rejects_trailing_bytes() {
+        let mut bytes = test_frame().to_bytes();
+        bytes.push(0x00); // one extra byte after signature
+        assert_eq!(
+            ChunkFrame::from_bytes(&bytes).unwrap_err(),
+            FrameError::TrailingBytes
         );
     }
 

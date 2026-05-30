@@ -99,18 +99,118 @@ proof batch root. It is permitted in `PublicTranscript` because it does not
 publish raw receipt leaves, transaction envelopes, admission transport metadata,
 or edge topology.
 
+### §P3a — PublicTranscript change-control process (normative)
+
+`PublicTranscript` is the sole authorised pathway for Class I–visible data.
+Any code path that emits protocol state to a public-observable channel MUST
+go through `qash_consensus::public::PublicTranscript`.  Raw `EpochState`
+MUST NOT be serialised and transmitted directly.
+
+**Gating rule:** Any PR that adds a new field to `PublicTranscript` or widens
+the public surface in any other way MUST satisfy all of the following before
+merge:
+
+1. **Add the field** to `crates/consensus/src/public.rs:PublicTranscript`.
+2. **Add a COVERAGE.md row** explaining the privacy implication: what the field
+   reveals, which observer class gains access, and why the privacy cost is
+   acceptable.
+3. **Receive explicit sign-off** in the PR from a designated privacy reviewer
+   (tracked in `CODEOWNERS` as the `@privacy-reviewers` team).
+4. **Update §P4** in this document to reflect the widened class boundary, if
+   applicable.
+
+A PR that widens the public surface without these steps MUST be blocked at
+review.  This requirement is not waivable post-genesis.
+
+**Domain B emission gate:** The only function in Domain B permitted to write
+to a public channel is:
+
+```rust
+// crates/pal/src/net.rs (normative target, implementation pending 4-B)
+pub fn publish_transcript_entry(
+    transport: &impl NetTransport,
+    entry: &PublicTranscript,
+) -> Result<(), NetError> {
+    let bytes = entry.encode_canonical();
+    transport.broadcast(&bytes)
+}
+```
+
+This function is intentionally NOT generic over `T`.  If you need to publish
+raw `EpochState`, that is a privacy violation.
+
 ---
 
 ## §P4 — Observer classes
 
-| Observer | Domain Access | Visible Artifacts | Graph/Edge Exposure |
-|----------|---------------|-------------------|---------------------|
-| Passive internet observer | Domain A only | `state_root`, `receipt_root`, Lyapunov proofs, epoch seeds | None.  Fixed-size, constant-rate emissions. |
-| Light client (Tier 0–1) | Domain A | State-root chain continuity, sparse Merkle proofs against genesis cascade config | Zero transaction semantics.  Commitment validity only. |
-| Full validator (Tier 2–4) | Domain A + B (TEE/OEM) | Blinded opcodes, cascade receipts, validator attestations, admission queue metadata | Cryptographically decoupled from real-world identities.  Execution traces are blinded and epoch-relative. |
-| Receipt verifier / Auditor | Domain A + scoped Domain B | `receipt_root` + ZK membership proofs.  Decrypted receipts only with genesis-bound disclosure keys. | No adjacency reconstruction without explicit disclosure capability. |
-| Clone peer / offline sync | Domain B (detached) | Encrypted clone chunks, Merkle proofs, sync receipts | Temporal isolation from public epoch transitions. |
-| Compromised endpoint | Out of protocol scope | — | TEE/OEM layer concern; protocol halts rather than degrades. |
+### §P4a — Normative class taxonomy (Phase 4-A)
+
+QASH defines four normative observer classes.  Each class has an exhaustive list
+of visible artefacts and a hard boundary on what it MUST NOT see.  Any protocol
+change that widens a class boundary (makes previously invisible data visible) is
+a privacy regression and requires the sign-off process described in §P3a.
+
+**Class I — Public observer (unauthenticated internet participant)**
+
+> Can see: `(epoch, state_root, receipt_root, efb_root, halt_flag)`.  
+> MUST NOT see: validator identities or counts, transaction amounts, sender/receiver,
+> envelope payloads, graph topology, receipt leaf values.
+
+This is the minimal public surface.  `PublicTranscript` in
+`crates/consensus/src/public.rs` encodes this as a compile-time type boundary.
+Any value not present in `PublicTranscript` is Class I–invisible by construction.
+
+**Class II — Authorized validator (Domain A + B, TEE/OEM-protected)**
+
+> Can see: own validator slot assignment, aggregated divergence metrics (Lyapunov
+> `W_D`, `W_C`, `W_Σ`) for the active epoch, blinded opcodes within own shard.  
+> MUST NOT see: other validators' private signing keys, envelope plaintext of
+> other validators' transactions, exact divergence decomposition of other
+> validators' contributions.
+
+Validators are intentionally linkable across epochs — they are accountable
+consensus participants.  This is architecturally distinct from user privacy.
+
+**Class III — Receipt holder (scoped Domain B disclosure)**
+
+> Can see: own receipt contents when holding the corresponding epoch viewing key
+> (derived from `epoch_seed` via the key-derivation function specified in §P7).  
+> MUST NOT see: other participants' receipts, graph adjacency between receipts,
+> economic metadata of other participants, or receipt contents from epochs after
+> key rotation (forward secrecy).
+
+Receipt decryption requires both the receipt ciphertext and the epoch-scoped
+viewing key.  The viewing key is destroyed after `max_offline_epochs` (12,
+from `GENESIS_CONSTANTS.toml`) as a forward-secrecy guarantee.
+
+**Class IV — Regulatory authority (genesis-authorised disclosure domain)**
+
+> Can see: specific receipts for which a genesis-authorised disclosure key has
+> been scoped and a lawful-basis disclosure request has been satisfied.  
+> MUST NOT see: receipts outside the disclosure scope, receipt contents from
+> epochs prior to the disclosure key's activation epoch (disclosure is not
+> retroactive), or graph topology beyond the explicitly disclosed receipts.
+
+Class IV access requires:
+1. A genesis-authorised disclosure key (not derivable post-genesis).
+2. A valid lawful-basis disclosure request (GDPR Art. 6/9, national equivalent).
+3. Epoch-scoped decryption — the disclosure key is valid only for a declared
+   epoch range.  Past-epoch decryption is cryptographically impossible after key
+   rotation (`epoch_seed` destruction).
+
+This is the forward-secrecy property for Class IV: a disclosure key authorised
+at epoch T cannot decrypt receipts from epoch T−k, even with full regulatory
+cooperation.
+
+### §P4b — Observer class summary table
+
+| Class | Name | Domain Access | Can See | MUST NOT See |
+|-------|------|---------------|---------|--------------|
+| I | Public observer | Domain A only | `state_root`, `receipt_root`, `efb_root`, `epoch`, `halt_flag` | Validator IDs, TX amounts, sender/receiver, graph edges |
+| II | Authorized validator | Domain A + B (TEE/OEM) | Own slot, aggregated divergence, blinded opcodes (own shard) | Other validators' private keys, other TX plaintext |
+| III | Receipt holder | Scoped Domain B | Own receipts with epoch viewing key | Other receipts, graph adjacency, past-epoch receipts after key rotation |
+| IV | Regulatory authority | Genesis-authorised Domain B | Disclosed receipts (epoch-scoped, lawful basis) | Out-of-scope receipts, pre-activation-epoch receipts, graph topology |
+| — | Compromised endpoint | Out of protocol scope | — | TEE/OEM concern; protocol halts before degrading |
 
 ---
 

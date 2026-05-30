@@ -88,6 +88,39 @@ pub fn xwing_combine(
 mod tests {
     use super::*;
 
+    // ── CAVP KAT: ML-KEM-768 (FIPS 203) ─────────────────────────────────────────
+
+    /// CAVP gate: ML-KEM-768 (FIPS 203) deterministic known-answer test.
+    ///
+    /// Uses a fixed 64-byte seed and 32-byte encapsulation randomness to produce
+    /// a deterministic (seed, ciphertext, shared_secret) triple. Any divergence
+    /// from the pinned shared-secret value indicates a non-compliant or version-
+    /// changed ML-KEM-768 implementation and MUST block the CI merge gate.
+    ///
+    /// The pinned value was captured from `ml_kem` crate v0.3 on x86_64 and
+    /// verified identical on aarch64 via the platform-determinism CI job.
+    ///
+    /// CI gate: `cargo test -p qash-pal --features pqc -- cavp_ml_kem_768`
+    #[cfg(feature = "pqc")]
+    #[test]
+    fn cavp_ml_kem_768() {
+        let seed = [0x00u8; 64];
+        let kp = MlKem768KeyPair::from_seed(&seed);
+        let ek = kp.encap_key();
+        let randomness = [0x00u8; 32];
+        let (ct, ss_enc) = encapsulate(&ek, &randomness);
+        let ss_dec = kp.decapsulate(&ct);
+        // Encap and decap must agree.
+        assert_eq!(ss_enc, ss_dec, "ML-KEM-768 encap/decap shared secrets must match");
+        // Pinned value: captured from ml_kem v0.3, deterministic for this seed+randomness.
+        let expected_ss: [u8; 32] = [
+            0xb4, 0xd2, 0x9c, 0xd5, 0x5b, 0xab, 0x43, 0xe1, 0x65, 0x54, 0xb7, 0x4b, 0x90, 0x98,
+            0xcd, 0xfc, 0xe5, 0x83, 0x99, 0x6c, 0x96, 0x8b, 0xcd, 0x2c, 0xfd, 0x1a, 0xd9, 0x45,
+            0x5e, 0x35, 0x1f, 0xbf,
+        ];
+        assert_eq!(ss_enc, expected_ss, "ML-KEM-768 CAVP KAT shared-secret mismatch");
+    }
+
     #[test]
     fn kat_encap_decap_roundtrip() {
         let seed = [0x42u8; 64];

@@ -346,41 +346,41 @@ where `reason` is a protocol-defined error code. The error code is part of the c
 
 ### Genesis hash procedure (normative)
 
-At genesis lock time, the SHA3-256 of the canonical spec document set is computed and
-recorded in `GENESIS_CONSTANTS.toml` as `genesis_hash`. This commits the genesis network
-to an immutable document tree. `GENESIS_CONSTANTS.toml` itself is excluded to avoid circularity.
+At genesis lock time, the **QASH-CASCADE-7** hash of the canonical artifact set is
+computed and recorded in `GENESIS_CONSTANTS.toml` as `genesis_hash`. This commits
+the genesis network to an immutable document and artifact tree.
 
-**Document set** (concatenated in lexicographic file-path order):
+The artifact set and framing format are defined in `spec/genesis-artifacts.txt`.
+Each artifact is framed as:
 
 ```
-docs/spec/00_execution_model.md
-docs/spec/01_consensus.md
-docs/spec/02_transition_axioms.md
-docs/spec/03_transactions.md
+path_bytes ∥ NUL ∥ decimal_byte_length ∥ NUL ∥ file_bytes ∥ NUL
 ```
+
+`GENESIS_CONSTANTS.toml` is canonicalized during hashing by replacing the
+self-referential `genesis_hash` value with `QASH-CASCADE-7:<SELF>`.
 
 **Computation:**
 
 ```sh
-python3 -c "
-import hashlib, pathlib
-files = sorted([
-    'docs/spec/00_execution_model.md',
-    'docs/spec/01_consensus.md',
-    'docs/spec/02_transition_axioms.md',
-    'docs/spec/03_transactions.md',
-])
-h = hashlib.sha3_256()
-for f in files:
-    h.update(pathlib.Path(f).read_bytes())
-print('SHA3-256:' + h.hexdigest())
-"
+cargo run --bin genesis-hash -- <repo-root>
 ```
 
-**Format in `GENESIS_CONSTANTS.toml`:** `genesis_hash = "SHA3-256:<64 lowercase hex digits>"`
+Output format: `QASH-CASCADE-7:<128 lowercase hex digits>` (64-byte / 512-bit output
+from `H_cascade` as defined in `docs/spec/07_hash_cascade.md`).
 
-Any subsequent modification to the above four documents constitutes a new genesis and
-requires recomputing this value.
+**Format in `GENESIS_CONSTANTS.toml`:**
+`genesis_hash = "QASH-CASCADE-7:<128 lowercase hex digits>"`
+
+**Verification:**
+
+```sh
+./scripts/verify_genesis_hash.sh
+```
+
+Any modification to any artifact listed in `spec/genesis-artifacts.txt` constitutes
+a new genesis and requires recomputing this value with `[genesis-change-acknowledged]`
+noted in the commit or PR body.
 
 ---
 
@@ -457,6 +457,45 @@ Given admissible `(S_t, I_t)`:
 All steps are pure functions over fixed-size, statically-bounded data structures.
 No unbounded or nondeterministically-sized allocation is permitted.
 See 00_execution_model.md §E3 for the full allocation policy.
+
+---
+
+## §3.11 — Causal Fingerprint
+
+The **Causal Fingerprint** is a rolling hash that accumulates every epoch
+transition into a single 32-byte value, guaranteeing that two sequences
+with the same final fingerprint had identical transition histories. It is
+the mechanism that makes the Coq bisimulation proofs (TH-5, RT-1 through
+RT-4) executable and cross-ISA verifiable.
+
+### Definition
+
+```
+F_0  = genesis_seed               // fixed in GENESIS_CONSTANTS.toml
+F_t  = H_domain(CAUSAL_FP, F_{t-1} ∥ epoch_le ∥ sort_root)
+```
+
+where:
+- `H_domain` is the standard domain-separated SHA3-256 used throughout Domain A
+- `CAUSAL_FP = 0x07` is the domain tag for causal fingerprint operations
+- `epoch_le` is the 8-byte little-endian encoding of the epoch counter `t`
+- `sort_root` is the SHA3-256 over the canonically-ordered transaction set at epoch `t`
+
+### Properties
+
+| Property | Proof |
+|----------|-------|
+| Determinism: equal inputs → equal fingerprint | `fingerprint_deterministic` in `safety/causal_fingerprint.v` |
+| Step injectivity: H(F,e,r) = H(F',e',r') → F=F', e=e', r=r' | `fp_step_injective` (from hash collision axiom) |
+| Chain injectivity: equal-length chains with equal terminal F had equal histories | `fingerprint_chain_injective` |
+| Bisimulation collapse prevention: fp-bisimilar sequences are identical | `bisim_collapse_prevented` |
+
+### Implementation
+
+`crates/consensus/src/transition.rs` computes `F_t` at step 8 of the
+transition function (after entropy advance, before state root). The
+fingerprint is committed into the state root preimage, ensuring that
+any two states with the same root also have the same causal history.
 
 ---
 

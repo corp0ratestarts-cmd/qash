@@ -438,15 +438,11 @@ impl CandidateTx {
     };
 }
 
-fn candidate_after(left: &CandidateTx, right: &CandidateTx) -> bool {
-    left.key > right.key || (left.key == right.key && left.id > right.id)
-}
-
 /// Prevalidate all transactions in `raw_txs` without mutating `state`.
 ///
 /// Steps:
 /// 1. Parse each envelope (skip malformed).
-/// 2. Compute sort keys and sort by key (insertion sort).
+/// 2. Compute sort keys and sort by (key, id) ascending — O(n log n).
 /// 3. In sorted order, check admissibility against a local nonce projection.
 /// 4. Compute each accepted author's next nonce with `checked_add`; stop at
 ///    `max_count`.
@@ -509,15 +505,14 @@ pub(crate) fn prevalidate_all_impl(
         valid += 1;
     }
 
-    let mut i: usize = 1;
-    while i < valid {
-        let mut j = i;
-        while j > 0 && candidate_after(&entries[j - 1], &entries[j]) {
-            entries.swap(j - 1, j);
-            j -= 1;
-        }
-        i += 1;
-    }
+    // Sort by (sort_key, tx_id) ascending. sort_unstable_by is O(n log n)
+    // worst-case (introsort), vs. insertion sort's O(n²) on reverse input.
+    // Semantics identical to the previous comparator: ascending lexicographic
+    // order on (key, id). Uses core::cmp — no std, no alloc.
+    entries[..valid].sort_unstable_by(|a, b| match a.key.cmp(&b.key) {
+        core::cmp::Ordering::Equal => a.id.cmp(&b.id),
+        other => other,
+    });
 
     let limit = if (max_count as usize) < valid {
         max_count as usize
@@ -955,8 +950,16 @@ mod tests {
             author_slot: 0,
         };
 
-        assert!(candidate_after(&high_first, &low_second));
-        assert!(!candidate_after(&low_second, &high_first));
+        // high_first.id > low_second.id → high_first sorts after low_second
+        assert!(high_first.id > low_second.id);
+        // Verify sort_unstable_by places low_second before high_first
+        let mut pair = [high_first, low_second];
+        pair.sort_unstable_by(|a, b| match a.key.cmp(&b.key) {
+            core::cmp::Ordering::Equal => a.id.cmp(&b.id),
+            other => other,
+        });
+        assert_eq!(pair[0].id, low_second.id);
+        assert_eq!(pair[1].id, high_first.id);
     }
 
     #[test]

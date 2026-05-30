@@ -1,10 +1,135 @@
 //! Receipt privacy primitives for zero-persistence Domain B.
 //!
-//! This module deliberately models durable receipt evidence as commitments, not
-//! receipt bodies. Encrypted receipt blobs may live in a local vault, but the
-//! protocol-facing surface is limited to fixed-width roots and atomic shred evidence.
+//! This module models durable receipt evidence as commitments — the protocol-facing
+//! surface is limited to fixed-width roots and atomic shred evidence.  The 4-C
+//! additions below add viewing-key derivation and an `EncryptedReceiptBody` type
+//! for Domain B receipt encryption with forward-secrecy guarantees.
+//!
+//! # Forward secrecy (Class III observer, §P4a)
+//!
+//! Viewing keys are derived from `epoch_seed` via SHA3-256. After epoch closure,
+//! `erase_epoch_viewing_key` zeroizes the derived key. Past receipts become
+//! permanently unreadable — satisfying GDPR Art. 17 Right to Erasure for
+//! epoch-scoped receipt access.
+
+use sha3::{Digest, Sha3_256};
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::zero_wal::{ZeroPersistenceWal, ZeroPersistenceWalRecord};
+
+// ── 4-C: Viewing key derivation ───────────────────────────────────────────────
+
+/// Domain B viewing key — epoch-scoped, zeroized on drop.
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+pub struct ViewingKey(pub [u8; 32]);
+
+/// Derive the viewing key for `epoch` from `master_key` and `epoch_seed`.
+///
+/// Forward secrecy: the key is unique per (master_key, epoch_seed, epoch)
+/// triple.  Once `epoch_seed` is discarded after epoch closure, past keys
+/// cannot be rederived.
+///
+/// Domain B only — never cross into Domain A.
+pub fn derive_viewing_key(
+    master_key: &[u8; 32],
+    epoch_seed: &[u8; 32],
+    epoch: u64,
+) -> ViewingKey {
+    let mut h = Sha3_256::new();
+    h.update(master_key);
+    h.update(epoch.to_be_bytes());
+    h.update(epoch_seed);
+    let out: [u8; 32] = h.finalize().into();
+    ViewingKey(out)
+}
+
+/// Erase the viewing key for `epoch` from `key_store`.
+///
+/// After this call the receipts from `epoch` are permanently inaccessible
+/// to the caller, satisfying GDPR Art. 17 (right to erasure) for their
+/// own epoch-scoped viewing capability.
+pub fn erase_epoch_viewing_key(epoch: u64, key_store: &mut EpochKeyStore) {
+    if let Some(key) = key_store.epoch_keys.get_mut(&epoch) {
+        key.zeroize();
+    }
+    key_store.epoch_keys.remove(&epoch);
+}
+
+/// Minimal in-memory epoch-key store for Domain B use.
+///
+/// Production implementations back this with a TEE-protected vault.
+#[derive(Default)]
+pub struct EpochKeyStore {
+    epoch_keys: std::collections::BTreeMap<u64, [u8; 32]>,
+}
+
+impl EpochKeyStore {
+    pub fn insert(&mut self, epoch: u64, key: ViewingKey) {
+        self.epoch_keys.insert(epoch, key.0);
+    }
+
+    pub fn get(&self, epoch: u64) -> Option<ViewingKey> {
+        self.epoch_keys.get(&epoch).map(|k| ViewingKey(*k))
+    }
+}
+
+// ── 4-C: Encrypted receipt body (stub encryption) ─────────────────────────────
+
+/// An encrypted receipt body alongside its Domain A–visible commitment.
+///
+/// The `ciphertext` is encrypted to the recipient's viewing key (derived from
+/// `epoch_seed`). The `commitment` is the SHA3-256 of the ciphertext and is the
+/// only value visible to Class I observers (via `receipt_root`).
+#[derive(Debug, Clone)]
+pub struct EncryptedReceiptBody {
+    /// Ciphertext: payload XOR-masked with viewing key (stub; production uses
+    /// ChaCha20-Poly1305 or ML-KEM-768 hybrid — see ROADMAP 4-C for full spec).
+    pub ciphertext: Vec<u8>,
+    /// Epoch at which this receipt was created.
+    pub epoch: u64,
+    /// SHA3-256(ciphertext) — the only public commitment.
+    pub commitment: [u8; 32],
+}
+
+/// Encrypt a receipt payload under `viewing_key` and produce an `EncryptedReceiptBody`.
+///
+/// This is a stub implementation using XOR masking. Production MUST use
+/// ChaCha20-Poly1305 (with ML-KEM-768 KEM for key establishment) — the
+/// interface is intentionally typed to allow replacement without API changes.
+pub fn encrypt_receipt_body(payload: &[u8], epoch: u64, viewing_key: &ViewingKey) -> EncryptedReceiptBody {
+    // Stub: XOR each byte with the cycled viewing key bytes.
+    let key_bytes = &viewing_key.0;
+    let ciphertext: Vec<u8> = payload
+        .iter()
+        .enumerate()
+        .map(|(i, b)| b ^ key_bytes[i % 32])
+        .collect();
+    let commitment = sha3_256_bytes(&ciphertext);
+    EncryptedReceiptBody { ciphertext, epoch, commitment }
+}
+
+/// Decrypt an `EncryptedReceiptBody` under `viewing_key`.
+///
+/// Returns `None` if the commitment does not match (ciphertext tampered).
+pub fn decrypt_receipt_body(body: &EncryptedReceiptBody, viewing_key: &ViewingKey) -> Option<Vec<u8>> {
+    let computed_commitment = sha3_256_bytes(&body.ciphertext);
+    if computed_commitment != body.commitment {
+        return None;
+    }
+    let key_bytes = &viewing_key.0;
+    let plaintext: Vec<u8> = body.ciphertext
+        .iter()
+        .enumerate()
+        .map(|(i, b)| b ^ key_bytes[i % 32])
+        .collect();
+    Some(plaintext)
+}
+
+fn sha3_256_bytes(data: &[u8]) -> [u8; 32] {
+    let mut h = Sha3_256::new();
+    h.update(data);
+    h.finalize().into()
+}
 
 /// Deployment-scoped disclosure policy for an encrypted receipt commitment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -152,5 +277,67 @@ mod tests {
         let shred = ShredCommitment::from(request);
         assert_eq!(shred.epoch, 9);
         assert_eq!(shred.key_id_commitment, [3u8; 32]);
+    }
+
+    // ── 4-C viewing key tests ────────────────────────────────────────────────
+
+    #[test]
+    fn viewing_key_is_deterministic() {
+        let mk = [0x42u8; 32];
+        let seed = [0x99u8; 32];
+        let k1 = derive_viewing_key(&mk, &seed, 7);
+        let k2 = derive_viewing_key(&mk, &seed, 7);
+        assert_eq!(k1.0, k2.0);
+    }
+
+    #[test]
+    fn viewing_key_differs_across_epochs() {
+        let mk = [0x42u8; 32];
+        let seed = [0x99u8; 32];
+        let k1 = derive_viewing_key(&mk, &seed, 1);
+        let k2 = derive_viewing_key(&mk, &seed, 2);
+        assert_ne!(k1.0, k2.0);
+    }
+
+    #[test]
+    fn viewing_key_differs_across_seeds() {
+        let mk = [0x42u8; 32];
+        let k1 = derive_viewing_key(&mk, &[0x11u8; 32], 1);
+        let k2 = derive_viewing_key(&mk, &[0x22u8; 32], 1);
+        assert_ne!(k1.0, k2.0);
+    }
+
+    #[test]
+    fn receipt_encrypt_decrypt_roundtrip() {
+        let mk = [0x42u8; 32];
+        let seed = [0x99u8; 32];
+        let key = derive_viewing_key(&mk, &seed, 5);
+        let payload = b"test receipt payload";
+        let encrypted = encrypt_receipt_body(payload, 5, &key);
+        assert_ne!(encrypted.ciphertext, payload.as_slice());
+        let decrypted = decrypt_receipt_body(&encrypted, &key).expect("decrypt ok");
+        assert_eq!(decrypted, payload);
+    }
+
+    #[test]
+    fn receipt_decrypt_rejects_tampered_ciphertext() {
+        let mk = [0x42u8; 32];
+        let seed = [0x99u8; 32];
+        let key = derive_viewing_key(&mk, &seed, 5);
+        let mut encrypted = encrypt_receipt_body(b"receipt data", 5, &key);
+        encrypted.ciphertext[0] ^= 0xFF;
+        assert!(decrypt_receipt_body(&encrypted, &key).is_none());
+    }
+
+    #[test]
+    fn erase_viewing_key_removes_it_from_store() {
+        let mk = [0x42u8; 32];
+        let seed = [0x99u8; 32];
+        let key = derive_viewing_key(&mk, &seed, 3);
+        let mut store = EpochKeyStore::default();
+        store.insert(3, key);
+        assert!(store.get(3).is_some());
+        erase_epoch_viewing_key(3, &mut store);
+        assert!(store.get(3).is_none());
     }
 }

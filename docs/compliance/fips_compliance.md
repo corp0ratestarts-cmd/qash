@@ -5,10 +5,26 @@
 > a NIST-accredited CMVP lab. This document records implementation evidence
 > intended to support a future CMVP submission — not a current validation claim.
 
-This document maps each FIPS 140-3 Level 1 requirement to its concrete
-implementation in `qash-pal` (Domain B). Domain A (`qash-consensus`) is
-proof-eligible consensus logic and is explicitly **out of scope** for FIPS
+This document maps FIPS 140-3 Level 3 (L3) requirements to their concrete
+implementations in `qash-pal` (Domain B). Where an L3 requirement is not yet
+satisfied, the gap and the planned phase are noted. Domain A (`qash-consensus`)
+is proof-eligible consensus logic and is explicitly **out of scope** for FIPS
 evaluation; it contains no FIPS-approved or non-approved algorithms.
+
+### FIPS 140-3 Level 3 — requirement overview
+
+FIPS 140-3 builds incrementally: an L3 module must satisfy all L1 and L2
+requirements plus additional physical and identity-based constraints:
+
+| Level | Key additions |
+|-------|---------------|
+| L1 | Approved algorithms, correct documentation, self-tests |
+| L2 | Tamper-evident coatings or seals; role-based authentication |
+| **L3** | **Tamper-response / zeroization on intrusion; identity-based auth; environmental failure protection (EFP/EFT)** |
+
+The sections below map the four FIPS 140-3 SP 800-140C requirement families
+(Section 4 Entropy, Section 6 Key Management, Section 9 Self-tests,
+Section 10 Physical Security) to their QASH implementations.
 
 ---
 

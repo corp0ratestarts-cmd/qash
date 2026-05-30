@@ -1,5 +1,5 @@
 # QASH Astronomical Hash Cascade
-## `docs/spec/07_hash_cascade.md` — Protocol Version 1.1
+## `docs/spec/07_hash_cascade.md` — Protocol Version 1.1 (QASH-CASCADE-7)
 
 > **Status:** Canonical specification for `H_cascade` as a post-genesis/v1.1 cascade path. Implements DD-7.
 > All cascade implementations must produce identical output to this spec on all Tier A ISAs.
@@ -30,25 +30,44 @@ H_cascade(input: &[u8]) → [u8; 64]
 
 ### Layer 1 — Parallel primitive application
 
-Five primitives are applied in parallel. Each receives a domain-separated
+Seven primitives are applied in parallel, one per national cryptographic standard,
+providing geopolitical multi-polar sovereignty. Each receives a domain-separated
 input: `tag ∥ input` where `tag` is the L1 domain separator string encoded
 as UTF-8 bytes (no null terminator, no length prefix).
+
+All L1 primitives produce **64 bytes** (512-bit output), ensuring uniform
+256-bit quantum collision resistance (Grover's algorithm halves the effective
+collision security to 256 bits for 512-bit outputs, vs. 128 bits for 256-bit outputs).
 
 ```
 L1_sep  = "QASH:CASCADE:L1:PARALLEL"   (UTF-8, 24 bytes)
 
-h1[0] = SHA3-256 ( L1_sep ∥ input )    // [u8; 32]
-h1[1] = BLAKE3   ( L1_sep ∥ input )    // [u8; 32]
-h1[2] = K12      ( L1_sep ∥ input )    // [u8; 32]   (KangarooTwelve, 32-byte output)
-h1[3] = SM3      ( L1_sep ∥ input )    // [u8; 32]
-h1[4] = Streebog ( L1_sep ∥ input )    // [u8; 32]   (GOST R 34.11-2012, 256-bit output)
+h1[0] = SHA3-512      ( L1_sep ∥ input )              // [u8; 64]   FIPS 202, USA/NATO
+h1[1] = BLAKE3-XOF    ( L1_sep ∥ input, out=64 )      // [u8; 64]   Open, Decentralized
+h1[2] = K12-XOF       ( L1_sep ∥ input, out=64 )      // [u8; 64]   KangarooTwelve, EU Academic
+h1[3] = SM3×2         ( L1_sep ∥ input )              // [u8; 64]   GB/T 32905-2016, China/SEA (*)
+h1[4] = Streebog-512  ( L1_sep ∥ input )              // [u8; 64]   GOST R 34.11-2012, Russia/EAEU
+h1[5] = Kupyna-512    ( L1_sep ∥ input )              // [u8; 64]   DSTU 7564:2014, Ukraine
+h1[6] = LSH-512       ( L1_sep ∥ input )              // [u8; 64]   KS X 3262, South Korea
 
-parallel = h1[0] ∥ h1[1] ∥ h1[2] ∥ h1[3] ∥ h1[4]  // [u8; 160]
+parallel = h1[0] ∥ h1[1] ∥ h1[2] ∥ h1[3] ∥ h1[4] ∥ h1[5] ∥ h1[6]  // [u8; 448]
 ```
 
-Primitive output sizes are fixed at 32 bytes each. Implementations must use
-the 256-bit output variant of each primitive. Any variable-output primitive
-must be configured for exactly 32 bytes of output.
+(*) **SM3 double-width construction:** SM3 (GB/T 32905-2016) is natively a 256-bit hash
+with no official 512-bit variant. To maintain uniform 64-byte L1 outputs, two independent
+SM3 invocations with distinct 1-byte domain prefixes are concatenated:
+
+```
+h1[3][0..32]  = SM3( 0x01 ∥ L1_sep ∥ input )
+h1[3][32..64] = SM3( 0x02 ∥ L1_sep ∥ input )
+```
+
+This construction is provably secure under SM3 collision resistance and satisfies
+OSCCA compliance (the SM3 compression function is used exclusively).
+
+All other primitives use their native 512-bit output mode (SHA3-512, Streebog-512,
+Kupyna-512) or their XOF interface squeezed to exactly 64 bytes (BLAKE3, KangarooTwelve,
+LSH-512). Implementations must not truncate or extend outputs beyond 64 bytes per slot.
 
 ### Layer 2 — Binding
 
@@ -59,7 +78,7 @@ L2 = SHA3-512( L2_sep ∥ parallel )   // [u8; 64]
 ```
 
 SHA3-512 is the binding primitive (`binding_primitive = "SHA3-512"` in genesis).
-The binding layer ensures all five L1 outputs are committed into a single 64-byte
+The binding layer compresses the 448-byte L1 entropy pool into a single 64-byte
 value before recursive expansion.
 
 ### Layers 3–6 — Recursive expansion
@@ -150,16 +169,17 @@ inputs. No Domain B values influence it.
 
 ### Cross-ISA determinism
 
-All five L1 primitives and SHA3-512 must produce bitwise-identical output on all
+All seven L1 primitives and SHA3-512 must produce bitwise-identical output on all
 Tier A ISAs. Hardware acceleration is permitted in Domain B only; the Domain A
 cascade path must use reference implementations verified by the cross-ISA test suite.
 
 ### Parallelism
 
-L1 computation across the five primitives may be parallelized in the PAL layer
-(Domain B), provided the concatenation order is fixed: SHA3-256, BLAKE3, K12, SM3,
-Streebog (array indices 0–4). The Domain A caller receives the concatenated
-`parallel` slice; it does not observe the parallelism.
+L1 computation across the seven primitives may be parallelized in the PAL layer
+(Domain B), provided the concatenation order is fixed: SHA3-512, BLAKE3-XOF,
+K12-XOF, SM3-double-width, Streebog-512, Kupyna-512, LSH-512 (array indices 0–6).
+The Domain A caller receives the concatenated 448-byte `parallel` slice; it does
+not observe the parallelism.
 
 ### No streaming
 
@@ -289,20 +309,22 @@ proofs in epoch `t`. Validators must supply cascade proofs against
 ## §6 — Implementation Requirements
 
 All implementations of `H_cascade`, `H_cascade_keyed`, and `H_cascade_derive`
-**must** use pure-Rust (or safe-Rust) implementations of all five L1 primitives
+**must** use pure-Rust (or safe-Rust) implementations of all seven L1 primitives
 and SHA3-512. C FFI, assembly backends, or hardware intrinsic paths are
 forbidden in the Domain A cascade path, as they may produce ISA-dependent output
 under certain edge cases and cannot be verified by the Coq proof suite.
 
 Concretely for the reference implementation:
 
-| Primitive | Crate | Required feature |
-|-----------|-------|-----------------|
-| SHA3-256, SHA3-512 | `sha3 = "0.10"` | `default-features = false` |
-| BLAKE3 | `blake3 = "1.5.5"` | `default-features = false, features = ["pure"]` |
-| KangarooTwelve | `tiny-keccak = "2"` | `features = ["k12"]` |
-| SM3 | `sm3 = "0.4"` | `default-features = false` |
-| Streebog-256 | `streebog = "0.10"` | `default-features = false` |
+| Primitive | Crate | Required feature | Output mode |
+|-----------|-------|-----------------|-------------|
+| SHA3-512 | `sha3 = "0.10"` | `default-features = false` | Fixed 64-byte digest |
+| BLAKE3 | `blake3 = "1.5.5"` | `default-features = false, features = ["pure"]` | XOF `finalize_xof().fill(&mut [0u8;64])` |
+| KangarooTwelve | `tiny-keccak = "2"` | `features = ["k12"]` | XOF `finalize(h, &mut [0u8;64])` |
+| SM3 | `sm3 = "0.4"` | `default-features = false` | Double-width (2 × 32 bytes, prefixes 0x01/0x02) |
+| Streebog-512 | `streebog = "0.10"` | `default-features = false` | Fixed 64-byte digest |
+| Kupyna-512 | `kupyna = "0.1.0"` | `default-features = false` | Fixed 64-byte digest |
+| LSH-512 | (in-crate `lsh512.rs`) | — | `lsh512_parts(sep, input)` → 64 bytes |
 
 The `pure` feature on `blake3` disables all assembly and C backends, ensuring
 the RustCrypto-compatible Rust implementation is used. This requirement is

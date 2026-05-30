@@ -1,5 +1,27 @@
 #![cfg(feature = "std")]
 
+// ── TH-7 cross-ISA anchors ────────────────────────────────────────────────────
+// These values are the canonical outputs of a 5-epoch deterministic sharded
+// replay on x86_64. The cross-ISA CI matrix (platform-determinism.yml) verifies
+// aarch64 and riscv64gc produce identical values.
+//
+// To re-derive after a legitimate protocol change:
+//   cargo test -p qash-pal --features std --test whole_protocol \
+//     -- whole_protocol_sharded_canonical_roots_print --nocapture
+// Verify all three ISAs agree before updating.
+const EXPECTED_SHARDED_STATE_ROOT_5_EPOCHS: [u8; 32] = [
+    224, 47, 3, 182, 189, 223, 252, 149, 128, 54, 33, 251, 163, 249, 27, 70,
+    217, 248, 15, 95, 193, 72, 175, 247, 170, 95, 219, 201, 251, 9, 177, 154,
+];
+const EXPECTED_SHARDED_EFB_ROOT_5_EPOCHS: [u8; 32] = [
+    70, 143, 66, 216, 86, 168, 204, 73, 65, 202, 238, 145, 186, 167, 234, 72,
+    248, 190, 39, 233, 6, 198, 187, 53, 47, 235, 168, 197, 236, 178, 127, 255,
+];
+const EXPECTED_SHARDED_RECEIPT_ROOT_5_EPOCHS: [u8; 32] = [
+    16, 206, 249, 147, 35, 160, 250, 185, 1, 149, 120, 18, 59, 155, 254, 238,
+    6, 23, 244, 203, 129, 152, 223, 252, 197, 32, 137, 13, 114, 18, 158, 48,
+];
+
 use qash_consensus::lyapunov::ConvergenceWindow;
 use qash_consensus::{
     h_domain, DomainTag, EpochState, HaltReason, PublicTranscript, ValidatorMetrics, MAX_VALIDATORS,
@@ -216,5 +238,75 @@ fn hosted_whole_protocol_rejects_malformed_sharded_input_without_persistence() {
     assert_eq!(replayed.efb_root, genesis.efb_root);
     assert_eq!(replayed.halt_reason, genesis.halt_reason);
 
+    let _ = std::fs::remove_file(path);
+}
+
+// ── Cross-ISA canonical root tests (TH-7) ────────────────────────────────────
+
+fn run_canonical_sharded_5epoch() -> (EpochState, std::path::PathBuf) {
+    let path = unique_log_path("canonical-isa");
+    let genesis = genesis_state(4);
+    let mut state = genesis;
+    let mut host = Host::new(&path).expect("host created");
+    for _ in 0..5 {
+        host.enqueue_network_frame(mock_abcr_frame(state.epoch));
+        while let Some(frame) = host.recv_network_frame() {
+            if frame.starts_with(b"QASH-ABCR-MOCK\0") {
+                break;
+            }
+        }
+        let input = sharded_input(state.epoch, state.validator_count);
+        host.apply_canonical_input(&mut state, &input)
+            .expect("canonical sharded input applies");
+    }
+    (state, path)
+}
+
+/// Print canonical sharded roots (used to bootstrap pinned constants above).
+/// Run with --nocapture to capture values for a new ISA or after a protocol change.
+#[test]
+fn whole_protocol_sharded_canonical_roots_print() {
+    let (state, path) = run_canonical_sharded_5epoch();
+    println!(
+        "CANONICAL_SHARDED_STATE_ROOT_5_EPOCHS   = {:?}",
+        state.state_root
+    );
+    println!(
+        "CANONICAL_SHARDED_EFB_ROOT_5_EPOCHS     = {:?}",
+        state.efb_root
+    );
+    println!(
+        "CANONICAL_SHARDED_RECEIPT_ROOT_5_EPOCHS = {:?}",
+        state.receipt_root
+    );
+    let _ = std::fs::remove_file(path);
+}
+
+/// TH-7 empirical anchor: 5-epoch hosted whole-protocol sharded replay roots
+/// MUST be identical across x86_64, aarch64, and riscv64gc.
+///
+/// Update EXPECTED_SHARDED_* constants only after verifying all three ISA
+/// targets produce the new value in the cross-ISA CI matrix.
+#[test]
+fn whole_protocol_sharded_canonical_roots_golden() {
+    let (state, path) = run_canonical_sharded_5epoch();
+    assert_eq!(
+        state.state_root,
+        EXPECTED_SHARDED_STATE_ROOT_5_EPOCHS,
+        "hosted sharded state_root changed — update EXPECTED_SHARDED_STATE_ROOT_5_EPOCHS \
+         only after verifying all three ISA targets produce the new value"
+    );
+    assert_eq!(
+        state.efb_root,
+        EXPECTED_SHARDED_EFB_ROOT_5_EPOCHS,
+        "hosted sharded efb_root changed — update EXPECTED_SHARDED_EFB_ROOT_5_EPOCHS \
+         only after verifying all three ISA targets produce the new value"
+    );
+    assert_eq!(
+        state.receipt_root,
+        EXPECTED_SHARDED_RECEIPT_ROOT_5_EPOCHS,
+        "hosted sharded receipt_root changed — update EXPECTED_SHARDED_RECEIPT_ROOT_5_EPOCHS \
+         only after verifying all three ISA targets produce the new value"
+    );
     let _ = std::fs::remove_file(path);
 }
