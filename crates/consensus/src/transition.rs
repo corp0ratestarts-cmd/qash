@@ -125,6 +125,11 @@ pub struct EpochState {
     /// v1.1 causal fingerprint: running H_domain chain over (prev_fingerprint || epoch || state_root).
     /// Tracks full causal history; equal fingerprints ⟹ bisimilar states (cf. proofs/safety/causal_fingerprint.v).
     /// Not included in the state_root commitment — parallel divergence-detection chain.
+    ///
+    /// INTENTIONALLY not wire-encoded: always resets to `[0u8; 32]` on decode (see
+    /// `decode_full_state_from`). This is by design — the chain is rebuilt from replayed
+    /// transitions and must not be persisted as a forgeable field. Do not add it to the
+    /// wire format without updating the genesis hash and ADR-003.
     pub causal_fingerprint: [u8; 32],
 }
 
@@ -820,19 +825,20 @@ pub fn validate_envelope_epoch(
     Ok(())
 }
 
-/// Reject v1.0 envelopes after the compatibility window.
-/// Returns Ok(()) during the window or for v1.1+ envelopes.
+/// Reject v1.0 envelopes at or after the compatibility window epoch.
+/// Returns Ok(()) before the window or for v1.1+ envelopes.
 ///
-/// `compatibility_window` is the last epoch at which v1.0 is still accepted;
-/// envelopes with `current_epoch > compatibility_window` and
-/// `envelope_version < PROTOCOL_VERSION_V1_1` are rejected with
-/// `HaltReason::IncompatibleVersion` (H8).
+/// `compatibility_window` is the first epoch at which v1.0 is rejected (H8).
+/// Envelopes with `current_epoch >= compatibility_window` and
+/// `envelope_version < PROTOCOL_VERSION_V1_1` return
+/// `Err(HaltReason::IncompatibleVersion)`. This matches `step_1_validate`
+/// which uses the same `>=` boundary.
 pub fn validate_envelope_version(
     envelope_version: u32,
     current_epoch: u64,
     compatibility_window: u64,
 ) -> Result<(), HaltReason> {
-    if current_epoch > compatibility_window && envelope_version < PROTOCOL_VERSION_V1_1 {
+    if current_epoch >= compatibility_window && envelope_version < PROTOCOL_VERSION_V1_1 {
         return Err(HaltReason::IncompatibleVersion);
     }
     Ok(())
@@ -1527,8 +1533,17 @@ mod tests {
     }
 
     #[test]
-    fn validate_envelope_version_accepts_v10_at_or_before_window() {
-        assert!(validate_envelope_version(PROTOCOL_VERSION_V1_0, 100, 100).is_ok());
+    fn validate_envelope_version_rejects_v10_at_window() {
+        // epoch == window: first rejected epoch.
+        assert_eq!(
+            validate_envelope_version(PROTOCOL_VERSION_V1_0, 100, 100),
+            Err(HaltReason::IncompatibleVersion)
+        );
+    }
+
+    #[test]
+    fn validate_envelope_version_accepts_v10_before_window() {
+        assert!(validate_envelope_version(PROTOCOL_VERSION_V1_0, 99, 100).is_ok());
         assert!(validate_envelope_version(PROTOCOL_VERSION_V1_0, 50, 100).is_ok());
     }
 
@@ -1591,6 +1606,24 @@ mod tests {
 
         assert_eq!(decoded.receipt_root, state.receipt_root);
         assert_eq!(decoded.efb_root, state.efb_root);
+    }
+
+    #[test]
+    fn decode_resets_causal_fingerprint_to_zero() {
+        // causal_fingerprint is intentionally not wire-encoded; it must always be
+        // [0u8; 32] after decode regardless of what was in the pre-encode state.
+        let mut state = genesis_state_vc4();
+        state.causal_fingerprint = [0xFF; 32]; // set non-zero before encode
+
+        let mut encoded = [0u8; FULL_STATE_MAX_BYTES];
+        let len = encode_full_state_into(&state, &mut encoded);
+        let decoded = decode_full_state(&encoded[..len]).unwrap();
+
+        assert_eq!(
+            decoded.causal_fingerprint,
+            [0u8; 32],
+            "causal_fingerprint must reset to zero on decode (not wire-encoded)"
+        );
     }
 
     #[test]
