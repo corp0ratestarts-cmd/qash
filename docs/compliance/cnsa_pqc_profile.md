@@ -117,8 +117,8 @@ that the evidence base is incomplete for a production claim.
 
 The following statements are explicitly **not** made for v1.0:
 
-- **"CNSA Suite 2.0 compliant"** — this designation requires formal NSA approval following
-  an evaluation process that has not been initiated.
+- **CNSA Suite 2.0 compliance** is not claimed — this designation requires formal NSA
+  approval following an evaluation process that has not been initiated.
 - **Signature CNSA compliance** — Dilithium5 (ML-DSA) and SLH-DSA-SHA3-256 are scaffolded
   in Domain B (`crates/pal/src/signing/`) and are not production-deployed. CNSA 2.0
   signature compliance is not claimed.

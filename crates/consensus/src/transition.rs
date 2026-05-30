@@ -146,9 +146,31 @@ impl EpochState {
 
 /// Encode the full state into `out`; returns bytes written.
 /// Only `state.validator_count` validator slots are encoded.
+/// FixedPoint values that do not fit in i64 are silently saturated to `i64::MIN`/`i64::MAX`.
+/// Use `try_encode_full_state_into` if saturation must be detected.
 pub fn encode_full_state_into(state: &EpochState, out: &mut [u8; FULL_STATE_MAX_BYTES]) -> usize {
     let len = write_state_base_bytes(state, &state.state_root, out);
     append_sharding_roots_if_present(state, out, len)
+}
+
+/// Fallible encoding: returns `Err(EncodeError::ValueOutOfRange)` if any FixedPoint field
+/// would require saturation to fit in i64. Returns bytes written on success.
+pub fn try_encode_full_state_into(
+    state: &EpochState,
+    out: &mut [u8; FULL_STATE_MAX_BYTES],
+) -> Result<usize, EncodeError> {
+    // Validate all FixedPoint fields before writing anything.
+    for i in 0..state.validator_count as usize {
+        let v = &state.validators[i];
+        fp_to_i64_wire_checked(v.divergence)?;
+        fp_to_i64_wire_checked(v.conflict)?;
+        fp_to_i64_wire_checked(v.slash_accum)?;
+    }
+    let (_, window_vals) = state.convergence_window.raw_parts();
+    for v in window_vals.iter() {
+        fp_to_i64_wire_checked(*v)?;
+    }
+    Ok(encode_full_state_into(state, out))
 }
 
 fn write_state_base_bytes(state: &EpochState, root_field: &[u8; 32], out: &mut [u8]) -> usize {
@@ -395,7 +417,7 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
     })
 }
 
-/// Cast FixedPoint to i64 for wire encoding.
+/// Cast FixedPoint to i64 for wire encoding, saturating on overflow.
 /// All consensus-path values are validated to fit i64 before reaching the commit phase:
 /// D, C <= SCALE = 1_000_000; Sigma validated <= i64::MAX; V_convergence <= 768_000_000.
 #[inline]
@@ -405,6 +427,14 @@ fn fp_to_i64_wire(fp: FixedPoint) -> i64 {
         Err(_) if fp.raw() < 0 => i64::MIN,
         Err(_) => i64::MAX,
     }
+}
+
+/// Fallible variant: returns `Err(EncodeError::ValueOutOfRange)` if any FixedPoint field
+/// does not fit in i64, rather than saturating. Callers that need to detect out-of-range
+/// values before encoding should prefer this over `encode_full_state_into`.
+#[inline]
+fn fp_to_i64_wire_checked(fp: FixedPoint) -> Result<i64, EncodeError> {
+    i64::try_from(fp.raw()).map_err(|_| EncodeError::ValueOutOfRange)
 }
 
 /// Stream the canonical commitment encoding of `state` into `h`, substituting
@@ -1623,6 +1653,30 @@ mod tests {
             decoded.causal_fingerprint,
             [0u8; 32],
             "causal_fingerprint must reset to zero on decode (not wire-encoded)"
+        );
+    }
+
+    #[test]
+    fn try_encode_succeeds_for_in_range_values() {
+        let state = genesis_state_vc4();
+        let mut encoded = [0u8; FULL_STATE_MAX_BYTES];
+        let result = try_encode_full_state_into(&state, &mut encoded);
+        assert!(result.is_ok(), "try_encode must succeed for normal genesis state");
+        let n = result.unwrap();
+        assert_eq!(n, encode_full_state_into(&state, &mut [0u8; FULL_STATE_MAX_BYTES]));
+    }
+
+    #[test]
+    fn try_encode_returns_error_for_out_of_range_fp() {
+        use crate::fixed_point::FixedPoint;
+        let mut state = genesis_state_vc4();
+        // Inject an i128 value that overflows i64 into a validator divergence field.
+        state.validators[0].divergence =
+            FixedPoint::from_raw(i128::from(i64::MAX) + 1);
+        let mut encoded = [0u8; FULL_STATE_MAX_BYTES];
+        assert_eq!(
+            try_encode_full_state_into(&state, &mut encoded),
+            Err(EncodeError::ValueOutOfRange)
         );
     }
 
