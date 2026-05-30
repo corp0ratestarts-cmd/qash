@@ -14,5 +14,7 @@ pub mod kem;
 
 pub mod agility;
 pub mod drbg;
+#[cfg(feature = "fips-post")]
+pub mod post;
 pub mod tls;
 pub mod traits;
