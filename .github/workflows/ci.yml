@@ -323,7 +323,7 @@ jobs:
       - name: Run Miri on consensus unit tests
         env:
           MIRIFLAGS: "-Zmiri-tree-borrows"
-        run: cargo +nightly miri test -p qash-consensus --no-default-features --lib
+        run: cargo +nightly miri test -p qash-consensus --no-default-features --lib --lib
 
   vector-integrity:
     runs-on: ubuntu-latest
