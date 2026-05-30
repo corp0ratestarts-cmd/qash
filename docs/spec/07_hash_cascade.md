@@ -333,4 +333,67 @@ cascade-related crate.
 
 ---
 
+## §7 — GRC-7-7-v2 Genesis Ratchet Certificate
+
+### 7.1 Hedge roots
+
+`h_cascade_l1_primitives(input: &[u8]) -> [[u8; 64]; 7]` exposes the seven L1 primitive
+outputs in slot order (same slot order as `h_cascade_keyed`):
+
+| Slot | Primitive |
+|------|-----------|
+| 0 | SHA3-512 |
+| 1 | BLAKE3-XOF-64 |
+| 2 | KangarooTwelve-XOF-64 |
+| 3 | SM3-double-width |
+| 4 | Streebog-512 |
+| 5 | Kupyna-512 |
+| 6 | LSH-512 |
+
+Each output is 64 bytes, produced with domain separator `QASH:CASCADE:L1:PARALLEL`. These
+outputs are recorded in `[genesis.hedge_roots]` and used by the genesis certificate generator
+(`genesis-cert`) to populate the GRC-7-7-v2 certificate. They are **not** part of the Domain A
+consensus path or state root; `h_cascade_l1_primitives` is Domain B use only.
+
+### 7.2 Verification rule and security model
+
+QASH genesis uses a **7-of-7 verification rule**. All seven hedge roots must match during
+certificate verification; the correct count is 7, not 5.
+
+The security model is **last-unbroken-root**: compromise or deprecation of one L1 primitive
+reduces diversity but does not invalidate the genesis certificate and does not permit forgery
+of the genesis artifact set unless the attacker can satisfy every remaining checked root.
+Formally: breaking primitive _P_ makes the genesis certificate verifiable without _P_, but an
+attacker must still satisfy the remaining six primitives to forge a valid certificate.
+
+`[genesis.hedge_status]` records the current status (`"active"`, `"weakened"`, etc.) for each
+primitive. **This is informational only and never changes `verification_rule`.** No primitive is
+retired inside genesis; `retirement_allowed = false`.
+
+### 7.3 Work root
+
+`[genesis.work]` records an Argon2id work root that provides anti-grinding over the genesis
+artifact identity root. Parameters: `m=512 MiB, t=3, p=1`.
+
+`p=1` means a single lane — single-threaded memory access. This increases per-candidate
+computation cost and reduces easy parallel grinding. **It is not a VDF (verifiable delay
+function) or a succinct proof of sequential work.** The anti-precomputation property is provided
+by future public entropy (`[genesis.entropy]`), not by Argon2id alone.
+
+The Argon2id salt is:
+- **Provisional (pre-lock):** `SHA3-512("QASH:GRC:PROVISIONAL:ENTROPY" || genesis_hash_bytes)[0..32]`
+- **At lock:** `SHA3-512(locked_public_entropy || genesis_hash_bytes)[0..32]`
+
+where `locked_public_entropy = SHA3-512(drand_randomness || nist_beacon_value || bitcoin_block_hash_if_present || genesis_hash_bytes)`.
+
+### 7.4 Entropy model
+
+Public future entropy from ≥2 independent external beacons (drand, NIST beacon, optional
+Bitcoin block) provides anti-precomputation. Because these sources are public and future, no
+internal party can bias or predict them at genesis construction time. At lock time the entropy
+sources are recorded in `[genesis.entropy]` and the Argon2id salt is recomputed with the locked
+values.
+
+---
+
 *End of `docs/spec/07_hash_cascade.md`*

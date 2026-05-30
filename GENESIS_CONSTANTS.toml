@@ -6,7 +6,7 @@ deployment_authoritative = false
 artifact_manifest = "spec/genesis-artifacts.txt"
 deployment_model = "one-shot"
 governance = "zero"
-genesis_hash = "QASH-CASCADE-7:3430a884eabf023b1ef4051dc2859e4cd7a227c7da437321e236c04720e0e8cb997fdf61ff4528a578db5fd9104122e76518d1ac07167859dd0dbc04127c5bbe"
+genesis_hash = "QASH-CASCADE-7:4f4606fe57cb4fcf1cacf73275423fe0873a13a27a03a6ffc6f9a9ab021c70c2d60ef2013c226b16e3c128378823388997ffa83b1ca897e7518d46de905c1e44"
 
 [fixed_point]
 scale = 1_000_000
@@ -112,3 +112,75 @@ version_v1_0 = 0x1000
 version_v1_1 = 0x1100
 # Floor version below which envelopes are rejected after compatibility_window expires.
 compat_version_floor = 0x1000
+
+# ---------------------------------------------------------------------------
+# GRC-7-7-v2 Genesis Ratchet Certificate (append-only)
+# ---------------------------------------------------------------------------
+
+[genesis.certificate]
+algorithm = "QASH-GRC-7-7-v2"
+# artifact_identity_root == genesis_hash (QASH-CASCADE-7 output); see [meta].
+work_root = "ARGON2ID:860ca3fed225dcf6d5a2c54c29e8d83eb64c1c3f9649ef6b54c7f350c7c62ac003b7683bab9010c2b3e6be1cf93f640af06396c3f13efe32b5c141e89c22164b"
+
+[genesis.work]
+algorithm = "Argon2id"
+memory_mib = 512
+time_cost = 3
+parallelism = 1
+output_bytes = 64
+salt_algorithm = "SHA3-512"
+salt_inputs = ["QASH:GRC:PROVISIONAL:ENTROPY", "genesis_hash_bytes"]
+salt_status = "provisional"
+# At lock time: salt = full 64-byte SHA3-512(locked_public_entropy || genesis_hash_bytes)
+
+[genesis.long_work]
+enabled = false
+profile = "archival-only"
+# Optional ESR profile; not required for normal verification.
+
+[genesis.hedge_policy]
+total_roots = 7
+verification_rule = "all_7_roots_must_match"
+security_model = "last_unbroken_root"
+retirement_allowed = false
+deprecation_status_is_informational = true
+
+[genesis.hedge_roots]
+sha3_512          = "4adb2e0242ced57fe2c75f963a6895371d4c886eafc631b069698f6a8c7955e5b2019abcbf9e12b11dfe7383d00d61e63ee002c3b3bc9a653b58d664f059936c"
+blake3_xof_64     = "217e99566d6c2dfcd998c5fac3f988e38f72da62f0a81e7ad770230305a64185908283def8c36fb45dee30ae6152573ff2d597bf305b91a13dd24be621444767"
+kangaroo12_xof_64 = "dc0eb1a8ceca580e4ed7dbb52eba551aa26268d78d844fcc5fdae462652af0dbf268a3aafdc6ebbb0998d9eb81987f0bb874e02052533c28c7b1634cd72a6e1a"
+sm3_double_width  = "1677f6be6ecc7989e9c36eb55c4586c7f27d7f5e07607beceea2fc6847524e4d57ce05557373972b81e469bf68cd41457794bac97d6512f4d6e15399ac252c0d"
+streebog_512      = "7af4949a1abeeedd87083c103290411e5e5a279f3d71ed729dcc98040b44293ee848fb23f3b0d6fb49ab796ec723e115f3035fbd81f4693fda235c9685424bf0"
+kupyna_512        = "6140bf94f178006eebd6e342377df88bc9e7210a16e59858264fefecd20c9550af8dd57390408487b7b226ce69cbc3faa93ab95c86556fb2c02618278a4f5ef4"
+lsh_512           = "62cfeb763fe54ad98180a71a7bfa37b4fec74c1fe349d4dc4e162b0081f1485934745e9d71bd58b3f01083cd1eef6635b1cbc4b2598eed9b568562552a86338f"
+
+[genesis.hedge_status]
+sha3_512          = "active"
+blake3_xof_64     = "active"
+kangaroo12_xof_64 = "active"
+sm3_double_width  = "active"
+streebog_512      = "active"
+kupyna_512        = "active"
+lsh_512           = "active"
+# Informational only. Does not affect verification_rule.
+
+[genesis.entropy]
+algorithm = "QASH-ENTROPY-MIX-v1"
+sources_required = 2
+sources = ["drand", "nist_beacon", "bitcoin_block_optional"]
+entropy_rule = "SHA3-512(drand_randomness || nist_beacon_value || bitcoin_block_hash_if_present || genesis_hash_bytes)"
+status = "provisional"
+drand_round = 0
+nist_beacon_round = ""
+bitcoin_block_height = 0
+bitcoin_confirmations_required = 12
+
+[genesis.supply_chain]
+compiler_hash       = "ab67d53a86c68c07419b5e34f4267793878996ae5d0866bfe32d62a276d50ef3"
+rust_toolchain_hash = "c770b5cf29a26dfaff56dcc6b00d1730524b535a84de197468bd2612f21bf82d"
+cargo_lock_hash     = "f48408da2fb98d91c0d4845262d9021c3b3055671a3d6b88f1584c33610631d0"
+rekor_index = 0
+tee_quote = "not-attested"
+
+[genesis.timestamps]
+rfc3161 = []

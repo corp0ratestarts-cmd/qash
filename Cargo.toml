@@ -17,12 +17,17 @@ qash-consensus = { path = "crates/consensus", version = "0.1.0" }
 qash-pal       = { path = "crates/pal",       version = "0.1.0", features = ["std"] }
 qash-model     = { path = "model",            version = "0.1.0" }
 qash-address   = { path = "crates/address",   version = "0.1.0" }
+argon2         = "0.5"
 getrandom      = "0.2"
 sha3           = "0.10"
 
 [[bin]]
 name = "genesis-hash"
 path = "src/bin/genesis_hash.rs"
+
+[[bin]]
+name = "genesis-cert"
+path = "src/bin/genesis_cert.rs"
 
 [profile.release]
 opt-level = 3

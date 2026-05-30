@@ -2,6 +2,7 @@
 
 pub mod consensus;
 pub mod crypto;
+pub mod genesis_preimage;
 pub mod hardware;
 pub mod obfuscation;
 pub mod offline;
