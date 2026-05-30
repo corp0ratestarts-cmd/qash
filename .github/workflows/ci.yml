@@ -321,6 +321,8 @@ jobs:
           rustup override set nightly
           cargo miri setup
       - name: Run Miri on consensus unit tests
+        env:
+          MIRIFLAGS: "-Zmiri-tree-borrows"
         run: cargo +nightly miri test -p qash-consensus --no-default-features
 
   vector-integrity:
