@@ -181,20 +181,78 @@ fn compiler_version_bytes() -> Vec<u8> {
 mod tests {
     use super::*;
 
-    /// Parity test: genesis-cert and genesis-hash must derive the same
-    /// artifact_identity_root for the same preimage. Since both call
-    /// `build_preimage` from the shared `genesis_preimage` module, they are
-    /// structurally identical. This test confirms h_cascade is deterministic
-    /// over the canonical preimage fixture.
+    /// Real parity fixture test: build_preimage() canonicalizes GRC computed
+    /// fields to <SELF> before hashing, so genesis-hash and genesis-cert both
+    /// produce the same artifact_identity_root regardless of what values are
+    /// written into [genesis.certificate], [genesis.hedge_roots], etc.
+    ///
+    /// Builds two filesystem fixtures with different GRC field values and
+    /// asserts the preimage and final hash are identical.
     #[test]
-    fn preimage_and_cascade_are_deterministic() {
-        // Use a minimal fixture (no filesystem access) to confirm h_cascade
-        // gives a stable output when called twice.
-        let input = b"QASH:GRC:PARITY:TEST:FIXTURE";
-        let out1 = h_cascade(input);
-        let out2 = h_cascade(input);
-        assert_eq!(out1, out2, "h_cascade must be deterministic");
-        assert_ne!(out1, [0u8; 64], "output must be non-zero");
+    fn preimage_parity_grc_fields_are_canonicalized() {
+        use std::fs;
+        use std::path::PathBuf;
+
+        let tmp: PathBuf = std::env::temp_dir()
+            .join(format!("qash-parity-{}", std::process::id()));
+        fs::create_dir_all(tmp.join("spec")).unwrap();
+
+        // Manifest lists only GENESIS_CONSTANTS.toml.
+        fs::write(tmp.join("spec/genesis-artifacts.txt"), "GENESIS_CONSTANTS.toml\n").unwrap();
+
+        // Two GENESIS_CONSTANTS.toml files with identical non-GRC content but
+        // different values in every GRC computed section.
+        let make_toml = |suffix: &str| {
+            let h128 = suffix.repeat(128 / suffix.len() + 1)[..128].to_string();
+            let h64  = suffix.repeat(64  / suffix.len() + 1)[..64].to_string();
+            format!(
+                "[meta]\n\
+                 lock_algorithm = \"QASH-CASCADE-7\"\n\
+                 genesis_hash = \"QASH-CASCADE-7:{h64}\"\n\
+                 genesis_status = \"provisional\"\n\
+                 \n\
+                 [fixed_point]\n\
+                 scale = 1000000\n\
+                 \n\
+                 [genesis.certificate]\n\
+                 algorithm = \"QASH-GRC-7-7-v2\"\n\
+                 work_root = \"ARGON2ID:{h128}\"\n\
+                 \n\
+                 [genesis.hedge_roots]\n\
+                 sha3_512 = \"{h128}\"\n\
+                 blake3_xof_64 = \"{h128}\"\n\
+                 \n\
+                 [genesis.supply_chain]\n\
+                 compiler_hash = \"{h64}\"\n\
+                 rekor_index = 0\n\
+                 tee_quote = \"not-attested\"\n\
+                 \n\
+                 [genesis.timestamps]\n\
+                 rfc3161 = []\n"
+            )
+        };
+
+        // Fixture A: GRC fields filled with 'a'/'0' hex chars.
+        fs::write(tmp.join("GENESIS_CONSTANTS.toml"), make_toml("a0")).unwrap();
+        let preimage_a = build_preimage(&tmp);
+        let hash_a = h_cascade(&preimage_a);
+
+        // Fixture B: GRC fields filled with different 'f'/'e' hex chars.
+        fs::write(tmp.join("GENESIS_CONSTANTS.toml"), make_toml("fe")).unwrap();
+        let preimage_b = build_preimage(&tmp);
+        let hash_b = h_cascade(&preimage_b);
+
+        fs::remove_dir_all(&tmp).ok();
+
+        assert_eq!(
+            preimage_a, preimage_b,
+            "build_preimage() must produce identical bytes regardless of GRC computed field values"
+        );
+        assert_eq!(
+            hash_a, hash_b,
+            "artifact_identity_root must be stable despite different GRC field values"
+        );
+        assert_ne!(hash_a, [0u8; 64]);
     }
 
     /// Confirm h_cascade_l1_primitives returns 7 distinct 64-byte outputs.
