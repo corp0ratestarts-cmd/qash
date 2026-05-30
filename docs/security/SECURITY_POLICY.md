@@ -187,4 +187,4 @@ Full operational runbook is pending production deployment decisions (Phase 4). P
 - **Snapshot/replay**: Epoch state roots are deterministically replayable from the genesis state
   given the same transaction sequence on any authorized ISA.
 - **Patch deployment**: Any change to genesis-locked files invalidates the genesis hash. Such changes
-  define a new network and require a new genesis ceremony.
+  define a new network and require a new genesis lock process.
