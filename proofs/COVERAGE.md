@@ -177,9 +177,9 @@ the full three-layer correspondence chain and extraction pipeline.
 | **PROVED** | 43 |
 | **CI-VERIFIED** | 7 |
 | **AXIOM** | 3 |
-| **PLACEHOLDER** | 2 |
+| **PLACEHOLDER** | 1 |
 | **MISSING** | 0 |
-| **Total** | 56 |
+| **Total** | 55 |
 
 ---
 
@@ -216,7 +216,7 @@ known proof debt; see classification table above for genesis-lock status.
 | Blinding PRF | H_cascade_keyed is a PRF | `blinding_non_interference`, `blinding_advantage_bound`, `TH_BPRF_cascade_prf` now proved in Coq. Underlying axioms (`cascade_prf_security`, `cascade_prf_quantitative_bound`) are accepted computational assumptions (typed adv_le, non-vacuous). Phase 3-A complete. |
 | IT-MAC | GF(2¹²⁸) forgery bound 16/2¹²⁸ | `it_mac_forgery_bound_at_16_blocks` (pure arithmetic), `it_mac_forgery_bound_16`, `TH_ITMAC_forgery_cap_16` all proved. `ghash_poly_mac_au_bound` is an accepted typed axiom. Phase 3-B complete. |
 | AX2-refinement | Coq ↔ Rust observational equivalence | Axiom `AX2_rust_refinement` in `model/RefinementStatement.v`; supported by 10 CI test vectors. Strengthen by adding more vectors to `vectors.json`/`coq_vectors.rs`, or by embedding Rust semantics in Coq (RustBelt / K-Rust, post-v1.1). |
-| TH-P1 (dep) | Cascade avalanche property | `privacy/cascade_avalanche_property.v` — placeholder axiom; deferred to Domain B blinding spec revision. Proof requires SSProve/CryptHOL formalisation of the L1 random oracle model and 5-way XOR combiner. |
+| TH-P1 (dep) | Cascade avalanche property | `privacy/cascade_avalanche_property.v` — **EXCLUDED** from v1.0 genesis-lock scope. Reclassified from formal proof target to statistical/KAT evidence (see `Status: STATISTICAL` in Coq file). Genesis security rests on collision/preimage resistance (AX-3), not avalanche. No formal proof required for v1.0. |
 | TH-P1 (dep) | ORAM access non-interference | `privacy/oblivious_access_non_interference.v` — placeholder axiom; deferred to Domain B blinding spec revision and blinding_params definition. |
 | TH-P2 (dep) | ZK membership proof soundness | `privacy/receipt_proof_soundness.v` — placeholder axiom; deferred to receipt spec (`06_receipts.md`) and Plonky3 FRI-STARK integration. |
 | P8 | Blinding health Lyapunov monotonicity | `privacy/blinding_health_metric.v` — placeholder axioms `blinding_health_bounded`, `blinding_halt_monotone`; deferred to §P8 metric and weight definition in Domain B blinding spec. `blinding_health` Lyapunov factor is not yet implemented in `lyapunov.rs`. |
