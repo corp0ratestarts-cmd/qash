@@ -97,7 +97,8 @@ fn erasure_workflow_e2e() {
     // 5. Verify evidence is correct.
     assert_eq!(evidence.key_commitment, key_commitment);
     assert_eq!(evidence.epoch, 100);
-    assert_eq!(evidence.event_root, [0xFFu8; 32]);
+    // event_root links to the receipt being erased (receipt_commitment), not the requestor.
+    assert_eq!(evidence.event_root, key_commitment);
 
     // 6. Key must be consumed from the store.
     assert!(store.is_empty(), "key must be removed from store after shred");

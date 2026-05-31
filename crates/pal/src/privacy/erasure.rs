@@ -175,7 +175,9 @@ pub fn process_erasure_request<S: KeyStore>(
     }
 
     // Shredding → ShredComplete
-    Ok(shred_key(key, req.epoch, req.requestor_id))
+    // event_root = receipt_commitment: "links to the receipt/incident being erased"
+    // (not requestor_id, which identifies who requested it, not what was erased)
+    Ok(shred_key(key, req.epoch, req.receipt_commitment))
 }
 
 fn commitment_of(material: &[u8; 32]) -> [u8; 32] {
@@ -233,7 +235,8 @@ mod tests {
         let evidence = process_erasure_request(req, &mut store).expect("erasure must succeed");
         assert_eq!(evidence.key_commitment, commitment, "evidence must carry the key commitment");
         assert_eq!(evidence.epoch, 42);
-        assert_eq!(evidence.event_root, [0x01u8; 32]);
+        // event_root links to the receipt being erased (receipt_commitment), not the requestor.
+        assert_eq!(evidence.event_root, commitment);
         // Key must be consumed from the store.
         assert!(store.0.is_empty(), "key must be removed from store after shred");
     }
