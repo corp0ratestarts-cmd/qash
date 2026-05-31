@@ -43,11 +43,11 @@ const BLAKE3_ARM_LABEL: &[u8] = b"QASH:DH:BLAKE3:V1";
 fn sha3_arm(context: &[u8], salt: &[u8], data: &[u8]) -> [u8; 64] {
     let mut h = Sha3_512::new();
     h.update(SHA3_ARM_LABEL);
-    h.update(&(context.len() as u32).to_le_bytes());
+    h.update((context.len() as u32).to_le_bytes());
     h.update(context);
-    h.update(&(salt.len() as u32).to_le_bytes());
+    h.update((salt.len() as u32).to_le_bytes());
     h.update(salt);
-    h.update(&(data.len() as u64).to_le_bytes());
+    h.update((data.len() as u64).to_le_bytes());
     h.update(data);
     h.finalize().into()
 }
