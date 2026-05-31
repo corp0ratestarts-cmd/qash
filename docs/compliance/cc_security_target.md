@@ -1,7 +1,7 @@
 # Common Criteria Security Target — QASH
 
 **Document type:** CC EAL4+ Security Target (design-phase draft)  
-**Date:** 2026-05-26  
+**Date:** 2026-05-30  
 **Status:** Design-phase draft — not evaluated or certified  
 **CC Standard:** ISO/IEC 15408-1:2022 (Common Criteria v3.1 Rev. 5)  
 **Assurance Level Target:** EAL4 augmented (EAL4+) — design-phase target only, not a certified claim
@@ -44,12 +44,17 @@ QASH is a post-quantum, zero-governance, deterministic consensus engine
 designed for offline-operable, jurisdiction-neutral, replay-deterministic
 incident-log commitment. The Target of Evaluation (TOE) consists of:
 
-- **Domain A (TOE boundary):** `crates/consensus/` — `no_std`, no-`unsafe`,
-  deterministic state-transition logic. This is the proof-eligible consensus
-  core; all arithmetic is checked and overflow-absorbing.
-- **Domain B (TOE environment):** `crates/pal/` and hosted binary — platform
-  abstraction layer. Domain B is operational infrastructure, not part of the
-  TOE boundary for Domain A security properties.
+- **Domain A (TOE boundary — primary):** `crates/consensus/` — `no_std`,
+  no-`unsafe`, deterministic state-transition logic. This is the proof-eligible
+  consensus core; all arithmetic is checked and overflow-absorbing.
+- **Domain B (TOE boundary — selected crypto):** `crates/pal/src/crypto/`
+  selected cryptographic primitives: ML-KEM-768 (`kem.rs`), HMAC-DRBG (`drbg.rs`),
+  key shredding (`privacy/erasure.rs`). These Domain B components are included
+  in the TOE boundary for the cryptographic SFRs (FCS_CKM.1, FCS_RBG_EXT.1,
+  FCS_CKM.4, FDP_RIP.1). All other Domain B infrastructure is TOE environment.
+- **TOE environment:** Remaining `crates/pal/` modules and the hosted binary —
+  network transport, attestation, threshold signing, ZK backend, and operator
+  tooling. These are outside the formal TOE claim boundary.
 
 The TOE does not include network infrastructure, operator key management
 systems, or the hardware platform on which it executes.
@@ -119,29 +124,29 @@ systems, or the hardware platform on which it executes.
 
 ### FCS — Cryptographic Support
 
-| SFR | Description | Implementation |
-|-----|-------------|----------------|
-| FCS_CKM.1 | Cryptographic key generation — ML-KEM-768 | `crates/pal/src/crypto/kem.rs` (Domain B) |
-| FCS_CKM.4 | Cryptographic key destruction — ZeroizeOnDrop | `crates/pal/src/privacy/erasure.rs` — `shred_key()` |
-| FCS_COP.1(hash) | SHA3-256 state root and receipt root hashing | `crates/consensus/src/hash.rs` (Domain A) |
-| FCS_COP.1(drbg) | HMAC-DRBG per NIST SP 800-90A | `crates/pal/src/crypto/drbg.rs` (Domain B) |
-| FCS_RBG_EXT.1 | Random bit generation — FIPS-aligned HMAC-DRBG | `crates/pal/src/crypto/drbg.rs` (Domain B) |
+| SFR | Description | Implementation | CI evidence |
+|-----|-------------|----------------|-------------|
+| FCS_CKM.1 | Cryptographic key generation — ML-KEM-768 | `crates/pal/src/crypto/kem.rs::MlKem768KeyPair::from_seed` (Domain B, `pqc` feature) | `cavp-kat`: `cavp_ml_kem_768`; `tests/cavp/ml_kem_768.json` |
+| FCS_CKM.4 | Cryptographic key destruction — ZeroizeOnDrop | `crates/pal/src/privacy/erasure.rs::shred_key()` | `zero-persistence-boundary`; `erasure_workflow` integration test |
+| FCS_COP.1(hash) | SHA3-256 state root and receipt root hashing | `crates/consensus/src/hash.rs::sha3_256` (Domain A) | `cavp-kat`: `cavp_sha3_256`; `tests/cavp/sha3_256.json` |
+| FCS_COP.1(drbg) | HMAC-DRBG per NIST SP 800-90A | `crates/pal/src/crypto/drbg.rs::FipsDrbg` (Domain B) | `cavp-kat`: `cavp_hmac_sha256`; `tests/cavp/hmac_sha256.json` |
+| FCS_RBG_EXT.1 | Random bit generation — FIPS-aligned HMAC-DRBG | `crates/pal/src/crypto/drbg.rs::FipsDrbg` (Domain B) | `cavp-kat`: `cavp_hmac_sha256`; POST `post_hmac_drbg` (`fips-post` feature) |
 
 ### FPT — Protection of the TSF
 
-| SFR | Description | Implementation |
-|-----|-------------|----------------|
-| FPT_TST.1 | TSF testing — cargo test + Kani harnesses | `cargo test --workspace`, `scripts/run_kani_consensus.sh` |
-| FPT_FLS.1 | Failure with preservation of secure state — absorbing halt | `crates/consensus/src/transition.rs`, `Halt::absorbing_reset()` |
-| FPT_ITT.1 | Internal TSF data transfer integrity — domain isolation | `crates/consensus/src/domain.rs`, `CapToken<T>` |
+| SFR | Description | Implementation | CI evidence |
+|-----|-------------|----------------|-------------|
+| FPT_TST.1 | TSF testing — cargo test + Kani harnesses | `cargo test --workspace`, `scripts/run_kani_consensus.sh` | `test-determinism`, `kani-advisory` CI jobs |
+| FPT_FLS.1 | Failure with preservation of secure state — absorbing halt | `crates/consensus/src/transition.rs::advance_epoch` (halt-flag guard) | `TH6_halt_terminal`, `TH6_halt_irreversible` (`proofs/safety/absorbing_halt.v`) |
+| FPT_ITT.1 | Internal TSF data transfer integrity — domain isolation | `crates/consensus/src/domain.rs`, `CapToken<T>` | `domain-a-tripwires`, `Domain A/B full boundary scan` |
 
 ### FDP — User Data Protection
 
-| SFR | Description | Implementation |
-|-----|-------------|----------------|
-| FDP_IFC.1 | Subset information flow control — Domain A/B boundary | `crates/consensus/src/capability.rs`, `validate_capability()` |
-| FDP_IFF.1 | Simple security attributes — CapToken schema | Formal proof: `proofs/capability/cap_token_schema.v` |
-| FDP_RIP.1 | Subset residual information protection — key shredding | `crates/pal/src/privacy/erasure.rs` |
+| SFR | Description | Implementation | CI evidence |
+|-----|-------------|----------------|-------------|
+| FDP_IFC.1 | Subset information flow control — Domain A/B boundary | `crates/consensus/src/capability.rs::validate_capability()` | `domain-a-tripwires` CI; `domain_crossing_is_explicit` Coq lemma |
+| FDP_IFF.1 | Simple security attributes — CapToken schema | `proofs/capability/cap_token_schema.v` | `proofs` CI job (Coq compile) |
+| FDP_RIP.1 | Subset residual information protection — key shredding | `crates/pal/src/privacy/erasure.rs::process_erasure_request` | `zero-persistence-boundary`; `erasure_workflow` integration test |
 
 ---
 
@@ -157,7 +162,7 @@ Target assurance level: **EAL4 augmented**.
 | ADV_TDS.3 | Basic modular design | Workspace layout, `docs/adr/`, `docs/implementation_order.md` |
 | AGD_OPE.1 | Operational user guidance | `GENESIS_CONSTANTS.toml` comments, `docs/` |
 | AGD_PRE.1 | Preparative procedures | `scripts/verify_rust_toolchain.sh`, toolchain pin in `rust-toolchain.toml` |
-| ATE_COV.2 | Analysis of coverage | `proofs/COVERAGE.md` — 43 PROVED, 7 CI-VERIFIED, 3 AXIOM |
+| ATE_COV.2 | Analysis of coverage | `proofs/COVERAGE.md` — 47 PROVED, 9 CI-VERIFIED, 7 AXIOM, 3 PLACEHOLDER |
 | ATE_DPT.1 | Testing: basic design | `crates/consensus/tests/`, `crates/pal/tests/` |
 | ATE_FUN.1 | Functional testing | `cargo test --workspace`, `scripts/verify_two_stage_build.sh` |
 | ATE_IND.2 | Independent testing — sample | Kani harnesses (`scripts/run_kani_consensus.sh`) |
@@ -235,7 +240,47 @@ deferred. No MISSING entries exist.
 
 ---
 
-## 9. Open Items (Pre-Certification)
+## 9. Evaluator Build and Verification Instructions
+
+To reproduce the TOE build and run the evidence-generating test suite:
+
+```sh
+# Prerequisites: Rust toolchain pinned in rust-toolchain.toml
+rustup toolchain install
+
+# 1. Clean build (no default features — Domain A only)
+cargo build --no-default-features
+
+# 2. Full test suite (consensus core + PAL)
+cargo test --workspace --no-default-features
+
+# 3. Verify genesis hash (computed == recorded)
+bash scripts/verify_genesis_hash.sh
+
+# 4. Verify deterministic two-stage build pipeline
+bash scripts/verify_two_stage_build.sh
+
+# 5. Run CAVP KAT vectors
+cargo test -p qash-consensus --no-default-features -- hash::tests::cavp_sha3_256 --nocapture
+cargo test -p qash-pal -- crypto::drbg::tests::cavp_hmac_sha256 --nocapture
+cargo test -p qash-pal --features pqc -- crypto::kem::tests::cavp_ml_kem_768 --nocapture
+
+# 6. Run FIPS POST self-tests
+cargo test -p qash-pal --features fips-post -- post --nocapture
+
+# 7. Compile Coq proofs (requires coq >= 8.18)
+cd proofs && make all
+
+# 8. Inspect proof coverage
+cat proofs/COVERAGE.md   # 47 PROVED, 9 CI-VERIFIED, 7 AXIOM, 3 PLACEHOLDER
+```
+
+CI artifacts (proof hashes, SBOM, bench output) are uploaded on each push to
+`main` — see `.github/workflows/ci.yml` for the full 65-job pipeline.
+
+---
+
+## 10. Open Items (Pre-Certification)
 
 The following items must be resolved before a CC evaluation can proceed:
 

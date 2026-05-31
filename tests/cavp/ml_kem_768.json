@@ -13,7 +13,7 @@
           "description": "encapsulate/decapsulate consistency — zero seed and randomness",
           "keypairSeed": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
           "encapsulationRandomness": "0000000000000000000000000000000000000000000000000000000000000000",
-          "expectedSharedSecret": "b4d29cd55bab43e16554b74b9098cdfce583996c968bcd2cfd1ad9455e351fbf",
+          "kemOutput": "b4d29cd55bab43e16554b74b9098cdfce583996c968bcd2cfd1ad9455e351fbf",
           "expectSuccess": true,
           "source": "cavp_ml_kem_768 CI gate vector (pinned from ml_kem v0.3)"
         },
@@ -23,7 +23,7 @@
           "keypairSeed": "4242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242",
           "encapsulationRandomness": "3737373737373737373737373737373737373737373737373737373737373737",
           "expectSuccess": true,
-          "note": "Pinned shared secret not recorded; consistency check only (encap == decap, non-zero)."
+          "note": "Pinned KEM output not recorded; consistency check only (encap == decap, non-zero)."
         },
         {
           "tcId": 3,
@@ -32,7 +32,7 @@
           "wrongKeypairSeed": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
           "encapsulationRandomness": "0000000000000000000000000000000000000000000000000000000000000000",
           "expectSuccess": false,
-          "expectedBehaviour": "decapsulation with wrong decapsulation key produces a different shared secret (implicit rejection via ML-KEM decapsulation spec)"
+          "expectedBehaviour": "decapsulation with wrong decapsulation key produces a different KEM output (implicit rejection via ML-KEM decapsulation spec)"
         }
       ]
     }
