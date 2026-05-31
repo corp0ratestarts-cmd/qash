@@ -41,9 +41,9 @@ The following status labels are used throughout this document:
 |------------------------|-----------|----------------------|------------|-------------------|----------------|
 | Korea / LSH (KS X 3262) | LSH-512 | `crates/consensus/src/lsh512.rs` — no feature flag (always-on) | CI-verified (cascade KAT) | Domain A cascade primitive | Implementation complete / self-tested — KCMVP certification is not claimed |
 | Korea / LSH (KS X 3262) | LSH-256 | `crates/consensus/src/cascade.rs` — no feature flag (always-on) | CI-verified (cascade KAT) | Domain A cascade primitive | Implementation complete / self-tested — KCMVP certification is not claimed |
-| China / Guomi (GM/T 0004-2012) | SM3 | `crates/consensus/src/sm3.rs` + `crates/pal/` — no feature flag | CI-verified (cascade KAT + state-root KAT) | Domain A hash; Domain B opt-in | Implementation complete / self-tested — SM3 hash only; full GM/T suite (SM2, SM4) is not implemented; Guomi certification is not claimed |
-| Russia / GOST (GOST R 34.11-2012) | Streebog-512 | `crates/consensus/src/streebog512.rs` — no feature flag (always-on) | CI-verified (cascade KAT) | Domain A cascade primitive | Implementation complete / self-tested — cipher suite (GOST 28147-89 / Grasshopper) is not implemented; GOST FSTEC certification is not claimed |
-| Ukraine / Kupyna (DSTU 7564:2014) | Kupyna-512 | `crates/consensus/src/kupyna.rs` — no feature flag (always-on) | CI-verified (cascade KAT) | Domain A cascade primitive | Implementation complete / self-tested — no formal certification exists or is claimed |
+| China / Guomi (GM/T 0004-2012) | SM3 | external crate `sm3`, wired in `crates/consensus/src/cascade.rs` — no feature flag | CI-verified (cascade KAT + state-root KAT) | Domain A hash; Domain B opt-in | Implementation complete / self-tested — SM3 hash only; full GM/T suite (SM2, SM4) is not implemented; Guomi certification is not claimed |
+| Russia / GOST (GOST R 34.11-2012) | Streebog-512 | external crate `streebog`, wired in `crates/consensus/src/cascade.rs` — no feature flag (always-on) | CI-verified (cascade KAT) | Domain A cascade primitive | Implementation complete / self-tested — cipher suite (GOST 28147-89 / Grasshopper) is not implemented; GOST FSTEC certification is not claimed |
+| Ukraine / Kupyna (DSTU 7564:2014) | Kupyna-512 | external crate `kupyna`, wired in `crates/consensus/src/cascade.rs` — no feature flag (always-on) | CI-verified (cascade KAT) | Domain A cascade primitive | Implementation complete / self-tested — no formal certification exists or is claimed |
 
 ---
 

@@ -912,6 +912,9 @@ Add 2 new rows to `proofs/COVERAGE.md`.
 
 #### Verified Interpreter Conformance
 
+> Phase 2-L target (requires OCaml extraction pipeline + Phase 1-D). Not yet implemented.
+> Current conformance evidence: CI replay corpus + Kani harnesses.
+
 - **`crates/consensus/tests/interpreter_conformance.rs`**: property-based test comparing Rocq-extracted interpreter `G(h)` to Rust `advance_epoch` runtime
   - 70,000+ random directive sequences (7 properties × ≥10k inputs each)
   - Zero disagreements gate: any divergence is a protocol bug
@@ -2221,6 +2224,9 @@ a new network. No exceptions.
 
 ### Rocq/Coq Infrastructure
 
+> **Target metrics for the full Rocq formalization track (Phase 2-L — not current state).**
+> Current proof coverage: `proofs/COVERAGE.md` — 43 PROVED, 56 total, 0 Admitted.
+
 | Attribute | Value |
 |-----------|-------|
 | Proof assistant | Rocq (Coq 8.19+) |
@@ -2238,6 +2244,9 @@ a new network. No exceptions.
 5. **Causal fingerprint bisimulation** — States with equal causal fingerprints are bisimilar; bisimulation collapse is impossible
 
 ### Proof-to-Code Pipeline
+
+> Phase 2-L target (requires OCaml extraction pipeline + Phase 1-D). Not yet implemented.
+> Current conformance evidence: CI replay corpus + Kani harnesses.
 
 ```
 1. Specification  →  Rocq model in proofs/model/

@@ -159,6 +159,9 @@ pub fn try_encode_full_state_into(
     state: &EpochState,
     out: &mut [u8; FULL_STATE_MAX_BYTES],
 ) -> Result<usize, EncodeError> {
+    if state.validator_count as usize > MAX_VALIDATORS {
+        return Err(EncodeError::DecodeInvalid);
+    }
     // Validate all FixedPoint fields before writing anything.
     for i in 0..state.validator_count as usize {
         let v = &state.validators[i];
@@ -1886,6 +1889,18 @@ mod tests {
         assert_eq!(
             full_root, view_root,
             "ProjectedView::compute_root diverged from compute_state_root (sharding roots set)"
+        );
+    }
+
+    #[test]
+    fn try_encode_rejects_oversize_validator_count() {
+        let mut state = genesis_state_vc4();
+        state.validator_count = (MAX_VALIDATORS as u32) + 1;
+        let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+        assert_eq!(
+            try_encode_full_state_into(&state, &mut buf),
+            Err(EncodeError::DecodeInvalid),
+            "validator_count > MAX_VALIDATORS must return DecodeInvalid"
         );
     }
 }

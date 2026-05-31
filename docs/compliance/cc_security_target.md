@@ -137,7 +137,7 @@ systems, or the hardware platform on which it executes.
 | SFR | Description | Implementation | CI evidence |
 |-----|-------------|----------------|-------------|
 | FPT_TST.1 | TSF testing — cargo test + Kani harnesses | `cargo test --workspace`, `scripts/run_kani_consensus.sh` | `test-determinism`, `kani-advisory` CI jobs |
-| FPT_FLS.1 | Failure with preservation of secure state — absorbing halt | `crates/consensus/src/transition.rs::advance_epoch` (halt-flag guard) | `TH6_halt_terminal`, `TH6_halt_irreversible` (`proofs/safety/absorbing_halt.v`) |
+| FPT_FLS.1 | Failure with preservation of secure state — absorbing halt | `crates/consensus/src/transition.rs::advance_epoch` (halt_reason guard) | `TH6_halt_terminal`, `TH6_halt_irreversible` (`proofs/safety/absorbing_halt.v`) |
 | FPT_ITT.1 | Internal TSF data transfer integrity — domain isolation | `crates/consensus/src/domain.rs`, `CapToken<T>` | `domain-a-tripwires`, `Domain A/B full boundary scan` |
 
 ### FDP — User Data Protection
@@ -185,8 +185,13 @@ uniqueness under halt is proved: `TH8_full_uniqueness`.
 
 ### 7.2 Absorbing Halt (O.HALT-ABSORBING)
 
-`advance_epoch` checks the `halt_flag` before any state mutation. If set,
-the function returns immediately with the existing state unchanged.
+`advance_epoch` checks `state.halt_reason != HaltReason::None` before any state mutation.
+If set, the function returns immediately with `Err(state.halt_reason)` and the existing
+state unchanged. (`halt_flag: bool` appears only in `PublicTranscript`; the `EpochState`
+absorbing-halt field is `halt_reason: HaltReason`.) Domain A records the `HaltReason` and
+preserves deterministic absorbing-halt semantics. Domain B/PAL translates that into
+operational halt behavior — `Halt::absorbing_reset()`, zeroization, watchdog, and scheduler
+control — via the `PAL` trait in `crates/pal/src/lib.rs`.
 Proved irreversible: `TH6_halt_terminal`, `TH6_halt_irreversible` in
 `proofs/safety/absorbing_halt.v`.
 
@@ -202,8 +207,11 @@ The CI job `domain-a-tripwires` (`scripts/check_domain_a_tripwires.sh`) rejects
 
 ### 7.4 Arithmetic Safety (O.ARITHMETIC-SAFETY)
 
-All arithmetic in `crates/consensus/` uses checked operations with overflow
-routing to `Halt::absorbing_reset()`. The Lyapunov potential decreases monotonically
+All arithmetic in `crates/consensus/` uses checked operations; overflow sets
+`halt_reason` to an absorbing halt code, causing `advance_epoch` to return an error on
+every subsequent call. Domain B/PAL reads that code and calls `Halt::absorbing_reset()`
+(defined in `crates/pal/src/lib.rs`) to trigger operational shutdown. The Lyapunov
+potential decreases monotonically
 to zero (proved: `TH3c_finalize_zero`). Cascade health bounds are proved:
 `ch_t_upper_bound`, `ch_term_admissible` in `proofs/cascade/cascade_health_bounded.v`.
 

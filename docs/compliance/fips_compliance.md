@@ -159,8 +159,10 @@ For high-assurance deployments targeting Level 2+:
 | Domain A hash KATs (SHA3-256) | CI | `hash::tests::h_domain_state_root_hello_known_vector`, `sha3_256_known_vector` |
 | LSH-256/512 KATs | CI | `lsh256::tests::*`, `lsh512::tests::*` |
 
-Power-on self-tests (POST) required by FIPS 140-3 §AS.09: planned for
-Phase 2-P as part of the `cavp-kat` CI gate.
+POST: `crates/pal/src/crypto/post.rs` implemented behind `fips-post` feature; CI runs
+`run_post()` for SHA3-256, SHA-256, HMAC-DRBG (pairwise consistency health test — not a full
+CAVP KAT), and ML-KEM-768. Remaining gap: startup-time fail-closed enforcement is a
+deployment-layer step.
 
 ---
 

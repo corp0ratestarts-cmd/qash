@@ -303,7 +303,7 @@ jobs:
       - name: Run ML-KEM-768 CAVP KAT vectors (FIPS 203)
         run: cargo test -p qash-pal --features pqc -- crypto::kem::tests::cavp_ml_kem_768 --nocapture
       - name: Constant-time audit gate
-        run: cargo test -p qash-pal -p qash-pal --tests -- constant_time_audit --nocapture
+        run: cargo test -p qash-pal --tests -- constant_time_audit --nocapture
       - name: Run Plonky3 FRI-STARK 2-layer recursion corpus KAT (QASH PR#93 profile)
         run: cargo test -p qash-pal --features "plonky3,std" -- two_layer_recursion_corpus_kat_commitment two_layer_pipeline_e2e_fibonacci --nocapture
       - name: Run adversarial shard-capture simulation (5-A gate)
@@ -311,7 +311,8 @@ jobs:
 
   miri-consensus:
     runs-on: ubuntu-latest
-    # Advisory: runs Miri on consensus library unit tests to catch UB in our own code.
+    # Advisory only — unpinned nightly; not reproducible release evidence.
+    # Runs Miri on consensus library unit tests to catch UB in our own code.
     # continue-on-error because sha3/blake3/tiny-keccak dependencies have pointer patterns
     # that Miri flags regardless of aliasing model; failures are diagnostic, not blocking.
     continue-on-error: true

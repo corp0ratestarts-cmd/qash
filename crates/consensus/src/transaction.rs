@@ -262,12 +262,18 @@ pub fn sort_key(entropy_seed: &[u8; 32], tx_id_bytes: &[u8; 32]) -> [u8; 32] {
 /// Uses `==` on 48-byte arrays (not constant-time). This is safe because
 /// `author_id` and all `validator_ids` are public consensus data.
 pub(crate) fn index_of_validator(state: &EpochState, author_id: &[u8; 48]) -> Option<usize> {
+    if state.validator_count as usize > MAX_VALIDATORS {
+        return None;
+    }
     (0..state.validator_count as usize).find(|&i| &state.validator_ids[i] == author_id)
 }
 
 /// Check that the tx is admissible against the current state.
 /// For TX-0: author_id found in validator set and nonce matches exactly.
 pub fn is_admissible(state: &EpochState, tx: &Tx0<'_>) -> Result<usize, TxError> {
+    if state.validator_count as usize > MAX_VALIDATORS {
+        return Err(TxError::MalformedEnvelope);
+    }
     let idx = index_of_validator(state, &tx.author_id).ok_or(TxError::AuthorNotFound)?;
     let expected = state.nonces[idx];
     if tx.nonce != expected {
@@ -308,6 +314,9 @@ pub fn apply_tx_0(state: &mut EpochState, idx: usize) -> Result<(), TxError> {
 
 /// Apply TX-1: decrement target divergence and increment author nonce.
 pub fn apply_tx_1(state: &mut EpochState, author_idx: usize, tx: &Tx1<'_>) -> Result<(), TxError> {
+    if state.validator_count as usize > MAX_VALIDATORS {
+        return Err(TxError::MalformedEnvelope);
+    }
     apply_tx_1_projected(
         &mut state.validators,
         &mut state.nonces,
@@ -333,6 +342,9 @@ fn apply_tx_1_projected(
     author_idx: usize,
     tx: &Tx1<'_>,
 ) -> Result<(), TxError> {
+    if validator_count as usize > MAX_VALIDATORS {
+        return Err(TxError::MalformedEnvelope);
+    }
     if author_idx >= validator_count as usize {
         return Err(TxError::MalformedEnvelope);
     }
@@ -357,6 +369,9 @@ fn apply_tx_1_cached(
     target_idx_raw: u32,
     delta: u32,
 ) -> Result<(u32, FixedPoint), TxError> {
+    if validator_count as usize > MAX_VALIDATORS {
+        return Err(TxError::MalformedEnvelope);
+    }
     if author_idx >= validator_count as usize {
         return Err(TxError::MalformedEnvelope);
     }
@@ -470,6 +485,9 @@ pub(crate) fn prevalidate_all_impl(
     raw_txs: &[&[u8]],
     max_count: u32,
 ) -> Result<TxPrevalidation, TxError> {
+    if validator_count as usize > MAX_VALIDATORS {
+        return Err(TxError::MalformedEnvelope);
+    }
     const MAX_TX_PER_EPOCH: usize = 1024;
 
     let n = if raw_txs.len() > MAX_TX_PER_EPOCH {
@@ -603,6 +621,9 @@ pub fn prevalidate_all(
     raw_txs: &[&[u8]],
     max_count: u32,
 ) -> Result<TxPrevalidation, TxError> {
+    if state.validator_count as usize > MAX_VALIDATORS {
+        return Err(TxError::MalformedEnvelope);
+    }
     prevalidate_all_impl(
         &state.validator_ids,
         &state.validators,
@@ -623,6 +644,9 @@ pub fn apply_all(
     raw_txs: &[&[u8]],
     max_count: u32,
 ) -> Result<u32, TxError> {
+    if state.validator_count as usize > MAX_VALIDATORS {
+        return Err(TxError::MalformedEnvelope);
+    }
     let plan = prevalidate_all(state, raw_txs, max_count)?;
     state.nonces = plan.next_nonces;
     plan.apply_divergence_updates(&mut state.validators)?;
@@ -1085,6 +1109,41 @@ mod tests {
         assert_eq!(
             patched.applied_count, 1,
             "should succeed with divergence=100"
+        );
+    }
+
+    #[test]
+    fn prevalidate_rejects_oversize_validator_count() {
+        let mut state = make_state(2);
+        state.validator_count = (MAX_VALIDATORS as u32) + 1;
+        assert_eq!(
+            prevalidate_all(&state, &[], 100),
+            Err(TxError::MalformedEnvelope),
+            "validator_count > MAX_VALIDATORS must return MalformedEnvelope"
+        );
+    }
+
+    #[test]
+    fn is_admissible_rejects_oversize_validator_count() {
+        let mut state = make_state(2);
+        state.validator_count = (MAX_VALIDATORS as u32) + 1;
+        let tx_raw = make_tx0_raw(state.validator_ids[0], 0);
+        let (tx0, _) = parse_tx0(&tx_raw).unwrap();
+        assert_eq!(
+            is_admissible(&state, &tx0),
+            Err(TxError::MalformedEnvelope),
+            "validator_count > MAX_VALIDATORS must return MalformedEnvelope"
+        );
+    }
+
+    #[test]
+    fn apply_all_rejects_oversize_validator_count() {
+        let mut state = make_state(2);
+        state.validator_count = (MAX_VALIDATORS as u32) + 1;
+        assert_eq!(
+            apply_all(&mut state, &[], 100),
+            Err(TxError::MalformedEnvelope),
+            "validator_count > MAX_VALIDATORS must return MalformedEnvelope"
         );
     }
 }
