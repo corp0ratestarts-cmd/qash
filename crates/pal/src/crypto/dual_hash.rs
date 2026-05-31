@@ -41,13 +41,16 @@ const BLAKE3_ARM_LABEL: &[u8] = b"QASH:DH:BLAKE3:V1";
 
 /// Streams context/salt/data into a SHA3-512 hasher with arm label and length frames.
 fn sha3_arm(context: &[u8], salt: &[u8], data: &[u8]) -> [u8; 64] {
+    let ctx_len = u32::try_from(context.len()).expect("context exceeds u32::MAX");
+    let salt_len = u32::try_from(salt.len()).expect("salt exceeds u32::MAX");
+    let data_len = u64::try_from(data.len()).expect("data exceeds u64::MAX");
     let mut h = Sha3_512::new();
     h.update(SHA3_ARM_LABEL);
-    h.update((context.len() as u32).to_le_bytes());
+    h.update(ctx_len.to_le_bytes());
     h.update(context);
-    h.update((salt.len() as u32).to_le_bytes());
+    h.update(salt_len.to_le_bytes());
     h.update(salt);
-    h.update((data.len() as u64).to_le_bytes());
+    h.update(data_len.to_le_bytes());
     h.update(data);
     h.finalize().into()
 }
@@ -55,13 +58,16 @@ fn sha3_arm(context: &[u8], salt: &[u8], data: &[u8]) -> [u8; 64] {
 /// Streams context/salt/data into a BLAKE3 hasher with arm label and length frames,
 /// then reads `N` bytes via XOF output.
 fn blake3_arm<const N: usize>(context: &[u8], salt: &[u8], data: &[u8]) -> [u8; N] {
+    let ctx_len = u32::try_from(context.len()).expect("context exceeds u32::MAX");
+    let salt_len = u32::try_from(salt.len()).expect("salt exceeds u32::MAX");
+    let data_len = u64::try_from(data.len()).expect("data exceeds u64::MAX");
     let mut h = blake3::Hasher::new();
     h.update(BLAKE3_ARM_LABEL);
-    h.update(&(context.len() as u32).to_le_bytes());
+    h.update(&ctx_len.to_le_bytes());
     h.update(context);
-    h.update(&(salt.len() as u32).to_le_bytes());
+    h.update(&salt_len.to_le_bytes());
     h.update(salt);
-    h.update(&(data.len() as u64).to_le_bytes());
+    h.update(&data_len.to_le_bytes());
     h.update(data);
     let mut out = [0u8; N];
     h.finalize_xof().fill(&mut out);
