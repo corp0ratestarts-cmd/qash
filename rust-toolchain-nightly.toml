@@ -1,0 +1,10 @@
+# Pinned nightly toolchain for Cranelift differential testing.
+# Used exclusively by .github/workflows/multi-compiler-diff.yml.
+# Update monthly; keep in sync with NIGHTLY_DATE env var in that workflow.
+#
+# This file is NOT used by the main build (rust-toolchain.toml governs that).
+# The main build uses stable 1.95.0 only.
+[toolchain]
+channel = "nightly-2026-04-15"
+components = ["rustc-codegen-cranelift-preview"]
+profile = "minimal"

@@ -13,8 +13,8 @@ name: Multi-Compiler Differential Testing
 #
 # Gate policy:
 #   opt-level differential (0 vs 3): REQUIRED — both use stable rustc 1.95.0.
-#   cranelift backend:               ADVISORY — requires nightly; failure is
-#                                    reported but does not block merges.
+#   cranelift backend:               REQUIRED — pinned nightly (2026-04-15);
+#                                    divergence signals UB or codegen bug.
 on:
   schedule:
     - cron: '0 1 * * 1'
