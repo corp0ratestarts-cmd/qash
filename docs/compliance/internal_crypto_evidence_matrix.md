@@ -90,9 +90,9 @@ Last updated: 2026-05-30. Reflects genesis status `provisional`.
 
 | Algorithm/construction | Module / Path | Domain | Feature flag | KAT status | Claim boundary | Evidence artifact |
 |------------------------|---------------|--------|--------------|------------|----------------|-------------------|
-| QASH dual_hash_32 / dual_hash_pair_32 | `crates/pal/src/crypto/dual_hash.rs` | B | none (always compiled) | internal unit tests | internal hedged construction; not certification evidence | `dual_hash_32_is_deterministic`, `pair_root_verification_*` unit tests in module |
+| QASH dual_hash_32 / dual_hash_pair_32 | `crates/pal/src/crypto/dual_hash.rs` | B | none (always compiled in PAL) | internal unit tests | internal hedged construction; not certification evidence | `dual_hash_*` tests in `dual_hash.rs` |
 
-> **Claim boundary**: `dual_hash_32` and `dual_hash_pair_32` are QASH-specific Domain B hedged constructions. They are not FIPS validated, not CAVP/ACVP evidence, not standards-conformant X-Wing combiners, and do not alter Domain A consensus, QASH-CASCADE-7, or GRC-7-7-v2.
+> **Claim boundary**: `dual_hash_32` and `dual_hash_pair_32` are QASH-specific internal Domain B constructions. They are not FIPS validated, not CAVP/ACVP evidence, and do not constitute a standards-conformant construction. They do not alter Domain A consensus, QASH-CASCADE-7, or GRC-7-7-v2.
 
 ---
 
