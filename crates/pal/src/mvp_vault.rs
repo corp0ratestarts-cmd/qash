@@ -109,7 +109,7 @@ impl MvpReceiptVault {
         let salt_path = root.join(VAULT_SALT_FILE);
         if !salt_path.exists() {
             let mut salt = [0u8; VAULT_SALT_BYTES];
-            getrandom::getrandom(&mut salt)
+            getrandom::fill(&mut salt)
                 .map_err(|err| MvpVaultError::Io(io::Error::other(err.to_string())))?;
             fs::write(salt_path, salt)?;
         }
