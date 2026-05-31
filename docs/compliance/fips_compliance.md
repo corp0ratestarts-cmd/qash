@@ -28,6 +28,26 @@ not yet satisfied, the gap and the planned phase are noted. Domain A
 scope** for FIPS evaluation; it contains no FIPS-approved or non-approved
 algorithms.
 
+---
+
+## Module Boundary Definition (Phase 9-A)
+
+The FIPS 140-3 module boundary covers `crates/pal/src/crypto/` exclusively.
+All algorithms **within** this boundary are Domain B implementations. Domain A
+algorithms (SHA3-256 for state-root, cascade hash) are **outside** the boundary.
+
+| Crate | Module path | Feature flags | Algorithms in boundary | Claim |
+|-------|------------|---------------|------------------------|-------|
+| `qash-pal` | `src/crypto/kem.rs` | `pqc` | ML-KEM-768 (FCS_CKM.1) | Implementation complete / self-tested |
+| `qash-pal` | `src/crypto/drbg.rs` | `std` | HMAC-DRBG / SHA-256 (FCS_RBG_EXT.1) | Implementation complete / self-tested |
+| `qash-pal` | `src/crypto/post.rs` | `fips-post` | SHA3-256, SHA-256, HMAC-DRBG, ML-KEM-768 KATs | Implementation complete / self-tested |
+| `qash-pal` | `src/privacy/erasure.rs` | `std` | Key zeroization via `ZeroizeOnDrop` (FDP_RIP.1) | Implementation complete / self-tested |
+| `qash-consensus` | `src/hash.rs` | (none) | SHA3-256 (Domain A state-root) | **Outside boundary** — not a FIPS module algorithm |
+| `qash-consensus` | `src/cascade.rs` | (none) | QASH-CASCADE-7 multi-primitive hash | **Outside boundary** — Domain A proof-eligible only |
+
+**Non-approved algorithms used exclusively in Domain A** (not subject to FIPS AS.01):
+BLAKE3, KangarooTwelve, SM3 (cascade stages), LSH-256/512, Streebog-512, Kupyna-512.
+
 ### FIPS 140-3 internal alignment (not validated) — requirement overview
 
 FIPS 140-3 builds incrementally: an L3 module must satisfy all L1 and L2
