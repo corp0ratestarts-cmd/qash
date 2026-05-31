@@ -82,7 +82,28 @@ When introducing a new cryptographic primitive or changing an existing one:
 
 ---
 
-## 6. What KATs do not provide
+## 6. Internal QASH unit tests vs CAVP/ACVP tests
+
+Some Domain B modules contain unit tests that verify determinism and domain separation but are **not** CAVP/ACVP/FIPS evidence. These tests use internally computed fixtures rather than normative standard vectors.
+
+Examples of internal (non-CAVP) test names:
+
+- `dual_hash_32_is_deterministic`
+- `dual_hash_64_is_deterministic`
+- `context_separation_changes_output`
+- `salt_separation_changes_output`
+- `data_separation_changes_output`
+- `frame_encoding_is_unambiguous`
+- `pair_root_verification_requires_sha3_root`
+- `pair_root_verification_requires_blake3_root`
+- `pair_root_verification_accepts_exact_match`
+- `xor_output_differs_from_each_arm_for_fixture`
+
+These tests run in the standard `cargo test` suite but are **not** added to the `cavp-kat` CI job and are **not** presented as certification evidence. They cover only QASH-internal Domain B constructions (currently `crates/pal/src/crypto/dual_hash.rs`).
+
+---
+
+## 7. What KATs do not provide
 
 - FIPS CAVP certification (requires NIST submission)
 - Proof of correct implementation against the full standard (only the tested
