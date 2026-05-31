@@ -101,6 +101,15 @@ Examples of internal (non-CAVP) test names:
 
 These tests run in the standard `cargo test` suite but are **not** added to the `cavp-kat` CI job and are **not** presented as certification evidence. They cover only QASH-internal Domain B constructions (currently `crates/pal/src/crypto/dual_hash.rs`).
 
+**Claim boundary (required wording):**
+
+> `QASH dual_hash` is an internal Domain B hedged construction.
+> It is not FIPS validated.
+> It is not CAVP/ACVP evidence.
+> It is not a standards-conformant X-Wing combiner.
+> It does not alter Domain A consensus.
+> It does not alter QASH-CASCADE-7 or GRC-7-7-v2.
+
 ---
 
 ## 7. What KATs do not provide

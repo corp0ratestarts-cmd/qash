@@ -194,10 +194,10 @@ mod tests {
         // static-analysis false positives on test-only values.
         let ctx_ab: &[u8] = &[b'a', b'b'];
         let ctx_a: &[u8] = &[b'a'];
-        let salt_c: &[u8] = &[b'c'];
-        let salt_bc: &[u8] = &[b'b', b'c'];
-        let r1 = dual_hash_32(ctx_ab, salt_c, DATA);
-        let r2 = dual_hash_32(ctx_a, salt_bc, DATA);
+        let part_c: &[u8] = &[b'c'];
+        let part_bc: &[u8] = &[b'b', b'c'];
+        let r1 = dual_hash_32(ctx_ab, part_c, DATA);
+        let r2 = dual_hash_32(ctx_a, part_bc, DATA);
         assert_ne!(r1, r2);
         // Empty context is distinct from a context containing a zero byte.
         let empty: &[u8] = &[];
