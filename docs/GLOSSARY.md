@@ -59,11 +59,18 @@ provisional; `true` only after the genesis lock commit.
 
 ## E
 
+**ACVP KAT** — Known-Answer Test vector in the NIST Automated Cryptographic Validation Protocol JSON format. QASH provides ACVP-style fixtures in `tests/cavp/` as internal evidence; no NIST ACVP submission has been made. See: `docs/compliance/kat_policy.md`.
+
 **EFB** — Epoch Finality Beacon. A 32-byte root committing to cross-shard receipts for
 an epoch. Included in the `CommitmentFrame`. See: `crates/consensus/src/sharding.rs`.
 
 **Encoding** — The canonical byte layout of `EpochState` for state-root commitment.
 Defined by ADR-003 and `ADR-012`. Implemented in `crates/consensus/src/encoding.rs`.
+
+**`EncodeError::ValueOutOfRange`** — Error variant returned by `try_encode_full_state_into`
+when a FixedPoint field does not fit in i64 without saturation. Callers needing to detect
+overflow before encoding should use `try_encode_full_state_into` instead of
+`encode_full_state_into`. See: `crates/consensus/src/encoding.rs`.
 
 **Envelope** — A fixed-capacity input buffer `Envelope<N>` carrying a transaction and
 its post-quantum signature into the consensus pipeline. See: `crates/consensus/src/envelope.rs`.
@@ -71,7 +78,16 @@ its post-quantum signature into the consensus pipeline. See: `crates/consensus/s
 **Epoch** — The fundamental time unit of the QASH protocol (500 ms). Each epoch runs
 one transition: validate → admit transactions → evaluate Lyapunov → commit.
 
+**`ErasureRequest`** — A structured intake record for an Art. 17 GDPR erasure request,
+carrying the `receipt_commitment` (SHA3-256 of the key), `requestor_id`, and `epoch`.
+Consumed by `process_erasure_request`. See: `crates/pal/src/privacy/erasure.rs`,
+`docs/security/ERASURE_RUNBOOK.md`.
+
 ## F
+
+**FIPS POST (Power-On Self-Test)** — A startup self-test running Known-Answer Tests for all
+in-boundary Domain B cryptographic algorithms (SHA3-256, SHA-256, HMAC-DRBG, ML-KEM-768).
+Enabled by the `fips-post` feature. See: `crates/pal/src/crypto/post.rs`, `docs/compliance/fips_compliance.md`.
 
 **FixedPoint** — A scaled integer type `FixedPoint { raw: i128 }` with scale factor
 `1_000_000`. All Lyapunov arithmetic uses fixed-point to avoid floating-point non-determinism.
@@ -161,8 +177,16 @@ See: ADR-003, ADR-012.
 
 ## T
 
+**TOE (Target of Evaluation)** — In Common Criteria, the system under formal evaluation.
+QASH's TOE boundary is Domain A (`crates/consensus/`) plus selected Domain B crypto
+(`crates/pal/src/crypto/kem.rs`, `drbg.rs`, `privacy/erasure.rs`). See: `docs/compliance/cc_security_target.md`.
+
 **Traceability** — `docs/traceability.md`. Maps each protocol property (P0-1 through P0-9)
 to its PDF citation, ADR, Coq theorem, Rust implementation, and CI test.
+
+**`try_encode_full_state_into`** — Fallible state encoder. Returns `Err(EncodeError::ValueOutOfRange)`
+if any FixedPoint validator or window field does not fit in i64, rather than saturating.
+See: `crates/consensus/src/transition.rs`.
 
 **TH-n** — Theorem n. References a named theorem in `proofs/COVERAGE.md`.
 
