@@ -196,8 +196,8 @@ mod tests {
         let ctx_a: &[u8] = &[b'a'];
         let part_c: &[u8] = &[b'c'];
         let part_bc: &[u8] = &[b'b', b'c'];
-        let r1 = dual_hash_32(ctx_ab, part_c, DATA);
-        let r2 = dual_hash_32(ctx_a, part_bc, DATA);
+        let r1 = dual_hash_32(ctx_ab, SALT, part_c);
+        let r2 = dual_hash_32(ctx_a, SALT, part_bc);
         assert_ne!(r1, r2);
         // Empty context is distinct from a context containing a zero byte.
         let empty: &[u8] = &[];
