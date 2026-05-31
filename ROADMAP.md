@@ -4,12 +4,14 @@ This document captures the complete project direction from current state through
 verified execution substrate in maximum technical detail. It is the authoritative reference for any
 developer, auditor, or formal methods contributor picking up this codebase.
 
-**Last updated:** 2026-05-30
-**Current state:** Post-GRC, pre-genesis. PR #213 (QASH-CASCADE-7 cascade hardening),
-PR #214 (GRC-7-7-v2 certificate generator), and PR #215 (real preimage parity fixture) have
-all landed on `main`. The GRC is complete. Genesis remains provisional and non-authoritative.
-Do not create `v1.0-reference` or lock `GENESIS_CONSTANTS.toml` until traceability, normative
-PDF, ADR-003 finalization, and the final evidence bundle are reconciled (Phase 1-A through 1-F).
+**Last updated:** 2026-05-31
+**Current state:** Post-GRC, post-compliance-hardening, pre-genesis. PR #213 (QASH-CASCADE-7
+cascade hardening), PR #214 (GRC-7-7-v2 certificate generator), PR #215 (real preimage parity
+fixture), and PR #216 (Phases 0–14: genesis prerequisites, CI hardening, compliance hardening)
+are complete or in final CI review. The GRC is complete. Genesis remains provisional and
+non-authoritative. Do not create `v1.0-reference` or lock `GENESIS_CONSTANTS.toml` until
+traceability, normative PDF, ADR-003 finalization, and the final evidence bundle are reconciled
+(Phase 1-A through 1-F; Phase 1-D is the remaining human-review gate).
 
 **MVP claim boundary:** the offline incident-receipt commit demonstrator (Domain B
 local MVP) is governed by [`docs/mvp/claims_register.md`](docs/mvp/claims_register.md).
