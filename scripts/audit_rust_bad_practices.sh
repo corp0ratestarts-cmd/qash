@@ -87,6 +87,10 @@ PATTERNS=(
   'loop[[:space:]]*\{'
   'while[[:space:]]+true'
   'as[[:space:]]+\*'
+  # Domain A floating-point prohibition (Phase 2-A)
+  '[^a-zA-Z_]f32[^a-zA-Z_0-9]|[^a-zA-Z_]f64[^a-zA-Z_0-9]'
+  # Domain A HashMap prohibition — iteration order is platform-dependent (Phase 2-A)
+  'HashMap[[:space:]]*<|use[[:space:]].*HashMap'
 )
 
 # Pattern labels (parallel to PATTERNS array)
@@ -111,6 +115,8 @@ PATTERN_LABELS=(
   'loop {}'
   'while true'
   'as *ptr cast'
+  'f32/f64 float (Domain A)'
+  'HashMap (Domain A — use BTreeMap)'
 )
 
 # ── Scan function ─────────────────────────────────────────────────────────────
