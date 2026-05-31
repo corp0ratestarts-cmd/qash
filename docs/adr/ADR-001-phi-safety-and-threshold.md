@@ -1,8 +1,11 @@
 # ADR-001 — Φ_safety: aggregation + threshold + halt gate
-**Status:** Accepted  
+**Status:** Superseded by `ADR-001-phi-safety-accumulator.md`  
 **Filed:** 2026-05-13  
 **Depends on:** ERR-001 (Accepted)  
 **PDF anchor:** PDF-SILENT (no independent Φ gate or threshold defined)
+
+This legacy draft is retained for history only. The canonical ADR-001 is
+[`ADR-001-phi-safety-accumulator.md`](ADR-001-phi-safety-accumulator.md).
 
 ## Decisions
 

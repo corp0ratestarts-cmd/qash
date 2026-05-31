@@ -29,6 +29,14 @@ path = "src/bin/genesis_hash.rs"
 name = "genesis-cert"
 path = "src/bin/genesis_cert.rs"
 
+[features]
+# Hardware attestation backends (scaffold — require platform-specific hardware).
+# Each is explicitly not claimed for v1.0; activate only when real hardware is available.
+tpm2    = []   # TPM 2.0 backend via tss-esapi; requires tpm2-tools and a TPM device.
+tdx     = []   # Intel TDX backend; requires Intel TDX-capable CPU and kernel support.
+sev-snp = []   # AMD SEV-SNP backend; requires AMD EPYC with SEV-SNP and Linux 5.19+.
+arm-cca = []   # ARM CCA / Realm Management Monitor; requires ARMv9 CCA hardware.
+
 [profile.release]
 opt-level = 3
 lto = true

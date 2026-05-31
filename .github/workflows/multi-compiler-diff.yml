@@ -13,8 +13,8 @@ name: Multi-Compiler Differential Testing
 #
 # Gate policy:
 #   opt-level differential (0 vs 3): REQUIRED — both use stable rustc 1.95.0.
-#   cranelift backend:               ADVISORY — requires nightly; failure is
-#                                    reported but does not block merges.
+#   cranelift backend:               REQUIRED — pinned nightly (2026-04-15);
+#                                    divergence signals UB or codegen bug.
 on:
   schedule:
     - cron: '0 1 * * 1'
@@ -114,27 +114,32 @@ jobs:
           retention-days: 365
 
   # -----------------------------------------------------------------------
-  # Job 2 — Cranelift backend (nightly, ADVISORY only)
+  # Job 2 — Cranelift backend (pinned nightly, REQUIRED gate)
   #
   # Uses a different code generator entirely. Roots must match the LLVM
-  # baseline. Failure is surfaced as a warning annotation, not a CI block,
-  # because cranelift support for all intrinsics used here may lag.
+  # baseline. A dated nightly toolchain is pinned below to make the check
+  # deterministic. If the pinned nightly fails to install, that is an
+  # infrastructure failure (not a protocol failure) and the job fails.
+  #
+  # Update NIGHTLY_DATE periodically (monthly) to stay current.
   # -----------------------------------------------------------------------
-  cranelift-advisory:
+  cranelift-differential:
     runs-on: ubuntu-latest
-    continue-on-error: true    # advisory: nightly / cranelift availability varies
+    # Blocking: a divergence signals UB or a cranelift codegen bug.
     env:
       CARGO_INCREMENTAL: 0
       SOURCE_DATE_EPOCH: 0
+      # Pin a specific nightly for reproducibility. Update monthly.
+      NIGHTLY_DATE: "nightly-2026-04-15"
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install nightly Rust (cranelift backend requires nightly)
+      - name: Install pinned nightly toolchain with Cranelift component
         run: |
-          rustup toolchain install nightly --profile minimal \
-            --component rustc-codegen-cranelift-preview 2>/dev/null \
-            || rustup toolchain install nightly --profile minimal
-          echo "Nightly: $(rustup run nightly rustc --version)"
+          rustup toolchain install "$NIGHTLY_DATE" \
+            --profile minimal \
+            --component rustc-codegen-cranelift-preview
+          echo "Pinned nightly: $(rustup run $NIGHTLY_DATE rustc --version)"
 
       - name: Install stable pinned toolchain (for baseline root)
         run: rustup toolchain install
@@ -148,44 +153,44 @@ jobs:
           echo "root=${ROOT}" >> "$GITHUB_OUTPUT"
           echo "Stable/LLVM root: ${ROOT}"
 
-      - name: Attempt Cranelift build and capture state root
+      - name: Build and capture state root — Cranelift backend
         id: cranelift_root
         run: |
-          if rustup run nightly rustc --version 2>/dev/null | grep -q nightly; then
-            ROOT=$(RUSTFLAGS="-Z codegen-backend=cranelift" \
-                   cargo +nightly test -p qash-consensus --no-default-features \
-                     state_root_canonical_seq_print -- --nocapture 2>/dev/null \
-                   | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1 \
-                   || echo "CRANELIFT_UNAVAILABLE")
-          else
-            ROOT="CRANELIFT_UNAVAILABLE"
+          ROOT=$(RUSTFLAGS="-Z codegen-backend=cranelift" \
+                 cargo +"$NIGHTLY_DATE" test -p qash-consensus --no-default-features \
+                   state_root_canonical_seq_print -- --nocapture 2>/dev/null \
+                 | grep 'CANONICAL_STATE_ROOT_3_EPOCHS' | head -1)
+          if [ -z "$ROOT" ]; then
+            echo "FAIL: Cranelift root extraction failed — grep returned empty string." >&2
+            echo "The build may have succeeded but the test output pattern was not found." >&2
+            exit 1
           fi
           echo "root=${ROOT}" >> "$GITHUB_OUTPUT"
           echo "Cranelift root: ${ROOT}"
 
-      - name: Compare cranelift vs stable roots (advisory)
+      - name: Assert Cranelift root matches LLVM root (REQUIRED gate)
         run: |
           STABLE="${{ steps.stable_root.outputs.root }}"
           CRANK="${{ steps.cranelift_root.outputs.root }}"
-          if [ "${CRANK}" = "CRANELIFT_UNAVAILABLE" ]; then
-            echo "SKIP: cranelift backend not available on this runner — advisory check skipped"
-            exit 0
-          fi
           echo "Stable/LLVM: ${STABLE}"
           echo "Cranelift:   ${CRANK}"
-          if [ "${STABLE}" != "${CRANK}" ]; then
-            echo "ADVISORY FAIL: cranelift roots diverge from LLVM."
-            echo "This may indicate UB or a cranelift code-gen bug."
-            echo "This is advisory-only and does not block CI."
-            exit 1   # continue-on-error: true absorbs this
+          if [ -z "${STABLE}" ] || [ -z "${CRANK}" ]; then
+            echo "FAIL: one or both roots are empty — build or test extraction failed."
+            exit 1
           fi
-          echo "ADVISORY PASS: cranelift and LLVM produce identical state roots"
+          if [ "${STABLE}" != "${CRANK}" ]; then
+            echo "FAIL: cranelift state roots diverge from LLVM."
+            echo "This indicates UB in Domain A code or a cranelift code-gen bug."
+            echo "Investigate before merging."
+            exit 1
+          fi
+          echo "PASS: Cranelift and LLVM produce identical state roots"
 
   # -----------------------------------------------------------------------
   # Job 3 — Record results on main-branch pushes
   # -----------------------------------------------------------------------
   record-results:
-    needs: [opt-level-differential]
+    needs: [opt-level-differential, cranelift-differential]
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:

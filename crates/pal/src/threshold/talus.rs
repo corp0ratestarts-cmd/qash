@@ -21,8 +21,9 @@ pub enum ThresholdError {
 impl core::fmt::Display for ThresholdError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::InsufficientShares { got, need } =>
-                write!(f, "insufficient shares: got {got}, need {need}"),
+            Self::InsufficientShares { got, need } => {
+                write!(f, "insufficient shares: got {got}, need {need}")
+            }
             Self::InvalidShare => write!(f, "invalid signature share"),
             Self::CombinedSignatureInvalid => write!(f, "combined signature failed verification"),
             Self::Timeout => write!(f, "threshold signing timed out"),
@@ -49,7 +50,11 @@ pub struct ThresholdSigner {
 #[cfg(feature = "threshold-signing")]
 impl ThresholdSigner {
     pub fn new(threshold: usize, total_holders: usize, holder_index: usize) -> Self {
-        Self { threshold, total_holders, holder_index }
+        Self {
+            threshold,
+            total_holders,
+            holder_index,
+        }
     }
 
     /// Generate a stub partial signature over msg.

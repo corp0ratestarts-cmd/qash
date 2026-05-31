@@ -25,7 +25,9 @@ pub struct MaskedNttCoefficient {
 impl MaskedNttCoefficient {
     /// Mask a plaintext value using a random blinding mask.
     pub fn from_secret(val: u32, mask: u32) -> Self {
-        Self { shares: [val ^ mask, mask] }
+        Self {
+            shares: [val ^ mask, mask],
+        }
     }
 
     /// Reconstruct the plaintext value by XORing all shares.
@@ -46,7 +48,9 @@ impl MaskedNttCoefficient {
         // requires more sophisticated gadgets)
         let sum = (self.reconstruct().wrapping_add(other.reconstruct())) % q;
         let new_mask = self.shares[1].wrapping_add(other.shares[1]) % q;
-        Self { shares: [sum ^ new_mask, new_mask] }
+        Self {
+            shares: [sum ^ new_mask, new_mask],
+        }
     }
 }
 

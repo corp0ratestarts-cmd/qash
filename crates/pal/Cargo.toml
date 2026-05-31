@@ -60,6 +60,10 @@ suite_korea = []
 hardened = []
 sca-hardened = []
 threshold-signing = []
+# Power-On Self-Test (POST) for FIPS-aligned crypto module boundary.
+# Enables run_post() in crates/pal/src/crypto/post.rs. Not required for
+# normal operation; intended for FIPS evidence and startup self-tests.
+fips-post = []
 plonky3 = [
     "dep:p3-uni-stark", "dep:p3-baby-bear", "dep:p3-field",
     "dep:p3-symmetric", "dep:p3-merkle-tree", "dep:p3-fri",

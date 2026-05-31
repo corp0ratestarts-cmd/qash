@@ -1,0 +1,78 @@
+name: QASH Release Provenance
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+      - 'v1.0-reference'
+
+permissions:
+  contents: read
+  id-token: write  # required for cosign OIDC signing
+
+jobs:
+  release-provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install
+
+      - name: Build release artifact
+        run: cargo build --release --no-default-features
+        env:
+          SOURCE_DATE_EPOCH: 0
+          CARGO_INCREMENTAL: 0
+
+      - name: Compute artifact SHA-256
+        run: |
+          BINARY="target/release/qash"
+          if [ -f "$BINARY" ]; then
+            sha256sum "$BINARY" | tee release-artifact-sha256.txt
+          else
+            # Library-only build; record all .rlib and .a files
+            find target/release -maxdepth 1 -name "*.rlib" -o -name "*.a" | \
+              sort | xargs sha256sum | tee release-artifact-sha256.txt || true
+          fi
+          echo "RUST_TOOLCHAIN=$(rustup show active-toolchain | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - name: Record build manifest
+        run: |
+          {
+            echo "# QASH Release Build Manifest"
+            echo "tag: ${{ github.ref_name }}"
+            echo "commit: ${{ github.sha }}"
+            echo "build_date: ${{ env.BUILD_DATE }}"
+            echo "rust_toolchain: ${{ env.RUST_TOOLCHAIN }}"
+            echo "target: x86_64-unknown-linux-gnu"
+            echo ""
+            echo "## Artifact hashes"
+            cat release-artifact-sha256.txt
+          } > release-build-manifest.txt
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign build manifest with cosign (OIDC keyless)
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-signature release-build-manifest.sig \
+            --output-certificate release-build-manifest.pem \
+            release-build-manifest.txt
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+
+      - name: Upload provenance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-provenance-${{ github.ref_name }}-${{ github.sha }}
+          path: |
+            release-build-manifest.txt
+            release-build-manifest.sig
+            release-build-manifest.pem
+            release-artifact-sha256.txt
+          if-no-files-found: warn
+          retention-days: 3650

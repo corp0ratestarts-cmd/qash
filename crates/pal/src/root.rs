@@ -1,16 +1,10 @@
 pub mod admission;
-#[cfg(feature = "sca-hardened")]
-pub mod signing;
-/// Threshold signing stubs (TALUS/Quorus). Domain B only.
-#[cfg(feature = "threshold-signing")]
-pub mod threshold;
-#[cfg(feature = "hardened")]
-pub mod hardening;
-pub mod proximity;
 pub mod clone;
 pub mod commitment_backpressure;
 pub mod commitment_inbox;
 pub mod commitment_transport;
+#[cfg(feature = "hardened")]
+pub mod hardening;
 pub mod mvp;
 pub mod mvp_demo_profile;
 #[cfg(feature = "std")]
@@ -18,8 +12,14 @@ pub mod mvp_vault;
 #[cfg(feature = "std")]
 pub mod net;
 pub mod privacy;
+pub mod proximity;
 pub mod receipt;
 pub mod recovery_wal;
+#[cfg(feature = "sca-hardened")]
+pub mod signing;
+/// Threshold signing stubs (TALUS/Quorus). Domain B only.
+#[cfg(feature = "threshold-signing")]
+pub mod threshold;
 pub mod zero_wal;
 #[cfg(all(feature = "plonky3", feature = "std"))]
 pub mod zk;

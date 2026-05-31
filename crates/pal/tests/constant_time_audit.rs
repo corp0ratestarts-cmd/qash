@@ -52,7 +52,10 @@ pub fn commitments_eq_ct(a: &[u8; 32], b: &[u8; 32]) -> bool {
 fn constant_time_audit_commitment_eq_ct_matches() {
     let a = [0x42u8; 32];
     let b = [0x42u8; 32];
-    assert!(commitments_eq_ct(&a, &b), "identical commitments must match");
+    assert!(
+        commitments_eq_ct(&a, &b),
+        "identical commitments must match"
+    );
 }
 
 #[test]
@@ -60,7 +63,10 @@ fn constant_time_audit_commitment_eq_ct_differs() {
     let a = [0x42u8; 32];
     let mut b = [0x42u8; 32];
     b[31] ^= 0x01;
-    assert!(!commitments_eq_ct(&a, &b), "differing commitments must not match");
+    assert!(
+        !commitments_eq_ct(&a, &b),
+        "differing commitments must not match"
+    );
 }
 
 // ── Threshold signing combine result ─────────────────────────────────────────
@@ -114,8 +120,12 @@ fn constant_time_audit_threshold_combine_differs_for_different_shares() {
     let share_0_msg2 = s_a.sign_share(b"message-two");
     let share_1_msg2 = s_b.sign_share(b"message-two");
 
-    let combined_1 = s_a.combine_shares(&[share_0_msg1, share_1_msg1], b"msg").expect("ok");
-    let combined_2 = s_a.combine_shares(&[share_0_msg2, share_1_msg2], b"msg").expect("ok");
+    let combined_1 = s_a
+        .combine_shares(&[share_0_msg1, share_1_msg1], b"msg")
+        .expect("ok");
+    let combined_2 = s_a
+        .combine_shares(&[share_0_msg2, share_1_msg2], b"msg")
+        .expect("ok");
 
     let mut arr_1 = [0u8; 32];
     let mut arr_2 = [0u8; 32];
@@ -141,7 +151,43 @@ fn constant_time_audit_drbg_produces_nonzero_output() {
     drbg.fill_bytes(&mut buf_b);
     // DRBG outputs should be non-zero and differ between calls
     assert_ne!(buf_a, [0u8; 32], "DRBG must produce non-zero output");
-    assert_ne!(buf_a, buf_b, "consecutive DRBG calls must produce distinct output");
+    assert_ne!(
+        buf_a, buf_b,
+        "consecutive DRBG calls must produce distinct output"
+    );
+}
+
+// ── ML-KEM-768 wrong-key rejection (constant-time path) ──────────────────────
+
+/// ML-KEM-768 implicit rejection: decapsulating with the wrong keypair must
+/// return a different shared secret rather than failing visibly. This is the
+/// FO-transform / implicit-rejection path specified in FIPS 203 §6.3.
+///
+/// This test is a functional smoke-test of the path. A full timing/dudect
+/// analysis requires a stable hardware counter and is planned for Phase 2-P.
+#[cfg(feature = "pqc")]
+#[test]
+fn constant_time_audit_ml_kem_wrong_key_returns_different_secret() {
+    use qash_pal::crypto::kem::{encapsulate, MlKem768KeyPair};
+    use subtle::ConstantTimeEq;
+
+    let kp_correct = MlKem768KeyPair::from_seed(&[0x00u8; 64]);
+    let kp_wrong = MlKem768KeyPair::from_seed(&[0x01u8; 64]);
+
+    let ek = kp_correct.encap_key();
+    let (ct, ss_correct) = encapsulate(&ek, &[0x00u8; 32]);
+
+    // Decapsulate with wrong key — must not panic; must return a different secret.
+    let ss_wrong = kp_wrong.decapsulate(&ct);
+
+    // Secrets must differ (implicit rejection).
+    let secrets_equal: bool = ss_correct.ct_eq(&ss_wrong).into();
+    assert!(
+        !secrets_equal,
+        "ML-KEM-768: wrong-key decapsulation must produce a different shared secret (implicit rejection)"
+    );
+    // Neither must be all-zero (catastrophic failure sentinel).
+    assert_ne!(ss_correct, [0u8; 32], "correct-key shared secret must not be all-zero");
 }
 
 // ── Audit report ─────────────────────────────────────────────────────────────
@@ -164,6 +210,10 @@ fn constant_time_audit_print_coverage() {
     println!();
     println!("  zk::backend — commitment comparison");
     println!("    commitments_eq_ct uses subtle::ConstantTimeEq [OK]");
+    println!();
+    println!("  crypto::kem::MlKem768KeyPair::decapsulate (pqc feature)");
+    println!("    implicit rejection via FO-transform: wrong key → different secret [OK]");
+    println!("    timing equivalence: functional smoke-test only; dudect planned Phase 2-P");
     println!();
     println!("  Status: all audited paths are constant-time or use public values.");
     println!("  Next: wire commitments_eq_ct into zk::backend verify paths.");

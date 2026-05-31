@@ -18,13 +18,13 @@
 ///
 /// The round constants are exported from `p3-baby-bear` as
 /// `default_babybear_poseidon2_16()` — deterministic, no RNG needed.
-use p3_baby_bear::{BabyBear, Poseidon2BabyBear, default_babybear_poseidon2_16};
+use p3_baby_bear::{default_babybear_poseidon2_16, BabyBear, Poseidon2BabyBear};
 use p3_challenger::DuplexChallenger;
 use p3_commit::ExtensionMmcs;
 use p3_dft::Radix2DitParallel;
 use p3_field::extension::BinomialExtensionField;
 use p3_field::Field;
-use p3_fri::{FriParameters, TwoAdicFriPcs, create_test_fri_params};
+use p3_fri::{create_test_fri_params, FriParameters, TwoAdicFriPcs};
 use p3_merkle_tree::MerkleTreeMmcs;
 use p3_symmetric::{PaddingFreeSponge, TruncatedPermutation};
 use p3_uni_stark::StarkConfig;
@@ -113,10 +113,7 @@ pub fn make_qash_test_config() -> QashFriConfig {
     build_config(perm, |mmcs| create_test_fri_params(mmcs, 2))
 }
 
-fn build_config<F>(
-    perm: QashPerm,
-    make_fri: F,
-) -> QashFriConfig
+fn build_config<F>(perm: QashPerm, make_fri: F) -> QashFriConfig
 where
     F: FnOnce(QashChallengeMmcs) -> FriParameters<QashChallengeMmcs>,
 {

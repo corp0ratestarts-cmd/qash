@@ -1,0 +1,36 @@
+{
+  "algorithm": "HMAC-SHA-256",
+  "revision": "RFC4231",
+  "source": "RFC 4231 §4 / NIST SP 800-198 CAVP (L=32)",
+  "note": "Internal self-test vectors. Not an NIST ACVP submission. Implementation complete / self-tested.",
+  "testGroups": [
+    {
+      "testType": "AFT",
+      "keyLen": 160,
+      "macLen": 256,
+      "tests": [
+        {
+          "tcId": 1,
+          "key": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+          "msg": "4869205468657265",
+          "mac": "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7",
+          "source": "RFC 4231 §4.2 — TC1: Key=0x0b*20, Data='Hi There'"
+        },
+        {
+          "tcId": 2,
+          "key": "4a656665",
+          "msg": "7768617420646f2079612077616e7420666f72206e6f7468696e673f",
+          "mac": "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843",
+          "source": "RFC 4231 §4.3 — TC2: Key='Jefe', Data='what do ya want for nothing?'"
+        },
+        {
+          "tcId": 3,
+          "key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "msg": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "mac": "773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe",
+          "source": "RFC 4231 §4.4 — TC3: Key=0xaa*20, Data=0xdd*50"
+        }
+      ]
+    }
+  ]
+}

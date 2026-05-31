@@ -4,13 +4,14 @@ This document captures the complete project direction from current state through
 verified execution substrate in maximum technical detail. It is the authoritative reference for any
 developer, auditor, or formal methods contributor picking up this codebase.
 
-**Last updated:** 2026-05-27
-**Current state:** Pre-genesis integration RC. The repository contains v1.0,
-v1.1, and v1.2 implementation/proof evidence in flight, but genesis remains
-provisional and non-authoritative. Do not create `v1.0-reference` or lock
-`GENESIS_CONSTANTS.toml` until the pre-genesis evidence gate below is complete.
-PR #201 is merged on `main`; the main-branch Pre-Genesis Full-Repo Audit at
-commit `18154bc37e19ff27835b4dbaf16a3334406ae1ae` passed all blocking phases.
+**Last updated:** 2026-05-31
+**Current state:** Post-GRC, post-compliance-hardening, pre-genesis. PR #213 (QASH-CASCADE-7
+cascade hardening), PR #214 (GRC-7-7-v2 certificate generator), PR #215 (real preimage parity
+fixture), and PR #216 (Phases 0–14: genesis prerequisites, CI hardening, compliance hardening)
+are complete or in final CI review. The GRC is complete. Genesis remains provisional and
+non-authoritative. Do not create `v1.0-reference` or lock `GENESIS_CONSTANTS.toml` until
+traceability, normative PDF, ADR-003 finalization, and the final evidence bundle are reconciled
+(Phase 1-A through 1-F; Phase 1-D is the remaining human-review gate).
 
 **MVP claim boundary:** the offline incident-receipt commit demonstrator (Domain B
 local MVP) is governed by [`docs/mvp/claims_register.md`](docs/mvp/claims_register.md).
@@ -910,6 +911,9 @@ pub fn check_state_invariants(state: &EpochState) -> Result<(), HaltReason> {
 Add 2 new rows to `proofs/COVERAGE.md`.
 
 #### Verified Interpreter Conformance
+
+> Phase 2-L target (requires OCaml extraction pipeline + Phase 1-D). Not yet implemented.
+> Current conformance evidence: CI replay corpus + Kani harnesses.
 
 - **`crates/consensus/tests/interpreter_conformance.rs`**: property-based test comparing Rocq-extracted interpreter `G(h)` to Rust `advance_epoch` runtime
   - 70,000+ random directive sequences (7 properties × ≥10k inputs each)
@@ -2220,6 +2224,9 @@ a new network. No exceptions.
 
 ### Rocq/Coq Infrastructure
 
+> **Target metrics for the full Rocq formalization track (Phase 2-L — not current state).**
+> Current proof coverage: `proofs/COVERAGE.md` — 43 PROVED, 56 total, 0 Admitted.
+
 | Attribute | Value |
 |-----------|-------|
 | Proof assistant | Rocq (Coq 8.19+) |
@@ -2237,6 +2244,9 @@ a new network. No exceptions.
 5. **Causal fingerprint bisimulation** — States with equal causal fingerprints are bisimilar; bisimulation collapse is impossible
 
 ### Proof-to-Code Pipeline
+
+> Phase 2-L target (requires OCaml extraction pipeline + Phase 1-D). Not yet implemented.
+> Current conformance evidence: CI replay corpus + Kani harnesses.
 
 ```
 1. Specification  →  Rocq model in proofs/model/

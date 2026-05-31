@@ -200,7 +200,7 @@ Every transition must be replay-invariant across the Tier A ISA set
 
 This axiom is operationally enforced by:
 - The `platform-determinism.yml` CI workflow
-- The test vector suite (`docs/spec/02_test_vectors.md`, pending)
+- The test vector suite (`tests/vectors/README.md` and `tests/vectors/vectors.v1.json`)
 - The cross-ISA replay check on every PR
 
 A transition that passes single-ISA tests but fails cross-ISA replay is

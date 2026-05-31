@@ -14,7 +14,8 @@ pub enum EncodeError {
     DecodeInvalid,    // H4
     RoundtripFailure, // H5
     BufferTooSmall,
-    InvalidHaltCode, // halt_reason byte has no known variant
+    InvalidHaltCode,  // halt_reason byte has no known variant
+    ValueOutOfRange,  // a FixedPoint value does not fit in the wire i64 range
 }
 
 pub fn encode_state_header(

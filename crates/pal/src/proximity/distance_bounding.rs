@@ -23,10 +23,11 @@ pub enum DistanceBoundingError {
 impl core::fmt::Display for DistanceBoundingError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::TimingViolation { round, elapsed_ns } =>
-                write!(f, "timing violation at round {round}: {elapsed_ns}ns > {HK_TIMING_BOUND_NS}ns"),
-            Self::ResponseMismatch { round } =>
-                write!(f, "response mismatch at round {round}"),
+            Self::TimingViolation { round, elapsed_ns } => write!(
+                f,
+                "timing violation at round {round}: {elapsed_ns}ns > {HK_TIMING_BOUND_NS}ns"
+            ),
+            Self::ResponseMismatch { round } => write!(f, "response mismatch at round {round}"),
         }
     }
 }
@@ -49,7 +50,11 @@ impl HanckeKuhnVerifier {
     pub fn new(shared_key: &[u8; 32], nonce: &[u8; 16], challenges: [u8; HK_ROUNDS / 8]) -> Self {
         let r0 = prf_hk(shared_key, nonce, b"R0");
         let r1 = prf_hk(shared_key, nonce, b"R1");
-        Self { challenges, expected_r0: r0, expected_r1: r1 }
+        Self {
+            challenges,
+            expected_r0: r0,
+            expected_r1: r1,
+        }
     }
 
     /// Verify a single round response and timing.
@@ -106,7 +111,10 @@ mod tests {
     fn timing_violation_is_detected() {
         let v = make_verifier();
         let result = v.verify_round(0, 0, HK_TIMING_BOUND_NS + 1);
-        assert!(matches!(result, Err(DistanceBoundingError::TimingViolation { .. })));
+        assert!(matches!(
+            result,
+            Err(DistanceBoundingError::TimingViolation { .. })
+        ));
     }
 
     #[test]
@@ -115,7 +123,10 @@ mod tests {
         let correct_r0_bit = prf_hk(&TV_KEY, &TV_NONCE, b"R0")[0] & 1;
         let wrong_bit = correct_r0_bit ^ 1;
         let result = v2.verify_round(0, wrong_bit, 0);
-        assert!(matches!(result, Err(DistanceBoundingError::ResponseMismatch { round: 0 })));
+        assert!(matches!(
+            result,
+            Err(DistanceBoundingError::ResponseMismatch { round: 0 })
+        ));
     }
 
     #[test]
@@ -127,11 +138,17 @@ mod tests {
 
     #[test]
     fn prf_hk_is_deterministic() {
-        assert_eq!(prf_hk(&TV_KEY2, &TV_NONCE2, b"R0"), prf_hk(&TV_KEY2, &TV_NONCE2, b"R0"));
+        assert_eq!(
+            prf_hk(&TV_KEY2, &TV_NONCE2, b"R0"),
+            prf_hk(&TV_KEY2, &TV_NONCE2, b"R0")
+        );
     }
 
     #[test]
     fn prf_hk_r0_differs_from_r1() {
-        assert_ne!(prf_hk(&TV_KEY2, &TV_NONCE2, b"R0"), prf_hk(&TV_KEY2, &TV_NONCE2, b"R1"));
+        assert_ne!(
+            prf_hk(&TV_KEY2, &TV_NONCE2, b"R0"),
+            prf_hk(&TV_KEY2, &TV_NONCE2, b"R1")
+        );
     }
 }

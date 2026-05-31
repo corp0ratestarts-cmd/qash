@@ -805,7 +805,7 @@ produces a bitwise-identical state root on all authorized platforms.
 RT-1 is not proven here. It is the **proof target** for:
 
 - The cross-ISA CI workflow (`platform-determinism.yml`)
-- The deterministic test vector suite (to be defined in `docs/spec/02_test_vectors.md`)
+- The deterministic test vector suite (`docs/spec/07_test_vectors.md`, `tests/vectors/vectors.v1.json`)
 - The Coq contractivity proof (`proofs/contractivity/lyapunov_stability.v`)
 - The TLA+ safety invariant (`proofs/safety/`)
 

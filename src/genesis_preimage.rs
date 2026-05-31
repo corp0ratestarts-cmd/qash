@@ -28,12 +28,10 @@ pub fn build_preimage(repo_root: &Path) -> Vec<u8> {
         }
 
         let path = repo_root.join(rel);
-        let raw = fs::read(&path)
-            .unwrap_or_else(|e| panic!("cannot read artifact {}: {}", rel, e));
+        let raw = fs::read(&path).unwrap_or_else(|e| panic!("cannot read artifact {}: {}", rel, e));
 
         let data: Vec<u8> = if rel == "GENESIS_CONSTANTS.toml" {
-            let text = std::str::from_utf8(&raw)
-                .expect("GENESIS_CONSTANTS.toml must be UTF-8");
+            let text = std::str::from_utf8(&raw).expect("GENESIS_CONSTANTS.toml must be UTF-8");
             canonicalize_genesis_constants(text).into_bytes()
         } else {
             raw
@@ -256,18 +254,14 @@ mod tests {
     #[test]
     fn blanks_hedge_roots_hex() {
         let hex64 = "a".repeat(128);
-        let toml = format!(
-            "[genesis.hedge_roots]\nsha3_512 = \"{}\"\n",
-            hex64
-        );
+        let toml = format!("[genesis.hedge_roots]\nsha3_512 = \"{}\"\n", hex64);
         let out = canonicalize_genesis_constants(&toml);
         assert!(out.contains("sha3_512 = \"<SELF>\""), "got: {}", out);
     }
 
     #[test]
     fn blanks_work_root_argon2id() {
-        let toml =
-            "[genesis.certificate]\nwork_root = \"ARGON2ID:cafebabe\"\n";
+        let toml = "[genesis.certificate]\nwork_root = \"ARGON2ID:cafebabe\"\n";
         let out = canonicalize_genesis_constants(toml);
         assert!(out.contains("work_root = \"<SELF>\""), "got: {}", out);
     }
@@ -305,9 +299,7 @@ mod tests {
     #[test]
     fn blanks_populated_rfc3161_token_hashes() {
         let hex64 = "c".repeat(128);
-        let toml = format!(
-            "[genesis.timestamps]\nrfc3161 = [\"{hex64}\"]\n"
-        );
+        let toml = format!("[genesis.timestamps]\nrfc3161 = [\"{hex64}\"]\n");
         let out = canonicalize_genesis_constants(&toml);
         assert!(out.contains("\"<SELF>\""), "got: {}", out);
     }

@@ -58,7 +58,13 @@ impl PublicTranscript {
         efb_root.copy_from_slice(&bytes[64..96]);
         let epoch = u64::from_be_bytes(bytes[96..104].try_into().ok()?);
         let halt_flag = bytes[104] != 0;
-        Some(Self { state_root, receipt_root, efb_root, epoch, halt_flag })
+        Some(Self {
+            state_root,
+            receipt_root,
+            efb_root,
+            epoch,
+            halt_flag,
+        })
     }
 }
 
@@ -78,7 +84,10 @@ mod tests {
 
     #[test]
     fn encode_canonical_length() {
-        assert_eq!(sample().encode_canonical().len(), PUBLIC_TRANSCRIPT_WIRE_LEN);
+        assert_eq!(
+            sample().encode_canonical().len(),
+            PUBLIC_TRANSCRIPT_WIRE_LEN
+        );
     }
 
     #[test]
@@ -113,4 +122,3 @@ mod tests {
         assert_eq!(&enc[96..104], &[0, 0, 0, 0, 0, 0, 0, 1]);
     }
 }
-

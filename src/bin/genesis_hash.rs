@@ -6,14 +6,12 @@
 //!
 //! Usage: cargo run --bin genesis-hash -- <repo-root>
 
-use std::{env, path::Path};
 use qash::genesis_preimage::build_preimage;
 use qash_consensus::cascade::h_cascade;
+use std::{env, path::Path};
 
 fn main() {
-    let repo_root_str = env::args()
-        .nth(1)
-        .expect("usage: genesis-hash <repo-root>");
+    let repo_root_str = env::args().nth(1).expect("usage: genesis-hash <repo-root>");
     let repo_root = Path::new(&repo_root_str);
 
     let preimage = build_preimage(repo_root);

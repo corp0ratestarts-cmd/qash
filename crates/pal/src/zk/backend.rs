@@ -21,14 +21,14 @@
 /// Proof bytes, STARK witness, and intermediate field elements MUST stay in
 /// Domain B. Only the 32-byte `[u8; 32]` return value crosses into Domain A
 /// as `ZkProofBundle.batch_root`.
-use p3_air::{Air, symbolic::SymbolicAirBuilder};
+use p3_air::{symbolic::SymbolicAirBuilder, Air};
 use p3_field::PrimeCharacteristicRing;
-use p3_uni_stark::{VerifierConstraintFolder, verify};
+use p3_uni_stark::{verify, VerifierConstraintFolder};
 use serde::{Deserialize, Serialize};
 use sha3::Digest;
 
 use super::plonky3::{AggregationProofBytes, FriProofBackend, ShardProofBytes};
-use super::profile::{QashFriConfig, QashVal, make_qash_production_config, make_qash_test_config};
+use super::profile::{make_qash_production_config, make_qash_test_config, QashFriConfig, QashVal};
 use crate::hosted::HostedError;
 
 // ── Proof payload (wire format inside proof_bytes) ────────────────────────────
@@ -116,8 +116,7 @@ impl<A> Plonky3ProductionBackend<A> {
 
 impl<A> FriProofBackend for Plonky3ProductionBackend<A>
 where
-    A: Air<SymbolicAirBuilder<QashVal>>
-        + for<'a> Air<VerifierConstraintFolder<'a, QashFriConfig>>,
+    A: Air<SymbolicAirBuilder<QashVal>> + for<'a> Air<VerifierConstraintFolder<'a, QashFriConfig>>,
 {
     fn verify_shard_shape(&self, shard: &ShardProofBytes) -> Result<[u8; 32], HostedError> {
         let payload: ShardProofPayload = postcard::from_bytes(&shard.proof_bytes)
@@ -137,9 +136,8 @@ where
             .map(|&v| QashVal::from_u64(v as u64))
             .collect();
 
-        verify(&self.config, &self.air, &payload.proof, &public_vals).map_err(|_| {
-            HostedError::InvalidInput("shard STARK proof verification failed")
-        })?;
+        verify(&self.config, &self.air, &payload.proof, &public_vals)
+            .map_err(|_| HostedError::InvalidInput("shard STARK proof verification failed"))?;
 
         Ok(shard.public_input_commitment)
     }
@@ -149,8 +147,8 @@ where
         agg: &AggregationProofBytes,
         expected_layer1_count: u32,
     ) -> Result<[u8; 32], HostedError> {
-        let payload: AggregationProofPayload = postcard::from_bytes(&agg.proof_bytes)
-            .map_err(|_| {
+        let payload: AggregationProofPayload =
+            postcard::from_bytes(&agg.proof_bytes).map_err(|_| {
                 HostedError::InvalidInput("aggregation proof_bytes deserialization failed")
             })?;
 
@@ -274,7 +272,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::zk::fib_air::{FibonacciAir, generate_fib_trace};
+    use crate::zk::fib_air::{generate_fib_trace, FibonacciAir};
 
     fn make_fib_backend() -> Plonky3ProductionBackend<FibonacciAir> {
         Plonky3ProductionBackend::new_for_testing(FibonacciAir)
@@ -356,14 +354,9 @@ mod tests {
         let trace = generate_fib_trace(0, 1, 8);
         let pv = vec![0u32, 1u32, 21u32];
         let layer1_count = 4u32;
-        let (proof_bytes, batch_root) = build_aggregation_proof_bytes(
-            backend.config(),
-            backend.air(),
-            trace,
-            pv,
-            layer1_count,
-        )
-        .unwrap();
+        let (proof_bytes, batch_root) =
+            build_aggregation_proof_bytes(backend.config(), backend.air(), trace, pv, layer1_count)
+                .unwrap();
 
         let agg = AggregationProofBytes {
             proof_bytes,
@@ -440,10 +433,9 @@ mod tests {
         // Known-answer: SHA3-256(0x00000000 ‖ 0x01000000 ‖ 0x15000000)
         // (each u32 as 4-byte little-endian, Fibonacci a=0,b=1,x=21)
         let expected: [u8; 32] = [
-            0xe2, 0x30, 0xd0, 0x0c, 0x11, 0xd6, 0xf9, 0x18,
-            0x7e, 0x96, 0x81, 0xd2, 0xca, 0x27, 0x3f, 0x90,
-            0x73, 0x04, 0xe2, 0x32, 0xf8, 0xe0, 0x19, 0xc2,
-            0xcf, 0x7b, 0x24, 0xfd, 0x2d, 0x2e, 0x30, 0xa6,
+            0xe2, 0x30, 0xd0, 0x0c, 0x11, 0xd6, 0xf9, 0x18, 0x7e, 0x96, 0x81, 0xd2, 0xca, 0x27,
+            0x3f, 0x90, 0x73, 0x04, 0xe2, 0x32, 0xf8, 0xe0, 0x19, 0xc2, 0xcf, 0x7b, 0x24, 0xfd,
+            0x2d, 0x2e, 0x30, 0xa6,
         ];
         let pv = vec![0u32, 1u32, 21u32];
         assert_eq!(

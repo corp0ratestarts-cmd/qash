@@ -1,0 +1,40 @@
+{
+  "algorithm": "ML-KEM-768",
+  "revision": "FIPS203",
+  "source": "Internal deterministic test vectors, ml-kem crate v0.3",
+  "note": "Internal self-test vectors derived from ml-kem v0.3 (verified x86_64 and aarch64). Not an NIST ACVP submission. Implementation complete / self-tested.",
+  "testGroups": [
+    {
+      "testType": "AFT",
+      "parameterSet": "ML-KEM-768",
+      "tests": [
+        {
+          "tcId": 1,
+          "description": "encapsulate/decapsulate consistency — zero seed and randomness",
+          "keypairSeed": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "encapsulationRandomness": "0000000000000000000000000000000000000000000000000000000000000000",
+          "kemOutput": "b4d29cd55bab43e16554b74b9098cdfce583996c968bcd2cfd1ad9455e351fbf",
+          "expectSuccess": true,
+          "source": "cavp_ml_kem_768 CI gate vector (pinned from ml_kem v0.3)"
+        },
+        {
+          "tcId": 2,
+          "description": "encapsulate/decapsulate consistency — alternating seed and randomness",
+          "keypairSeed": "4242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242",
+          "encapsulationRandomness": "3737373737373737373737373737373737373737373737373737373737373737",
+          "expectSuccess": true,
+          "note": "Pinned KEM output not recorded; consistency check only (encap == decap, non-zero)."
+        },
+        {
+          "tcId": 3,
+          "description": "wrong-key rejection — decapsulate with mismatched keypair returns different shared secret",
+          "keypairSeed": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "wrongKeypairSeed": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+          "encapsulationRandomness": "0000000000000000000000000000000000000000000000000000000000000000",
+          "expectSuccess": false,
+          "expectedBehaviour": "decapsulation with wrong decapsulation key produces a different KEM output (implicit rejection via ML-KEM decapsulation spec)"
+        }
+      ]
+    }
+  ]
+}

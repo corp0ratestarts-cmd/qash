@@ -1,10 +1,10 @@
 //! Epoch transition (atomic, infallible commit phase).
 
 use crate::encoding::EncodeError;
-use crate::envelope::{PROTOCOL_VERSION_V1_1, PROTOCOL_VERSION_V1_2};
 /// Protocol version constant for v1.0 envelopes (wire value 0x1000).
 /// After `COMPATIBILITY_WINDOW` epochs, v1.0 envelopes are rejected with H8.
 pub use crate::envelope::PROTOCOL_VERSION_V1_0;
+use crate::envelope::{PROTOCOL_VERSION_V1_1, PROTOCOL_VERSION_V1_2};
 use crate::fixed_point::{FixedPoint, OverflowError, SCALE};
 use crate::hash::{h_domain, h_domain_finish, h_domain_start, DomainTag};
 use crate::lyapunov::{
@@ -125,6 +125,11 @@ pub struct EpochState {
     /// v1.1 causal fingerprint: running H_domain chain over (prev_fingerprint || epoch || state_root).
     /// Tracks full causal history; equal fingerprints ⟹ bisimilar states (cf. proofs/safety/causal_fingerprint.v).
     /// Not included in the state_root commitment — parallel divergence-detection chain.
+    ///
+    /// INTENTIONALLY not wire-encoded: always resets to `[0u8; 32]` on decode (see
+    /// `decode_full_state_from`). This is by design — the chain is rebuilt from replayed
+    /// transitions and must not be persisted as a forgeable field. Do not add it to the
+    /// wire format without updating the genesis hash and ADR-003.
     pub causal_fingerprint: [u8; 32],
 }
 
@@ -141,9 +146,34 @@ impl EpochState {
 
 /// Encode the full state into `out`; returns bytes written.
 /// Only `state.validator_count` validator slots are encoded.
+/// FixedPoint values that do not fit in i64 are silently saturated to `i64::MIN`/`i64::MAX`.
+/// Use `try_encode_full_state_into` if saturation must be detected.
 pub fn encode_full_state_into(state: &EpochState, out: &mut [u8; FULL_STATE_MAX_BYTES]) -> usize {
     let len = write_state_base_bytes(state, &state.state_root, out);
     append_sharding_roots_if_present(state, out, len)
+}
+
+/// Fallible encoding: returns `Err(EncodeError::ValueOutOfRange)` if any FixedPoint field
+/// would require saturation to fit in i64. Returns bytes written on success.
+pub fn try_encode_full_state_into(
+    state: &EpochState,
+    out: &mut [u8; FULL_STATE_MAX_BYTES],
+) -> Result<usize, EncodeError> {
+    if state.validator_count as usize > MAX_VALIDATORS {
+        return Err(EncodeError::DecodeInvalid);
+    }
+    // Validate all FixedPoint fields before writing anything.
+    for i in 0..state.validator_count as usize {
+        let v = &state.validators[i];
+        fp_to_i64_wire_checked(v.divergence)?;
+        fp_to_i64_wire_checked(v.conflict)?;
+        fp_to_i64_wire_checked(v.slash_accum)?;
+    }
+    let (_, window_vals) = state.convergence_window.raw_parts();
+    for v in window_vals.iter() {
+        fp_to_i64_wire_checked(*v)?;
+    }
+    Ok(encode_full_state_into(state, out))
 }
 
 fn write_state_base_bytes(state: &EpochState, root_field: &[u8; 32], out: &mut [u8]) -> usize {
@@ -390,7 +420,7 @@ pub fn decode_full_state(bytes: &[u8]) -> Result<EpochState, EncodeError> {
     })
 }
 
-/// Cast FixedPoint to i64 for wire encoding.
+/// Cast FixedPoint to i64 for wire encoding, saturating on overflow.
 /// All consensus-path values are validated to fit i64 before reaching the commit phase:
 /// D, C <= SCALE = 1_000_000; Sigma validated <= i64::MAX; V_convergence <= 768_000_000.
 #[inline]
@@ -400,6 +430,14 @@ fn fp_to_i64_wire(fp: FixedPoint) -> i64 {
         Err(_) if fp.raw() < 0 => i64::MIN,
         Err(_) => i64::MAX,
     }
+}
+
+/// Fallible variant: returns `Err(EncodeError::ValueOutOfRange)` if any FixedPoint field
+/// does not fit in i64, rather than saturating. Callers that need to detect out-of-range
+/// values before encoding should prefer this over `encode_full_state_into`.
+#[inline]
+fn fp_to_i64_wire_checked(fp: FixedPoint) -> Result<i64, EncodeError> {
+    i64::try_from(fp.raw()).map_err(|_| EncodeError::ValueOutOfRange)
 }
 
 /// Stream the canonical commitment encoding of `state` into `h`, substituting
@@ -820,19 +858,20 @@ pub fn validate_envelope_epoch(
     Ok(())
 }
 
-/// Reject v1.0 envelopes after the compatibility window.
-/// Returns Ok(()) during the window or for v1.1+ envelopes.
+/// Reject v1.0 envelopes at or after the compatibility window epoch.
+/// Returns Ok(()) before the window or for v1.1+ envelopes.
 ///
-/// `compatibility_window` is the last epoch at which v1.0 is still accepted;
-/// envelopes with `current_epoch > compatibility_window` and
-/// `envelope_version < PROTOCOL_VERSION_V1_1` are rejected with
-/// `HaltReason::IncompatibleVersion` (H8).
+/// `compatibility_window` is the first epoch at which v1.0 is rejected (H8).
+/// Envelopes with `current_epoch >= compatibility_window` and
+/// `envelope_version < PROTOCOL_VERSION_V1_1` return
+/// `Err(HaltReason::IncompatibleVersion)`. This matches `step_1_validate`
+/// which uses the same `>=` boundary.
 pub fn validate_envelope_version(
     envelope_version: u32,
     current_epoch: u64,
     compatibility_window: u64,
 ) -> Result<(), HaltReason> {
-    if current_epoch > compatibility_window && envelope_version < PROTOCOL_VERSION_V1_1 {
+    if current_epoch >= compatibility_window && envelope_version < PROTOCOL_VERSION_V1_1 {
         return Err(HaltReason::IncompatibleVersion);
     }
     Ok(())
@@ -1527,8 +1566,17 @@ mod tests {
     }
 
     #[test]
-    fn validate_envelope_version_accepts_v10_at_or_before_window() {
-        assert!(validate_envelope_version(PROTOCOL_VERSION_V1_0, 100, 100).is_ok());
+    fn validate_envelope_version_rejects_v10_at_window() {
+        // epoch == window: first rejected epoch.
+        assert_eq!(
+            validate_envelope_version(PROTOCOL_VERSION_V1_0, 100, 100),
+            Err(HaltReason::IncompatibleVersion)
+        );
+    }
+
+    #[test]
+    fn validate_envelope_version_accepts_v10_before_window() {
+        assert!(validate_envelope_version(PROTOCOL_VERSION_V1_0, 99, 100).is_ok());
         assert!(validate_envelope_version(PROTOCOL_VERSION_V1_0, 50, 100).is_ok());
     }
 
@@ -1591,6 +1639,48 @@ mod tests {
 
         assert_eq!(decoded.receipt_root, state.receipt_root);
         assert_eq!(decoded.efb_root, state.efb_root);
+    }
+
+    #[test]
+    fn decode_resets_causal_fingerprint_to_zero() {
+        // causal_fingerprint is intentionally not wire-encoded; it must always be
+        // [0u8; 32] after decode regardless of what was in the pre-encode state.
+        let mut state = genesis_state_vc4();
+        state.causal_fingerprint = [0xFF; 32]; // set non-zero before encode
+
+        let mut encoded = [0u8; FULL_STATE_MAX_BYTES];
+        let len = encode_full_state_into(&state, &mut encoded);
+        let decoded = decode_full_state(&encoded[..len]).unwrap();
+
+        assert_eq!(
+            decoded.causal_fingerprint,
+            [0u8; 32],
+            "causal_fingerprint must reset to zero on decode (not wire-encoded)"
+        );
+    }
+
+    #[test]
+    fn try_encode_succeeds_for_in_range_values() {
+        let state = genesis_state_vc4();
+        let mut encoded = [0u8; FULL_STATE_MAX_BYTES];
+        let result = try_encode_full_state_into(&state, &mut encoded);
+        assert!(result.is_ok(), "try_encode must succeed for normal genesis state");
+        let n = result.unwrap();
+        assert_eq!(n, encode_full_state_into(&state, &mut [0u8; FULL_STATE_MAX_BYTES]));
+    }
+
+    #[test]
+    fn try_encode_returns_error_for_out_of_range_fp() {
+        use crate::fixed_point::FixedPoint;
+        let mut state = genesis_state_vc4();
+        // Inject an i128 value that overflows i64 into a validator divergence field.
+        state.validators[0].divergence =
+            FixedPoint::from_raw(i128::from(i64::MAX) + 1);
+        let mut encoded = [0u8; FULL_STATE_MAX_BYTES];
+        assert_eq!(
+            try_encode_full_state_into(&state, &mut encoded),
+            Err(EncodeError::ValueOutOfRange)
+        );
     }
 
     #[test]
@@ -1799,6 +1889,18 @@ mod tests {
         assert_eq!(
             full_root, view_root,
             "ProjectedView::compute_root diverged from compute_state_root (sharding roots set)"
+        );
+    }
+
+    #[test]
+    fn try_encode_rejects_oversize_validator_count() {
+        let mut state = genesis_state_vc4();
+        state.validator_count = (MAX_VALIDATORS as u32) + 1;
+        let mut buf = [0u8; FULL_STATE_MAX_BYTES];
+        assert_eq!(
+            try_encode_full_state_into(&state, &mut buf),
+            Err(EncodeError::DecodeInvalid),
+            "validator_count > MAX_VALIDATORS must return DecodeInvalid"
         );
     }
 }

@@ -4,14 +4,51 @@
 > is not "FIPS validated." FIPS 140-3 module validation requires engagement with
 > a NIST-accredited CMVP lab. This document records implementation evidence
 > intended to support a future CMVP submission — not a current validation claim.
+> This module has **not yet been validated by CMVP**.
 
-This document maps FIPS 140-3 Level 3 (L3) requirements to their concrete
-implementations in `qash-pal` (Domain B). Where an L3 requirement is not yet
-satisfied, the gap and the planned phase are noted. Domain A (`qash-consensus`)
-is proof-eligible consensus logic and is explicitly **out of scope** for FIPS
-evaluation; it contains no FIPS-approved or non-approved algorithms.
+---
 
-### FIPS 140-3 Level 3 — requirement overview
+## Status Vocabulary
+
+The following status labels are used throughout this document:
+
+| Status label | Meaning |
+|---|---|
+| N/A | Not applicable to this repo |
+| Internal alignment | Code/design follows the standard's approach; no external assessment |
+| Implementation complete / self-tested | Implemented with CI KATs; no external validation |
+| Externally certified | Formal certificate or report exists — none currently |
+
+---
+
+This document maps FIPS 140-3 internal alignment (not validated) requirements to
+their concrete implementations in `qash-pal` (Domain B). Where a requirement is
+not yet satisfied, the gap and the planned phase are noted. Domain A
+(`qash-consensus`) is proof-eligible consensus logic and is explicitly **out of
+scope** for FIPS evaluation; it contains no FIPS-approved or non-approved
+algorithms.
+
+---
+
+## Module Boundary Definition (Phase 9-A)
+
+The FIPS 140-3 module boundary covers `crates/pal/src/crypto/` exclusively.
+All algorithms **within** this boundary are Domain B implementations. Domain A
+algorithms (SHA3-256 for state-root, cascade hash) are **outside** the boundary.
+
+| Crate | Module path | Feature flags | Algorithms in boundary | Claim |
+|-------|------------|---------------|------------------------|-------|
+| `qash-pal` | `src/crypto/kem.rs` | `pqc` | ML-KEM-768 (FCS_CKM.1) | Implementation complete / self-tested |
+| `qash-pal` | `src/crypto/drbg.rs` | `std` | HMAC-DRBG / SHA-256 (FCS_RBG_EXT.1) | Implementation complete / self-tested |
+| `qash-pal` | `src/crypto/post.rs` | `fips-post` | SHA3-256, SHA-256, HMAC-DRBG, ML-KEM-768 KATs | Implementation complete / self-tested |
+| `qash-pal` | `src/privacy/erasure.rs` | `std` | Key zeroization via `ZeroizeOnDrop` (FDP_RIP.1) | Implementation complete / self-tested |
+| `qash-consensus` | `src/hash.rs` | (none) | SHA3-256 (Domain A state-root) | **Outside boundary** — not a FIPS module algorithm |
+| `qash-consensus` | `src/cascade.rs` | (none) | QASH-CASCADE-7 multi-primitive hash | **Outside boundary** — Domain A proof-eligible only |
+
+**Non-approved algorithms used exclusively in Domain A** (not subject to FIPS AS.01):
+BLAKE3, KangarooTwelve, SM3 (cascade stages), LSH-256/512, Streebog-512, Kupyna-512.
+
+### FIPS 140-3 internal alignment (not validated) — requirement overview
 
 FIPS 140-3 builds incrementally: an L3 module must satisfy all L1 and L2
 requirements plus additional physical and identity-based constraints:
@@ -33,11 +70,17 @@ Section 10 Physical Security) to their QASH implementations.
 | Algorithm | Role | Implementation | Reference |
 |-----------|------|----------------|-----------|
 | ML-KEM-768 | Post-quantum KEM (CNSA 2.0) | `crates/pal/src/crypto/kem.rs` — `ml-kem` crate, feature `pqc` | FIPS 203 |
-| SHA3-256 | X-Wing combiner, Domain A state-root hashing | `crates/consensus/src/hash.rs` (Domain A); X-Wing combiner (Domain B) | FIPS 202 |
+| SHA3-256 | X-Wing combiner (Domain B — within FIPS module boundary) | X-Wing combiner (Domain B) in `crates/pal/src/` | FIPS 202 |
 | HMAC-SHA-256 DRBG | Deterministic random bit generation | `crates/pal/src/crypto/drbg.rs` — `hmac-drbg` crate | NIST SP 800-90A Rev.1 |
 | SHA-256 | HMAC-DRBG internal hash | Provided by `hmac-drbg` / `sha2` crate | FIPS 180-4 |
 | Dilithium5 | Primary post-quantum signature (planned) | `crates/pal/src/` (Phase 2-G extension) | FIPS 204 |
 | SLH-DSA-SHA3-256 | Anchor signature (planned) | `crates/pal/src/` (Phase 2-G extension) | FIPS 205 |
+
+> **Module boundary note:** Domain A (`crates/consensus/src/hash.rs`) also uses
+> SHA3-256 for state-root hashing, but this usage is **outside the FIPS module
+> boundary**. The FIPS module boundary covers Domain B / `crates/pal/src/crypto/`
+> only. Domain A SHA3-256 usage is proof-eligible consensus logic and is not
+> subject to FIPS module requirements.
 
 ---
 
@@ -116,8 +159,10 @@ For high-assurance deployments targeting Level 2+:
 | Domain A hash KATs (SHA3-256) | CI | `hash::tests::h_domain_state_root_hello_known_vector`, `sha3_256_known_vector` |
 | LSH-256/512 KATs | CI | `lsh256::tests::*`, `lsh512::tests::*` |
 
-Power-on self-tests (POST) required by FIPS 140-3 §AS.09: planned for
-Phase 2-P as part of the `cavp-kat` CI gate.
+POST: `crates/pal/src/crypto/post.rs` implemented behind `fips-post` feature; CI runs
+`run_post()` for SHA3-256, SHA-256, HMAC-DRBG (pairwise consistency health test — not a full
+CAVP KAT), and ML-KEM-768. Remaining gap: startup-time fail-closed enforcement is a
+deployment-layer step.
 
 ---
 

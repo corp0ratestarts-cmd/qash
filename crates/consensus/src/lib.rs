@@ -56,6 +56,7 @@ pub use sharding::{
 pub use transition::advance_epoch_sharded;
 pub use transition::EpochShardingInput;
 pub use transition::{
-    advance_epoch, decode_full_state, encode_full_state_into, EpochInput, EpochState, HaltReason,
-    TransitionResult, ValidatorUpdate, FULL_STATE_MAX_BYTES, MAX_VALIDATORS,
+    advance_epoch, decode_full_state, encode_full_state_into, try_encode_full_state_into,
+    EpochInput, EpochState, HaltReason, TransitionResult, ValidatorUpdate, FULL_STATE_MAX_BYTES,
+    MAX_VALIDATORS,
 };

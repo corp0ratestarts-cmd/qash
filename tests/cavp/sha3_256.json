@@ -1,0 +1,34 @@
+{
+  "algorithm": "SHA3-256",
+  "revision": "FIPS202",
+  "source": "NIST FIPS 202 Appendix A/B",
+  "note": "Internal self-test vectors. Not an NIST ACVP submission. Implementation complete / self-tested.",
+  "testGroups": [
+    {
+      "testType": "AFT",
+      "tests": [
+        {
+          "tcId": 1,
+          "msg": "",
+          "len": 0,
+          "md": "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a",
+          "source": "FIPS 202 §B.1 — empty message"
+        },
+        {
+          "tcId": 2,
+          "msg": "616263",
+          "len": 24,
+          "md": "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532",
+          "source": "FIPS 202 §B.1 — 'abc' (3 bytes)"
+        },
+        {
+          "tcId": 3,
+          "msg": "a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
+          "len": 1600,
+          "md": "79f38adec5c20307a98ef76e8324afbfd46cfd81b22e3973c65fa1bd9de31787",
+          "source": "FIPS 202 Appendix A.1 — 200 bytes of 0xa3"
+        }
+      ]
+    }
+  ]
+}

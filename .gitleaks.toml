@@ -18,6 +18,11 @@ paths = [
   '''GENESIS_CONSTANTS\.toml''',
   '''tests/vectors/cascade_kat\.json''',
   '''tests/vectors/vectors\.v[0-9].*\.json''',
+  # ACVP-style CAVP KAT fixture files — all values are public test vectors,
+  # not real credentials. Keys/MACs are NIST/RFC standard known-answer values.
+  '''tests/cavp/.*\.json''',
+  # Rust test files containing hardcoded KAT hex constants
+  '''crates/.*/(drbg|kem|hash|post)\.rs''',
 ]
 regexes = [
   # genesis_hash field — QASH-CASCADE-7 or SHA3-256 prefixed public hash

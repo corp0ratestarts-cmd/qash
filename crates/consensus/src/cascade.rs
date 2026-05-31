@@ -8,12 +8,12 @@
 // Primitive purity (spec §6): all seven L1 primitives and SHA3-512 must be
 // pure-Rust / safe-Rust.  blake3 uses features=["pure"] to disable assembly.
 
+use crate::lsh512::lsh512_parts;
+use kupyna::Kupyna512;
 use sha3::{Digest, Sha3_512};
 use sm3::Sm3;
 use streebog::Streebog512;
-use kupyna::Kupyna512;
 use tiny_keccak::{Hasher as TinyHasher, KangarooTwelve};
-use crate::lsh512::lsh512_parts;
 
 // ---------------------------------------------------------------------------
 // Domain separators (spec §7) — pub const so the parity test can compare
@@ -49,13 +49,13 @@ pub fn h_cascade(input: &[u8]) -> [u8; 64] {
 /// Must be a deterministic protocol value — never a secret nonce.
 pub fn h_cascade_keyed(context_key: &[u8], input: &[u8]) -> [u8; 64] {
     // L1: seven 512-bit primitives in parallel — spec §1 (QASH-CASCADE-7)
-    let h1_sha3   = l1_sha3_512(DOM_SEP_L1, input);
+    let h1_sha3 = l1_sha3_512(DOM_SEP_L1, input);
     let h1_blake3 = l1_blake3_64(DOM_SEP_L1, input);
-    let h1_k12    = l1_k12_64(DOM_SEP_L1, input);
-    let h1_sm3    = l1_sm3_512(DOM_SEP_L1, input);
+    let h1_k12 = l1_k12_64(DOM_SEP_L1, input);
+    let h1_sm3 = l1_sm3_512(DOM_SEP_L1, input);
     let h1_streeb = l1_streebog_512(DOM_SEP_L1, input);
     let h1_kupyna = l1_kupyna_512(DOM_SEP_L1, input);
-    let h1_lsh    = l1_lsh_512(DOM_SEP_L1, input);
+    let h1_lsh = l1_lsh_512(DOM_SEP_L1, input);
 
     // Canonical concat: SHA3-512, BLAKE3-XOF, K12-XOF, SM3×2, Streebog-512,
     //                   Kupyna-512, LSH-512 — spec §1 (7 × 64 = 448 bytes)

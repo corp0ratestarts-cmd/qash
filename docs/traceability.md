@@ -1,9 +1,8 @@
 # QASH Spec → Code → Test → Proof Traceability
 
-> **Normative source:** `spec/pdf/QASH_Spec_v1.0.pdf` (QASH v1.0).
-> The PDF must be checked into `spec/pdf/` before genesis lock. Until then,
-> section and page references below are provisional and must be verified against
-> the committed PDF.
+> **Normative source:** `spec/pdf/QASH_Spec_v1.0.pdf` — committed. Section and page
+> citations below are provisional pending Phase 1-D manual owner review. Once reconciled,
+> this notice will be replaced with a PDF-verified stamp (date + SHA-256).
 
 ## Rules
 

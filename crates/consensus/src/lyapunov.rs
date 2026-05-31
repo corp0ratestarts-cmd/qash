@@ -334,8 +334,7 @@ mod tests {
         let eval_full =
             evaluate_with_cascade_health(&validators, &window, CASCADE_HEALTH_THRESHOLD)
                 .expect("full health must succeed");
-        let eval_base =
-            evaluate(&validators, &window).expect("base evaluate must succeed");
+        let eval_base = evaluate(&validators, &window).expect("base evaluate must succeed");
 
         // cascade_health=8 ≥ threshold=8: term=0; must equal base evaluate.
         assert_eq!(

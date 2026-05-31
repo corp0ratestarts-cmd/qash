@@ -83,7 +83,25 @@ No profiling, behavioral analysis, or automated decision-making occurs in the pr
 - After `shred_key()` returns, decryption of the associated ciphertext is computationally infeasible
 - `ShredKeyEvidence` provides an audit record: `key_commitment`, `epoch`, `event_root`
 
-### 4.2 Scope and Limitations
+### 4.2 Erasure Request Lifecycle
+
+Phase 10 added an erasure request lifecycle to `erasure.rs`:
+
+- `ErasureRequest { receipt_commitment, requestor_id, epoch }` — structured intake record
+- `process_erasure_request(req, key_store)` — drives `PendingLocate → Located → Shredding → ShredComplete`
+- Returns `Ok(ShredKeyEvidence)` or `Err(ErasureError::KeyNotFound | CommitmentMismatch)`
+- `KeyStore` trait — operator-implemented key store; `locate_by_commitment` must not retain key copies
+- Integration test: `crates/pal/tests/erasure_workflow.rs` — create → encrypt → shred → replay audit → decrypt fails
+- Operator runbook: `docs/security/ERASURE_RUNBOOK.md`
+
+### 4.3 Backup and Key-Copy Policy
+
+- **No raw key backups**: `ReceiptKey.material` must never be written to backup storage.
+- **Encrypted-receipt backups permitted**: The ciphertext may be backed up; without the key it is computationally opaque.
+- **Key store backups**: If the key store is backed up, the backup is subject to the same erasure obligation. Erasure is complete only when the key is shredded from all copies.
+- **Irreversible**: Once `shred_key()` returns, the key material is permanently gone. No recovery path exists.
+
+### 4.4 Scope and Limitations
 
 Key shredding makes decryption computationally infeasible. It is one component
 of a broader erasure-handling design. Full Art. 17 compliance also requires:

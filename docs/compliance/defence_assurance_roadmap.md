@@ -6,6 +6,19 @@
 
 ---
 
+## Status Vocabulary
+
+The following status labels are used throughout this document:
+
+| Status label | Meaning |
+|---|---|
+| N/A | Not applicable to this repo |
+| Internal alignment | Code/design follows the standard's approach; no external assessment |
+| Implementation complete / self-tested | Implemented with CI KATs; no external validation |
+| Externally certified | Formal certificate or report exists — none currently |
+
+---
+
 ## 0. Non-Claims Boundary
 
 This document records potential certification, accreditation, and assurance pathways that QASH may be designed to support. It does **not** claim that QASH, QASH Labs, or any QASH deployment is currently certified, accredited, approved, authorised, endorsed, or validated by NSA, NCSC, NATO, DoD, DISA, FedRAMP, NIAP, CMVP, ISO, SOC 2, or any other authority.
@@ -338,6 +351,25 @@ A defence-assurance evidence bundle should include:
 | `docs/compliance/cmmc_readiness.md` | Company-level CMMC/NIST SP 800-171 readiness plan |
 | `docs/compliance/stig_srg_profile.md` | Hardened deployment profile and STIG/SRG mapping |
 | `docs/compliance/defence_evidence_bundle.md` | Defence-facing release evidence bundle format |
+
+---
+
+## 14. Standards Regime Status Matrix
+
+| Regime | Current Status | Notes |
+|---|---|---|
+| NSA CNSA 2.0 | Internal alignment | ML-KEM-768 and HMAC-DRBG direction implemented in Domain B; not evaluated |
+| NSA CSfC | N/A | Architecture-mappable only; no evaluated components; no CSfC approval |
+| NIAP / Common Criteria / ISO 15408 | Internal alignment | Design-phase Security Target drafted; no evaluation lab engaged |
+| FIPS 140-3 / CMVP | Internal alignment | Domain B crypto boundary mapped; not validated by CMVP |
+| CAVP / ACVP | Internal alignment | KAT evidence in CI; not submitted to ACVP |
+| CMMC / NIST SP 800-171 | N/A | No FCI/CUI handling in scope for current MVP |
+| NIST SP 800-53 / FedRAMP | N/A | No hosted government service; not in scope for current MVP |
+| DISA STIG / SRG | N/A | Hardened deployment profile not yet written |
+| DoD Impact Levels | N/A | No cloud-hosted government service in scope |
+| NATO / Allied Defence | Internal alignment | Architecture scoped for allied assurance pathways; no national authority assessment |
+| UK NCSC CAF | Internal alignment | Secure-by-design principles followed; no CAF assessment performed |
+| UK Cyber Essentials | N/A | Organisational readiness not yet assessed |
 
 ---
 
