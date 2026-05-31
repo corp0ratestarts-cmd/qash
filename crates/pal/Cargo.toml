@@ -11,10 +11,10 @@ path = "src/root.rs"
 qash-consensus = { path = "../consensus", version = "0.1.0" }
 hmac-drbg = "0.3.0"
 sha2 = "0.9"
-sha3 = "0.10"
+sha3 = "0.11"
 blake3 = { version = "=1.5.5", default-features = false, features = ["pure"] }
 ml-kem = { version = "0.3", optional = true }
-sm3 = { version = "0.4", optional = true }
+sm3 = { version = "0.5", optional = true }
 getrandom = { version = "0.2", optional = true }
 typenum = "1.20.0"
 zeroize = { version = "1", features = ["derive"] }
