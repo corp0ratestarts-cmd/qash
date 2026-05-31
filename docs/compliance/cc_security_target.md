@@ -162,7 +162,7 @@ Target assurance level: **EAL4 augmented**.
 | ADV_TDS.3 | Basic modular design | Workspace layout, `docs/adr/`, `docs/implementation_order.md` |
 | AGD_OPE.1 | Operational user guidance | `GENESIS_CONSTANTS.toml` comments, `docs/` |
 | AGD_PRE.1 | Preparative procedures | `scripts/verify_rust_toolchain.sh`, toolchain pin in `rust-toolchain.toml` |
-| ATE_COV.2 | Analysis of coverage | `proofs/COVERAGE.md` — 47 PROVED, 9 CI-VERIFIED, 7 AXIOM, 3 PLACEHOLDER |
+| ATE_COV.2 | Analysis of coverage | `proofs/COVERAGE.md` — 43 PROVED, 7 CI-VERIFIED, 3 AXIOM, 2 PLACEHOLDER (56 total) |
 | ATE_DPT.1 | Testing: basic design | `crates/consensus/tests/`, `crates/pal/tests/` |
 | ATE_FUN.1 | Functional testing | `cargo test --workspace`, `scripts/verify_two_stage_build.sh` |
 | ATE_IND.2 | Independent testing — sample | Kani harnesses (`scripts/run_kani_consensus.sh`) |
@@ -234,9 +234,9 @@ Bit-identical state roots on x86_64, aarch64, and riscv64gc are enforced by:
 The 43 proved Coq theorems in `proofs/COVERAGE.md` cover all safety-critical
 properties listed in §5. There are also 7 CI-VERIFIED properties enforced by
 non-Coq CI (determinism replay, cascade KATs, and versioning/health tracking).
-The 3 AXIOM entries (`AX2-refinement`, `AX3-SHA3`, `blinding-PRF`) are
-documented with non-vacuous typed axioms and justify why full proofs are
-deferred. No MISSING entries exist.
+The 3 AXIOM entries (`AX2-refinement`, `GRC-7-7-v2`, `TH-10-cascade-collision`)
+and 2 PLACEHOLDER entries are documented with non-vacuous typed axioms and
+their v1.0 claim-boundary classifications. No MISSING entries exist (56 total).
 
 ---
 
@@ -272,7 +272,7 @@ cargo test -p qash-pal --features fips-post -- post --nocapture
 cd proofs && make all
 
 # 8. Inspect proof coverage
-cat proofs/COVERAGE.md   # 47 PROVED, 9 CI-VERIFIED, 7 AXIOM, 3 PLACEHOLDER
+cat proofs/COVERAGE.md   # 43 PROVED, 7 CI-VERIFIED, 3 AXIOM, 2 PLACEHOLDER (56 total)
 ```
 
 CI artifacts (proof hashes, SBOM, bench output) are uploaded on each push to
