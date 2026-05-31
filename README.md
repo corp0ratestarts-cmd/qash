@@ -57,8 +57,8 @@ graph TD
 
 ## 🔐 Genesis Lock Status
 
-> [!WARNING]
-> **Pre-lock Stage**: `QASH_Spec_v1.0.pdf` has not yet been committed to `spec/pdf/`. All quotes, page references, and requirement traces in [docs/traceability.md](file:///home/debian/Downloads/QASH/qash/docs/traceability.md), `docs/errata/`, and `docs/adr/` are **provisional** until the PDF is committed and the genesis hash is recomputed. See [spec/pdf/README.md](file:///home/debian/Downloads/QASH/qash/spec/pdf/README.md) for the lock procedure.
+> [!NOTE]
+> **Provisional**: `QASH_Spec_v1.0.pdf` is committed to `spec/pdf/`. Requirement citations in [docs/traceability.md](docs/traceability.md) are provisional pending manual PDF verification (Phase 1-D). `genesis_status = "provisional"` and `deployment_authoritative = false` until all Phase 1 prerequisites are complete and the genesis hash is locked. See [spec/pdf/README.md](spec/pdf/README.md) for the lock procedure.
 
 ---
 
