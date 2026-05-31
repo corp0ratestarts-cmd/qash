@@ -104,12 +104,12 @@ QASH tracks all formal properties within the [proof coverage map](file:///home/d
 
 | Status | Count | Meaning |
 | :--- | :---: | :--- |
-| **PROVED** | **42** | Coq theorem compiled under `coqc` with zero `Admitted` markers. |
-| **CI-VERIFIED** | **4** | Verified via cross-ISA CI or KAT test vectors. |
+| **PROVED** | **43** | Coq theorem compiled under `coqc` with zero `Admitted` markers. |
+| **CI-VERIFIED** | **7** | Verified via cross-ISA CI or KAT test vectors. |
 | **AXIOM** | **3** | Documented foundational assumption (e.g. hash collision resistance). |
 | **PLACEHOLDER** | **2** | Target formulation defined, final mathematical reduction deferred. |
 | **MISSING** | **0** | No tracked property is without proof, test, axiom, or placeholder status. |
-| **Total** | **44** | **Tracked protocol assertions from `proofs/COVERAGE.md`.** |
+| **Total** | **56** | **Tracked protocol assertions from `proofs/COVERAGE.md`.** |
 
 ### Key Core Theorems
 
