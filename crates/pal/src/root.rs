@@ -1,5 +1,7 @@
 pub mod admission;
 pub mod clone;
+pub mod crypto;
+pub mod evidence_bundle;
 pub mod commitment_backpressure;
 pub mod commitment_inbox;
 pub mod commitment_transport;

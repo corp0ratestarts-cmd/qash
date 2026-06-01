@@ -13,6 +13,7 @@
 pub mod compression;
 pub mod cover_traffic;
 pub mod dedup;
+pub mod manifest;
 pub mod relay;
 pub mod transport;
 pub mod wipe;
@@ -34,5 +35,9 @@ pub use transport::{
     CloneTransport, FrameError, LoRaTransport, NfcTransport, QrTransport, TransportError,
     UltrasonicError, UltrasonicTransport, WifiDirectTransport, FRAME_VERSION,
     MAX_COMPRESSED_PAYLOAD, MAX_ULTRASONIC_PAYLOAD, SIG_BYTES, ULTRASONIC_SYNC,
+};
+pub use manifest::{
+    compute_clone_manifest_root_pair, verify_clone_manifest_root_pair, CloneManifestError,
+    ClonePackageManifest,
 };
 pub use wipe::{WipeError, WipeSignal, WIPE_MAGIC, WIPE_SIGNAL_BYTES, WIPE_VERSION};

@@ -15,6 +15,7 @@
 use sha3::{Digest, Sha3_256};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+use crate::crypto::dual_hash::{allof_hash_pair_32, verify_allof_hash_pair_32, AllOfHashPair32};
 use crate::zero_wal::{ZeroPersistenceWal, ZeroPersistenceWalRecord};
 
 // ── 4-C: Viewing key derivation ───────────────────────────────────────────────
@@ -251,6 +252,44 @@ where
     Ok(completed)
 }
 
+/// Compute an independent dual-root all-of binding over receipt evidence metadata.
+///
+/// Binds `receipt_id`, `ciphertext_root`, `key_commitment`, and `ciphertext_len`.
+/// Does not include raw ciphertext or key material.
+/// Domain B only. Not FIPS/CAVP/ACVP evidence.
+pub fn compute_receipt_evidence_root_pair(
+    commitment: &EncryptedReceiptCommitment,
+) -> AllOfHashPair32 {
+    let mut data = [0u8; 32 + 32 + 8];
+    data[..32].copy_from_slice(&commitment.ciphertext_root);
+    data[32..64].copy_from_slice(&commitment.key_commitment);
+    data[64..].copy_from_slice(&commitment.ciphertext_len.to_le_bytes());
+    allof_hash_pair_32(
+        b"qash-receipt-evidence-v1",
+        &commitment.receipt_id,
+        &data,
+    )
+}
+
+/// Verify an `AllOfHashPair32` against the receipt evidence metadata.
+///
+/// Returns `true` only when both arms independently match.
+pub fn verify_receipt_evidence_root_pair(
+    commitment: &EncryptedReceiptCommitment,
+    pair: &AllOfHashPair32,
+) -> bool {
+    let mut data = [0u8; 32 + 32 + 8];
+    data[..32].copy_from_slice(&commitment.ciphertext_root);
+    data[32..64].copy_from_slice(&commitment.key_commitment);
+    data[64..].copy_from_slice(&commitment.ciphertext_len.to_le_bytes());
+    verify_allof_hash_pair_32(
+        pair,
+        b"qash-receipt-evidence-v1",
+        &commitment.receipt_id,
+        &data,
+    )
+}
+
 fn fold_roots(a: [u8; 32], b: [u8; 32], c: [u8; 32]) -> [u8; 32] {
     let mut out = [0u8; 32];
     for idx in 0..32 {
@@ -335,6 +374,54 @@ mod tests {
         let mut encrypted = encrypt_receipt_body(b"receipt data", 5, &key);
         encrypted.ciphertext[0] ^= 0xFF;
         assert!(decrypt_receipt_body(&encrypted, &key).is_none());
+    }
+
+    fn test_hash(seed: u8) -> [u8; 32] {
+        core::array::from_fn(|i| seed.wrapping_add(i as u8))
+    }
+
+    fn sample_commitment() -> EncryptedReceiptCommitment {
+        EncryptedReceiptCommitment {
+            receipt_id: test_hash(0x01),
+            ciphertext_root: test_hash(0x02),
+            key_commitment: test_hash(0x03),
+            disclosure_domain: DisclosureDomain::HolderOnly,
+            ciphertext_len: 256,
+        }
+    }
+
+    #[test]
+    fn receipt_evidence_root_pair_accepts_valid() {
+        let c = sample_commitment();
+        let pair = compute_receipt_evidence_root_pair(&c);
+        assert!(verify_receipt_evidence_root_pair(&c, &pair));
+    }
+
+    #[test]
+    fn receipt_evidence_root_pair_rejects_tampered_sha3() {
+        let c = sample_commitment();
+        let mut pair = compute_receipt_evidence_root_pair(&c);
+        pair.sha3_512_32 = [0u8; 32];
+        assert!(!verify_receipt_evidence_root_pair(&c, &pair));
+    }
+
+    #[test]
+    fn receipt_evidence_root_pair_rejects_tampered_blake3() {
+        let c = sample_commitment();
+        let mut pair = compute_receipt_evidence_root_pair(&c);
+        pair.blake3_32 = [0u8; 32];
+        assert!(!verify_receipt_evidence_root_pair(&c, &pair));
+    }
+
+    #[test]
+    fn receipt_evidence_root_pair_changes_when_metadata_changes() {
+        let c1 = sample_commitment();
+        let mut c2 = sample_commitment();
+        c2.ciphertext_len = 512;
+        assert_ne!(
+            compute_receipt_evidence_root_pair(&c1),
+            compute_receipt_evidence_root_pair(&c2)
+        );
     }
 
     #[test]

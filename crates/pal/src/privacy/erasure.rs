@@ -16,6 +16,7 @@
 
 use zeroize::ZeroizeOnDrop;
 
+use crate::crypto::dual_hash::{allof_hash_pair_32, verify_allof_hash_pair_32, AllOfHashPair32};
 use crate::receipt::ShredCommitment;
 
 /// A local encryption key for a single receipt. Zeroized on drop.
@@ -59,9 +60,11 @@ impl ReceiptKey {
 ///
 /// Returned by `shred_key()`. All fields are required to ensure the audit
 /// record is unambiguous: `key_commitment` identifies the key, `epoch`
-/// timestamps the shred in protocol time, and `event_root` links to the
-/// receipt/incident that triggered the erasure. Callers should persist this
-/// as WAL evidence before considering the shred complete.
+/// timestamps the shred in protocol time, `event_root` links to the
+/// receipt/incident that triggered the erasure, and `evidence_root_pair`
+/// carries an independent dual-root all-of binding over the evidence content.
+/// Callers should persist this as WAL evidence before considering the shred
+/// complete.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ShredKeyEvidence {
     /// Commitment to the shredded key material. Computed at key construction;
@@ -72,6 +75,9 @@ pub struct ShredKeyEvidence {
     /// Event root that triggered the erasure (caller-supplied). Links this
     /// shred record to the incident/receipt being erased for audit tracing.
     pub event_root: [u8; 32],
+    /// Independent dual-root all-of binding over `key_commitment || event_root`.
+    /// Both arms must verify for the evidence record to be considered authentic.
+    pub evidence_root_pair: AllOfHashPair32,
 }
 
 impl From<ShredKeyEvidence> for ShredCommitment {
@@ -97,11 +103,31 @@ impl From<ShredKeyEvidence> for ShredCommitment {
 pub fn shred_key(key: ReceiptKey, epoch: u64, event_root: [u8; 32]) -> ShredKeyEvidence {
     let commitment = key.key_commitment;
     drop(key); // ZeroizeOnDrop fires here, wiping `material`
-    ShredKeyEvidence {
-        key_commitment: commitment,
-        epoch,
-        event_root,
-    }
+    let mut data = [0u8; 64];
+    data[..32].copy_from_slice(&commitment);
+    data[32..].copy_from_slice(&event_root);
+    let evidence_root_pair = allof_hash_pair_32(
+        b"qash-shred-key-evidence-v1",
+        &epoch.to_le_bytes(),
+        &data,
+    );
+    ShredKeyEvidence { key_commitment: commitment, epoch, event_root, evidence_root_pair }
+}
+
+/// Verify the `evidence_root_pair` of a `ShredKeyEvidence` record.
+///
+/// Returns `true` only when both SHA3-512 and BLAKE3 arms independently match
+/// the re-derived transcript over `key_commitment || event_root`.
+pub fn verify_erasure_evidence_root_pair(evidence: &ShredKeyEvidence) -> bool {
+    let mut data = [0u8; 64];
+    data[..32].copy_from_slice(&evidence.key_commitment);
+    data[32..].copy_from_slice(&evidence.event_root);
+    verify_allof_hash_pair_32(
+        &evidence.evidence_root_pair,
+        b"qash-shred-key-evidence-v1",
+        &evidence.epoch.to_le_bytes(),
+        &data,
+    )
 }
 
 // ── Erasure request lifecycle ─────────────────────────────────────────────────
@@ -330,6 +356,29 @@ mod tests {
             attempted_decrypt, plaintext,
             "key commitment must not decrypt the ciphertext"
         );
+    }
+
+    #[test]
+    fn verify_erasure_evidence_root_pair_accepts_valid() {
+        let key = ReceiptKey::new([0x77u8; 32]);
+        let evidence = shred_key(key, 10, [0x55u8; 32]);
+        assert!(verify_erasure_evidence_root_pair(&evidence));
+    }
+
+    #[test]
+    fn verify_erasure_evidence_root_pair_rejects_tampered_sha3() {
+        let key = ReceiptKey::new([0x77u8; 32]);
+        let mut evidence = shred_key(key, 10, [0x55u8; 32]);
+        evidence.evidence_root_pair.sha3_512_32 = [0u8; 32];
+        assert!(!verify_erasure_evidence_root_pair(&evidence));
+    }
+
+    #[test]
+    fn verify_erasure_evidence_root_pair_rejects_tampered_blake3() {
+        let key = ReceiptKey::new([0x77u8; 32]);
+        let mut evidence = shred_key(key, 10, [0x55u8; 32]);
+        evidence.evidence_root_pair.blake3_32 = [0u8; 32];
+        assert!(!verify_erasure_evidence_root_pair(&evidence));
     }
 
     #[test]

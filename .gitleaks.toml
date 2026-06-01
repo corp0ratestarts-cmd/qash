@@ -23,6 +23,14 @@ paths = [
   '''tests/cavp/.*\.json''',
   # Rust test files containing hardcoded KAT hex constants
   '''crates/.*/(drbg|kem|hash|post)\.rs''',
+  # CAVP fixture integrity test — contains NIST SHA3-256 and HMAC-SHA-256
+  # known-answer vectors as string literals for cross-checking the JSON fixtures.
+  '''crates/pal/tests/cavp_json_vectors\.rs''',
+  # Reproducible build manifest — contains SHA-256 hashes of build artifacts,
+  # not credentials.
+  '''artifacts/build/build-manifest\.md''',
+  # Test vectors hash registry — SHA-256 digests of test vector files.
+  '''tests/vectors/vector-hashes\.txt''',
 ]
 regexes = [
   # genesis_hash field — QASH-CASCADE-7 or SHA3-256 prefixed public hash
