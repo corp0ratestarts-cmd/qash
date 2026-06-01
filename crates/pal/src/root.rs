@@ -1,3 +1,6 @@
+/// Domain B cryptographic primitives (KEM, DRBG).
+pub mod crypto;
+
 pub mod admission;
 pub mod clone;
 pub mod commitment_backpressure;
