@@ -11,6 +11,10 @@ use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
 /// Any divergence between the Rust output and the stored vectors signals that the
 /// Rust implementation has drifted from the formal model. Regenerate vectors using
 /// the `gen_coq_vectors` test in gen_vectors.rs (pass --ignored --nocapture).
+///
+/// TV-10/TV-11 cover TX-0 (NoOp) and TX-1 (score decrement) cases — see
+/// Coq theorems TX0_perturbation_zero and TX1_score_decrement_nonincreasing.
+use qash_consensus::transaction::{TX0_WIRE_BYTES, TX1_WIRE_BYTES, TX1_PAYLOAD_BYTES, TX_TYPE_NOOP, TX_TYPE_SCORE_DECREMENT, TX_VERSION};
 use qash_consensus::transition::{
     advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
 };
@@ -104,6 +108,36 @@ fn halt_reason_from_u8(b: u8) -> HaltReason {
 // Per-TV execution helpers
 // ---------------------------------------------------------------------------
 
+fn make_tx0_bytes(author_id: [u8; 48], nonce: u64) -> [u8; TX0_WIRE_BYTES] {
+    let mut raw = [0u8; TX0_WIRE_BYTES];
+    raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
+    raw[2..4].copy_from_slice(&TX_TYPE_NOOP.to_le_bytes());
+    raw[4..12].copy_from_slice(&nonce.to_le_bytes());
+    raw[12..60].copy_from_slice(&author_id);
+    raw[60..64].copy_from_slice(&0u32.to_le_bytes());
+    raw
+}
+
+fn make_tx1_bytes(author_id: [u8; 48], nonce: u64, target_idx: u32, delta: u32) -> [u8; TX1_WIRE_BYTES] {
+    let mut raw = [0u8; TX1_WIRE_BYTES];
+    raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
+    raw[2..4].copy_from_slice(&TX_TYPE_SCORE_DECREMENT.to_le_bytes());
+    raw[4..12].copy_from_slice(&nonce.to_le_bytes());
+    raw[12..60].copy_from_slice(&author_id);
+    raw[60..64].copy_from_slice(&(TX1_PAYLOAD_BYTES as u32).to_le_bytes());
+    raw[64..68].copy_from_slice(&target_idx.to_le_bytes());
+    raw[68..72].copy_from_slice(&delta.to_le_bytes());
+    raw
+}
+
+fn genesis_with_ids(vc: u32) -> Box<EpochState> {
+    let mut s = Box::new(genesis(vc));
+    for i in 0..vc as usize {
+        s.validator_ids[i][0] = (i as u8) + 1;
+    }
+    s
+}
+
 fn run_tv0(vc: u32) -> EpochState {
     genesis(vc)
 }
@@ -178,6 +212,28 @@ fn run_decode_invalid_slash_decrease(vc: u32) -> EpochState {
     s
 }
 
+fn run_tx0_noop(vc: u32) -> Box<EpochState> {
+    let mut s = genesis_with_ids(vc);
+    let author_id = s.validator_ids[0];
+    let tx0 = make_tx0_bytes(author_id, 0);
+    advance_epoch(&mut *s, &idle_input(vc), &[tx0.as_slice()]).unwrap();
+    s
+}
+
+fn run_tx1_score_decrement(vc: u32) -> Box<EpochState> {
+    let mut s = genesis_with_ids(vc);
+    let mut input = idle_input(vc);
+    input.updates[0] = Some(ValidatorUpdate {
+        divergence_new: FixedPoint::from_raw(500_000),
+        conflict_new: FixedPoint::ZERO,
+        slash_accum_new: FixedPoint::ZERO,
+    });
+    let author_id = s.validator_ids[0];
+    let tx1 = make_tx1_bytes(author_id, 0, 0, 200_000);
+    advance_epoch(&mut *s, &input, &[tx1.as_slice()]).unwrap();
+    s
+}
+
 // ---------------------------------------------------------------------------
 // The parity test — runs each TV and asserts against the stored vector.
 // ---------------------------------------------------------------------------
@@ -191,6 +247,7 @@ struct Expected {
     state_root: [u8; 32],
     entropy_seed: Option<[u8; 32]>,
     seed_nonzero: Option<bool>,
+    nonce0: Option<u64>,
 }
 
 fn assert_state(state: &EpochState, exp: &Expected) {
@@ -224,6 +281,13 @@ fn assert_state(state: &EpochState, exp: &Expected) {
             nonzero,
             "{}: seed_nonzero mismatch",
             exp.id
+        );
+    }
+    if let Some(nonce0) = exp.nonce0 {
+        assert_eq!(
+            state.nonces[0], nonce0,
+            "{}: nonce0 mismatch (got {}, want {})",
+            exp.id, state.nonces[0], nonce0
         );
     }
 }
@@ -262,6 +326,7 @@ fn coq_model_parity() {
 
         let entropy_seed = extract_str(expect_block, "entropy_seed").map(hex_to_32);
         let seed_nonzero = extract_bool(expect_block, "seed_nonzero");
+        let nonce0 = extract_num(expect_block, "nonce0").map(|n| n as u64);
 
         let exp = Expected {
             id: id_val.clone(),
@@ -272,9 +337,10 @@ fn coq_model_parity() {
             state_root,
             entropy_seed,
             seed_nonzero,
+            nonce0,
         };
 
-        let state = match id_val.as_str() {
+        let state: EpochState = match id_val.as_str() {
             "TV-0" => run_tv0(vc),
             "TV-1" => run_idle_epochs(vc, 1),
             "TV-2" => run_idle_epochs(vc, 3),
@@ -285,6 +351,8 @@ fn coq_model_parity() {
             "TV-7" => run_decode_invalid_slash_decrease(vc),
             "TV-8" => run_idle_epochs(vc, 3),
             "TV-9" => run_idle_epochs(vc, 2),
+            "TV-10" => *run_tx0_noop(vc),
+            "TV-11" => *run_tx1_score_decrement(vc),
             other => panic!("unknown vector id: {}", other),
         };
 
