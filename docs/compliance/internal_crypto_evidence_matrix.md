@@ -3,7 +3,7 @@
 Internal evidence record. Not a certification claim. See `docs/security/SECURITY_POLICY.md`
 for the explicit non-claims section.
 
-Last updated: 2026-05-30. Reflects genesis status `provisional`.
+Last updated: 2026-06-01. Reflects genesis status `provisional` (genesis-candidate evidence waves in progress).
 
 ## Legend
 
@@ -50,6 +50,19 @@ Last updated: 2026-05-30. Reflects genesis status `provisional`.
 |-----------|---------------|--------|--------------|------------|-------------------|----------------|-------------------|
 | X-Wing (KEM, transport) | `crates/pal/src/crypto/kem.rs` | B | default | pass | `x-wing` crate | implemented | `cavp-kat` CI job (ML-KEM-768) |
 | ML-KEM-768 (KEM component) | `crates/pal/src/crypto/kem.rs` | B | `pqc` | pass | `ml-kem` | implemented | `cavp-kat` CI job; FIPS 203 vectors |
+
+---
+
+## AEAD / Symmetric Encryption
+
+| Algorithm | Module / Path | Domain | Feature flag | KAT status | Dependency source | Claim boundary | Evidence artifact |
+|-----------|---------------|--------|--------------|------------|-------------------|----------------|-------------------|
+| ChaCha20-Poly1305 (receipt AEAD) | `crates/pal/src/receipt.rs` | B | default | pass | `chacha20poly1305 v0.10` | implemented | 18 unit tests incl. tamper, wrong-key, nonce uniqueness per domain |
+
+Nonce derivation: `SHA3-256("qash-receipt-aead-nonce-v1" ‖ receipt_id ‖ epoch_le ‖ disclosure_domain)[0..12]` — no key material in nonce.
+AD: `"qash-receipt-aead-ad-v1\0" ‖ receipt_id ‖ epoch_le ‖ domain_byte ‖ ciphertext_len_le8`.
+Commitment: `SHA3-256(ciphertext ‖ nonce ‖ ad)`.
+XOR stub was deleted in Wave 3 PR #231. No production-facing function uses it.
 
 ---
 
