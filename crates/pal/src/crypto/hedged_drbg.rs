@@ -117,6 +117,7 @@ impl QashHedgedDrbg {
         data[..8].copy_from_slice(&counter_bytes);
         data[8..].copy_from_slice(&self.personalization);
         let block = dual_hash_32(HDRBG_CONTEXT, &self.seed, &data);
+        data.zeroize();
         self.counter = self.counter.wrapping_add(1);
         self.generate_count = self.generate_count.wrapping_add(1);
         block
@@ -126,13 +127,13 @@ impl QashHedgedDrbg {
 /// Errors from the hedged DRBG.
 #[derive(Debug)]
 pub enum HedgedDrbgError {
-    /// OS entropy source unavailable.
-    EntropyUnavailable,
+    /// OS entropy source unavailable. Carries the OS error code for diagnostics.
+    EntropyUnavailable(core::num::NonZeroU32),
 }
 
 fn os_entropy() -> Result<[u8; 32], HedgedDrbgError> {
     let mut buf = [0u8; 32];
-    getrandom::getrandom(&mut buf).map_err(|_| HedgedDrbgError::EntropyUnavailable)?;
+    getrandom::getrandom(&mut buf).map_err(|e| HedgedDrbgError::EntropyUnavailable(e.code()))?;
     Ok(buf)
 }
 
