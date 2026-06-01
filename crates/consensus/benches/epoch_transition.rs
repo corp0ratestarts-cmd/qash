@@ -384,6 +384,34 @@ fn bench_phase2r_tx_heavy_advance(c: &mut Criterion) {
     group.finish();
 }
 
+// ---------------------------------------------------------------------------
+// B9: Max-validators state copy cost (Wave 5 PR #235).
+//
+// EpochState with MAX_VALIDATORS=1024 is ~100 KB on the stack.  This bench
+// measures the cost of a plain struct copy — the baseline for any future
+// optimisation that claims to reduce state-copy overhead.
+// ---------------------------------------------------------------------------
+
+fn bench_max_validators_state_copy(c: &mut Criterion) {
+    let mut group = c.benchmark_group("max_validators_state_copy");
+
+    for &vc in &[128u32, 512, 1024] {
+        let state = make_state(vc);
+        group.bench_with_input(
+            BenchmarkId::new("struct_copy", vc),
+            &state,
+            |b, s| {
+                b.iter(|| {
+                    let copy: EpochState = *black_box(s);
+                    black_box(copy.state_root)
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_epoch_transition,
@@ -394,6 +422,7 @@ criterion_group!(
     bench_phase2r_validator_lookup,
     bench_phase2r_state_root_commitment,
     bench_phase2r_epoch_advancement_baseline,
-    bench_phase2r_tx_heavy_advance
+    bench_phase2r_tx_heavy_advance,
+    bench_max_validators_state_copy
 );
 criterion_main!(benches);
