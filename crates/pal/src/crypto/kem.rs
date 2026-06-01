@@ -119,15 +119,13 @@ pub fn qash_hybrid_combine(
 ) -> [u8; 32] {
     use super::dual_hash::dual_hash_32;
     // Pack x25519_ss (32) + mlkem_ek_bytes (variable) + x25519_pk (32) into data.
-    // Lengths are bounded in practice (mlkem_ek_bytes ≤ 1184 for ML-KEM-768).
-    let ek_len =
-        u32::try_from(mlkem_ek_bytes.len()).expect("mlkem_ek_bytes exceeds u32::MAX");
+    // dual_hash_32 frames data with u64_le(data.len()); no separate length field needed.
+    // mlkem_ek_bytes ≤ 1184 bytes for ML-KEM-768.
     let data_len = 32usize + mlkem_ek_bytes.len() + 32;
     let mut data = vec![0u8; data_len];
     data[..32].copy_from_slice(x25519_ss);
     data[32..32 + mlkem_ek_bytes.len()].copy_from_slice(mlkem_ek_bytes);
     data[32 + mlkem_ek_bytes.len()..].copy_from_slice(x25519_pk);
-    let _ = ek_len; // length framing handled inside dual_hash_32
     dual_hash_32(b"QASH:HYB:V1", mlkem_ss, &data)
 }
 
