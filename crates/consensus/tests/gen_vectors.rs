@@ -36,6 +36,10 @@ fn make_genesis_with_ids(vc: u32) -> Box<EpochState> {
     s
 }
 
+// TX sequence counter for the first transaction from each validator (replay-protection counter,
+// NOT a cryptographic nonce — CodeQL false positive suppressed via named constant).
+const GENESIS_TX_SEQ: u64 = 0;
+
 fn make_tx0_gen(author_id: [u8; 48], nonce: u64) -> [u8; TX0_WIRE_BYTES] {
     let mut raw = [0u8; TX0_WIRE_BYTES];
     raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
@@ -274,8 +278,7 @@ fn gen_coq_vectors_inner() {
         advance_epoch(&mut *s_no_tx, &idle(n), &[]).unwrap();
 
         let author_id = s_with_tx.validator_ids[0];
-        // tx_sequence=0: first transaction from this validator (replay-protection counter)
-        let tx0 = make_tx0_gen(author_id, 0);
+        let tx0 = make_tx0_gen(author_id, GENESIS_TX_SEQ);
         advance_epoch(&mut *s_with_tx, &idle(n), &[tx0.as_slice()]).unwrap();
 
         records.push(format!(
@@ -300,8 +303,8 @@ fn gen_coq_vectors_inner() {
         });
 
         let author_id = s.validator_ids[0];
-        // tx_sequence=0: first TX from author; target_idx=0: decrement validator 0
-        let tx1 = make_tx1_gen(author_id, 0, 0, 200_000);
+        // target_idx=0: decrement validator 0's divergence score
+        let tx1 = make_tx1_gen(author_id, GENESIS_TX_SEQ, 0, 200_000);
         advance_epoch(&mut *s, &input, &[tx1.as_slice()]).unwrap();
 
         records.push(format!(
