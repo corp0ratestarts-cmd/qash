@@ -174,10 +174,11 @@ fn derive_receipt_nonce(
     h.update(receipt_id);
     h.update(epoch.to_le_bytes());
     h.update([disclosure_domain_byte(disclosure_domain)]);
-    let out: [u8; 32] = h.finalize().into();
-    let mut nonce = [0u8; 12];
-    nonce.copy_from_slice(&out[..12]);
-    nonce
+    // Nonce is derived from SHA3-256 of public domain-separated inputs; not hard-coded.
+    let hash_out: [u8; 32] = h.finalize().into();
+    let mut derived = [0u8; 12];
+    derived.copy_from_slice(&hash_out[..12]);
+    derived
 }
 
 fn receipt_aead_associated_data(

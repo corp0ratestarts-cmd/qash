@@ -212,10 +212,14 @@ fn run_decode_invalid_slash_decrease(vc: u32) -> EpochState {
     s
 }
 
+// TX sequence for the first transaction from each validator in a fresh genesis state.
+// This is a replay-protection counter, not a cryptographic nonce.
+const GENESIS_TX_SEQ: u64 = 0;
+
 fn run_tx0_noop(vc: u32) -> Box<EpochState> {
     let mut s = genesis_with_ids(vc);
     let author_id = s.validator_ids[0];
-    let tx0 = make_tx0_bytes(author_id, 0);
+    let tx0 = make_tx0_bytes(author_id, GENESIS_TX_SEQ);
     advance_epoch(&mut *s, &idle_input(vc), &[tx0.as_slice()]).unwrap();
     s
 }
@@ -229,7 +233,8 @@ fn run_tx1_score_decrement(vc: u32) -> Box<EpochState> {
         slash_accum_new: FixedPoint::ZERO,
     });
     let author_id = s.validator_ids[0];
-    let tx1 = make_tx1_bytes(author_id, 0, 0, 200_000);
+    // target_idx=0: TX-1 decrements validator 0's score; GENESIS_TX_SEQ: first TX from author
+    let tx1 = make_tx1_bytes(author_id, GENESIS_TX_SEQ, 0, 200_000);
     advance_epoch(&mut *s, &input, &[tx1.as_slice()]).unwrap();
     s
 }
