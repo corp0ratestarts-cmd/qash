@@ -1,6 +1,3 @@
-/// Domain B cryptographic primitives (KEM, DRBG).
-pub mod crypto;
-
 /// Platform Abstraction Layer (PAL) traits.
 pub trait Time {
     fn epoch_counter() -> u64;
