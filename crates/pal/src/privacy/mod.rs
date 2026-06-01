@@ -14,7 +14,7 @@ pub mod erasure;
 pub mod public_transcript;
 
 pub use erasure::{
-    process_erasure_request, shred_key, ErasureError, ErasureRequest, ErasureState, KeyStore,
-    ReceiptKey, ShredKeyEvidence,
+    compute_erasure_evidence_root_pair, process_erasure_request, shred_key, verify_erasure_evidence_root_pair,
+    ErasureError, ErasureRequest, ErasureState, KeyStore, ReceiptKey, ShredKeyEvidence,
 };
 pub use public_transcript::assert_no_pii_surface;

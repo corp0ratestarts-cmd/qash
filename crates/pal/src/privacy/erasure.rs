@@ -16,6 +16,7 @@
 
 use zeroize::ZeroizeOnDrop;
 
+use crate::crypto::dual_hash::{allof_hash_pair_32, verify_allof_hash_pair_32, AllOfHashPair32};
 use crate::receipt::ShredCommitment;
 
 /// A local encryption key for a single receipt. Zeroized on drop.
@@ -60,8 +61,10 @@ impl ReceiptKey {
 /// Returned by `shred_key()`. All fields are required to ensure the audit
 /// record is unambiguous: `key_commitment` identifies the key, `epoch`
 /// timestamps the shred in protocol time, and `event_root` links to the
-/// receipt/incident that triggered the erasure. Callers should persist this
-/// as WAL evidence before considering the shred complete.
+/// receipt/incident that triggered the erasure. `evidence_root_pair` is an
+/// independent dual-root all-of commitment that binds the public evidence
+/// fields together; use `verify_erasure_evidence_root_pair` to check it.
+/// Callers should persist this as WAL evidence before considering the shred complete.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ShredKeyEvidence {
     /// Commitment to the shredded key material. Computed at key construction;
@@ -72,6 +75,9 @@ pub struct ShredKeyEvidence {
     /// Event root that triggered the erasure (caller-supplied). Links this
     /// shred record to the incident/receipt being erased for audit tracing.
     pub event_root: [u8; 32],
+    /// Independent dual-root all-of commitment over the public evidence fields.
+    /// Both SHA3 and BLAKE3 roots must verify. Not FIPS/CAVP/ACVP evidence.
+    pub evidence_root_pair: AllOfHashPair32,
 }
 
 impl From<ShredKeyEvidence> for ShredCommitment {
@@ -95,13 +101,40 @@ impl From<ShredKeyEvidence> for ShredCommitment {
 /// The caller holds only the `ShredKeyEvidence` — which contains no usable
 /// key bytes.
 pub fn shred_key(key: ReceiptKey, epoch: u64, event_root: [u8; 32]) -> ShredKeyEvidence {
-    let commitment = key.key_commitment;
+    let key_commitment = key.key_commitment;
     drop(key); // ZeroizeOnDrop fires here, wiping `material`
-    ShredKeyEvidence {
-        key_commitment: commitment,
-        epoch,
-        event_root,
-    }
+    let evidence_root_pair = erasure_root_pair(key_commitment, epoch, event_root);
+    ShredKeyEvidence { key_commitment, epoch, event_root, evidence_root_pair }
+}
+
+/// Compute the all-of dual-root pair for an erasure evidence record.
+///
+/// Binds `key_commitment`, `epoch`, and `event_root` as the canonical public
+/// evidence transcript. Not FIPS/CAVP/ACVP evidence.
+pub fn compute_erasure_evidence_root_pair(evidence: &ShredKeyEvidence) -> AllOfHashPair32 {
+    erasure_root_pair(evidence.key_commitment, evidence.epoch, evidence.event_root)
+}
+
+/// Verify the stored `evidence_root_pair` against a fresh computation.
+///
+/// Returns `true` only when both SHA3 and BLAKE3 roots match independently.
+pub fn verify_erasure_evidence_root_pair(evidence: &ShredKeyEvidence) -> bool {
+    let mut data = [0u8; 40];
+    data[..8].copy_from_slice(&evidence.epoch.to_le_bytes());
+    data[8..].copy_from_slice(&evidence.event_root);
+    verify_allof_hash_pair_32(
+        &evidence.evidence_root_pair,
+        b"qash-erasure-evidence-v1",
+        &evidence.key_commitment,
+        &data,
+    )
+}
+
+fn erasure_root_pair(key_commitment: [u8; 32], epoch: u64, event_root: [u8; 32]) -> AllOfHashPair32 {
+    let mut data = [0u8; 40];
+    data[..8].copy_from_slice(&epoch.to_le_bytes());
+    data[8..].copy_from_slice(&event_root);
+    allof_hash_pair_32(b"qash-erasure-evidence-v1", &key_commitment, &data)
 }
 
 // ── Erasure request lifecycle ─────────────────────────────────────────────────
@@ -330,6 +363,48 @@ mod tests {
             attempted_decrypt, plaintext,
             "key commitment must not decrypt the ciphertext"
         );
+    }
+
+    // ── All-of evidence root tests ────────────────────────────────────────────
+
+    #[test]
+    fn erasure_evidence_accepts_exact_root_pair() {
+        let key = ReceiptKey::new([0xAAu8; 32]);
+        let evidence = shred_key(key, 10, [0xBBu8; 32]);
+        assert!(verify_erasure_evidence_root_pair(&evidence));
+    }
+
+    #[test]
+    fn erasure_evidence_rejects_modified_sha3_root() {
+        let key = ReceiptKey::new([0xAAu8; 32]);
+        let mut evidence = shred_key(key, 10, [0xBBu8; 32]);
+        evidence.evidence_root_pair.sha3_512_32[0] ^= 0xFF;
+        assert!(!verify_erasure_evidence_root_pair(&evidence));
+    }
+
+    #[test]
+    fn erasure_evidence_rejects_modified_blake3_root() {
+        let key = ReceiptKey::new([0xAAu8; 32]);
+        let mut evidence = shred_key(key, 10, [0xBBu8; 32]);
+        evidence.evidence_root_pair.blake3_32[0] ^= 0xFF;
+        assert!(!verify_erasure_evidence_root_pair(&evidence));
+    }
+
+    #[test]
+    fn erasure_evidence_root_changes_when_request_id_changes() {
+        // "request_id" maps to key_commitment — different keys → different evidence root
+        let ev1 = shred_key(ReceiptKey::new([0x11u8; 32]), 5, [0xCCu8; 32]);
+        let ev2 = shred_key(ReceiptKey::new([0x22u8; 32]), 5, [0xCCu8; 32]);
+        assert_ne!(ev1.evidence_root_pair.sha3_512_32, ev2.evidence_root_pair.sha3_512_32);
+        assert_ne!(ev1.evidence_root_pair.blake3_32, ev2.evidence_root_pair.blake3_32);
+    }
+
+    #[test]
+    fn erasure_evidence_root_changes_when_state_changes() {
+        // State change: different epoch → different evidence root
+        let ev1 = shred_key(ReceiptKey::new([0x11u8; 32]), 5, [0xCCu8; 32]);
+        let ev2 = shred_key(ReceiptKey::new([0x11u8; 32]), 6, [0xCCu8; 32]);
+        assert_ne!(ev1.evidence_root_pair.sha3_512_32, ev2.evidence_root_pair.sha3_512_32);
     }
 
     #[test]

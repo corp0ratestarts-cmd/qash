@@ -15,6 +15,8 @@
 use sha3::{Digest, Sha3_256};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+use crate::crypto::dual_hash::{allof_hash_pair_32, verify_allof_hash_pair_32, AllOfHashPair32};
+
 use crate::zero_wal::{ZeroPersistenceWal, ZeroPersistenceWalRecord};
 
 // ── 4-C: Viewing key derivation ───────────────────────────────────────────────
@@ -259,6 +261,48 @@ fn fold_roots(a: [u8; 32], b: [u8; 32], c: [u8; 32]) -> [u8; 32] {
     out
 }
 
+// ── All-of dual-root evidence helpers ────────────────────────────────────────
+
+/// Compute the all-of dual-root pair for an `EncryptedReceiptCommitment`.
+///
+/// Canonical transcript: `ciphertext_root || key_commitment ||
+/// disclosure_domain_byte || ciphertext_len_le`. Salt is `receipt_id`.
+/// Not FIPS/CAVP/ACVP evidence. Does not commit raw ciphertext or key material.
+pub fn compute_receipt_evidence_root_pair(
+    commitment: &EncryptedReceiptCommitment,
+) -> AllOfHashPair32 {
+    let data = receipt_evidence_data(commitment);
+    allof_hash_pair_32(b"qash-receipt-evidence-v1", &commitment.receipt_id, &data)
+}
+
+/// Verify an all-of dual-root pair against a fresh computation for the given commitment.
+///
+/// Returns `true` only when both SHA3 and BLAKE3 roots match independently.
+pub fn verify_receipt_evidence_root_pair(
+    commitment: &EncryptedReceiptCommitment,
+    pair: &AllOfHashPair32,
+) -> bool {
+    let data = receipt_evidence_data(commitment);
+    verify_allof_hash_pair_32(pair, b"qash-receipt-evidence-v1", &commitment.receipt_id, &data)
+}
+
+fn receipt_evidence_data(commitment: &EncryptedReceiptCommitment) -> [u8; 73] {
+    let mut data = [0u8; 73];
+    data[..32].copy_from_slice(&commitment.ciphertext_root);
+    data[32..64].copy_from_slice(&commitment.key_commitment);
+    data[64] = disclosure_domain_byte(commitment.disclosure_domain);
+    data[65..73].copy_from_slice(&commitment.ciphertext_len.to_le_bytes());
+    data
+}
+
+fn disclosure_domain_byte(d: DisclosureDomain) -> u8 {
+    match d {
+        DisclosureDomain::HolderOnly => 0x01,
+        DisclosureDomain::HolderAndAuditor => 0x02,
+        DisclosureDomain::LocalOperatorPolicy => 0x03,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -335,6 +379,51 @@ mod tests {
         let mut encrypted = encrypt_receipt_body(b"receipt data", 5, &key);
         encrypted.ciphertext[0] ^= 0xFF;
         assert!(decrypt_receipt_body(&encrypted, &key).is_none());
+    }
+
+    // ── All-of receipt evidence root tests ───────────────────────────────────
+
+    fn sample_commitment() -> EncryptedReceiptCommitment {
+        EncryptedReceiptCommitment {
+            receipt_id: [1u8; 32],
+            ciphertext_root: [2u8; 32],
+            key_commitment: [3u8; 32],
+            disclosure_domain: DisclosureDomain::HolderOnly,
+            ciphertext_len: 256,
+        }
+    }
+
+    #[test]
+    fn receipt_evidence_accepts_exact_root_pair() {
+        let c = sample_commitment();
+        let pair = compute_receipt_evidence_root_pair(&c);
+        assert!(verify_receipt_evidence_root_pair(&c, &pair));
+    }
+
+    #[test]
+    fn receipt_evidence_rejects_modified_sha3_root() {
+        let c = sample_commitment();
+        let mut pair = compute_receipt_evidence_root_pair(&c);
+        pair.sha3_512_32[0] ^= 0xFF;
+        assert!(!verify_receipt_evidence_root_pair(&c, &pair));
+    }
+
+    #[test]
+    fn receipt_evidence_rejects_modified_blake3_root() {
+        let c = sample_commitment();
+        let mut pair = compute_receipt_evidence_root_pair(&c);
+        pair.blake3_32[0] ^= 0xFF;
+        assert!(!verify_receipt_evidence_root_pair(&c, &pair));
+    }
+
+    #[test]
+    fn receipt_evidence_root_changes_when_manifest_changes() {
+        let base = sample_commitment();
+        let modified = EncryptedReceiptCommitment { ciphertext_root: [9u8; 32], ..base };
+        let pair_base = compute_receipt_evidence_root_pair(&base);
+        let pair_mod = compute_receipt_evidence_root_pair(&modified);
+        assert_ne!(pair_base.sha3_512_32, pair_mod.sha3_512_32);
+        assert_ne!(pair_base.blake3_32, pair_mod.blake3_32);
     }
 
     #[test]
