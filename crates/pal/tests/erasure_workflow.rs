@@ -127,10 +127,12 @@ fn erasure_workflow_replay_audit() {
     let ev1 = process_erasure_request(req, &mut store).unwrap();
 
     // Simulate a second audit process reconstructing the evidence record from WAL.
+    // The evidence_root_pair is carried in the WAL record and replayed verbatim.
     let ev_reconstructed = ShredKeyEvidence {
         key_commitment: ev1.key_commitment,
         epoch: ev1.epoch,
         event_root: ev1.event_root,
+        evidence_root_pair: ev1.evidence_root_pair,
     };
 
     assert_eq!(ev1, ev_reconstructed, "replayed evidence must match original");

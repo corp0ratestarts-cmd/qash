@@ -46,6 +46,10 @@ name = "mvp_vault"
 harness = false
 required-features = ["std"]
 
+[[bench]]
+name = "dual_hash"
+harness = false
+
 [features]
 default = []
 std = ["getrandom"]

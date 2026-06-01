@@ -16,6 +16,89 @@ pub trait Halt {
     fn absorbing_reset() -> !;
 }
 
+/// Attestation transcript binding helpers.
+///
+/// These bind transcript bytes to an independent dual-root all-of pair.
+/// They explicitly do NOT certify the TPM/TEE/HSM backend — that is the
+/// job of the attestation verifier. Domain B only.
+pub mod attestation {
+    use crate::crypto::dual_hash::{allof_hash_pair_32, verify_allof_hash_pair_32, AllOfHashPair32};
+
+    /// Compute an independent dual-root all-of binding over an attestation transcript.
+    ///
+    /// Binds `transcript_bytes` at the given `epoch`. Does not certify the
+    /// hardware backend (TPM/TEE/HSM); that is the attestation verifier's job.
+    pub fn compute_attestation_transcript_root_pair(
+        transcript_bytes: &[u8],
+        epoch: u64,
+    ) -> AllOfHashPair32 {
+        allof_hash_pair_32(
+            b"qash-attestation-transcript-v1",
+            &epoch.to_le_bytes(),
+            transcript_bytes,
+        )
+    }
+
+    /// Verify an `AllOfHashPair32` against an attestation transcript.
+    ///
+    /// Returns `true` only when both SHA3-512 and BLAKE3 arms independently match.
+    pub fn verify_attestation_transcript_root_pair(
+        transcript_bytes: &[u8],
+        epoch: u64,
+        pair: &AllOfHashPair32,
+    ) -> bool {
+        verify_allof_hash_pair_32(
+            pair,
+            b"qash-attestation-transcript-v1",
+            &epoch.to_le_bytes(),
+            transcript_bytes,
+        )
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn attestation_transcript_root_pair_accepts_valid() {
+            let transcript = b"test-transcript-bytes";
+            let pair = compute_attestation_transcript_root_pair(transcript, 42);
+            assert!(verify_attestation_transcript_root_pair(transcript, 42, &pair));
+        }
+
+        #[test]
+        fn attestation_transcript_root_pair_rejects_tampered_sha3() {
+            let transcript = b"test-transcript";
+            let mut pair = compute_attestation_transcript_root_pair(transcript, 1);
+            pair.sha3_512_32 = [0u8; 32];
+            assert!(!verify_attestation_transcript_root_pair(transcript, 1, &pair));
+        }
+
+        #[test]
+        fn attestation_transcript_root_pair_rejects_tampered_blake3() {
+            let transcript = b"test-transcript";
+            let mut pair = compute_attestation_transcript_root_pair(transcript, 1);
+            pair.blake3_32 = [0u8; 32];
+            assert!(!verify_attestation_transcript_root_pair(transcript, 1, &pair));
+        }
+
+        #[test]
+        fn attestation_transcript_root_pair_changes_with_epoch() {
+            let transcript = b"same-transcript";
+            let p1 = compute_attestation_transcript_root_pair(transcript, 1);
+            let p2 = compute_attestation_transcript_root_pair(transcript, 2);
+            assert_ne!(p1, p2);
+        }
+
+        #[test]
+        fn attestation_transcript_root_pair_changes_with_content() {
+            let p1 = compute_attestation_transcript_root_pair(b"transcript-a", 1);
+            let p2 = compute_attestation_transcript_root_pair(b"transcript-b", 1);
+            assert_ne!(p1, p2);
+        }
+    }
+}
+
 #[cfg(feature = "std")]
 pub mod smartcard {
     use sha3::{Digest, Sha3_256};

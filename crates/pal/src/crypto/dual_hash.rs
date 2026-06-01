@@ -153,6 +153,111 @@ pub fn verify_dual_hash_pair_32(
     (sha3_ok & b3_ok).into()
 }
 
+// ── AllOf (independent dual-root) API ────────────────────────────────────────
+
+/// Wire-format label for `AllOfHashPair32` encoding.
+pub const ALLOF_PAIR32_LABEL: &[u8] = b"QASH:ALLOF:PAIR32:V1";
+
+/// Wire length: `ALLOF_PAIR32_LABEL || sha3_512_32 (32 bytes) || blake3_32 (32 bytes)`.
+pub const ALLOF_PAIR32_WIRE_LEN: usize = ALLOF_PAIR32_LABEL.len() + 64;
+
+/// Both hash arms stored independently for "all-of" (both-must-verify) use cases.
+///
+/// Use `allof_hash_pair_32` to construct and `verify_allof_hash_pair_32` to check.
+/// An attacker must break **both** SHA3-512 and BLAKE3 independently to forge a
+/// valid pair — independent dual-root all-of verification.
+///
+/// Domain B only. Not FIPS/CAVP/ACVP evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AllOfHashPair32 {
+    pub sha3_512_32: [u8; 32],
+    pub blake3_32: [u8; 32],
+}
+
+/// Error type for fallible `AllOfHashPair32` construction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DualHashError {
+    EmptyContext,
+}
+
+/// Error type for `AllOfHashPair32` wire decoding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AllOfHashDecodeError {
+    TooShort,
+    BadLabel,
+}
+
+/// Compute both hash arms independently and return them as an `AllOfHashPair32`.
+///
+/// Domain B only. Not FIPS/CAVP/ACVP evidence. Not a standards-conformant construction.
+pub fn allof_hash_pair_32(context: &[u8], salt: &[u8], data: &[u8]) -> AllOfHashPair32 {
+    let sha3 = sha3_arm(context, salt, data);
+    let b3: [u8; 32] = blake3_arm(context, salt, data);
+    let mut sha3_512_32 = [0u8; 32];
+    sha3_512_32.copy_from_slice(&sha3[..32]);
+    AllOfHashPair32 { sha3_512_32, blake3_32: b3 }
+}
+
+/// Fallible constructor — rejects an empty context to prevent accidental misuse.
+pub fn try_allof_hash_pair_32(
+    context: &[u8],
+    salt: &[u8],
+    data: &[u8],
+) -> Result<AllOfHashPair32, DualHashError> {
+    if context.is_empty() {
+        return Err(DualHashError::EmptyContext);
+    }
+    Ok(allof_hash_pair_32(context, salt, data))
+}
+
+/// Verify an `AllOfHashPair32` against a fresh computation.
+///
+/// Both arms are evaluated unconditionally before combining, so neither arm
+/// leaks timing information about the other.
+///
+/// Returns `true` only when both arms match exactly.
+pub fn verify_allof_hash_pair_32(
+    expected: &AllOfHashPair32,
+    context: &[u8],
+    salt: &[u8],
+    data: &[u8],
+) -> bool {
+    let computed = allof_hash_pair_32(context, salt, data);
+    let sha3_ok = expected.sha3_512_32.ct_eq(&computed.sha3_512_32);
+    let b3_ok = expected.blake3_32.ct_eq(&computed.blake3_32);
+    (sha3_ok & b3_ok).into()
+}
+
+/// Encode an `AllOfHashPair32` into its wire representation.
+///
+/// Format: `ALLOF_PAIR32_LABEL || sha3_512_32 (32 bytes) || blake3_32 (32 bytes)`.
+pub fn encode_allof_hash_pair_32(pair: &AllOfHashPair32) -> [u8; ALLOF_PAIR32_WIRE_LEN] {
+    let mut out = [0u8; ALLOF_PAIR32_WIRE_LEN];
+    let label_len = ALLOF_PAIR32_LABEL.len();
+    out[..label_len].copy_from_slice(ALLOF_PAIR32_LABEL);
+    out[label_len..label_len + 32].copy_from_slice(&pair.sha3_512_32);
+    out[label_len + 32..label_len + 64].copy_from_slice(&pair.blake3_32);
+    out
+}
+
+/// Decode an `AllOfHashPair32` from its wire representation.
+///
+/// Returns `Err` if the input is too short or the label prefix does not match.
+pub fn decode_allof_hash_pair_32(bytes: &[u8]) -> Result<AllOfHashPair32, AllOfHashDecodeError> {
+    if bytes.len() < ALLOF_PAIR32_WIRE_LEN {
+        return Err(AllOfHashDecodeError::TooShort);
+    }
+    let label_len = ALLOF_PAIR32_LABEL.len();
+    if &bytes[..label_len] != ALLOF_PAIR32_LABEL {
+        return Err(AllOfHashDecodeError::BadLabel);
+    }
+    let mut sha3_512_32 = [0u8; 32];
+    let mut blake3_32 = [0u8; 32];
+    sha3_512_32.copy_from_slice(&bytes[label_len..label_len + 32]);
+    blake3_32.copy_from_slice(&bytes[label_len + 32..label_len + 64]);
+    Ok(AllOfHashPair32 { sha3_512_32, blake3_32 })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,5 +344,78 @@ mod tests {
         let pair = dual_hash_pair_32(CTX, SALT, DATA);
         assert_ne!(xor_out, pair.sha3_512_32);
         assert_ne!(xor_out, pair.blake3_32);
+    }
+
+    // ── AllOf tests ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn allof_pair_accepts_exact_match() {
+        let pair = allof_hash_pair_32(CTX, SALT, DATA);
+        assert!(verify_allof_hash_pair_32(&pair, CTX, SALT, DATA));
+    }
+
+    #[test]
+    fn allof_pair_rejects_modified_sha3_root() {
+        let pair = allof_hash_pair_32(CTX, SALT, DATA);
+        let bad = AllOfHashPair32 { sha3_512_32: [0u8; 32], blake3_32: pair.blake3_32 };
+        assert!(!verify_allof_hash_pair_32(&bad, CTX, SALT, DATA));
+    }
+
+    #[test]
+    fn allof_pair_rejects_modified_blake3_root() {
+        let pair = allof_hash_pair_32(CTX, SALT, DATA);
+        let bad = AllOfHashPair32 { sha3_512_32: pair.sha3_512_32, blake3_32: [0u8; 32] };
+        assert!(!verify_allof_hash_pair_32(&bad, CTX, SALT, DATA));
+    }
+
+    #[test]
+    fn allof_pair_is_deterministic() {
+        assert_eq!(
+            allof_hash_pair_32(CTX, SALT, DATA),
+            allof_hash_pair_32(CTX, SALT, DATA)
+        );
+    }
+
+    #[test]
+    fn try_allof_rejects_empty_context() {
+        assert_eq!(
+            try_allof_hash_pair_32(b"", SALT, DATA),
+            Err(DualHashError::EmptyContext)
+        );
+    }
+
+    #[test]
+    fn try_allof_accepts_nonempty_context() {
+        assert!(try_allof_hash_pair_32(CTX, SALT, DATA).is_ok());
+    }
+
+    #[test]
+    fn encode_decode_roundtrip() {
+        let pair = allof_hash_pair_32(CTX, SALT, DATA);
+        let encoded = encode_allof_hash_pair_32(&pair);
+        assert_eq!(encoded.len(), ALLOF_PAIR32_WIRE_LEN);
+        let decoded = decode_allof_hash_pair_32(&encoded).unwrap();
+        assert_eq!(decoded, pair);
+    }
+
+    #[test]
+    fn decode_rejects_bad_label() {
+        let mut encoded = encode_allof_hash_pair_32(&allof_hash_pair_32(CTX, SALT, DATA));
+        encoded[0] ^= 0xff;
+        assert_eq!(decode_allof_hash_pair_32(&encoded), Err(AllOfHashDecodeError::BadLabel));
+    }
+
+    #[test]
+    fn decode_rejects_too_short() {
+        let encoded = encode_allof_hash_pair_32(&allof_hash_pair_32(CTX, SALT, DATA));
+        assert_eq!(
+            decode_allof_hash_pair_32(&encoded[..encoded.len() - 1]),
+            Err(AllOfHashDecodeError::TooShort)
+        );
+    }
+
+    #[test]
+    fn wire_len_is_derived_from_label() {
+        assert_eq!(ALLOF_PAIR32_WIRE_LEN, ALLOF_PAIR32_LABEL.len() + 64);
     }
 }
