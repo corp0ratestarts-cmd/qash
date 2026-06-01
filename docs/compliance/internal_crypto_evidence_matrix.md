@@ -92,6 +92,7 @@ Last updated: 2026-05-30. Reflects genesis status `provisional`.
 |------------------------|---------------|--------|--------------|------------|----------------|-------------------|
 | QASH dual_hash_32 / dual_hash_pair_32 | `crates/pal/src/crypto/dual_hash.rs` | B | none (always compiled in PAL) | internal unit tests | internal hedged construction; not certification evidence | `dual_hash_*` tests in `dual_hash.rs` |
 | QASH QashHedgedDrbg | `crates/pal/src/crypto/hedged_drbg.rs` | B | `std` | internal unit tests | QASH-specific non-FIPS hedged DRBG; not SP 800-90A; not certification evidence | `hedged_drbg::tests::*` unit tests |
+| QASH qash_hybrid_combine | `crates/pal/src/crypto/kem.rs` | B | `pqc` | internal unit tests | QASH-specific hedged hybrid combiner; not X-Wing draft-compatible; not certification evidence | `qash_hybrid_*` tests in `kem.rs` |
 
 > **Claim boundary**: `dual_hash_32` and `dual_hash_pair_32` are QASH-specific internal Domain B constructions. They are not FIPS validated, not CAVP/ACVP evidence, and do not constitute a standards-conformant construction. They do not alter Domain A consensus, QASH-CASCADE-7, or GRC-7-7-v2.
 
