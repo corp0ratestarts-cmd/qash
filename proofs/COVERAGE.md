@@ -181,6 +181,19 @@ the full three-layer correspondence chain and extraction pipeline.
 | **MISSING** | 0 |
 | **Total** | 55 |
 
+**PLACEHOLDER note (v1.0 genesis-lock):** The PLACEHOLDER=1 count refers to the
+`cascade_collision_implies_sha3_collision` formalization note in
+`proofs/cascade/cascade_collision_resistance.v`, which is classified POST-GENESIS in the
+proof-debt table below (the active v1.0 state-root commitment uses SHA3-256 directly, not
+the cascade). The four `privacy/` PLACEHOLDER files
+(`blinding_health_metric.v`, `oblivious_access_non_interference.v`,
+`receipt_proof_soundness.v`, `cascade_avalanche_property.v`) are all EXCLUDED from
+v1.0 active claims — they are Domain B / post-genesis items.
+
+**Active PLACEHOLDERs within v1.0 genesis-lock scope: zero.**
+
+Full axiom classification: `docs/release/v1_axiom_boundary.md`.
+
 ---
 
 ## v1.0 Genesis-Lock Proof-Debt Classification
