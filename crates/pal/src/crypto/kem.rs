@@ -70,6 +70,9 @@ pub fn encapsulate(
 ///
 /// Combining both shared secrets means the hybrid remains secure even if one
 /// primitive is broken. Public-key binding prevents unknown-key-share attacks.
+///
+/// This is the standards-named X-Wing combiner. Do NOT modify its construction.
+/// For a QASH-specific hedged variant, see `qash_hybrid_combine`.
 pub fn xwing_combine(
     mlkem_ss: &[u8; 32],
     x25519_ss: &[u8; 32],
@@ -82,6 +85,50 @@ pub fn xwing_combine(
     h.update(mlkem_ek_bytes);
     h.update(x25519_pk);
     h.finalize().into()
+}
+
+// ─── QASH-specific hybrid combiner ────────────────────────────────────────
+
+/// QASH-specific hedged hybrid shared secret combiner.
+///
+/// Combines ML-KEM-768 and X25519 shared secrets using `dual_hash_32` instead
+/// of a single SHA3-256 hash, so the output remains secure as long as at least
+/// one of SHA3-512 or BLAKE3 is preimage-resistant.
+///
+/// # Claim boundary
+///
+/// This is **NOT** a standards-conformant X-Wing output. Do not present it as
+/// X-Wing draft-compatible. For the standards-named X-Wing combiner, use
+/// `xwing_combine`.
+///
+/// QASH-specific Domain B hedged commitment.
+/// Not FIPS/CAVP/ACVP evidence. Not a standards-conformant construction.
+///
+/// # Input layout
+///
+/// ```text
+/// context = b"QASH:HYB:V1"
+/// salt    = mlkem_ss
+/// data    = x25519_ss || mlkem_ek_bytes || x25519_pk
+/// ```
+pub fn qash_hybrid_combine(
+    mlkem_ss: &[u8; 32],
+    x25519_ss: &[u8; 32],
+    mlkem_ek_bytes: &[u8],
+    x25519_pk: &[u8; 32],
+) -> [u8; 32] {
+    use super::dual_hash::dual_hash_32;
+    // Pack x25519_ss (32) + mlkem_ek_bytes (variable) + x25519_pk (32) into data.
+    // Lengths are bounded in practice (mlkem_ek_bytes ≤ 1184 for ML-KEM-768).
+    let ek_len =
+        u32::try_from(mlkem_ek_bytes.len()).expect("mlkem_ek_bytes exceeds u32::MAX");
+    let data_len = 32usize + mlkem_ek_bytes.len() + 32;
+    let mut data = vec![0u8; data_len];
+    data[..32].copy_from_slice(x25519_ss);
+    data[32..32 + mlkem_ek_bytes.len()].copy_from_slice(mlkem_ek_bytes);
+    data[32 + mlkem_ek_bytes.len()..].copy_from_slice(x25519_pk);
+    let _ = ek_len; // length framing handled inside dual_hash_32
+    dual_hash_32(b"QASH:HYB:V1", mlkem_ss, &data)
 }
 
 #[cfg(test)]
@@ -180,5 +227,30 @@ mod tests {
             base,
             xwing_combine(&[0x01u8; 32], &v, &[0x03u8; 64], &[0x04u8; 32])
         );
+    }
+
+    #[test]
+    fn qash_hybrid_combine_is_deterministic() {
+        let a = qash_hybrid_combine(&[0xAAu8; 32], &[0xBBu8; 32], &[0xCCu8; 64], &[0xDDu8; 32]);
+        let b = qash_hybrid_combine(&[0xAAu8; 32], &[0xBBu8; 32], &[0xCCu8; 64], &[0xDDu8; 32]);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn qash_hybrid_combine_binds_all_inputs() {
+        let base = qash_hybrid_combine(&[0x01u8; 32], &[0x02u8; 32], &[0x03u8; 64], &[0x04u8; 32]);
+        assert_ne!(base, qash_hybrid_combine(&[0xFFu8; 32], &[0x02u8; 32], &[0x03u8; 64], &[0x04u8; 32]));
+        assert_ne!(base, qash_hybrid_combine(&[0x01u8; 32], &[0xFFu8; 32], &[0x03u8; 64], &[0x04u8; 32]));
+        assert_ne!(base, qash_hybrid_combine(&[0x01u8; 32], &[0x02u8; 32], &[0xFFu8; 64], &[0x04u8; 32]));
+        assert_ne!(base, qash_hybrid_combine(&[0x01u8; 32], &[0x02u8; 32], &[0x03u8; 64], &[0xFFu8; 32]));
+    }
+
+    #[test]
+    fn qash_hybrid_differs_from_xwing() {
+        // The QASH hedged combiner must NOT produce the same output as xwing_combine
+        // for the same inputs, since they use different primitives.
+        let xw = xwing_combine(&[0x01u8; 32], &[0x02u8; 32], &[0x03u8; 64], &[0x04u8; 32]);
+        let qh = qash_hybrid_combine(&[0x01u8; 32], &[0x02u8; 32], &[0x03u8; 64], &[0x04u8; 32]);
+        assert_ne!(xw, qh);
     }
 }
