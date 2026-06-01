@@ -586,6 +586,51 @@ pub mod hosted {
         }
     }
 
+    // ── All-of attestation transcript helpers ─────────────────────────────────
+
+    /// Compute an all-of dual-root pair for a `CommitmentFrame` attestation transcript.
+    ///
+    /// Canonical transcript: `epoch_le || state_root || receipt_root || efb_root ||
+    /// attestation_quote`. Salt is `validator_id`. Not FIPS/CAVP/ACVP evidence.
+    /// Does NOT certify the underlying TPM/TEE/HSM backend correctness — it
+    /// hardens QASH's transcript binding only.
+    pub fn compute_attestation_transcript_root_pair(
+        frame: &CommitmentFrame,
+    ) -> crate::crypto::dual_hash::AllOfHashPair32 {
+        let data = attestation_transcript_data(frame);
+        crate::crypto::dual_hash::allof_hash_pair_32(
+            b"qash-attestation-transcript-v1",
+            &frame.validator_id,
+            &data,
+        )
+    }
+
+    /// Verify an all-of dual-root pair against a fresh computation for the given frame.
+    ///
+    /// Returns `true` only when both SHA3 and BLAKE3 roots match independently.
+    pub fn verify_attestation_transcript_root_pair(
+        frame: &CommitmentFrame,
+        pair: &crate::crypto::dual_hash::AllOfHashPair32,
+    ) -> bool {
+        let data = attestation_transcript_data(frame);
+        crate::crypto::dual_hash::verify_allof_hash_pair_32(
+            pair,
+            b"qash-attestation-transcript-v1",
+            &frame.validator_id,
+            &data,
+        )
+    }
+
+    fn attestation_transcript_data(frame: &CommitmentFrame) -> [u8; 360] {
+        let mut data = [0u8; 360];
+        data[..8].copy_from_slice(&frame.epoch.to_le_bytes());
+        data[8..40].copy_from_slice(&frame.state_root);
+        data[40..72].copy_from_slice(&frame.receipt_root);
+        data[72..104].copy_from_slice(&frame.efb_root);
+        data[104..360].copy_from_slice(&frame.attestation_quote);
+        data
+    }
+
     impl InMemoryCommitmentTransport {
         pub fn new() -> Self {
             Self::default()
@@ -1270,6 +1315,64 @@ pub mod hosted {
                 verifier.verify_bundle(&bundle),
                 Err(HostedError::InvalidInput(_))
             ));
+        }
+
+        // --- Attestation transcript all-of roots ---
+
+        fn sample_frame() -> CommitmentFrame {
+            CommitmentFrame {
+                epoch: 42,
+                state_root: [0x11u8; 32],
+                receipt_root: [0x22u8; 32],
+                efb_root: [0x33u8; 32],
+                validator_id: [0x44u8; 48],
+                attestation_quote: [0x55u8; 256],
+            }
+        }
+
+        #[test]
+        fn attestation_transcript_accepts_exact_root_pair() {
+            let frame = sample_frame();
+            let pair = compute_attestation_transcript_root_pair(&frame);
+            assert!(verify_attestation_transcript_root_pair(&frame, &pair));
+        }
+
+        #[test]
+        fn attestation_transcript_rejects_modified_sha3_root() {
+            let frame = sample_frame();
+            let mut pair = compute_attestation_transcript_root_pair(&frame);
+            pair.sha3_512_32[0] ^= 0xFF;
+            assert!(!verify_attestation_transcript_root_pair(&frame, &pair));
+        }
+
+        #[test]
+        fn attestation_transcript_rejects_modified_blake3_root() {
+            let frame = sample_frame();
+            let mut pair = compute_attestation_transcript_root_pair(&frame);
+            pair.blake3_32[0] ^= 0xFF;
+            assert!(!verify_attestation_transcript_root_pair(&frame, &pair));
+        }
+
+        #[test]
+        fn attestation_transcript_root_changes_when_nonce_changes() {
+            // "nonce" = epoch — temporal binding
+            let mut frame2 = sample_frame();
+            frame2.epoch = 99;
+            let pair1 = compute_attestation_transcript_root_pair(&sample_frame());
+            let pair2 = compute_attestation_transcript_root_pair(&frame2);
+            assert_ne!(pair1.sha3_512_32, pair2.sha3_512_32);
+            assert_ne!(pair1.blake3_32, pair2.blake3_32);
+        }
+
+        #[test]
+        fn attestation_transcript_root_changes_when_measurement_changes() {
+            // "measurement" = attestation_quote (TPM/TEE quote bytes)
+            let mut frame2 = sample_frame();
+            frame2.attestation_quote = [0xAAu8; 256];
+            let pair1 = compute_attestation_transcript_root_pair(&sample_frame());
+            let pair2 = compute_attestation_transcript_root_pair(&frame2);
+            assert_ne!(pair1.sha3_512_32, pair2.sha3_512_32);
+            assert_ne!(pair1.blake3_32, pair2.blake3_32);
         }
     }
 }
