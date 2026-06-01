@@ -145,15 +145,19 @@ mod tests {
             .collect()
     }
 
+    fn test_hash(seed: u8) -> [u8; 32] {
+        core::array::from_fn(|i| seed.wrapping_add(i as u8))
+    }
+
     fn sample_manifest() -> EvidenceBundleManifest {
         let hashes = make_hashes(3);
         EvidenceBundleManifest {
-            commit_sha: [0x01u8; 32],
-            genesis_constants_hash: [0x02u8; 32],
+            commit_sha: test_hash(0x01),
+            genesis_constants_hash: test_hash(0x02),
             artifact_count: 3,
             artifact_hashes: hashes,
-            proof_coverage_hash: [0x03u8; 32],
-            traceability_hash: [0x04u8; 32],
+            proof_coverage_hash: test_hash(0x03),
+            traceability_hash: test_hash(0x04),
         }
     }
 

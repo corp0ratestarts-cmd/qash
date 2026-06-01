@@ -376,11 +376,15 @@ mod tests {
         assert!(decrypt_receipt_body(&encrypted, &key).is_none());
     }
 
+    fn test_hash(seed: u8) -> [u8; 32] {
+        core::array::from_fn(|i| seed.wrapping_add(i as u8))
+    }
+
     fn sample_commitment() -> EncryptedReceiptCommitment {
         EncryptedReceiptCommitment {
-            receipt_id: [0x01u8; 32],
-            ciphertext_root: [0x02u8; 32],
-            key_commitment: [0x03u8; 32],
+            receipt_id: test_hash(0x01),
+            ciphertext_root: test_hash(0x02),
+            key_commitment: test_hash(0x03),
             disclosure_domain: DisclosureDomain::HolderOnly,
             ciphertext_len: 256,
         }

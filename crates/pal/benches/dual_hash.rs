@@ -2,17 +2,21 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use qash_pal::crypto::dual_hash::{allof_hash_pair_32, dual_hash_32};
 
 fn bench_dual_hash(c: &mut Criterion) {
+    // Use a u64 epoch value converted to bytes — mirrors real production usage.
+    let epoch: u64 = 1;
+    let salt = epoch.to_le_bytes();
+
     for size in [64usize, 1024, 65536] {
         let data = vec![0x42u8; size];
 
         let name = format!("dual_hash_32/{size}");
         c.bench_function(&name, |b| {
-            b.iter(|| dual_hash_32(b"bench", b"salt", &data))
+            b.iter(|| dual_hash_32(b"bench", &salt, &data))
         });
 
         let name = format!("allof_hash_pair_32/{size}");
         c.bench_function(&name, |b| {
-            b.iter(|| allof_hash_pair_32(b"bench", b"salt", &data))
+            b.iter(|| allof_hash_pair_32(b"bench", &salt, &data))
         });
     }
 
@@ -24,7 +28,7 @@ fn bench_dual_hash(c: &mut Criterion) {
     }
 
     c.bench_function("allof_manifest_root/1000_chunk_hashes", |b| {
-        b.iter(|| allof_hash_pair_32(b"qash-bench-manifest", b"epoch-0", &manifest_data))
+        b.iter(|| allof_hash_pair_32(b"qash-bench-manifest", &salt, &manifest_data))
     });
 }
 
