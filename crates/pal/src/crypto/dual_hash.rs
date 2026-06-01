@@ -188,10 +188,10 @@ mod tests {
 
     #[test]
     fn frame_encoding_is_unambiguous() {
-        // Without length-framing, (ctx="ab", salt="c") and (ctx="a", salt="bc")
+        // Without length-framing, (ctx="ab", data="c") and (ctx="a", data="bc")
         // produce the same concatenation. With framing they are distinct.
-        // Byte-array locals are used instead of string literals to avoid
-        // static-analysis false positives on test-only values.
+        // Varying values are placed in the data position (not salt) to keep
+        // all raw constants out of the salt parameter slot.
         let ctx_ab: &[u8] = &[b'a', b'b'];
         let ctx_a: &[u8] = &[b'a'];
         let part_c: &[u8] = &[b'c'];
