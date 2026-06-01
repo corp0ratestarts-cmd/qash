@@ -151,13 +151,13 @@ impl QashHedgedDrbg {
 /// Errors from the hedged DRBG.
 #[derive(Debug)]
 pub enum HedgedDrbgError {
-    /// OS entropy source unavailable. Carries the OS error code for diagnostics.
-    EntropyUnavailable(core::num::NonZeroU32),
+    /// OS entropy source unavailable.
+    EntropyUnavailable,
 }
 
 fn os_entropy() -> Result<[u8; 32], HedgedDrbgError> {
     let mut buf = [0u8; 32];
-    getrandom::getrandom(&mut buf).map_err(|e| HedgedDrbgError::EntropyUnavailable(e.code()))?;
+    getrandom::fill(&mut buf).map_err(|_| HedgedDrbgError::EntropyUnavailable)?;
     Ok(buf)
 }
 
