@@ -8,15 +8,15 @@ license = "GPL-3.0-or-later"
 crate-type = ["rlib"]
 
 [dependencies]
-sha3        = { version = "0.10.8", default-features = false }
+sha3        = { version = "0.11",   default-features = false }
 blake3      = { version = "=1.5.5", default-features = false, features = ["pure"] }
 tiny-keccak = { version = "2",      features = ["k12"] }
-sm3         = { version = "0.4",    default-features = false }
-streebog    = { version = "0.10",   default-features = false }
+sm3         = { version = "0.5",    default-features = false }
+streebog    = { version = "0.11",   default-features = false }
 kupyna = { version = "0.1.0", default-features = false }
 
 [dev-dependencies]
-sha3 = { version = "0.10.8", default-features = false }
+sha3 = { version = "0.11",   default-features = false }
 proptest = { version = "1", default-features = false, features = ["std"] }
 serde_json = { version = "1", default-features = false, features = ["std"] }
 criterion = { version = "0.5", default-features = false, features = ["html_reports"] }

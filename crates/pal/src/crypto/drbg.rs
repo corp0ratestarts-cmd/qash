@@ -155,7 +155,7 @@ impl FipsDrbg {
 #[cfg(feature = "std")]
 pub fn try_os_entropy() -> Result<[u8; 32], DrbgError> {
     let mut buf = [0u8; 32];
-    getrandom::getrandom(&mut buf).map_err(|_| DrbgError::EntropyUnavailable)?;
+    getrandom::fill(&mut buf).map_err(|_| DrbgError::EntropyUnavailable)?;
     Ok(buf)
 }
 

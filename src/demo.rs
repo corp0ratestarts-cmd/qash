@@ -647,7 +647,7 @@ fn required_value<'a>(
 
 fn random_bytes() -> Result<[u8; 32], DemoCliError> {
     let mut out = [0u8; 32];
-    getrandom::getrandom(&mut out).map_err(|err| DemoCliError::Random(err.to_string()))?;
+    getrandom::fill(&mut out).map_err(|err| DemoCliError::Random(err.to_string()))?;
     Ok(out)
 }
 
