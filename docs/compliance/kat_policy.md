@@ -101,6 +101,8 @@ Examples of internal (non-CAVP) test names:
 
 These tests run in the standard `cargo test` suite but are **not** added to the `cavp-kat` CI job and are **not** presented as certification evidence. They cover only QASH-internal Domain B constructions (currently `crates/pal/src/crypto/dual_hash.rs`).
 
+The all-of API tests added for `allof_hash_pair_32` follow the same policy. In particular, `allof_pair_wire_roundtrip` serves as the known-answer check for the canonical wire encoding (`ALLOF_PAIR32_LABEL || sha3_512_32 || blake3_32`). It is an internal round-trip test only — not a CAVP/ACVP vector.
+
 **Claim boundary (required wording):**
 
 > `QASH dual_hash` is an internal Domain B hedged construction.

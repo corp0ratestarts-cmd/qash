@@ -91,6 +91,7 @@ Last updated: 2026-05-30. Reflects genesis status `provisional`.
 | Algorithm/construction | Module / Path | Domain | Feature flag | KAT status | Claim boundary | Evidence artifact |
 |------------------------|---------------|--------|--------------|------------|----------------|-------------------|
 | QASH dual_hash_32 / dual_hash_pair_32 | `crates/pal/src/crypto/dual_hash.rs` | B | none (always compiled in PAL) | internal unit tests | internal hedged construction; not certification evidence | `dual_hash_*` tests in `dual_hash.rs` |
+| QASH allof_hash_pair_32 / verify_allof_hash_pair_32 | `crates/pal/src/crypto/dual_hash.rs` | B | none (always compiled in PAL) | internal unit tests | internal all-of dual-root; not FIPS/CAVP/ACVP; thin alias over dual_hash_pair_32 | `allof_pair_*`, `try_allof_*` tests in `dual_hash.rs`; wire round-trip test `allof_pair_wire_roundtrip` |
 | QASH QashHedgedDrbg | `crates/pal/src/crypto/hedged_drbg.rs` | B | `std` | internal unit tests | QASH-specific non-FIPS hedged DRBG; not SP 800-90A; not certification evidence | `hedged_drbg::tests::*` unit tests |
 | QASH qash_hybrid_combine | `crates/pal/src/crypto/kem.rs` | B | `pqc` | internal unit tests | QASH-specific hedged hybrid combiner; not X-Wing draft-compatible; not certification evidence | `qash_hybrid_*` tests in `kem.rs` |
 
