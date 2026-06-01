@@ -61,3 +61,9 @@ name = "boundary_fuzz"
 path = "fuzz_targets/boundary_fuzz.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "wal_decode"
+path = "fuzz_targets/wal_decode.rs"
+test = false
+doc = false

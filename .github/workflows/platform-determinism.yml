@@ -145,3 +145,15 @@ jobs:
           fi
           if [ "$FAIL" = "1" ]; then exit 1; fi
           echo "OK: PAL sharded roots match native on ${{ matrix.target }}"
+      # ── Hosted WAL crash-recovery and robustness tests (cross-ISA) ──────────
+      # Verifies that corrupt-log handling (bad magic, truncated records,
+      # invalid tags, wrong-length inputs) and crash-recovery replay parity are
+      # ISA-invariant.  Evidence for Wave 4 PR #233 / Domain B robustness.
+      - name: Run hosted WAL robustness tests on ${{ matrix.target }}
+        run: |
+          cargo test -p qash-pal --features std --target ${{ matrix.target }} \
+            --test replay_robustness
+      - name: Run crash-recovery parity harness on ${{ matrix.target }}
+        run: |
+          cargo test -p qash-pal --features std --target ${{ matrix.target }} \
+            --test crash_recovery_parity
