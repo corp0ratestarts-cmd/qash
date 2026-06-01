@@ -164,8 +164,9 @@ pub const ALLOF_PAIR32_WIRE_LEN: usize = ALLOF_PAIR32_LABEL.len() + 64;
 /// Both hash arms stored independently for "all-of" (both-must-verify) use cases.
 ///
 /// Use `allof_hash_pair_32` to construct and `verify_allof_hash_pair_32` to check.
-/// An attacker must break **both** SHA3-512 and BLAKE3 independently to forge a
-/// valid pair — independent dual-root all-of verification.
+/// Verification succeeds only when both independently computed roots match. This is
+/// an internal Domain B all-of verification mechanism, not a proof that every attack
+/// class requires breaking both primitives.
 ///
 /// Domain B only. Not FIPS/CAVP/ACVP evidence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -177,13 +178,22 @@ pub struct AllOfHashPair32 {
 /// Error type for fallible `AllOfHashPair32` construction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DualHashError {
+    /// Context was empty; a non-empty domain-separation string is required.
     EmptyContext,
+    /// Context length exceeds the `u32` length-prefix limit (~4 GiB).
+    ContextTooLong,
+    /// Salt length exceeds the `u32` length-prefix limit (~4 GiB).
+    SaltTooLong,
+    /// Data length exceeds the `u64` length-prefix limit (unreachable on current targets).
+    DataTooLong,
 }
 
 /// Error type for `AllOfHashPair32` wire decoding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AllOfHashDecodeError {
-    TooShort,
+    /// Input length is not exactly `ALLOF_PAIR32_WIRE_LEN` (too short or too long).
+    InvalidLength,
+    /// The label prefix does not match `ALLOF_PAIR32_LABEL`.
     BadLabel,
 }
 
@@ -198,7 +208,10 @@ pub fn allof_hash_pair_32(context: &[u8], salt: &[u8], data: &[u8]) -> AllOfHash
     AllOfHashPair32 { sha3_512_32, blake3_32: b3 }
 }
 
-/// Fallible constructor — rejects an empty context to prevent accidental misuse.
+/// Fallible constructor — rejects empty context and oversized inputs.
+///
+/// Guards against misuse (empty context) and length-prefix overflow (> `u32::MAX`
+/// for context/salt, > `u64::MAX` for data, the latter unreachable in practice).
 pub fn try_allof_hash_pair_32(
     context: &[u8],
     salt: &[u8],
@@ -206,6 +219,15 @@ pub fn try_allof_hash_pair_32(
 ) -> Result<AllOfHashPair32, DualHashError> {
     if context.is_empty() {
         return Err(DualHashError::EmptyContext);
+    }
+    if context.len() > u32::MAX as usize {
+        return Err(DualHashError::ContextTooLong);
+    }
+    if salt.len() > u32::MAX as usize {
+        return Err(DualHashError::SaltTooLong);
+    }
+    if data.len() > u64::MAX as usize {
+        return Err(DualHashError::DataTooLong);
     }
     Ok(allof_hash_pair_32(context, salt, data))
 }
@@ -242,10 +264,11 @@ pub fn encode_allof_hash_pair_32(pair: &AllOfHashPair32) -> [u8; ALLOF_PAIR32_WI
 
 /// Decode an `AllOfHashPair32` from its wire representation.
 ///
-/// Returns `Err` if the input is too short or the label prefix does not match.
+/// Canonical: rejects any input whose length is not exactly `ALLOF_PAIR32_WIRE_LEN`
+/// (too short OR too long) and any input whose label prefix does not match.
 pub fn decode_allof_hash_pair_32(bytes: &[u8]) -> Result<AllOfHashPair32, AllOfHashDecodeError> {
-    if bytes.len() < ALLOF_PAIR32_WIRE_LEN {
-        return Err(AllOfHashDecodeError::TooShort);
+    if bytes.len() != ALLOF_PAIR32_WIRE_LEN {
+        return Err(AllOfHashDecodeError::InvalidLength);
     }
     let label_len = ALLOF_PAIR32_LABEL.len();
     if &bytes[..label_len] != ALLOF_PAIR32_LABEL {
@@ -410,7 +433,18 @@ mod tests {
         let encoded = encode_allof_hash_pair_32(&allof_hash_pair_32(CTX, SALT, DATA));
         assert_eq!(
             decode_allof_hash_pair_32(&encoded[..encoded.len() - 1]),
-            Err(AllOfHashDecodeError::TooShort)
+            Err(AllOfHashDecodeError::InvalidLength)
+        );
+    }
+
+    #[test]
+    fn decode_rejects_too_long() {
+        let encoded = encode_allof_hash_pair_32(&allof_hash_pair_32(CTX, SALT, DATA));
+        let mut padded = encoded.to_vec();
+        padded.push(0x00);
+        assert_eq!(
+            decode_allof_hash_pair_32(&padded),
+            Err(AllOfHashDecodeError::InvalidLength)
         );
     }
 
