@@ -1,13 +1,20 @@
 # Pre-Genesis Evidence Snapshot
 
-**Date:** 2026-06-01 (updated: genesis-candidate evidence waves complete through Wave 6)
-**Status:** Genesis-candidate evidence waves in progress (PRs #226–#238). Genesis remains provisional; owner sign-off (PR #240) not yet done.
+**Date:** 2026-06-02 (updated: Outcome B RC-only milestone)
+**Status:** **Outcome B — RC-only milestone** (PR #228). Owner reviewed the complete
+Waves 0–7 evidence suite and selected the RC-only path. `GENESIS_CONSTANTS.toml`
+remains `genesis_status = "provisional"`, `deployment_authoritative = false`.
+`v1.0-reference` is reserved for a future Outcome A decision.
 
-This snapshot records the evidence shape after the genesis-candidate evidence waves
-through Wave 6. The primary delta since 2026-05-30: PDF traceability verified
-(Phase 1-D complete), receipt encryption upgraded to ChaCha20-Poly1305 AEAD (XOR
-stub deleted), axiom classification complete, Coq↔Rust parity extended to 12 vectors,
-Domain B backend boundary documented, WAL robustness hardened, and benchmark suite complete.
+**RC evidence bundle:** `artifacts/benchmarks/pre_genesis_final.md`
+**RC commit:** see `artifacts/benchmarks/pre_genesis_final.md`
+
+This snapshot records the evidence shape at the Outcome B RC milestone. The complete
+evidence suite covers: PDF traceability verified (Phase 1-D), receipt encryption
+upgraded to ChaCha20-Poly1305 AEAD (XOR stub removed), axiom classification complete,
+Coq↔Rust parity at 12 vectors (TV-0..TV-11), Domain B backend boundary documented,
+WAL robustness hardened, and benchmark suite showing 1024-validator epoch transition
+~312 µs (1440× margin against 450 ms control-loop budget).
 
 ## Current Repository State
 

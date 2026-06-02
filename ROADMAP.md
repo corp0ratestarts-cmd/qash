@@ -46,7 +46,7 @@ QASH has evolved from a deterministic consensus prototype into a **kernel-reduce
 |-----------|------|----|--------|
 | Architecture | Monolithic consensus | Four-primitive kernel | Proof-carrying binary |
 | Verification | Unit tests + fuzz | Rocq/Coq + property tests + cross-ISA | Machine-checkable correctness |
-| Compliance | None | FIPS 140-3, GDPR, CNSA 2.0, CC EAL4+ | Regulatory-ready |
+| Compliance | None | FIPS 140-3, GDPR, CNSA 2.0, CC EAL4+ | Internal-alignment artifacts (traceability only; no external certification claimed) |
 | Deployment | Single profile | Global Standard / Guomi / Sovereign Hardened | Multi-jurisdiction |
 
 ### Domain Separation

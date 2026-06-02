@@ -58,7 +58,16 @@ graph TD
 ## 🔐 Genesis Lock Status
 
 > [!NOTE]
-> **Genesis-candidate (provisional)**: `QASH_Spec_v1.0.pdf` is committed to `spec/pdf/` and PDF traceability is verified (Phase 1-D complete, 2026-06-01). `genesis_status = "provisional"` and `deployment_authoritative = false` until the genesis hash is locked and owner sign-off is complete. See `spec/pdf/README.md` for the lock procedure and `docs/release/post_allof_baseline.md` for the current evidence baseline.
+> **Outcome B — RC-only milestone** (PR #228, 2026-06-02): Owner reviewed the complete
+> Waves 0–7 evidence suite and selected the RC-only path. `genesis_status = "provisional"`
+> and `deployment_authoritative = false` remain unchanged. The tag `v1.0-rc1` marks this
+> evidence milestone. `v1.0-reference` is reserved for a future Outcome A genesis-candidate
+> decision; do not create it or lock `GENESIS_CONSTANTS.toml` without an explicit
+> `[genesis-change-acknowledged]` PR. See `docs/release/pre_genesis_evidence_snapshot.md`.
+>
+> **Compliance note:** QASH records internal alignment traceability artifacts.
+> No external certification is claimed. Compliance matrices are traceability documents,
+> not certificates. All claim boundaries are governed by `docs/mvp/claims_register.md`.
 
 ---
 
