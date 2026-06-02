@@ -1653,8 +1653,7 @@ mod tests {
         let decoded = decode_full_state(&encoded[..len]).unwrap();
 
         assert_eq!(
-            decoded.causal_fingerprint,
-            [0u8; 32],
+            decoded.causal_fingerprint, [0u8; 32],
             "causal_fingerprint must reset to zero on decode (not wire-encoded)"
         );
     }
@@ -1664,9 +1663,15 @@ mod tests {
         let state = genesis_state_vc4();
         let mut encoded = [0u8; FULL_STATE_MAX_BYTES];
         let result = try_encode_full_state_into(&state, &mut encoded);
-        assert!(result.is_ok(), "try_encode must succeed for normal genesis state");
+        assert!(
+            result.is_ok(),
+            "try_encode must succeed for normal genesis state"
+        );
         let n = result.unwrap();
-        assert_eq!(n, encode_full_state_into(&state, &mut [0u8; FULL_STATE_MAX_BYTES]));
+        assert_eq!(
+            n,
+            encode_full_state_into(&state, &mut [0u8; FULL_STATE_MAX_BYTES])
+        );
     }
 
     #[test]
@@ -1674,8 +1679,7 @@ mod tests {
         use crate::fixed_point::FixedPoint;
         let mut state = genesis_state_vc4();
         // Inject an i128 value that overflows i64 into a validator divergence field.
-        state.validators[0].divergence =
-            FixedPoint::from_raw(i128::from(i64::MAX) + 1);
+        state.validators[0].divergence = FixedPoint::from_raw(i128::from(i64::MAX) + 1);
         let mut encoded = [0u8; FULL_STATE_MAX_BYTES];
         assert_eq!(
             try_encode_full_state_into(&state, &mut encoded),

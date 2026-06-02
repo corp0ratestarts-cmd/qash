@@ -106,12 +106,14 @@ pub fn shred_key(key: ReceiptKey, epoch: u64, event_root: [u8; 32]) -> ShredKeyE
     let mut data = [0u8; 64];
     data[..32].copy_from_slice(&commitment);
     data[32..].copy_from_slice(&event_root);
-    let evidence_root_pair = allof_hash_pair_32(
-        b"qash-shred-key-evidence-v1",
-        &epoch.to_le_bytes(),
-        &data,
-    );
-    ShredKeyEvidence { key_commitment: commitment, epoch, event_root, evidence_root_pair }
+    let evidence_root_pair =
+        allof_hash_pair_32(b"qash-shred-key-evidence-v1", &epoch.to_le_bytes(), &data);
+    ShredKeyEvidence {
+        key_commitment: commitment,
+        epoch,
+        event_root,
+        evidence_root_pair,
+    }
 }
 
 /// Verify the `evidence_root_pair` of a `ShredKeyEvidence` record.
@@ -233,11 +235,7 @@ mod tests {
 
     impl KeyStore for VecKeyStore {
         fn locate_by_commitment(&mut self, commitment: &[u8; 32]) -> Option<ReceiptKey> {
-            if let Some(pos) = self
-                .0
-                .iter()
-                .position(|k| &k.key_commitment == commitment)
-            {
+            if let Some(pos) = self.0.iter().position(|k| &k.key_commitment == commitment) {
                 Some(self.0.remove(pos))
             } else {
                 None
@@ -259,12 +257,18 @@ mod tests {
         };
 
         let evidence = process_erasure_request(req, &mut store).expect("erasure must succeed");
-        assert_eq!(evidence.key_commitment, commitment, "evidence must carry the key commitment");
+        assert_eq!(
+            evidence.key_commitment, commitment,
+            "evidence must carry the key commitment"
+        );
         assert_eq!(evidence.epoch, 42);
         // event_root links to the receipt being erased (receipt_commitment), not the requestor.
         assert_eq!(evidence.event_root, commitment);
         // Key must be consumed from the store.
-        assert!(store.0.is_empty(), "key must be removed from store after shred");
+        assert!(
+            store.0.is_empty(),
+            "key must be removed from store after shred"
+        );
     }
 
     #[test]

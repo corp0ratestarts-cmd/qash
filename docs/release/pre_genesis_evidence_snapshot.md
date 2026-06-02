@@ -149,9 +149,23 @@ The following CI/evidence work is complete on branch `claude/modest-gates-tgIDP`
 | 6-D | `docs/security/HAZOP.md` | ✅ |
 | 6-E | `.github/workflows/fuzz-extended.yml` — weekly 1M execs | ✅ |
 
-## Next Execution Tracks
+## Next Execution Track
 
-1. Perform Phase 1-D: manual PDF traceability verification against `spec/pdf/QASH_Spec_v1.0.pdf`.
-2. Once 1-D is complete: run `cargo run --bin genesis-hash`, update `GENESIS_CONSTANTS.toml`,
-   flip `genesis_status = "locked"` and `deployment_authoritative = true`, tag `v1.0-reference`.
-3. Archive final evidence bundle with `bash scripts/capture_pre_genesis_evidence.sh`.
+PR #240 — owner-gated genesis decision.
+
+Allowed outcomes:
+
+A. genesis-candidate
+B. RC-only milestone
+C. defer
+
+Do not update `GENESIS_CONSTANTS.toml`, flip `deployment_authoritative`, or tag
+`v1.0-reference` unless the PR body contains `[genesis-change-acknowledged]`
+and the owner explicitly chooses genesis-candidate.
+
+If the owner chooses RC-only or defer, keep:
+
+```toml
+genesis_status = "provisional"
+deployment_authoritative = false
+```

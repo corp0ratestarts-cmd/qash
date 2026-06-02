@@ -27,6 +27,10 @@ pub use cover_traffic::{
     DUMMY_PAYLOAD_BYTES,
 };
 pub use dedup::ChunkRelayFilter;
+pub use manifest::{
+    compute_clone_manifest_root_pair, verify_clone_manifest_root_pair, CloneManifestError,
+    ClonePackageManifest,
+};
 pub use relay::{
     BufferedChunk, RelayError, StoreForwardBuffer, MAX_BUFFERED_CHUNKS, MAX_EPOCH_AGE,
 };
@@ -35,9 +39,5 @@ pub use transport::{
     CloneTransport, FrameError, LoRaTransport, NfcTransport, QrTransport, TransportError,
     UltrasonicError, UltrasonicTransport, WifiDirectTransport, FRAME_VERSION,
     MAX_COMPRESSED_PAYLOAD, MAX_ULTRASONIC_PAYLOAD, SIG_BYTES, ULTRASONIC_SYNC,
-};
-pub use manifest::{
-    compute_clone_manifest_root_pair, verify_clone_manifest_root_pair, CloneManifestError,
-    ClonePackageManifest,
 };
 pub use wipe::{WipeError, WipeSignal, WIPE_MAGIC, WIPE_SIGNAL_BYTES, WIPE_VERSION};

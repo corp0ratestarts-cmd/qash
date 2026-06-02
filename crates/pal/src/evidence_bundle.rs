@@ -47,7 +47,10 @@ impl EvidenceBundleRecord {
     pub fn new(manifest: EvidenceBundleManifest) -> Result<Self, EvidenceBundleError> {
         validate_evidence_bundle_manifest(&manifest)?;
         let root_pair = compute_evidence_bundle_root_pair(&manifest)?;
-        Ok(Self { manifest, root_pair })
+        Ok(Self {
+            manifest,
+            root_pair,
+        })
     }
 
     /// Verify the stored root pair against the manifest content.
@@ -70,8 +73,7 @@ pub fn compute_evidence_bundle_root_pair(
 ) -> Result<AllOfHashPair32, EvidenceBundleError> {
     validate_evidence_bundle_manifest(manifest)?;
 
-    let mut data =
-        Vec::with_capacity(32 + 4 + manifest.artifact_hashes.len() * 32 + 32 + 32);
+    let mut data = Vec::with_capacity(32 + 4 + manifest.artifact_hashes.len() * 32 + 32 + 32);
     data.extend_from_slice(&manifest.genesis_constants_hash);
     data.extend_from_slice(&manifest.artifact_count.to_le_bytes());
     for h in &manifest.artifact_hashes {
@@ -98,8 +100,7 @@ pub fn verify_evidence_bundle_root_pair(
         return false;
     }
 
-    let mut data =
-        Vec::with_capacity(32 + 4 + manifest.artifact_hashes.len() * 32 + 32 + 32);
+    let mut data = Vec::with_capacity(32 + 4 + manifest.artifact_hashes.len() * 32 + 32 + 32);
     data.extend_from_slice(&manifest.genesis_constants_hash);
     data.extend_from_slice(&manifest.artifact_count.to_le_bytes());
     for h in &manifest.artifact_hashes {

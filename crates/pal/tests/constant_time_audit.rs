@@ -187,7 +187,10 @@ fn constant_time_audit_ml_kem_wrong_key_returns_different_secret() {
         "ML-KEM-768: wrong-key decapsulation must produce a different shared secret (implicit rejection)"
     );
     // Neither must be all-zero (catastrophic failure sentinel).
-    assert_ne!(ss_correct, [0u8; 32], "correct-key shared secret must not be all-zero");
+    assert_ne!(
+        ss_correct, [0u8; 32],
+        "correct-key shared secret must not be all-zero"
+    );
 }
 
 // ── Audit report ─────────────────────────────────────────────────────────────

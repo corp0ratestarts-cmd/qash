@@ -397,16 +397,12 @@ fn bench_max_validators_state_copy(c: &mut Criterion) {
 
     for &vc in &[128u32, 512, 1024] {
         let state = make_state(vc);
-        group.bench_with_input(
-            BenchmarkId::new("struct_copy", vc),
-            &state,
-            |b, s| {
-                b.iter(|| {
-                    let copy: EpochState = *black_box(s);
-                    black_box(copy.state_root)
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("struct_copy", vc), &state, |b, s| {
+            b.iter(|| {
+                let copy: EpochState = *black_box(s);
+                black_box(copy.state_root)
+            });
+        });
     }
 
     group.finish();

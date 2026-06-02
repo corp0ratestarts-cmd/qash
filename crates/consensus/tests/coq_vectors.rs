@@ -14,7 +14,10 @@ use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics};
 ///
 /// TV-10/TV-11 cover TX-0 (NoOp) and TX-1 (score decrement) cases — see
 /// Coq theorems TX0_perturbation_zero and TX1_score_decrement_nonincreasing.
-use qash_consensus::transaction::{TX0_WIRE_BYTES, TX1_WIRE_BYTES, TX1_PAYLOAD_BYTES, TX_TYPE_NOOP, TX_TYPE_SCORE_DECREMENT, TX_VERSION};
+use qash_consensus::transaction::{
+    TX0_WIRE_BYTES, TX1_PAYLOAD_BYTES, TX1_WIRE_BYTES, TX_TYPE_NOOP, TX_TYPE_SCORE_DECREMENT,
+    TX_VERSION,
+};
 use qash_consensus::transition::{
     advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
 };
@@ -118,7 +121,12 @@ fn make_tx0_bytes(author_id: [u8; 48], tx_sequence: u64) -> [u8; TX0_WIRE_BYTES]
     raw
 }
 
-fn make_tx1_bytes(author_id: [u8; 48], tx_sequence: u64, target_idx: u32, delta: u32) -> [u8; TX1_WIRE_BYTES] {
+fn make_tx1_bytes(
+    author_id: [u8; 48],
+    tx_sequence: u64,
+    target_idx: u32,
+    delta: u32,
+) -> [u8; TX1_WIRE_BYTES] {
     let mut raw = [0u8; TX1_WIRE_BYTES];
     raw[0..2].copy_from_slice(&TX_VERSION.to_le_bytes());
     raw[2..4].copy_from_slice(&TX_TYPE_SCORE_DECREMENT.to_le_bytes());

@@ -44,10 +44,7 @@ impl TdxAttestationGate {
 
 #[cfg(feature = "tdx")]
 impl AttestationGate for TdxAttestationGate {
-    fn generate_quote(
-        &self,
-        _nonce: &[u8; 32],
-    ) -> Result<AttestationQuote, AttestationGateError> {
+    fn generate_quote(&self, _nonce: &[u8; 32]) -> Result<AttestationQuote, AttestationGateError> {
         Err(AttestationGateError::NotAvailable)
     }
 

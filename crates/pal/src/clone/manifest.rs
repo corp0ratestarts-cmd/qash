@@ -75,8 +75,7 @@ pub fn compute_clone_manifest_root_pair(
 ) -> Result<AllOfHashPair32, CloneManifestError> {
     validate_clone_manifest_shape(manifest)?;
 
-    let mut data =
-        Vec::with_capacity(1 + 8 + 2 + manifest.chunk_hashes.len() * 32 + 4);
+    let mut data = Vec::with_capacity(1 + 8 + 2 + manifest.chunk_hashes.len() * 32 + 4);
     data.push(manifest.version);
     data.extend_from_slice(&manifest.transport_tag);
     data.extend_from_slice(&manifest.chunk_count.to_le_bytes());
@@ -100,8 +99,7 @@ pub fn verify_clone_manifest_root_pair(manifest: &ClonePackageManifest) -> bool 
         return false;
     }
 
-    let mut data =
-        Vec::with_capacity(1 + 8 + 2 + manifest.chunk_hashes.len() * 32 + 4);
+    let mut data = Vec::with_capacity(1 + 8 + 2 + manifest.chunk_hashes.len() * 32 + 4);
     data.push(manifest.version);
     data.extend_from_slice(&manifest.transport_tag);
     data.extend_from_slice(&manifest.chunk_count.to_le_bytes());
@@ -184,8 +182,7 @@ mod tests {
     #[test]
     fn clone_manifest_root_changes_when_chunk_order_changes() {
         let mut hashes = make_hashes(3);
-        let m1 =
-            ClonePackageManifest::new(1, *b"TAG00001", 42, hashes.clone(), *b"LZ40").unwrap();
+        let m1 = ClonePackageManifest::new(1, *b"TAG00001", 42, hashes.clone(), *b"LZ40").unwrap();
         hashes.swap(0, 2);
         let m2 = ClonePackageManifest::new(1, *b"TAG00001", 42, hashes, *b"LZ40").unwrap();
         assert_ne!(m1.manifest_root_pair, m2.manifest_root_pair);
@@ -194,8 +191,7 @@ mod tests {
     #[test]
     fn clone_manifest_root_changes_when_metadata_changes() {
         let m1 = sample_manifest();
-        let m2 = ClonePackageManifest::new(2, *b"TAG00001", 42, make_hashes(3), *b"LZ40")
-            .unwrap();
+        let m2 = ClonePackageManifest::new(2, *b"TAG00001", 42, make_hashes(3), *b"LZ40").unwrap();
         assert_ne!(m1.manifest_root_pair, m2.manifest_root_pair);
     }
 

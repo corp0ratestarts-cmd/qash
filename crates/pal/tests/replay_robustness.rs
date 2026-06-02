@@ -73,7 +73,9 @@ fn corrupt_log_truncated_fails_closed() {
         f.write_all(partial).expect("write partial record");
     }
     let wal = FileRecoveryWal::open(&path).expect("open");
-    let result = wal.replay().expect("truncated-tail WAL must not return Err");
+    let result = wal
+        .replay()
+        .expect("truncated-tail WAL must not return Err");
     assert_eq!(
         result.len(),
         1,
@@ -95,7 +97,9 @@ fn corrupt_log_trailing_bytes_fails_closed() {
         f.write_all(&[0xde, 0xad, 0xbe, 0xef]).expect("write junk");
     }
     let wal = FileRecoveryWal::open(&path).expect("open");
-    let result = wal.replay().expect("trailing-bytes WAL must not return Err");
+    let result = wal
+        .replay()
+        .expect("trailing-bytes WAL must not return Err");
     assert!(
         result.is_empty(),
         "no complete records → replay must return empty vec"

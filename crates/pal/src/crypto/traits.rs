@@ -36,10 +36,7 @@ pub trait KemTrait {
     type SecretKey;
     type Ciphertext: AsRef<[u8]>;
 
-    fn encapsulate(
-        pk: &Self::PublicKey,
-        randomness: &[u8; 32],
-    ) -> (Self::Ciphertext, [u8; 32]);
+    fn encapsulate(pk: &Self::PublicKey, randomness: &[u8; 32]) -> (Self::Ciphertext, [u8; 32]);
 
     fn decapsulate(sk: &Self::SecretKey, ct: &Self::Ciphertext) -> [u8; 32];
 }
@@ -51,12 +48,7 @@ pub trait KemTrait {
 pub trait CipherTrait {
     type Error;
 
-    fn encrypt(
-        key: &[u8; 32],
-        nonce: &[u8; 12],
-        plaintext: &[u8],
-        aad: &[u8],
-    ) -> Vec<u8>;
+    fn encrypt(key: &[u8; 32], nonce: &[u8; 12], plaintext: &[u8], aad: &[u8]) -> Vec<u8>;
 
     fn decrypt(
         key: &[u8; 32],
@@ -77,8 +69,11 @@ pub trait SignatureTrait {
     type Error;
 
     fn sign(sk: &Self::SecretKey, message: &[u8]) -> Self::Signature;
-    fn verify(pk: &Self::PublicKey, message: &[u8], sig: &Self::Signature)
-        -> Result<(), Self::Error>;
+    fn verify(
+        pk: &Self::PublicKey,
+        message: &[u8],
+        sig: &Self::Signature,
+    ) -> Result<(), Self::Error>;
 }
 
 // ─── Suite definitions ────────────────────────────────────────────────────

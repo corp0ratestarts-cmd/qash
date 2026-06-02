@@ -10,9 +10,7 @@ fn bench_dual_hash(c: &mut Criterion) {
         let data = vec![0x42u8; size];
 
         let name = format!("dual_hash_32/{size}");
-        c.bench_function(&name, |b| {
-            b.iter(|| dual_hash_32(b"bench", &salt, &data))
-        });
+        c.bench_function(&name, |b| b.iter(|| dual_hash_32(b"bench", &salt, &data)));
 
         let name = format!("allof_hash_pair_32/{size}");
         c.bench_function(&name, |b| {

@@ -123,11 +123,17 @@ pub fn encrypt_receipt_body(
     let ciphertext_len = (payload.len() + 16) as u64;
     let ad = receipt_aead_associated_data(receipt_id, epoch, disclosure_domain, ciphertext_len);
 
-    let cipher = ChaCha20Poly1305::new_from_slice(&viewing_key.0)
-        .expect("viewing key is always 32 bytes");
+    let cipher =
+        ChaCha20Poly1305::new_from_slice(&viewing_key.0).expect("viewing key is always 32 bytes");
     let nonce = chacha20poly1305::Nonce::from_slice(&nonce_bytes);
     let ciphertext = cipher
-        .encrypt(nonce, Payload { msg: payload, aad: &ad })
+        .encrypt(
+            nonce,
+            Payload {
+                msg: payload,
+                aad: &ad,
+            },
+        )
         .expect("ChaCha20-Poly1305 encrypt must not fail with valid key");
 
     let commitment = compute_receipt_commitment(&ciphertext, &nonce_bytes, &ad);
@@ -150,7 +156,8 @@ pub fn decrypt_receipt_body(
     viewing_key: &ViewingKey,
 ) -> Option<Vec<u8>> {
     let ciphertext_len = body.ciphertext.len() as u64;
-    let ad = receipt_aead_associated_data(receipt_id, body.epoch, disclosure_domain, ciphertext_len);
+    let ad =
+        receipt_aead_associated_data(receipt_id, body.epoch, disclosure_domain, ciphertext_len);
 
     let computed_commitment = compute_receipt_commitment(&body.ciphertext, &body.nonce, &ad);
     if computed_commitment != body.commitment {
@@ -160,7 +167,13 @@ pub fn decrypt_receipt_body(
     let cipher = ChaCha20Poly1305::new_from_slice(&viewing_key.0).ok()?;
     let nonce = chacha20poly1305::Nonce::from_slice(&body.nonce);
     cipher
-        .decrypt(nonce, Payload { msg: &body.ciphertext, aad: &ad })
+        .decrypt(
+            nonce,
+            Payload {
+                msg: &body.ciphertext,
+                aad: &ad,
+            },
+        )
         .ok()
 }
 
@@ -334,11 +347,7 @@ pub fn compute_receipt_evidence_root_pair(
     data[..32].copy_from_slice(&commitment.ciphertext_root);
     data[32..64].copy_from_slice(&commitment.key_commitment);
     data[64..].copy_from_slice(&commitment.ciphertext_len.to_le_bytes());
-    allof_hash_pair_32(
-        b"qash-receipt-evidence-v1",
-        &commitment.receipt_id,
-        &data,
-    )
+    allof_hash_pair_32(b"qash-receipt-evidence-v1", &commitment.receipt_id, &data)
 }
 
 /// Verify an `AllOfHashPair32` against the receipt evidence metadata.
@@ -431,10 +440,12 @@ mod tests {
         let key = derive_viewing_key(&mk, &seed, 5);
         let receipt_id = [0xAAu8; 32];
         let payload = b"test receipt payload";
-        let encrypted = encrypt_receipt_body(payload, &receipt_id, 5, DisclosureDomain::HolderOnly, &key);
+        let encrypted =
+            encrypt_receipt_body(payload, &receipt_id, 5, DisclosureDomain::HolderOnly, &key);
         assert_ne!(&encrypted.ciphertext[..payload.len()], payload.as_slice());
-        let decrypted = decrypt_receipt_body(&encrypted, &receipt_id, DisclosureDomain::HolderOnly, &key)
-            .expect("decrypt ok");
+        let decrypted =
+            decrypt_receipt_body(&encrypted, &receipt_id, DisclosureDomain::HolderOnly, &key)
+                .expect("decrypt ok");
         assert_eq!(decrypted, payload);
     }
 
@@ -444,9 +455,18 @@ mod tests {
         let seed = [0x99u8; 32];
         let key = derive_viewing_key(&mk, &seed, 5);
         let receipt_id = [0xBBu8; 32];
-        let mut encrypted = encrypt_receipt_body(b"receipt data", &receipt_id, 5, DisclosureDomain::HolderOnly, &key);
+        let mut encrypted = encrypt_receipt_body(
+            b"receipt data",
+            &receipt_id,
+            5,
+            DisclosureDomain::HolderOnly,
+            &key,
+        );
         encrypted.ciphertext[0] ^= 0xFF;
-        assert!(decrypt_receipt_body(&encrypted, &receipt_id, DisclosureDomain::HolderOnly, &key).is_none());
+        assert!(
+            decrypt_receipt_body(&encrypted, &receipt_id, DisclosureDomain::HolderOnly, &key)
+                .is_none()
+        );
     }
 
     #[test]
@@ -457,8 +477,17 @@ mod tests {
         let key1 = derive_viewing_key(&mk1, &seed, 5);
         let key2 = derive_viewing_key(&mk2, &seed, 5);
         let receipt_id = [0xCCu8; 32];
-        let encrypted = encrypt_receipt_body(b"secret payload", &receipt_id, 5, DisclosureDomain::HolderOnly, &key1);
-        assert!(decrypt_receipt_body(&encrypted, &receipt_id, DisclosureDomain::HolderOnly, &key2).is_none());
+        let encrypted = encrypt_receipt_body(
+            b"secret payload",
+            &receipt_id,
+            5,
+            DisclosureDomain::HolderOnly,
+            &key1,
+        );
+        assert!(
+            decrypt_receipt_body(&encrypted, &receipt_id, DisclosureDomain::HolderOnly, &key2)
+                .is_none()
+        );
     }
 
     #[test]
@@ -495,8 +524,20 @@ mod tests {
         let seed = [0x99u8; 32];
         let key = derive_viewing_key(&mk, &seed, 5);
         let receipt_id = [0xDDu8; 32];
-        let encrypted = encrypt_receipt_body(b"private data", &receipt_id, 5, DisclosureDomain::HolderOnly, &key);
-        assert!(decrypt_receipt_body(&encrypted, &receipt_id, DisclosureDomain::HolderAndAuditor, &key).is_none());
+        let encrypted = encrypt_receipt_body(
+            b"private data",
+            &receipt_id,
+            5,
+            DisclosureDomain::HolderOnly,
+            &key,
+        );
+        assert!(decrypt_receipt_body(
+            &encrypted,
+            &receipt_id,
+            DisclosureDomain::HolderAndAuditor,
+            &key
+        )
+        .is_none());
     }
 
     #[test]
@@ -506,8 +547,20 @@ mod tests {
         let key = derive_viewing_key(&mk, &seed, 5);
         let receipt_id_a = [0xEEu8; 32];
         let receipt_id_b = [0xFFu8; 32];
-        let encrypted = encrypt_receipt_body(b"private data", &receipt_id_a, 5, DisclosureDomain::HolderOnly, &key);
-        assert!(decrypt_receipt_body(&encrypted, &receipt_id_b, DisclosureDomain::HolderOnly, &key).is_none());
+        let encrypted = encrypt_receipt_body(
+            b"private data",
+            &receipt_id_a,
+            5,
+            DisclosureDomain::HolderOnly,
+            &key,
+        );
+        assert!(decrypt_receipt_body(
+            &encrypted,
+            &receipt_id_b,
+            DisclosureDomain::HolderOnly,
+            &key
+        )
+        .is_none());
     }
 
     fn test_hash(seed: u8) -> [u8; 32] {

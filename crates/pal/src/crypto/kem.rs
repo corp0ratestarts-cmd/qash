@@ -156,14 +156,20 @@ mod tests {
         let (ct, ss_enc) = encapsulate(&ek, &randomness);
         let ss_dec = kp.decapsulate(&ct);
         // Encap and decap must agree.
-        assert_eq!(ss_enc, ss_dec, "ML-KEM-768 encap/decap shared secrets must match");
+        assert_eq!(
+            ss_enc, ss_dec,
+            "ML-KEM-768 encap/decap shared secrets must match"
+        );
         // Pinned value: captured from ml_kem v0.3, deterministic for this seed+randomness.
         let expected_ss: [u8; 32] = [
             0xb4, 0xd2, 0x9c, 0xd5, 0x5b, 0xab, 0x43, 0xe1, 0x65, 0x54, 0xb7, 0x4b, 0x90, 0x98,
             0xcd, 0xfc, 0xe5, 0x83, 0x99, 0x6c, 0x96, 0x8b, 0xcd, 0x2c, 0xfd, 0x1a, 0xd9, 0x45,
             0x5e, 0x35, 0x1f, 0xbf,
         ];
-        assert_eq!(ss_enc, expected_ss, "ML-KEM-768 CAVP KAT shared-secret mismatch");
+        assert_eq!(
+            ss_enc, expected_ss,
+            "ML-KEM-768 CAVP KAT shared-secret mismatch"
+        );
     }
 
     #[test]
@@ -244,10 +250,22 @@ mod tests {
     #[test]
     fn qash_hybrid_combine_binds_all_inputs() {
         let base = qash_hybrid_combine(MLKEM_SS_A, &[0x02u8; 32], &[0x03u8; 64], &[0x04u8; 32]);
-        assert_ne!(base, qash_hybrid_combine(MLKEM_SS_B, &[0x02u8; 32], &[0x03u8; 64], &[0x04u8; 32]));
-        assert_ne!(base, qash_hybrid_combine(MLKEM_SS_A, &[0xFFu8; 32], &[0x03u8; 64], &[0x04u8; 32]));
-        assert_ne!(base, qash_hybrid_combine(MLKEM_SS_A, &[0x02u8; 32], &[0xFFu8; 64], &[0x04u8; 32]));
-        assert_ne!(base, qash_hybrid_combine(MLKEM_SS_A, &[0x02u8; 32], &[0x03u8; 64], &[0xFFu8; 32]));
+        assert_ne!(
+            base,
+            qash_hybrid_combine(MLKEM_SS_B, &[0x02u8; 32], &[0x03u8; 64], &[0x04u8; 32])
+        );
+        assert_ne!(
+            base,
+            qash_hybrid_combine(MLKEM_SS_A, &[0xFFu8; 32], &[0x03u8; 64], &[0x04u8; 32])
+        );
+        assert_ne!(
+            base,
+            qash_hybrid_combine(MLKEM_SS_A, &[0x02u8; 32], &[0xFFu8; 64], &[0x04u8; 32])
+        );
+        assert_ne!(
+            base,
+            qash_hybrid_combine(MLKEM_SS_A, &[0x02u8; 32], &[0x03u8; 64], &[0xFFu8; 32])
+        );
     }
 
     #[test]
