@@ -172,7 +172,7 @@ Qed.
 (* axiomatise its equivalence to the Coq observe function.            *)
 (*                                                                    *)
 (* Justification for the axiom:                                       *)
-(*   1. CI (coq_vectors.rs) verifies 10 test vectors covering:        *)
+(*   1. CI (coq_vectors.rs) verifies 12 test vectors (TV-0..TV-11) covering:        *)
 (*      genesis, 1/2/3 idle epochs, sub-ε spike, window-fill halt,    *)
 (*      halt absorption (5 extra steps), decode-invalid (×2),         *)
 (*      single-validator.                                              *)
@@ -190,7 +190,7 @@ Parameter rust_observe : EpochState -> list ValidatorUpdate -> RefinementObs.
 
 (** AX2_rust_refinement: On all well-formed states, the Rust
     implementation is observationally equivalent to the Coq model.
-    Supported empirically by CI on 10 test vectors (see above). *)
+    Supported empirically by CI on 12 test vectors TV-0..TV-11 (see above). *)
 Axiom AX2_rust_refinement :
   forall (s : EpochState) (us : list ValidatorUpdate),
     well_formed s ->

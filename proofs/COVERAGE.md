@@ -90,7 +90,7 @@ the full three-layer correspondence chain and extraction pipeline.
 | RT-2: Over-epsilon step sets halt flag | §4a, §5 | **PROVED** | `RT2_halt_step` in `model/RefinementStatement.v` | `src/transition.rs` | `coq_vectors.rs::coq_model_parity` (TV-4) |
 | RT-3: Halted step preserves epoch (absorbing) | §5 | **PROVED** | `RT3_halt_absorbing_epoch` in `model/RefinementStatement.v` | `src/transition.rs` | `coq_vectors.rs::coq_model_parity` (TV-5) |
 | RT-4: Halted step preserves halt flag (absorbing) | §5 | **PROVED** | `RT4_halt_absorbing_flag` in `model/RefinementStatement.v` | `src/transition.rs` | `coq_vectors.rs::coq_model_parity` (TV-5) |
-| Coq ↔ Rust observational equivalence (AX-2 refinement) | §1 | **AXIOM** | `AX2_rust_refinement` in `model/RefinementStatement.v` | `src/transition.rs` | `coq_vectors.rs::coq_model_parity` (10 vectors); `release-attestation.yml` |
+| Coq ↔ Rust observational equivalence (AX-2 refinement) | §1 | **AXIOM** | `AX2_rust_refinement` in `model/RefinementStatement.v` | `src/transition.rs` | `coq_vectors.rs::coq_model_parity` (12 vectors; TV-0..TV-11); `release-attestation.yml` |
 
 ---
 
@@ -210,7 +210,7 @@ Each AXIOM or PLACEHOLDER is classified by its v1.0 active claim boundary:
 | TH-10 (cascade collision) | **ACCEPTED** | Cascade collision resistance is an accepted cryptographic assumption (AX-3). The v1.0 state-root commitment uses SHA3-256, not the cascade, so this is a post-genesis migration concern. The SHA3-256 collision resistance assumption (also AX-3) is the active v1.0 gate. |
 | Blinding PRF (H_cascade_keyed) | **EXCLUDED** | Domain B assumption; `H_cascade_keyed` is used for blinding key derivation, not Domain A state-root commitments. PRF security is not a v1.0 genesis-lock claim. |
 | IT-MAC (forgery bound) | **EXCLUDED** | The IT-MAC is used in the cascade derive path, which is a Domain B / Phase 2 feature. Not an active v1.0 Domain A claim. Exclude from genesis-lock scope. |
-| AX2-refinement | **ACCEPTED** | Compiler correctness axiom `AX2_rust_refinement` is accepted with 10 CI vector witnesses. The axiom is non-vacuous; its scope and limits are documented in `docs/refinement.md`. Strengthen post-v1.0 with additional vectors. |
+| AX2-refinement | **ACCEPTED** | Compiler correctness axiom `AX2_rust_refinement` is accepted with 12 CI vector witnesses (TV-0..TV-11). The axiom is non-vacuous; its scope and limits are documented in `docs/refinement.md`. Strengthen post-v1.0 with additional vectors. |
 | Cascade avalanche (TH-P1) | **EXCLUDED** | Avalanche is an empirical/statistical property, not a core security claim. Reclassified from formal proof target to statistical/KAT evidence. See note in `cascade_avalanche_property.v`. Genesis security rests on collision/preimage resistance (AX-3), not avalanche. |
 | ORAM access non-interference (TH-P1) | **EXCLUDED** | Deferred to Domain B blinding spec; `blinding_params` not yet defined. Not a v1.0 genesis active claim. |
 | ZK membership proof soundness (TH-P2) | **EXCLUDED** | Deferred to Plonky3 FRI-STARK integration; production ZK verification is not a v1.0 claim. |
@@ -228,7 +228,7 @@ known proof debt; see classification table above for genesis-lock status.
 | TH-11 | H_cascade cross-ISA determinism | **Discharged** — `tests/cascade_kat.rs` pins 3 KAT vectors; `platform-determinism.yml` cross-verifies on aarch64 and riscv64gc via QEMU |
 | Blinding PRF | H_cascade_keyed is a PRF | `blinding_non_interference`, `blinding_advantage_bound`, `TH_BPRF_cascade_prf` now proved in Coq. Underlying axioms (`cascade_prf_security`, `cascade_prf_quantitative_bound`) are accepted computational assumptions (typed adv_le, non-vacuous). Phase 3-A complete. |
 | IT-MAC | GF(2¹²⁸) forgery bound 16/2¹²⁸ | `it_mac_forgery_bound_at_16_blocks` (pure arithmetic), `it_mac_forgery_bound_16`, `TH_ITMAC_forgery_cap_16` all proved. `ghash_poly_mac_au_bound` is an accepted typed axiom. Phase 3-B complete. |
-| AX2-refinement | Coq ↔ Rust observational equivalence | Axiom `AX2_rust_refinement` in `model/RefinementStatement.v`; supported by 10 CI test vectors. Strengthen by adding more vectors to `vectors.json`/`coq_vectors.rs`, or by embedding Rust semantics in Coq (RustBelt / K-Rust, post-v1.1). |
+| AX2-refinement | Coq ↔ Rust observational equivalence | Axiom `AX2_rust_refinement` in `model/RefinementStatement.v`; supported by 12 CI test vectors (TV-0..TV-11). Strengthen by adding more vectors to `vectors.json`/`coq_vectors.rs`, or by embedding Rust semantics in Coq (RustBelt / K-Rust, post-v1.1). |
 | TH-P1 (dep) | Cascade avalanche property | `privacy/cascade_avalanche_property.v` — **EXCLUDED** from v1.0 genesis-lock scope. Reclassified from formal proof target to statistical/KAT evidence (see `Status: STATISTICAL` in Coq file). Genesis security rests on collision/preimage resistance (AX-3), not avalanche. No formal proof required for v1.0. |
 | TH-P1 (dep) | ORAM access non-interference | `privacy/oblivious_access_non_interference.v` — placeholder axiom; deferred to Domain B blinding spec revision and blinding_params definition. |
 | TH-P2 (dep) | ZK membership proof soundness | `privacy/receipt_proof_soundness.v` — placeholder axiom; deferred to receipt spec (`06_receipts.md`) and Plonky3 FRI-STARK integration. |

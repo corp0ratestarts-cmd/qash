@@ -295,7 +295,7 @@ The following items must be resolved before a CC evaluation can proceed:
 | ID | Item | Status |
 |----|------|--------|
 | CC-01 | Engage CMVP/CCRA lab for EAL4+ evaluation | Not started (pre-genesis; external process) |
-| CC-02 | Strengthen AX2-refinement (Coq ↔ Rust observational equivalence) | ACCEPTED axiom with 10 CI vectors; post-v1.0 enhancement |
+| CC-02 | Strengthen AX2-refinement (Coq ↔ Rust observational equivalence) | ACCEPTED axiom with 12 CI vectors (TV-0..TV-11); post-v1.0 enhancement |
 | CC-03 | Discharge TH-10 cascade collision resistance | PLACEHOLDER (post-genesis migration item; SHA3-256 is the active v1.0 state-root primitive) |
 | CC-04 | Complete production PAL transport (Track 4) | In progress (scaffolds exist; real networking is post-genesis) |
 | CC-05 | Genesis lock and `v1.0-reference` tag | Blocked on Phase 1-D (human PDF traceability review) |
