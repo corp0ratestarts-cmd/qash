@@ -1,8 +1,8 @@
 # Genesis Decision Record
 
-**PR:** #240
+**PR:** #228
 **Date:** 2026-06-02
-**Branch:** `claude/genesis-decision-240`
+**Branch:** `claude/genesis-outcome-b`
 
 ## Owner Decision
 
