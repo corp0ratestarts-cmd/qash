@@ -156,23 +156,18 @@ The following CI/evidence work is complete on branch `claude/modest-gates-tgIDP`
 | 6-D | `docs/security/HAZOP.md` | ✅ |
 | 6-E | `.github/workflows/fuzz-extended.yml` — weekly 1M execs | ✅ |
 
-## Next Execution Track
+## Decision Record
 
-PR #240 — owner-gated genesis decision.
+**Date:** 2026-06-02
+**Outcome:** B — RC-only milestone
 
-Allowed outcomes:
-
-A. genesis-candidate
-B. RC-only milestone
-C. defer
-
-Do not update `GENESIS_CONSTANTS.toml`, flip `deployment_authoritative`, or tag
-`v1.0-reference` unless the PR body contains `[genesis-change-acknowledged]`
-and the owner explicitly chooses genesis-candidate.
-
-If the owner chooses RC-only or defer, keep:
+The owner reviewed the complete evidence suite and elected RC-only milestone.
+`GENESIS_CONSTANTS.toml` is unchanged:
 
 ```toml
 genesis_status = "provisional"
 deployment_authoritative = false
 ```
+
+To advance to genesis-candidate, open a new PR with `[genesis-change-acknowledged]`
+in the body and explicitly select Outcome A. See `docs/release/genesis_decision_record.md`.
