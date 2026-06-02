@@ -4,14 +4,23 @@ This document captures the complete project direction from current state through
 verified execution substrate in maximum technical detail. It is the authoritative reference for any
 developer, auditor, or formal methods contributor picking up this codebase.
 
-**Last updated:** 2026-06-01
-**Current state:** Post-GRC, post-compliance-hardening, post-all-of cleanup (PR #225), genesis-candidate
-evidence waves in progress (PRs #226–#235). PDF traceability verified (Phase 1-D complete). Receipt
-encryption upgraded to ChaCha20-Poly1305 AEAD (XOR stub removed). Axioms classified, Coq↔Rust
-parity extended to 12 vectors (TV-0..TV-11). Domain B backend boundary documented and classified.
-WAL robustness fuzz target and integration tests added. Benchmark evidence suite complete.
-Genesis remains provisional and non-authoritative. Do not create `v1.0-reference` or lock
-`GENESIS_CONSTANTS.toml` until final evidence capture (PR #239) and owner sign-off (PR #240).
+**Last updated:** 2026-06-02
+**Current state:** **Outcome B — RC-only milestone** (PR #228). Owner reviewed the complete
+Waves 0–7 evidence suite and selected the RC-only path. `GENESIS_CONSTANTS.toml` remains
+`genesis_status = "provisional"`, `deployment_authoritative = false`. The v1.0 tag is
+`v1.0-rc1` (evidence milestone only). `v1.0-reference` is reserved for a future Outcome A
+genesis-candidate decision; do not create it or lock `GENESIS_CONSTANTS.toml` without an
+explicit `[genesis-change-acknowledged]` PR. Coq↔Rust parity: 12 vectors (TV-0..TV-11).
+ChaCha20-Poly1305 AEAD in place (XOR stub removed). Domain B backend boundary classified.
+Benchmark evidence suite complete.
+
+**Section status markers:**
+- `✅ ACTIVE V1` — implemented, tested, in production path
+- `✅ SELF-TESTED` — implemented, self-tested, not externally certified
+- `⚠️ INTERFACE-ONLY` — API/trait exists, no production backend (fails closed)
+- `⚠️ DEMO-ONLY` — working demo, not production path; must not be used in production
+- `📋 DESIGN / POST-V1` — designed but not shipped; post-genesis deliverable
+- `🧪 EXPERIMENTAL` — prototype or research
 
 **MVP claim boundary:** the offline incident-receipt commit demonstrator (Domain B
 local MVP) is governed by [`docs/mvp/claims_register.md`](docs/mvp/claims_register.md).
@@ -256,7 +265,7 @@ compat_version_floor = "1.0.0"
 
 ---
 
-### 2-R: Core Runtime Optimization ✓ LANDED
+### 2-R: Core Runtime Optimization ✅ SELF-TESTED
 
 **Source:** Latest PR #93 runtime-performance review.
 
@@ -303,7 +312,7 @@ interfaces, wire formats, hash preimages, or Domain A invariants.
 
 ---
 
-### 2-C: Epoch Skew Validation ✓ LANDED
+### 2-C: Epoch Skew Validation ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B (needs `Envelope` struct)
@@ -354,7 +363,7 @@ epoch_skew_bound = 1     # Δ: max future epochs to accept
 
 ---
 
-### 2-D: Cascade Health Tracking ✓ LANDED
+### 2-D: Cascade Health Tracking ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B (needs `Envelope.cascade_health` field)
@@ -430,7 +439,7 @@ cascade_health_factor = 50000  # Lyapunov weight coefficient (FixedPoint raw)
 
 ---
 
-### 2-E: Lineage Compression (Skip-List) ✓ LANDED
+### 2-E: Lineage Compression (Skip-List) ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B
@@ -492,7 +501,7 @@ Wire format: 10 × 32 = 320 bytes per epoch state.
 
 ---
 
-### 2-F: Version Gating and Compatibility Window ✓ LANDED
+### 2-F: Version Gating and Compatibility Window ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-D (needs `compatibility_window` constant), 2-B (needs `Envelope.version`)
@@ -536,7 +545,7 @@ to include 0x08.
 
 ---
 
-### 2-G: ML-KEM-768 PQC KEM (Domain B only) ✓ LANDED
+### 2-G: ML-KEM-768 PQC KEM (Domain B only) ✅ SELF-TESTED
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** nothing (Domain B, no Domain A changes)
@@ -618,7 +627,7 @@ pub fn xwing_combine(
 
 ---
 
-### 2-H: FIPS and Data Protection (Domain B only) ✓ LANDED
+### 2-H: FIPS and Data Protection (Domain B only) ✅ SELF-TESTED
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** nothing (Domain B only)
@@ -684,7 +693,7 @@ pub fn log_pseudonym(pk: &[u8]) -> String {
 
 ---
 
-### 2-I: Formal Proofs for v1.1 Properties ✓ LANDED
+### 2-I: Formal Proofs for v1.1 Properties ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B, 2-C, 2-D, 2-F (needs stable interfaces before Coq models are written)
@@ -761,7 +770,7 @@ coqc -Q . QASH ordering/compatibility_window.v
 
 ---
 
-### 2-J: Semantic Closure (Compile-time Domain Gating) ✓ LANDED
+### 2-J: Semantic Closure (Compile-time Domain Gating) ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B (needs the new types to gate)
@@ -841,7 +850,7 @@ pub fn check_state_invariants(state: &EpochState) -> Result<(), HaltReason> {
 
 ---
 
-### 2-K: Replay Corpus and v1.1 Conformance Tests ✓ LANDED
+### 2-K: Replay Corpus and v1.1 Conformance Tests ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** all Domain A changes (2-B through 2-F) merged
@@ -892,7 +901,7 @@ pub fn check_state_invariants(state: &EpochState) -> Result<(), HaltReason> {
 
 ---
 
-### 2-L: Semantic Closure Completion — Confluence & Verified Interpreter ✓ LANDED
+### 2-L: Semantic Closure Completion — Confluence & Verified Interpreter ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-E (skip-list), 2-I (proofs), 2-J (CapToken stub)
@@ -935,7 +944,7 @@ cargo test -p qash-consensus --test interpreter_conformance -- --nocapture
 
 ---
 
-### 2-M: Hardware & Physical Hardening (Domain B, feature-gated) ✓ LANDED
+### 2-M: Hardware & Physical Hardening (Domain B, feature-gated) ⚠️ INTERFACE-ONLY
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-G, 2-H  
@@ -966,7 +975,7 @@ insmod deploy/kernel-modules/softtrr.ko && dmesg | grep "SoftTRR: active"
 
 ---
 
-### 2-N: Privacy Model Specification & PublicTranscript (Domain B) ✓ LANDED
+### 2-N: Privacy Model Specification & PublicTranscript (Domain B) ✅ SELF-TESTED
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-J
@@ -1009,7 +1018,7 @@ cargo test -p qash-pal privacy::receipt::tests::shred_prevents_decryption
 
 ---
 
-### 2-O: Crypto-Agility Traits & Sovereign Suite Gates (Domain B) ✓ LANDED
+### 2-O: Crypto-Agility Traits & Sovereign Suite Gates (Domain B) ⚠️ INTERFACE-ONLY
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-G, 2-H
@@ -1048,7 +1057,7 @@ git diff crates/consensus/ # must be empty after feature toggle
 
 ---
 
-### 2-P: Certification Artifacts ✓ LANDED
+### 2-P: Certification Artifacts ✅ SELF-TESTED
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-H, 2-N, 2-O
@@ -1106,7 +1115,7 @@ for a QASH node to be "correct."
 
 ---
 
-### 1-A: Effect-Capability Token Architecture ✓ LANDED
+### 1-A: Effect-Capability Token Architecture ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-J (CapToken stub must exist first)
@@ -1203,7 +1212,7 @@ through `validate_envelope_effect`. The compiler enforces this at the call site.
 
 ---
 
-### 1-B: Causal Fingerprint Coinduction ✓ LANDED
+### 1-B: Causal Fingerprint Coinduction ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-B (sort_key), 2-I (causal_ordering.v)
@@ -1268,7 +1277,7 @@ and trace-equivalence (what receipt privacy requires).
 
 ---
 
-### 1-C: Lyapunov Confluence Proof ✓ LANDED
+### 1-C: Lyapunov Confluence Proof ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-D (cascade health tracking), existing `lyapunov.rs`
@@ -1330,7 +1339,7 @@ decrease interval, which the fixed-point arithmetic constrains uniquely.
 
 ---
 
-### 1-D: Verified Interpreter Conformance ✓ LANDED
+### 1-D: Verified Interpreter Conformance ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** 2-K (replay corpus), `proofs/model/RefinementStatement.v` (already exists)
@@ -1421,7 +1430,7 @@ Any divergence is an `AX2_rust_refinement` violation and blocks merge.
 
 ---
 
-### 3-A: Code-Based Masking and Redundantly Bitsliced NTT ✓ LANDED
+### 3-A: Code-Based Masking and Redundantly Bitsliced NTT ⚠️ INTERFACE-ONLY
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Scope:** Domain B only (`crates/pal/src/crypto/`)
@@ -1504,7 +1513,7 @@ must enable it and document the choice in their security posture.
 
 ---
 
-### 3-B: Rowhammer Defence (SoftTRR / CATT) ✓ LANDED
+### 3-B: Rowhammer Defence (SoftTRR / CATT) 📋 DESIGN / POST-V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Scope:** Deployment documentation + kernel module configuration guidance
@@ -1577,7 +1586,7 @@ For high-assurance validator deployments:
 
 ---
 
-### 3-C: Hancke-Kuhn Distance-Bounding for Proximity Channels ✓ LANDED
+### 3-C: Hancke-Kuhn Distance-Bounding for Proximity Channels ✅ SELF-TESTED
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Scope:** Domain B PAL (`crates/pal/src/proximity/`)
@@ -1653,7 +1662,7 @@ an envelope into the consensus admission queue.
 
 ---
 
-### 3-D: Attestable Builds Pipeline (TEE + Sigstore) ✓ LANDED
+### 3-D: Attestable Builds Pipeline (TEE + Sigstore) ✅ SELF-TESTED
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** existing `docker/Dockerfile.build` + `release-attestation.yml`
@@ -1723,7 +1732,7 @@ Document in `docs/deployment/build_verification.md`.
 
 ---
 
-### 3-E: Threshold Signing for High-Assurance Validators (TALUS/Quorus) ✓ LANDED
+### 3-E: Threshold Signing for High-Assurance Validators (TALUS/Quorus) ⚠️ DEMO-ONLY
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Scope:** Domain B, new `crates/pal/src/threshold/`
@@ -1858,7 +1867,7 @@ zeroize                   = { version = "1.7", optional = true }
 
 ---
 
-### 4-A: Normative Privacy Model Specification ✓ LANDED
+### 4-A: Normative Privacy Model Specification ✅ SELF-TESTED
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Deliverable:** `docs/spec/09_privacy_model.md` (normative)
@@ -1908,7 +1917,7 @@ Any code path that would add a new field to the public surface MUST:
 
 ---
 
-### 5-A: Sharded Protocol Structure and EFB ✓ LANDED
+### 5-A: Sharded Protocol Structure and EFB ✅ ACTIVE V1
 
 **Source:** PR #93 design-review transcript, extracted into repo-native files.
 
@@ -1955,7 +1964,7 @@ ordering.
   40% adversary full-capture resistance over 100 independent epochs.
 - CI gate in `cavp-kat` job: Plonky3 2-layer KAT and shard-capture simulation.
 
-### 4-B: PublicTranscript Type-System Enforcement ✓ LANDED
+### 4-B: PublicTranscript Type-System Enforcement ✅ ACTIVE V1
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Depends on:** existing `crates/consensus/src/public.rs`
@@ -2000,7 +2009,7 @@ disallowed-methods = [
 
 ---
 
-### 4-C: Receipt Encryption and Viewing Keys ✓ LANDED
+### 4-C: Receipt Encryption and Viewing Keys ✅ SELF-TESTED
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Scope:** Domain B (`crates/pal/src/receipt.rs`)
@@ -2079,7 +2088,7 @@ pub fn erase_epoch_viewing_key(epoch: u64, key_store: &mut KeyStore) {
 
 ---
 
-### 4-D: Certification Artifacts ✓ LANDED
+### 4-D: Certification Artifacts ✅ SELF-TESTED
 
 **Branch:** `claude/modest-gates-tgIDP`  
 **Deliverables:** documentation + CI test functions + CI job updates
