@@ -28,7 +28,9 @@
 ///
 /// `plonky3.rs` defines Domain B interface types and the non-production shape harness.
 /// `backend.rs` contains the real p3-* verifier infrastructure behind the `plonky3` feature.
-/// QASH production proof circuit acceptance: post-v1 / not deployment-authoritative.
+/// QASH production proof circuit acceptance: post-v1.0-RC / not deployment-authoritative.
+/// The shape harness and KAT vectors are RC-verified; real p3-* circuit integration
+/// is deferred to the post-RC backend integration milestone.
 use crate::hosted::{CanonicalZkProfile, HostedError, ZkProofBundle, ZkProofVerifier};
 
 /// Proof bytes for a single shard's layer-1 FRI-STARK proof.
