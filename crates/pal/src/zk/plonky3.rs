@@ -26,11 +26,9 @@
 ///
 /// # Real backend status
 ///
-/// This file contains an interface design and non-production shape harness. The
-/// actual Plonky3 crate is NOT yet a dependency (supply-chain vetting required
-/// before adding it). The `ZkProofVerifier` trait implementation fails closed
-/// until a real backend is wired; `verify_bundle_shape_only` is available only
-/// for profile-lock and Domain-B boundary tests.
+/// `plonky3.rs` defines Domain B interface types and the non-production shape harness.
+/// `backend.rs` contains the real p3-* verifier infrastructure behind the `plonky3` feature.
+/// QASH production proof circuit acceptance: post-v1 / not deployment-authoritative.
 use crate::hosted::{CanonicalZkProfile, HostedError, ZkProofBundle, ZkProofVerifier};
 
 /// Proof bytes for a single shard's layer-1 FRI-STARK proof.
