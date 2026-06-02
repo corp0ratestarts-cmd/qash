@@ -10,6 +10,7 @@ members = [
   "crates/pal",
   "crates/address",
   "model",
+  "xtask",
 ]
 
 [dependencies]

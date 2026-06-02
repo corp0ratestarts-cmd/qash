@@ -21,8 +21,15 @@
 
 - ✅ **Covered:** code exists, tests/vectors pass, and proof obligations compile
   if applicable.
-- ⚠️ **Partial:** code exists but lacks tests, vectors, proofs, or has known gaps.
-- ❌ **Missing:** no implementation or required artifact exists.
+- ⚠️ **Partial / accepted release-boundary assumption:** code exists but lacks
+  tests, vectors, proofs, or has known gaps. When the Gap field reads "accepted
+  release-boundary assumption", the gap is acknowledged by the project owner and
+  is not a blocker for the v1.0 RC milestone. AX2 (proof-to-code extraction
+  equivalence) is the most common accepted gap; it is classified as an AXIOM in
+  the Coq development, not an unresolved deficiency.
+- ❌ **Blocker / not finalized:** required artifact is absent or the item is
+  explicitly gated on a future owner decision (e.g., Outcome A genesis-candidate).
+  P0-9 (genesis hash) is the only ❌ row; it stays ❌ until Outcome A.
 - 🔶 **Blocked:** compliance cannot be assessed until erratum or ADR resolution.
 
 ---
@@ -39,7 +46,7 @@
 | **Test / Vector** | Unit tests in `lyapunov.rs`: `phi_safety_sums_across_validators` (distinguishes sum from max), `phi_halt_triggers_at_threshold` (H7 boundary). |
 | **Proof** | `proofs/contractivity/lyapunov_stability.v` (TH-3), `proofs/safety/absorbing_halt.v` (TH-4/TH-5/TH-6) compiled by `.github/workflows/ci.yml` `proofs` job; zero `Admitted` beyond AX-1/AX-2. |
 | **Status** | ⚠️ |
-| **Gap** | ADR-001 and ADR-002 accepted; sum aggregation, H7 gate, and Coq compilation are CI-covered. Remaining accepted gap: no proof-to-code extraction-equivalence evidence (AX2 — scheduled for Wave 2 PR #229). |
+| **Gap** | ADR-001 and ADR-002 accepted; sum aggregation, H7 gate, and Coq compilation are CI-covered. Accepted release-boundary assumption: no proof-to-code extraction-equivalence evidence (AX2 is an accepted AXIOM in the Coq development; not a scheduled deliverable). |
 
 ### P0-2: State root computation
 
@@ -51,7 +58,7 @@
 | **Test / Vector** | `tests/vectors/vectors.v1.json` TV-0a pins the exact state-root commitment KAT (expected SHA3-256 preimage = `a92369cc…`); `crates/consensus/tests/golden_replay.rs` and `crates/consensus/tests/domain_a_audit.rs` cover valid-state roundtrip plus canonical rejection cases. |
 | **Proof** | — |
 | **Status** | ⚠️ |
-| **Gap** | ADR-003 accepted; the PDF defines the state root formula explicitly in §3.4.1, §3.5.4, and §3.6.2. TV-0a pins the exact KAT value. Remaining accepted gap: no proof-to-code extraction-equivalence evidence (AX2 — scheduled for Wave 2 PR #229). |
+| **Gap** | ADR-003 accepted; the PDF defines the state root formula explicitly in §3.4.1, §3.5.4, and §3.6.2. TV-0a pins the exact KAT value. Accepted release-boundary assumption: no proof-to-code extraction-equivalence evidence (AX2 is an accepted AXIOM in the Coq development; not a scheduled deliverable). |
 
 ### P0-3: Fixed-point arithmetic
 
@@ -63,7 +70,7 @@
 | **Test / Vector** | Module-level tests exist in `crates/consensus/src/fixed_point.rs`; `tests/vectors/vectors.v1.json` includes a fixed-point case run by `tests/vector-runner`. |
 | **Proof** | — |
 | **Status** | ⚠️ |
-| **Gap** | PDF defines fixed-point arithmetic in §2.3.5 and §3.2.3; implementation matches. Vector values verified against PDF-defined semantics. Remaining accepted gap: no formal extraction-equivalence evidence (AX2). |
+| **Gap** | PDF defines fixed-point arithmetic in §2.3.5 and §3.2.3; implementation matches. Vector values verified against PDF-defined semantics. Accepted release-boundary assumption: no formal extraction-equivalence evidence (AX2). |
 
 ### P0-4: Cross-ISA determinism
 
@@ -75,7 +82,7 @@
 | **Test / Vector** | TV-1 (3-epoch idle root) `state_root_canonical_seq_golden` is the primary TH-7 cross-ISA anchor; `tests/vectors/vectors.v1.json`; `crates/consensus/tests/v1_1_replay.rs`; `crates/consensus/tests/v1_2_sharded_replay.rs`; `crates/consensus/tests/vector_runner.rs`. |
 | **Proof** | TH-7 is a VERIFICATION CLAIM (empirical evidence, not deductive proof) per PDF §3.11.2 (p. 35): "platform-determinism.yml provides evidence; full proof requires TH-1 discharge". |
 | **Status** | ⚠️ |
-| **Gap** | CI gate passes on all three Tier A ISAs (PDF §2.8). Remaining accepted gap: cross-ISA hosted PAL replay artifacts and corrupt-log cross-ISA coverage (scheduled for Wave 4 PR #233). |
+| **Gap** | CI gate passes on all three Tier A ISAs (PDF §2.8). Accepted release-boundary assumption: cross-ISA hosted PAL replay artifacts and corrupt-log cross-ISA coverage (scheduled for Wave 4 PR #233). |
 
 ### P0-5: Absorbing halt semantics
 
@@ -87,7 +94,7 @@
 | **Test / Vector** | TV-5 (Halt trigger H1: Lyapunov violation) and TV-6 (Halt is absorbing) in `tests/vectors/vectors.v1.json` verified by `crates/consensus/tests/vector_runner.rs`; `phi_halt_triggers_at_threshold` unit test in `lyapunov.rs`. |
 | **Proof** | `proofs/safety/absorbing_halt.v` (TH-4 Φ_safety monotonicity, TH-5 Φ_safety boundedness, TH-6 halt correctness). |
 | **Status** | ⚠️ |
-| **Gap** | ADR-004 is **accepted** (not proposed). Domain A / Domain B halt layering is defined. PDF §2.7 covers trigger conditions, halt behavior, and succession. Remaining accepted gap: H7 (Φ_safety violation) is not listed in the PDF §2.7 halt codes H1–H6 — H7 is a repository extension tracked in ADR-001/002; the PDF §3.9 stability criterion implies it. This discrepancy is an accepted errata-boundary item. |
+| **Gap** | ADR-004 is **accepted** (not proposed). Domain A / Domain B halt layering is defined. PDF §2.7 covers trigger conditions, halt behavior, and succession. Accepted release-boundary assumption: H7 (Φ_safety violation) is not listed in the PDF §2.7 halt codes H1–H6 — H7 is a repository extension tracked in ADR-001/002; the PDF §3.9 stability criterion implies it. This discrepancy is an accepted errata-boundary item. |
 
 ### P0-6: Leaf index concatenation
 
@@ -99,7 +106,7 @@
 | **Test / Vector** | `tests/vectors/vectors.v1.json` includes a leaf-index vector run by `tests/vector-runner`. |
 | **Proof** | `proofs/concat_injective.v` proves concatenation injectivity for this construction; compiled by `.github/workflows/ci.yml` `proofs` job, with admitted-marker rejection and `.vo` hash recording. PDF §3.10.2 references `concat_injective` as a proof dependency for TH-1. |
 | **Status** | ⚠️ |
-| **Gap** | Code is byte-identical to the PDF-defined construction, vector-covered, and Coq proof CI-compiled. Remaining accepted gap: no proof-to-code extraction-equivalence evidence (AX2 — scheduled for Wave 2 PR #229). |
+| **Gap** | Code is byte-identical to the PDF-defined construction, vector-covered, and Coq proof CI-compiled. Accepted release-boundary assumption: no proof-to-code extraction-equivalence evidence (AX2 is an accepted AXIOM in the Coq development; not a scheduled deliverable). |
 
 ### P0-7: Formal verification CI integration
 
@@ -111,7 +118,7 @@
 | **Test / Vector** | CI proof artifacts: `proof-coq-version.txt` and `proof-hashes.txt` uploaded as `proof-objects-${{ github.sha }}`. |
 | **Proof** | Active Coq files under `proofs/` compiled explicitly by CI, including `proofs/crypto_game_framework.v`, `proofs/util/list_inj.v`, `proofs/concat_injective.v`, contractivity, safety, integration, cascade, blinding, and model files. |
 | **Status** | ⚠️ |
-| **Gap** | Coq compilation, admitted-marker rejection, axiom coverage checking, proof-object hashing, and artifact upload are CI-covered. The PDF §3.10.2 references "The TLA+ safety invariant (proofs/safety/)" as a proof target — this is a reference to a proof obligation, not an explicit CI command requirement; TLA+/Apalache is advisory/post-v1.0 per errata (see Wave 2 PR #230). Remaining accepted gaps: proof-to-code extraction equivalence (AX2 — Wave 2 PR #229) and independent `.vo` hash reproducibility outside GitHub Actions. |
+| **Gap** | Coq compilation, admitted-marker rejection, axiom coverage checking, proof-object hashing, and artifact upload are CI-covered. The PDF §3.10.2 references "The TLA+ safety invariant (proofs/safety/)" as a proof target — this is a reference to a proof obligation, not an explicit CI command requirement; TLA+/Apalache is advisory/post-v1.0 per errata (see Wave 2 PR #230). Accepted release-boundary assumptions: AX2 proof-to-code extraction equivalence (AX2 is an accepted AXIOM in the Coq development; not a scheduled deliverable) and independent `.vo` hash reproducibility outside GitHub Actions. |
 
 ### P0-8: Pinned Rust toolchain
 
@@ -123,7 +130,7 @@
 | **Test / Vector** | `release-attestation.yml` runs the two-stage deterministic build verification and uploads to Rekor transparency log. |
 | **Proof** | — |
 | **Status** | ⚠️ |
-| **Gap** | Rust 1.95.0 is pinned and CI-verified; reproducible build attestation is uploaded to Rekor. Remaining accepted gap: cross-ISA multi-target binary reproducibility evidence (not just state-root equivalence — full byte-identical binary) required before final genesis lock. |
+| **Gap** | Rust 1.95.0 is pinned and CI-verified; reproducible build attestation is uploaded to Rekor. Accepted release-boundary assumption: cross-ISA multi-target binary reproducibility evidence (not just state-root equivalence — full byte-identical binary) required before final genesis lock. |
 
 ### P0-9: Genesis hash
 
@@ -134,8 +141,8 @@
 | **Code** | `GENESIS_CONSTANTS.toml` records a recomputable pre-lock artifact-set digest and explicitly marks `genesis_status = "provisional"` with `deployment_authoritative = false`. `scripts/verify_genesis_hash.sh` recomputes the digest from `spec/genesis-artifacts.txt`. `src/bin/genesis_hash.rs` implements the SHA3-256 over the canonical doc set per §3.5.7. |
 | **Test / Vector** | `.github/workflows/ci.yml` and `.github/workflows/genesis-guard.yml` run `./scripts/verify_genesis_hash.sh`. |
 | **Proof** | — |
-| **Status** | ❌ |
-| **Gap** | Terminal gate. PDF §3.5.7 defines the genesis hash procedure; `spec/genesis-artifacts.txt` records the verified PDF SHA-256. The hash cannot be locked until: all P0 rows are ✅ or ⚠️ accepted-gap, all upstream waves (PDF verification, axiom classification, proof evidence, receipt encryption, stubs, benchmarks, compliance) are complete, and owner explicitly chooses genesis-candidate in PR #240. |
+| **Status** | ❌ blocker — not finalized until Outcome A |
+| **Gap** | Terminal gate. PDF §3.5.7 defines the genesis hash procedure; `spec/genesis-artifacts.txt` records the verified PDF SHA-256. The hash cannot be locked until: all P0 rows are ✅ or ⚠️ accepted release-boundary assumption, all upstream waves (PDF verification, axiom classification, proof evidence, receipt encryption, stubs, benchmarks, compliance) are complete, and owner explicitly chooses genesis-candidate in a future PR with `[genesis-change-acknowledged]`. |
 
 ---
 

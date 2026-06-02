@@ -26,7 +26,7 @@ Layer 2: Test-vector alignment (proved by Coq reflexivity)
 
 Layer 3: Rust conformance (CI-verified)
          crates/consensus/tests/coq_vectors.rs
-         10 test vectors (TV-0 … TV-9) in proofs/model/vectors.json
+         12 test vectors (TV-0..TV-11) in proofs/model/vectors.json
          asserted against advance_epoch() on every CI run
 ```
 
@@ -107,7 +107,7 @@ An independent auditor can apply these functions to the test vectors in
 
 | Axiom | Where | Justification |
 |-------|-------|---------------|
-| `AX2_rust_refinement` | `RefinementStatement.v` | Empirical: 10 CI test vectors (TV-0 … TV-9) verify the Rust output matches the Coq model. Trust reduces to AX-2 (rustc 1.95.0 correctness). To strengthen: add more vectors or use a Rust-in-Coq embedding. |
+| `AX2_rust_refinement` | `RefinementStatement.v` | Empirical: 12 CI test vectors (TV-0..TV-11) verify the Rust output matches the Coq model. Trust reduces to AX-2 (rustc 1.95.0 correctness). To strengthen: add more vectors or use a Rust-in-Coq embedding. |
 | `AX-2` (external) | CLAUDE.md / COVERAGE.md | Rust compiler correctness — standard for any compiled-language formal project |
 | `AX-3` (external) | `cascade_collision_resistance.v` | SHA3-256 collision resistance — standard cryptographic assumption |
 | ZArith soundness | Coq standard library | Standard assumption for any Coq proof using integers |
@@ -119,7 +119,7 @@ An independent auditor can apply these functions to the test vectors in
 
 ## Strengthening the refinement
 
-The current axiom is supported by 10 test vectors. To reduce trust further:
+The current axiom is supported by 12 test vectors (TV-0..TV-11). To reduce trust further:
 
 1. **More test vectors**: Add cases to `proofs/model/vectors.json` and
    corresponding runners to `coq_vectors.rs`. Each additional vector tightens

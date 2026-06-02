@@ -39,7 +39,7 @@ corpus by its v1.0 release-boundary status. It is the authoritative companion to
 | **Coq name** | `AX2_rust_refinement` in `proofs/model/RefinementStatement.v` |
 | **PDF anchor** | §3.11.1 — `AX-2 Compiler: [ASSUMED] pinned Rust toolchain produces correct code` |
 | **Class** | ACCEPTED-BOUNDARY |
-| **Rationale** | Proof-to-code observational equivalence is accepted with 10 CI test vectors (`coq_vectors.rs::coq_model_parity`, TV-1 through TV-9). The axiom is non-vacuous: it is typed over specific observable model executions. Strengthening post-v1.0 is scheduled in Wave 2 PR #229 (additional vectors, `scripts/generate_coq_vectors.sh`). |
+| **Rationale** | Proof-to-code observational equivalence is accepted with 12 CI test vectors (`coq_vectors.rs::coq_model_parity`, TV-0..TV-11). The axiom is non-vacuous: it is typed over specific observable model executions. AX2 is classified as an accepted AXIOM (compiler correctness assumption) in the Coq development; not an open gap or scheduled deliverable. |
 | **Evidence** | `proofs/model/vectors.json`, `proofs/model/transition_observations.json`, `crates/consensus/tests/coq_vectors.rs`, `release-attestation.yml` |
 
 ### AX-3: SHA3-256 collision resistance (`AX3_sha3_assumed_injective`)
@@ -133,7 +133,7 @@ unclassified axiom remains. No active PLACEHOLDER exists within v1.0 active clai
 The v1.0 genesis-candidate proceeds with the following accepted axioms:
 
 1. **AX-1** (ISA correctness) — empirically evidenced by cross-ISA CI
-2. **AX-2** (Rust compiler) — accepted with 10 CI vector witnesses; strengthening scheduled for Wave 2 PR #229
+2. **AX-2** (Rust compiler) — accepted with 12 CI vector witnesses (TV-0..TV-11); AX2 is a Coq AXIOM (compiler correctness assumption), not an open gap
 3. **AX-3** (SHA3-256 + SM3-256 collision resistance) — standard cryptographic assumption
 
 All other axioms are either excluded from v1.0 active claims (Domain B features,
