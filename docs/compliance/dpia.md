@@ -136,7 +136,7 @@ The following design choices enforce data minimisation:
 - **Domain A state struct contains no PII** — enforced by Domain A tripwire CI job (`check_domain_a_tripwires.sh`)
 - **Only commitments cross the Domain A/B boundary** — CapToken schema proof (`proofs/capability/cap_token_schema.v`) formalises that crossing is explicit
 - **Log pseudonyms** — `log_pseudonym()` in `crates/pal/src/crypto/tls.rs` outputs a 16-byte truncated SHA3-256 of the public key; raw keys and IP addresses are never logged by the protocol layer
-- **Receipt encryption** — encrypted at rest with ephemeral per-receipt keys; only key commitments enter the consensus state
+- **Receipt encryption** — ChaCha20-Poly1305 AEAD at rest with ephemeral per-receipt keys; only key commitments enter the consensus state. XOR placeholder deleted (Wave 3); no plaintext encryption path remains.
 
 ---
 

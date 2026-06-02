@@ -203,17 +203,22 @@
 
 ---
 
-## P1+ — Deferred Work Items
+## P1+ — Accepted Deferred Work Items (not v1.0 RC blockers)
 
-| ID | PDF § | Topic | Deferred because |
-|----|-------|-------|------------------|
-| P1-1 | §3.1 (pp. 5–6, provisional) | Multi-primitive cascade verification | Crypto integration phase. |
-| P1-2 | §4.3 (p. 10, provisional) | Dual-path verification | Requires cascade verification. |
-| P1-3 | §3.5 (pp. 8–9, provisional) | Crypto agility schedule | Requires cascade selection and vector coverage. |
-| P1-4 | §5 | Hardware abstraction and deployment tiers | PAL implementation phase. |
-| P1-5 | §5 | Hosted PAL nondeterminism boundary | Minimal hosted runtime now implemented; cross-ISA replay artifacts deferred. |
-| P1-6 | §6 | Obfuscation VM | Later subsystem phase. |
-| P1-7 | §7 | Clone protocol | Later subsystem phase. |
-| P1-8 | PDF-SILENT | Runtime optimization track | Scheduled by `docs/adr/ADR-006-runtime-optimization-track.md`; implementation is deferred until parity and benchmark gates exist. |
-| P2-1 | §9.1 (pp. 24–25, provisional) | `vm_correctness` proof | Depends on obfuscation VM. |
-| P2-2 | §9.1 (pp. 24–25, provisional) | `decoy_state_identity` proof | Depends on obfuscation VM. |
+All items in this table are **accepted deferred gaps** — acknowledged by the project
+owner and explicitly not required for the v1.0 RC milestone. They are not unresolved
+deficiencies; they are scheduled for post-RC phases. "(provisional)" in the PDF §
+column means that PDF section is itself provisional in the v1.0 spec.
+
+| ID | PDF § | Topic | Deferred because | Status |
+|----|-------|-------|------------------|--------|
+| P1-1 | §3.1 (pp. 5–6, provisional) | Multi-primitive cascade verification | Crypto integration phase. | Accepted deferred |
+| P1-2 | §4.3 (p. 10, provisional) | Dual-path verification | Requires cascade verification. | Accepted deferred |
+| P1-3 | §3.5 (pp. 8–9, provisional) | Crypto agility schedule | Requires cascade selection and vector coverage. | Accepted deferred |
+| P1-4 | §5 | Hardware abstraction and deployment tiers | PAL implementation phase. | Accepted deferred |
+| P1-5 | §5 | Hosted PAL nondeterminism boundary | Minimal hosted runtime implemented; cross-ISA replay artifacts deferred. | Accepted deferred |
+| P1-6 | §6 | Obfuscation VM | Later subsystem phase. | Accepted deferred |
+| P1-7 | §7 | Clone protocol | Later subsystem phase. | Accepted deferred |
+| P1-8 | PDF-SILENT | Runtime optimization track | Scheduled by `docs/adr/ADR-006-runtime-optimization-track.md`; implementation deferred until parity and benchmark gates exist. | Accepted deferred |
+| P2-1 | §9.1 (pp. 24–25, provisional) | `vm_correctness` proof | Depends on obfuscation VM. | Accepted deferred |
+| P2-2 | §9.1 (pp. 24–25, provisional) | `decoy_state_identity` proof | Depends on obfuscation VM. | Accepted deferred |
