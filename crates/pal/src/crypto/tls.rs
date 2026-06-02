@@ -13,10 +13,7 @@ const TLS_VERSION_1_2: u16 = 0x0303;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TlsConfigError {
     /// Negotiated or configured version is below TLS 1.2.
-    VersionBelowFloor {
-        negotiated: u16,
-        minimum: u16,
-    },
+    VersionBelowFloor { negotiated: u16, minimum: u16 },
     /// No TLS configured; plaintext connections are not permitted.
     NoTls,
 }
@@ -24,7 +21,10 @@ pub enum TlsConfigError {
 impl core::fmt::Display for TlsConfigError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            TlsConfigError::VersionBelowFloor { negotiated, minimum } => {
+            TlsConfigError::VersionBelowFloor {
+                negotiated,
+                minimum,
+            } => {
                 write!(
                     f,
                     "TLS version {:#06x} is below minimum {:#06x}",
@@ -243,7 +243,8 @@ mod tests {
     fn log_pseudonym_hex_is_lowercase_hex() {
         let s = log_pseudonym_hex(b"pk");
         assert!(
-            s.chars().all(|c| c.is_ascii_hexdigit() && !c.is_uppercase()),
+            s.chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_uppercase()),
             "output must be lowercase hex: {s}"
         );
     }

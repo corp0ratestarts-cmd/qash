@@ -127,7 +127,10 @@ pub fn dual_hash_pair_32(context: &[u8], salt: &[u8], data: &[u8]) -> DualHashPa
     let b3: [u8; 32] = blake3_arm(context, salt, data);
     let mut sha3_512_32 = [0u8; 32];
     sha3_512_32.copy_from_slice(&sha3[..32]);
-    DualHashPair32 { sha3_512_32, blake3_32: b3 }
+    DualHashPair32 {
+        sha3_512_32,
+        blake3_32: b3,
+    }
 }
 
 /// Verifies a `DualHashPair32` against a fresh computation.
@@ -205,7 +208,10 @@ pub fn allof_hash_pair_32(context: &[u8], salt: &[u8], data: &[u8]) -> AllOfHash
     let b3: [u8; 32] = blake3_arm(context, salt, data);
     let mut sha3_512_32 = [0u8; 32];
     sha3_512_32.copy_from_slice(&sha3[..32]);
-    AllOfHashPair32 { sha3_512_32, blake3_32: b3 }
+    AllOfHashPair32 {
+        sha3_512_32,
+        blake3_32: b3,
+    }
 }
 
 /// Fallible constructor — rejects empty context and oversized inputs.
@@ -278,7 +284,10 @@ pub fn decode_allof_hash_pair_32(bytes: &[u8]) -> Result<AllOfHashPair32, AllOfH
     let mut blake3_32 = [0u8; 32];
     sha3_512_32.copy_from_slice(&bytes[label_len..label_len + 32]);
     blake3_32.copy_from_slice(&bytes[label_len + 32..label_len + 64]);
-    Ok(AllOfHashPair32 { sha3_512_32, blake3_32 })
+    Ok(AllOfHashPair32 {
+        sha3_512_32,
+        blake3_32,
+    })
 }
 
 #[cfg(test)]
@@ -301,17 +310,26 @@ mod tests {
 
     #[test]
     fn context_separation_changes_output() {
-        assert_ne!(dual_hash_32(CTX, SALT, DATA), dual_hash_32(b"other-ctx", SALT, DATA));
+        assert_ne!(
+            dual_hash_32(CTX, SALT, DATA),
+            dual_hash_32(b"other-ctx", SALT, DATA)
+        );
     }
 
     #[test]
     fn salt_separation_changes_output() {
-        assert_ne!(dual_hash_32(CTX, SALT, DATA), dual_hash_32(CTX, b"other-salt", DATA));
+        assert_ne!(
+            dual_hash_32(CTX, SALT, DATA),
+            dual_hash_32(CTX, b"other-salt", DATA)
+        );
     }
 
     #[test]
     fn data_separation_changes_output() {
-        assert_ne!(dual_hash_32(CTX, SALT, DATA), dual_hash_32(CTX, SALT, b"other-data"));
+        assert_ne!(
+            dual_hash_32(CTX, SALT, DATA),
+            dual_hash_32(CTX, SALT, b"other-data")
+        );
     }
 
     #[test]
@@ -380,14 +398,20 @@ mod tests {
     #[test]
     fn allof_pair_rejects_modified_sha3_root() {
         let pair = allof_hash_pair_32(CTX, SALT, DATA);
-        let bad = AllOfHashPair32 { sha3_512_32: [0u8; 32], blake3_32: pair.blake3_32 };
+        let bad = AllOfHashPair32 {
+            sha3_512_32: [0u8; 32],
+            blake3_32: pair.blake3_32,
+        };
         assert!(!verify_allof_hash_pair_32(&bad, CTX, SALT, DATA));
     }
 
     #[test]
     fn allof_pair_rejects_modified_blake3_root() {
         let pair = allof_hash_pair_32(CTX, SALT, DATA);
-        let bad = AllOfHashPair32 { sha3_512_32: pair.sha3_512_32, blake3_32: [0u8; 32] };
+        let bad = AllOfHashPair32 {
+            sha3_512_32: pair.sha3_512_32,
+            blake3_32: [0u8; 32],
+        };
         assert!(!verify_allof_hash_pair_32(&bad, CTX, SALT, DATA));
     }
 
@@ -425,7 +449,10 @@ mod tests {
     fn decode_rejects_bad_label() {
         let mut encoded = encode_allof_hash_pair_32(&allof_hash_pair_32(CTX, SALT, DATA));
         encoded[0] ^= 0xff;
-        assert_eq!(decode_allof_hash_pair_32(&encoded), Err(AllOfHashDecodeError::BadLabel));
+        assert_eq!(
+            decode_allof_hash_pair_32(&encoded),
+            Err(AllOfHashDecodeError::BadLabel)
+        );
     }
 
     #[test]

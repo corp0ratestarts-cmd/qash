@@ -101,7 +101,10 @@ fn erasure_workflow_e2e() {
     assert_eq!(evidence.event_root, key_commitment);
 
     // 6. Key must be consumed from the store.
-    assert!(store.is_empty(), "key must be removed from store after shred");
+    assert!(
+        store.is_empty(),
+        "key must be removed from store after shred"
+    );
 
     // 7. Confirm decryption is no longer possible: the commitment is not the key.
     let attempted = xor_decrypt(&ciphertext, &evidence.key_commitment);
@@ -135,7 +138,10 @@ fn erasure_workflow_replay_audit() {
         evidence_root_pair: ev1.evidence_root_pair,
     };
 
-    assert_eq!(ev1, ev_reconstructed, "replayed evidence must match original");
+    assert_eq!(
+        ev1, ev_reconstructed,
+        "replayed evidence must match original"
+    );
     assert_eq!(ev_reconstructed.key_commitment, expected_commitment);
 }
 

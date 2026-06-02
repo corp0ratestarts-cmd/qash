@@ -52,10 +52,7 @@ impl Tpm2AttestationGate {
 
 #[cfg(feature = "tpm2")]
 impl AttestationGate for Tpm2AttestationGate {
-    fn generate_quote(
-        &self,
-        _nonce: &[u8; 32],
-    ) -> Result<AttestationQuote, AttestationGateError> {
+    fn generate_quote(&self, _nonce: &[u8; 32]) -> Result<AttestationQuote, AttestationGateError> {
         Err(AttestationGateError::NotAvailable)
     }
 

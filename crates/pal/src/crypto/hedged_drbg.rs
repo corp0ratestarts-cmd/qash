@@ -87,7 +87,12 @@ impl QashHedgedDrbg {
         let mut pers = [0u8; 32];
         let n = personalization.len().min(32);
         pers[..n].copy_from_slice(&personalization[..n]);
-        Ok(Self { seed, personalization: pers, counter: 0, generate_count: 0 })
+        Ok(Self {
+            seed,
+            personalization: pers,
+            counter: 0,
+            generate_count: 0,
+        })
     }
 
     /// Fill `dest` with pseudo-random bytes.

@@ -2,7 +2,9 @@
 // cargo test -p qash-consensus --no-default-features -- --nocapture --ignored gen_coq_vectors
 use qash_consensus::fixed_point::FixedPoint;
 use qash_consensus::lyapunov::{ConvergenceWindow, ValidatorMetrics, WINDOW_SIZE};
-use qash_consensus::transaction::{TX0_WIRE_BYTES, TX1_WIRE_BYTES, TX_TYPE_NOOP, TX_TYPE_SCORE_DECREMENT, TX_VERSION};
+use qash_consensus::transaction::{
+    TX0_WIRE_BYTES, TX1_WIRE_BYTES, TX_TYPE_NOOP, TX_TYPE_SCORE_DECREMENT, TX_VERSION,
+};
 use qash_consensus::transition::{
     advance_epoch, EpochInput, EpochState, HaltReason, ValidatorUpdate, MAX_VALIDATORS,
 };
@@ -272,7 +274,7 @@ fn gen_coq_vectors_inner() {
     // Both states advance one idle epoch; the TX-0 state gets nonce incremented but same Lyapunov.
     {
         let n: u32 = 4;
-        let mut s_no_tx  = make_genesis_with_ids(n);
+        let mut s_no_tx = make_genesis_with_ids(n);
         let mut s_with_tx = make_genesis_with_ids(n);
 
         advance_epoch(&mut *s_no_tx, &idle(n), &[]).unwrap();
