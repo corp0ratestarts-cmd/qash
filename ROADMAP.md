@@ -4,14 +4,14 @@ This document captures the complete project direction from current state through
 verified execution substrate in maximum technical detail. It is the authoritative reference for any
 developer, auditor, or formal methods contributor picking up this codebase.
 
-**Last updated:** 2026-05-31
-**Current state:** Post-GRC, post-compliance-hardening, pre-genesis. PR #213 (QASH-CASCADE-7
-cascade hardening), PR #214 (GRC-7-7-v2 certificate generator), PR #215 (real preimage parity
-fixture), and PR #216 (Phases 0–14: genesis prerequisites, CI hardening, compliance hardening)
-are complete or in final CI review. The GRC is complete. Genesis remains provisional and
-non-authoritative. Do not create `v1.0-reference` or lock `GENESIS_CONSTANTS.toml` until
-traceability, normative PDF, ADR-003 finalization, and the final evidence bundle are reconciled
-(Phase 1-A through 1-F; Phase 1-D is the remaining human-review gate).
+**Last updated:** 2026-06-01
+**Current state:** Post-GRC, post-compliance-hardening, post-all-of cleanup (PR #225), genesis-candidate
+evidence waves in progress (PRs #226–#235). PDF traceability verified (Phase 1-D complete). Receipt
+encryption upgraded to ChaCha20-Poly1305 AEAD (XOR stub removed). Axioms classified, Coq↔Rust
+parity extended to 12 vectors (TV-0..TV-11). Domain B backend boundary documented and classified.
+WAL robustness fuzz target and integration tests added. Benchmark evidence suite complete.
+Genesis remains provisional and non-authoritative. Do not create `v1.0-reference` or lock
+`GENESIS_CONSTANTS.toml` until final evidence capture (PR #239) and owner sign-off (PR #240).
 
 **MVP claim boundary:** the offline incident-receipt commit demonstrator (Domain B
 local MVP) is governed by [`docs/mvp/claims_register.md`](docs/mvp/claims_register.md).
@@ -58,9 +58,9 @@ QASH has evolved from a deterministic consensus prototype into a **kernel-reduce
 | Transactions | TX-0 and TX-1 are the admitted production transaction surface | Do not add TX-2 until TH-3 closure and replay evidence are stable |
 | PAL | Hosted replay, commitment transport, attestation verifier interfaces, whole-protocol tests, and ZK proof-bundle boundary exist | Add real network/hardware backends and Plonky3 verifier behind Domain B interfaces only |
 | Verification | Coq extraction is checked; selected Kani harnesses verify TX-1 helper behavior locally | Add advisory Kani CI, then promote once repeatable |
-| Performance | PR #93 runtime review is scheduled as Phase 2-R | Add tx-heavy and commit-path benchmarks before any genesis-lock latency claim |
+| Performance | Criterion benchmark suite complete (Wave 5 PR #235): worst-case epoch, tx-heavy, state-root commitment, replay, hash, manifest overhead, state-copy | PR #236 reserved for conditional optimisations only if benchmarks reveal a bottleneck |
 | Documentation hygiene | Raw transcript and ad hoc root-spec rejection is automated | Keep canonical protocol material in `docs/spec`, `docs/adr`, traceability, tests, and proofs |
-| Genesis | `genesis_status = "provisional"`, `deployment_authoritative = false` | Keep unlocked until traceability, normative PDF, and release evidence are reconciled |
+| Genesis | `genesis_status = "provisional"`, `deployment_authoritative = false` | Keep unlocked until final evidence capture (PR #239) and owner sign-off (PR #240) |
 
 ---
 

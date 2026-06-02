@@ -37,9 +37,9 @@ For full context see `README.md`, `design_decisions.md`, and `docs/spec/00_execu
 | Consensus core correctness | **Strong** | `no_std`, `forbid(unsafe_code)`, determinism constraints fully enforced |
 | Formal proof coverage | **Strong, pre-genesis** | TH-3 local arithmetic plus executable-step closure, TX-0/TX-1 perturbation proofs, EFB determinism, refinement statement, and extraction surface are checked by `make -C proofs all`; see `proofs/STATUS.md` and `proofs/COVERAGE.md` |
 | Proof CI pipeline | **Automated for active Coq proofs** | `.github/workflows/ci.yml` installs Coq, rejects active `Admitted`/`admit` markers, checks new axioms against `proofs/COVERAGE.md`, compiles active `.v` files including `model/Extract.v`, records `.vo` SHA-256 hashes, and uploads version/hash artifacts |
-| Runtime / PAL implementation | **Integration scaffold** | PAL has hosted replay, WAL-style replay tests, whole-protocol harnesses, commitment transport, attestation verifier interfaces, and a ZK proof-bundle boundary; root-level Domain B stubs now include software acceleration, software-hash-Merkle attestation, and offline clone scaffolds. Production networking, hardware-backed attestation, Plonky3 verification, and crash-recovery hardening remain open. |
-| Fuzzing infrastructure | **Expanded** | honggfuzz harness covers encoding, decode, transition, fixed-point, lyapunov, cascade, and tx targets; fuzz-smoke CI gate runs all targets |
-| Performance benchmarks | **Scheduled** | PR #93 runtime review is recorded as Phase 2-R: single-pass tx admission, deterministic total-order sorting, streaming state-root hashing, `ProjectedView`, and tx-heavy Criterion gates before genesis-lock performance claims |
+| Runtime / PAL implementation | **Integration complete (v1.0 scope)** | Receipt encryption is ChaCha20-Poly1305 AEAD; XOR stub deleted. WAL crash-recovery robustness hardened with fuzz target + 5 integration tests. Domain B backend scope classified (v1_domain_b_backend_boundary.md, ADR-013). Production networking, hardware attestation (TPM/TDX/CCA/SEV-SNP), threshold signing, and Plonky3 are post-v1 and feature-gated. |
+| Fuzzing infrastructure | **Expanded (Wave 4 PR #233)** | honggfuzz harness covers encoding, decode, transition, fixed-point, lyapunov, cascade, tx, and WAL-decode targets; 5 replay-robustness integration tests; fuzz-smoke CI gate runs all targets |
+| Performance benchmarks | **Implemented (Wave 5 PR #235)** | Criterion suites in `crates/consensus/benches/epoch_transition.rs` and `crates/pal/benches/dual_hash.rs` cover: worst-case epoch transition (1024v, max divergence), tx-heavy advance (all-1024v TX batch forward+reverse), full-state encode/decode, N-epoch replay, hash cascade, tx admission latency, validator lookup, state-root commitment, and all-of manifest overhead. `max_validators_state_copy` benchmark added in PR #235. Archive results with `cargo bench -- --output-format bencher 2>&1 \| tee artifacts/benchmarks/$(date -u +%Y%m%dT%H%M%SZ).txt`. Phase 2-R optimisation is reserved (PR #236, conditional on bottleneck evidence). |
 | Reproducible builds | **Done** | `rust-toolchain.toml` pins 1.95.0; `docker/Dockerfile.build` pins full build+proof environment; `release-attestation.yml` CI job verifies byte-identical two-stage builds and records SHA-256 manifests under `artifacts/attestations/` with 365-day retention |
 | Adversarial simulation | **Done** | 23-test suite across 10 scenarios: halt-trigger boundary, liveness suppression, coordinated spike, nonce replay, max-field saturation, slash monotonicity, halt irreversibility, grace period |
 | Deep module audits | **Done** | `fixed_point.rs`, `encoding.rs`, `lyapunov.rs`, `hash.rs`, `transaction.rs` audited and hardened with boundary/adversarial tests (PRs #69, #71) |
@@ -48,17 +48,19 @@ For full context see `README.md`, `design_decisions.md`, and `docs/spec/00_execu
 
 ## Current Post-Merge State
 
-As of 2026-05-29:
+As of 2026-06-01 (genesis-candidate evidence waves):
 
-- `main` includes the pre-genesis evidence tooling update from PR #208.
-- `main` includes the Phase 2 Domain B stub slice from PR #210.
-- There are no open PRs.
-- The only open GitHub issue is #209: provide `spec/pdf/QASH_Spec_v1.0.pdf`
-  for genesis-lock reconciliation.
-- Local post-merge verification passed:
-  - `git diff --check`
-  - `cargo fmt --all -- --check`
-  - `cargo test --workspace`
+- `main` includes all-of cleanup from PR #225 (post-allof baseline).
+- Genesis-candidate evidence is being assembled in waves on PR #226:
+  - Wave 0: post_allof_baseline.md; PR #217 deferred
+  - Wave 1: PDF traceability verified (Phase 1-D complete)
+  - Wave 2: Axiom classification (v1_axiom_boundary.md); Coq↔Rust parity extended to 12 vectors (TV-0..TV-11); TLA+ advisory errata
+  - Wave 3: Receipt encryption upgraded to ChaCha20-Poly1305 AEAD (XOR removed); Domain B stub register and backend boundary classified
+  - Wave 4: WAL fuzz target (wal_decode.rs); replay robustness integration tests (5 tests); ADR-013 backend boundary; cross-ISA WAL CI steps
+  - Wave 5: Benchmark evidence suite complete; max_validators_state_copy bench added
+  - Wave 6 (in progress): Stale docs reconciliation, compliance pass
+- `cargo test --workspace --no-default-features` passes.
+- `cargo test --workspace --features std` passes.
 
 ---
 

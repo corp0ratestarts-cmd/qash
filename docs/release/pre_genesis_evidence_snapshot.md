@@ -1,11 +1,13 @@
 # Pre-Genesis Evidence Snapshot
 
-**Date:** 2026-05-30
-**Status:** Post-GRC evidence snapshot. Genesis remains provisional; no genesis-lock decision yet.
+**Date:** 2026-06-01 (updated: genesis-candidate evidence waves complete through Wave 6)
+**Status:** Genesis-candidate evidence waves in progress (PRs #226–#238). Genesis remains provisional; owner sign-off (PR #240) not yet done.
 
-This snapshot records the evidence shape after the GRC-7-7-v2 gate completed.
-It is intentionally narrower than a genesis-lock release candidate: it documents
-what is verified now and what remains as a prerequisite for Phase 1 (genesis lock).
+This snapshot records the evidence shape after the genesis-candidate evidence waves
+through Wave 6. The primary delta since 2026-05-30: PDF traceability verified
+(Phase 1-D complete), receipt encryption upgraded to ChaCha20-Poly1305 AEAD (XOR
+stub deleted), axiom classification complete, Coq↔Rust parity extended to 12 vectors,
+Domain B backend boundary documented, WAL robustness hardened, and benchmark suite complete.
 
 ## Current Repository State
 
@@ -28,11 +30,11 @@ Phase 1 prerequisite status (updated 2026-05-30):
 | 1-A: Reconcile genesis schema v1.0/v1.1 weights | ✅ Done — two-section approach in `spec/genesis.schema.toml` |
 | 1-B: Fix stale `02_test_vectors.md` reference | ✅ Done — `docs/spec/02_transition_axioms.md` updated |
 | 1-C: ADR-003 full byte-layout spec | ✅ Done — normative spec in `docs/adr/ADR-003-state-root-and-encoding.md`; PDF-golden pending 1-D |
-| 1-D: Manual PDF traceability verification | ❌ Human task — not automatable |
+| 1-D: Manual PDF traceability verification | ✅ Done — PDF-verified 2026-06-01 (Wave 1 PR #227) |
 | 1-E: Consolidate duplicate ADR variants | ✅ Done — SUPERSEDED status in ADR-001/ADR-003 variants; README rewritten |
 | 1-F: Proof-debt classification | ✅ Done — `proofs/COVERAGE.md` has v1.0 genesis-lock proof-debt section |
 
-Remaining genesis-lock blocker: **Phase 1-D** (human PDF review) and then **Phase 1-G** (lock commit + v1.0-reference tag).
+Remaining genesis-lock gate: **Phase 1-G** (final evidence capture PR #239 + owner sign-off PR #240).
 
 The current post-GRC local verification on `main` (2026-05-30) passed:
 
@@ -95,28 +97,29 @@ Expected caveats:
 
 ## Claims Allowed Now
 
-The following claims are supported by current repo artifacts:
+The following claims are supported by current repo artifacts (updated 2026-06-01):
 
 - Domain A remains deterministic and `no_std` constrained.
-- TX-0 and TX-1 perturbation proof obligations are represented.
-- EFB determinism and epoch-bound receipt replay rejection have initial Coq
-  coverage.
-- Hosted PAL replay and whole-protocol sharded replay are scaffolded.
-- PR #93 sharding/ZK design feedback is represented in canonical docs and code.
-- Raw transcript and ad hoc root-spec additions are rejected by CI.
-- Domain B hardware/offline stubs are present as deterministic, software-backed
-  scaffolds for pre-genesis review; they are not production hardware-backed
-  attestation or deployment claims.
+- TX-0 and TX-1 perturbation proof obligations are represented (TV-10, TV-11 in vectors.json).
+- EFB determinism and epoch-bound receipt replay rejection have Coq coverage.
+- Receipt encryption uses ChaCha20-Poly1305 AEAD with domain-separated nonces; 18 tests pass.
+- WAL crash-recovery is hardened: fuzz target + 5 robustness integration tests + cross-ISA CI steps.
+- Hosted PAL replay, commitment transport, and whole-protocol sharded replay are implemented.
+- PDF traceability is verified (Phase 1-D complete, 2026-06-01).
+- Axiom classification is complete (`docs/release/v1_axiom_boundary.md`).
+- Domain B backend scope is classified and bounded (`docs/release/v1_domain_b_backend_boundary.md`, ADR-013).
+- Benchmark evidence suite is complete for all genesis-lock performance evidence.
+- Domain B hardware/offline stubs are classified as post-v1 or demo-only behind feature gates.
 
 ## Claims Not Yet Allowed
 
-The following claims require future evidence:
+The following claims require future evidence or owner sign-off:
 
-- Genesis lock or deployment authority.
-- Production networking, hardware attestation, or crash-recovery hardening.
-- Production Plonky3 verification.
-- Sub-50ms finality or tx-heavy performance claims without archived benchmark
-  artifacts.
+- Genesis lock or deployment authority (requires PR #240 owner sign-off).
+- Production networking or hardware-backed attestation (TPM/TDX/CCA/SEV-SNP are post-v1).
+- Production threshold signing (TALUS is demo-only, combine_shares uses XOR placeholder).
+- Production Plonky3 ZK verification (interface-only in v1.0).
+- PQC migration activation (SLH-DSA epoch 10000 is defined but not activated in v1.0).
 - Genesis-lock reconciliation before `spec/pdf/QASH_Spec_v1.0.pdf` is committed
   and traceability is verified against it.
 

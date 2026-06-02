@@ -58,7 +58,7 @@ graph TD
 ## 🔐 Genesis Lock Status
 
 > [!NOTE]
-> **Provisional**: `QASH_Spec_v1.0.pdf` is committed to `spec/pdf/`. Requirement citations in [docs/traceability.md](docs/traceability.md) are provisional pending manual PDF verification (Phase 1-D). `genesis_status = "provisional"` and `deployment_authoritative = false` until all Phase 1 prerequisites are complete and the genesis hash is locked. See [spec/pdf/README.md](spec/pdf/README.md) for the lock procedure.
+> **Genesis-candidate (provisional)**: `QASH_Spec_v1.0.pdf` is committed to `spec/pdf/` and PDF traceability is verified (Phase 1-D complete, 2026-06-01). `genesis_status = "provisional"` and `deployment_authoritative = false` until the genesis hash is locked and owner sign-off is complete. See `spec/pdf/README.md` for the lock procedure and `docs/release/post_allof_baseline.md` for the current evidence baseline.
 
 ---
 
@@ -88,11 +88,11 @@ graph TD
   * [docs/audit/dependency_risk_register.md](docs/audit/dependency_risk_register.md) — Dependency risk triage register (required before genesis-lock).
 
 > [!NOTE]
-> **Runtime Status**: Integration scaffold. The hosted PAL replay, commitment transport, attestation interfaces, sharded replay, and ZK boundaries exist. Production networking, hardware attestation, and Plonky3 verifications are not yet deployed.
+> **Runtime Status**: Receipt encryption uses ChaCha20-Poly1305 AEAD (XOR stub removed in Wave 3). WAL crash-recovery robustness tests and a honggfuzz WAL-decode fuzz target (`fuzz/fuzz_targets/wal_decode.rs`) are in place. Domain B backend scope is classified in `docs/release/v1_domain_b_backend_boundary.md`. Production hardware attestation (TPM/TDX/CCA/SEV-SNP), threshold signing, and Plonky3 ZK verification are post-v1 and feature-gated; see ADR-013.
 >
-> **MVP Claim Boundary**: The offline incident-receipt commit demonstrator is a local Domain B MVP only. Allowed and blocked claims are governed by the [claims register](file:///home/debian/Downloads/QASH/qash/docs/mvp/claims_register.md). Refer to [incident_receipt_commit_demo.md](file:///home/debian/Downloads/QASH/qash/docs/mvp/incident_receipt_commit_demo.md) for more details.
+> **MVP Claim Boundary**: The offline incident-receipt commit demonstrator is a local Domain B MVP only. Threshold signing is demo-only behind `threshold-signing` feature gate. Allowed and blocked claims are governed by the [claims register](docs/mvp/claims_register.md).
 >
-> **Handoff evidence**: Current pre-genesis claims are tracked in [docs/release/pre_genesis_evidence_snapshot.md](file:///home/debian/Downloads/QASH/qash/docs/release/pre_genesis_evidence_snapshot.md).
+> **Handoff evidence**: Pre-genesis evidence is tracked in [docs/release/pre_genesis_evidence_snapshot.md](docs/release/pre_genesis_evidence_snapshot.md). Axiom classification is in [docs/release/v1_axiom_boundary.md](docs/release/v1_axiom_boundary.md).
 
 ---
 

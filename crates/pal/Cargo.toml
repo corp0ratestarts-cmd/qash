@@ -17,6 +17,7 @@ ml-kem = { version = "0.3", optional = true }
 sm3 = { version = "0.5", optional = true }
 getrandom = { version = "0.3", optional = true }
 typenum = "1.20.0"
+chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
 zeroize = { version = "1", features = ["derive"] }
 subtle   = { version = "2", default-features = false }
 static_assertions = "1"

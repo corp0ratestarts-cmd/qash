@@ -1,8 +1,8 @@
 {
   "generated_by": "crates/consensus/tests/gen_vectors.rs",
   "spec": "proofs/model/Model.v",
-  "coq_theorems": ["TH-3a","TH-3b","TH-6"],
-  "note": "Legacy full-state/root vectors computed from the Rust implementation and regression-tested by crates/consensus/tests/coq_vectors.rs. Checked Coq-origin artifacts for the current refinement surface live in encoding_vectors.json and transition_observations.json.",
+  "coq_theorems": ["TH-3a","TH-3b","TH-6","TX0_perturbation_zero","TX1_score_decrement_nonincreasing"],
+  "note": "Full-state/root vectors computed from the Rust implementation and regression-tested by crates/consensus/tests/coq_vectors.rs. TV-0..TV-9: core epoch/halt/encoding; TV-10: TX-0 NoOp perturbation-zero (AX2+TX0_perturbation_zero); TV-11: TX-1 score-decrement non-increasing (TX1_score_decrement_nonincreasing). Checked Coq-origin artifacts for the refinement surface also live in encoding_vectors.json and transition_observations.json.",
   "vectors": [
   {"id":"TV-0","desc":"genesis state, 0 epochs, all-zero root","vc":4,"steps":[],"expect":{"epoch":0,"halt":false,"halt_reason":0,"state_root":"0000000000000000000000000000000000000000000000000000000000000000"}},
   {"id":"TV-1","desc":"1 idle epoch","vc":4,"steps":[{"kind":"idle","update_count":4}],"expect":{"epoch":1,"halt":false,"halt_reason":0,"state_root":"5206dd7854901fa17203379be2e6a25329dcba9356ba6fd72dcab76a201c71a7"}},
@@ -13,6 +13,8 @@
   {"id":"TV-6","desc":"DecodeInvalid via wrong update_count","vc":4,"steps":[],"expect":{"epoch":0,"halt":true,"halt_reason":4,"state_root":"0000000000000000000000000000000000000000000000000000000000000000"}},
   {"id":"TV-7","desc":"DecodeInvalid via slash_accum decrease","vc":4,"steps":[],"expect":{"epoch":0,"halt":true,"halt_reason":4,"state_root":"0000000000000000000000000000000000000000000000000000000000000000"}},
   {"id":"TV-8","desc":"entropy seed evolves after 3 epochs","vc":4,"steps":[],"expect":{"epoch":3,"halt":false,"halt_reason":0,"state_root":"5648ddd6dfe9ac7a8f151f8f21b7cf0c6e61030546643b769504ff79fd9c722d","entropy_seed":"8163f14ed023e105563316ac3e52de63f80d3346adc78d9ea024774c45b8178f","seed_nonzero":true}},
-  {"id":"TV-9","desc":"single validator, 2 idle epochs","vc":1,"steps":[{"kind":"idle","update_count":1},{"kind":"idle","update_count":1}],"expect":{"epoch":2,"halt":false,"halt_reason":0,"state_root":"8365161e9074a3b4ad610cde2ba0b88da7455d3024c21745476e4017ad5e2fdb"}}
+  {"id":"TV-9","desc":"single validator, 2 idle epochs","vc":1,"steps":[{"kind":"idle","update_count":1},{"kind":"idle","update_count":1}],"expect":{"epoch":2,"halt":false,"halt_reason":0,"state_root":"8365161e9074a3b4ad610cde2ba0b88da7455d3024c21745476e4017ad5e2fdb"}},
+  {"id":"TV-10","desc":"TX-0 NoOp: epoch advances, nonce incremented, state_root deterministic","vc":4,"steps":[],"coq":"TX0_perturbation_zero","expect":{"epoch":1,"halt":false,"halt_reason":0,"state_root":"05296999703bd38c599789e689cb616af9401f42457bac8b985b970905aaf7cc","nonce0":1}},
+  {"id":"TV-11","desc":"TX-1 score decrement: D reduced 500k→300k, V_convergence non-increasing","vc":4,"steps":[],"coq":"TX1_score_decrement_nonincreasing","expect":{"epoch":1,"halt":false,"halt_reason":0,"state_root":"3000b4b1c197b605d42a8ae56d65acdf76c070072b121ded02addd787434c2e1"}}
   ]
 }

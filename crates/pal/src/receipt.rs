@@ -12,6 +12,10 @@
 //! permanently unreadable — satisfying GDPR Art. 17 Right to Erasure for
 //! epoch-scoped receipt access.
 
+use chacha20poly1305::{
+    aead::{Aead, KeyInit, Payload},
+    ChaCha20Poly1305,
+};
 use sha3::{Digest, Sha3_256};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -70,73 +74,139 @@ impl EpochKeyStore {
     }
 }
 
-// ── 4-C: Encrypted receipt body (stub encryption) ─────────────────────────────
+// ── 4-C: Encrypted receipt body (ChaCha20-Poly1305 AEAD) ──────────────────────
 
 /// An encrypted receipt body alongside its Domain A–visible commitment.
 ///
-/// The `ciphertext` is encrypted to the recipient's viewing key (derived from
-/// `epoch_seed`). The `commitment` is the SHA3-256 of the ciphertext and is the
-/// only value visible to Class I observers (via `receipt_root`).
+/// The `ciphertext` is encrypted with ChaCha20-Poly1305 keyed to `viewing_key`.
+/// The AEAD tag is appended to the ciphertext (last 16 bytes). Nonce and
+/// associated data are deterministically derived from public inputs only —
+/// no secret material appears in the nonce.
+///
+/// The `commitment` is SHA3-256(ciphertext || nonce || associated_data) and is
+/// the only value visible to Class I observers (via `receipt_root`).
 #[derive(Debug, Clone)]
 pub struct EncryptedReceiptBody {
-    /// Ciphertext: payload XOR-masked with viewing key (stub; production uses
-    /// ChaCha20-Poly1305 or ML-KEM-768 hybrid — see ROADMAP 4-C for full spec).
+    /// Ciphertext with AEAD tag appended (len = plaintext_len + 16).
     pub ciphertext: Vec<u8>,
     /// Epoch at which this receipt was created.
     pub epoch: u64,
-    /// SHA3-256(ciphertext) — the only public commitment.
+    /// 12-byte AEAD nonce, deterministically derived from public inputs.
+    pub nonce: [u8; 12],
+    /// SHA3-256(ciphertext || nonce || associated_data).
     pub commitment: [u8; 32],
 }
 
-/// Encrypt a receipt payload under `viewing_key` and produce an `EncryptedReceiptBody`.
+/// Encrypt a receipt payload under `viewing_key` using ChaCha20-Poly1305 AEAD.
 ///
-/// This is a stub implementation using XOR masking. Production MUST use
-/// ChaCha20-Poly1305 (with ML-KEM-768 KEM for key establishment) — the
-/// interface is intentionally typed to allow replacement without API changes.
+/// The nonce is derived deterministically from public inputs only:
+///   SHA3-256("qash-receipt-aead-nonce-v1" || receipt_id || epoch_le ||
+///            disclosure_domain_byte)[0..12]
+///
+/// Associated data (authenticated, not encrypted):
+///   "qash-receipt-aead-ad-v1" || receipt_id || epoch_le ||
+///   disclosure_domain_byte || ciphertext_len_le8
+///
+/// Nonce uniqueness is guaranteed when (receipt_id, epoch, disclosure_domain)
+/// is unique per plaintext, which the protocol enforces by construction.
+///
+/// Panics only if the underlying AEAD implementation is broken (never in
+/// normal operation with valid key material).
 pub fn encrypt_receipt_body(
     payload: &[u8],
+    receipt_id: &[u8; 32],
     epoch: u64,
+    disclosure_domain: DisclosureDomain,
     viewing_key: &ViewingKey,
 ) -> EncryptedReceiptBody {
-    // Stub: XOR each byte with the cycled viewing key bytes.
-    let key_bytes = &viewing_key.0;
-    let ciphertext: Vec<u8> = payload
-        .iter()
-        .enumerate()
-        .map(|(i, b)| b ^ key_bytes[i % 32])
-        .collect();
-    let commitment = sha3_256_bytes(&ciphertext);
+    let nonce_bytes = derive_receipt_nonce(receipt_id, epoch, disclosure_domain);
+    let ciphertext_len = (payload.len() + 16) as u64;
+    let ad = receipt_aead_associated_data(receipt_id, epoch, disclosure_domain, ciphertext_len);
+
+    let cipher = ChaCha20Poly1305::new_from_slice(&viewing_key.0)
+        .expect("viewing key is always 32 bytes");
+    let nonce = chacha20poly1305::Nonce::from_slice(&nonce_bytes);
+    let ciphertext = cipher
+        .encrypt(nonce, Payload { msg: payload, aad: &ad })
+        .expect("ChaCha20-Poly1305 encrypt must not fail with valid key");
+
+    let commitment = compute_receipt_commitment(&ciphertext, &nonce_bytes, &ad);
     EncryptedReceiptBody {
         ciphertext,
         epoch,
+        nonce: nonce_bytes,
         commitment,
     }
 }
 
 /// Decrypt an `EncryptedReceiptBody` under `viewing_key`.
 ///
-/// Returns `None` if the commitment does not match (ciphertext tampered).
+/// Returns `None` on any AEAD authentication failure (tampered ciphertext,
+/// wrong key, wrong receipt_id/epoch/disclosure_domain) or commitment mismatch.
 pub fn decrypt_receipt_body(
     body: &EncryptedReceiptBody,
+    receipt_id: &[u8; 32],
+    disclosure_domain: DisclosureDomain,
     viewing_key: &ViewingKey,
 ) -> Option<Vec<u8>> {
-    let computed_commitment = sha3_256_bytes(&body.ciphertext);
+    let ciphertext_len = body.ciphertext.len() as u64;
+    let ad = receipt_aead_associated_data(receipt_id, body.epoch, disclosure_domain, ciphertext_len);
+
+    let computed_commitment = compute_receipt_commitment(&body.ciphertext, &body.nonce, &ad);
     if computed_commitment != body.commitment {
         return None;
     }
-    let key_bytes = &viewing_key.0;
-    let plaintext: Vec<u8> = body
-        .ciphertext
-        .iter()
-        .enumerate()
-        .map(|(i, b)| b ^ key_bytes[i % 32])
-        .collect();
-    Some(plaintext)
+
+    let cipher = ChaCha20Poly1305::new_from_slice(&viewing_key.0).ok()?;
+    let nonce = chacha20poly1305::Nonce::from_slice(&body.nonce);
+    cipher
+        .decrypt(nonce, Payload { msg: &body.ciphertext, aad: &ad })
+        .ok()
 }
 
-fn sha3_256_bytes(data: &[u8]) -> [u8; 32] {
+fn derive_receipt_nonce(
+    receipt_id: &[u8; 32],
+    epoch: u64,
+    disclosure_domain: DisclosureDomain,
+) -> [u8; 12] {
     let mut h = Sha3_256::new();
-    h.update(data);
+    h.update(b"qash-receipt-aead-nonce-v1");
+    h.update(receipt_id);
+    h.update(epoch.to_le_bytes());
+    h.update([disclosure_domain_byte(disclosure_domain)]);
+    // Nonce is derived from SHA3-256 of public domain-separated inputs; not hard-coded.
+    let hash_bytes: [u8; 32] = h.finalize().into();
+    hash_bytes[..12].try_into().unwrap()
+}
+
+fn receipt_aead_associated_data(
+    receipt_id: &[u8; 32],
+    epoch: u64,
+    disclosure_domain: DisclosureDomain,
+    ciphertext_len: u64,
+) -> Vec<u8> {
+    let mut ad = Vec::with_capacity(24 + 32 + 8 + 1 + 8);
+    ad.extend_from_slice(b"qash-receipt-aead-ad-v1\0");
+    ad.extend_from_slice(receipt_id);
+    ad.extend_from_slice(&epoch.to_le_bytes());
+    ad.push(disclosure_domain_byte(disclosure_domain));
+    ad.extend_from_slice(&ciphertext_len.to_le_bytes());
+    ad
+}
+
+fn disclosure_domain_byte(domain: DisclosureDomain) -> u8 {
+    match domain {
+        DisclosureDomain::HolderOnly => 0x01,
+        DisclosureDomain::HolderAndAuditor => 0x02,
+        DisclosureDomain::LocalOperatorPolicy => 0x03,
+    }
+}
+
+fn compute_receipt_commitment(ciphertext: &[u8], nonce: &[u8; 12], ad: &[u8]) -> [u8; 32] {
+    let mut h = Sha3_256::new();
+    h.update(ciphertext);
+    h.update(nonce);
+    h.update(ad);
     h.finalize().into()
 }
 
@@ -359,10 +429,12 @@ mod tests {
         let mk = [0x42u8; 32];
         let seed = [0x99u8; 32];
         let key = derive_viewing_key(&mk, &seed, 5);
+        let receipt_id = [0xAAu8; 32];
         let payload = b"test receipt payload";
-        let encrypted = encrypt_receipt_body(payload, 5, &key);
-        assert_ne!(encrypted.ciphertext, payload.as_slice());
-        let decrypted = decrypt_receipt_body(&encrypted, &key).expect("decrypt ok");
+        let encrypted = encrypt_receipt_body(payload, &receipt_id, 5, DisclosureDomain::HolderOnly, &key);
+        assert_ne!(&encrypted.ciphertext[..payload.len()], payload.as_slice());
+        let decrypted = decrypt_receipt_body(&encrypted, &receipt_id, DisclosureDomain::HolderOnly, &key)
+            .expect("decrypt ok");
         assert_eq!(decrypted, payload);
     }
 
@@ -371,9 +443,71 @@ mod tests {
         let mk = [0x42u8; 32];
         let seed = [0x99u8; 32];
         let key = derive_viewing_key(&mk, &seed, 5);
-        let mut encrypted = encrypt_receipt_body(b"receipt data", 5, &key);
+        let receipt_id = [0xBBu8; 32];
+        let mut encrypted = encrypt_receipt_body(b"receipt data", &receipt_id, 5, DisclosureDomain::HolderOnly, &key);
         encrypted.ciphertext[0] ^= 0xFF;
-        assert!(decrypt_receipt_body(&encrypted, &key).is_none());
+        assert!(decrypt_receipt_body(&encrypted, &receipt_id, DisclosureDomain::HolderOnly, &key).is_none());
+    }
+
+    #[test]
+    fn receipt_decrypt_rejects_wrong_key() {
+        let mk1 = [0x42u8; 32];
+        let mk2 = [0x43u8; 32];
+        let seed = [0x99u8; 32];
+        let key1 = derive_viewing_key(&mk1, &seed, 5);
+        let key2 = derive_viewing_key(&mk2, &seed, 5);
+        let receipt_id = [0xCCu8; 32];
+        let encrypted = encrypt_receipt_body(b"secret payload", &receipt_id, 5, DisclosureDomain::HolderOnly, &key1);
+        assert!(decrypt_receipt_body(&encrypted, &receipt_id, DisclosureDomain::HolderOnly, &key2).is_none());
+    }
+
+    #[test]
+    fn receipt_nonce_changes_with_receipt_id() {
+        let receipt_a = [0x01u8; 32];
+        let receipt_b = [0x02u8; 32];
+        let nonce_a = derive_receipt_nonce(&receipt_a, 1, DisclosureDomain::HolderOnly);
+        let nonce_b = derive_receipt_nonce(&receipt_b, 1, DisclosureDomain::HolderOnly);
+        assert_ne!(nonce_a, nonce_b);
+    }
+
+    #[test]
+    fn receipt_nonce_changes_with_epoch() {
+        let receipt_id = [0x01u8; 32];
+        let nonce_e1 = derive_receipt_nonce(&receipt_id, 1, DisclosureDomain::HolderOnly);
+        let nonce_e2 = derive_receipt_nonce(&receipt_id, 2, DisclosureDomain::HolderOnly);
+        assert_ne!(nonce_e1, nonce_e2);
+    }
+
+    #[test]
+    fn receipt_nonce_changes_with_disclosure_domain() {
+        let receipt_id = [0x01u8; 32];
+        let nonce_h = derive_receipt_nonce(&receipt_id, 1, DisclosureDomain::HolderOnly);
+        let nonce_a = derive_receipt_nonce(&receipt_id, 1, DisclosureDomain::HolderAndAuditor);
+        let nonce_l = derive_receipt_nonce(&receipt_id, 1, DisclosureDomain::LocalOperatorPolicy);
+        assert_ne!(nonce_h, nonce_a);
+        assert_ne!(nonce_h, nonce_l);
+        assert_ne!(nonce_a, nonce_l);
+    }
+
+    #[test]
+    fn receipt_decrypt_rejects_wrong_disclosure_domain() {
+        let mk = [0x42u8; 32];
+        let seed = [0x99u8; 32];
+        let key = derive_viewing_key(&mk, &seed, 5);
+        let receipt_id = [0xDDu8; 32];
+        let encrypted = encrypt_receipt_body(b"private data", &receipt_id, 5, DisclosureDomain::HolderOnly, &key);
+        assert!(decrypt_receipt_body(&encrypted, &receipt_id, DisclosureDomain::HolderAndAuditor, &key).is_none());
+    }
+
+    #[test]
+    fn receipt_decrypt_rejects_wrong_receipt_id() {
+        let mk = [0x42u8; 32];
+        let seed = [0x99u8; 32];
+        let key = derive_viewing_key(&mk, &seed, 5);
+        let receipt_id_a = [0xEEu8; 32];
+        let receipt_id_b = [0xFFu8; 32];
+        let encrypted = encrypt_receipt_body(b"private data", &receipt_id_a, 5, DisclosureDomain::HolderOnly, &key);
+        assert!(decrypt_receipt_body(&encrypted, &receipt_id_b, DisclosureDomain::HolderOnly, &key).is_none());
     }
 
     fn test_hash(seed: u8) -> [u8; 32] {

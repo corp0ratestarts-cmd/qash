@@ -12,10 +12,14 @@
 # Changing this manifest changes the artifact set and therefore changes the
 # computed genesis hash.
 #
-# Pre-lock note: `spec/pdf/QASH_Spec_v1.0.pdf` is now committed (provisional).
-# All PDF quotes/page references remain provisional until manually verified
-# against the committed PDF. genesis_status remains "provisional" and
-# deployment_authoritative remains false until that verification is complete.
+# Pre-lock note: `spec/pdf/QASH_Spec_v1.0.pdf` is committed and PDF-verified
+# (Phase 1-D complete, 2026-06-01). All section/page citations in
+# docs/traceability.md have been reconciled against the committed PDF.
+# genesis_status remains "provisional" and deployment_authoritative remains false
+# until the genesis-candidate decision gate (PR #240) is complete.
+#
+# PDF SHA-256 (verified 2026-06-01):
+# 836985b4518df2af1a25e4fee9d7d1bb26ee9b1b2af96cf147fbd902f56a7722
 GENESIS_CONSTANTS.toml
 spec/genesis.schema.toml
 spec/pdf/README.md
