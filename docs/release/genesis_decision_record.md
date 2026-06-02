@@ -1,18 +1,16 @@
 # Genesis Decision Record
 
 **PR:** #240
-**Date:** pending owner decision
+**Date:** 2026-06-02
 **Branch:** `claude/genesis-decision-240`
 
 ## Owner Decision
 
-Choose exactly one outcome and record it below:
-
 - [ ] A. genesis-candidate
-- [ ] B. RC-only milestone
+- [x] B. RC-only milestone
 - [ ] C. defer
 
-**Chosen outcome:** _(fill in)_
+**Chosen outcome:** B — RC-only milestone
 
 ---
 
@@ -44,16 +42,20 @@ Changes made under Outcome A:
 
 No genesis constants changed.
 
-If Outcome B is chosen, record:
+Decision recorded:
 
 ```
 Owner selected RC-only milestone.
-Rationale: (fill in)
+Rationale: Evidence suite is complete and all CI gates are green. The owner
+elects to tag this point as a release candidate rather than advancing to
+genesis-candidate at this time. genesis_status stays provisional; a separate
+PR is required to advance to genesis-candidate.
 GENESIS_CONSTANTS.toml: unchanged (genesis_status = "provisional", deployment_authoritative = false)
 ```
 
 Changes made under Outcome B:
 - `docs/release/pre_genesis_evidence_snapshot.md`: RC-only decision noted with date
+- `docs/release/genesis_decision_record.md`: this file, decision recorded
 - No changes to `GENESIS_CONSTANTS.toml` or `spec/genesis-artifacts.txt`
 
 ---
