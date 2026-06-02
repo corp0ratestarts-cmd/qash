@@ -1,0 +1,66 @@
+name: Auto-merge
+
+on:
+  check_run:
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge PR if all checks pass
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Find open, non-draft PRs targeting main for this commit
+          PRS=$(gh pr list \
+            --repo "$REPO" \
+            --base main \
+            --state open \
+            --json number,isDraft,headRefOid \
+            --jq ".[] | select(.headRefOid == \"$HEAD_SHA\" and .isDraft == false) | .number")
+
+          if [ -z "$PRS" ]; then
+            echo "No open non-draft PRs for $HEAD_SHA — nothing to do."
+            exit 0
+          fi
+
+          for PR in $PRS; do
+            echo "Evaluating PR #$PR..."
+
+            PENDING=$(gh pr checks "$PR" \
+              --repo "$REPO" \
+              --json state,conclusion \
+              --jq '[.[] | select(.state != "COMPLETED")] | length')
+
+            FAILED=$(gh pr checks "$PR" \
+              --repo "$REPO" \
+              --json state,conclusion \
+              --jq '[.[] | select(.state == "COMPLETED" and
+                    (.conclusion == "FAILURE" or
+                     .conclusion == "CANCELLED" or
+                     .conclusion == "TIMED_OUT" or
+                     .conclusion == "ACTION_REQUIRED"))] | length')
+
+            echo "  pending=$PENDING failed=$FAILED"
+
+            if [ "$PENDING" = "0" ] && [ "$FAILED" = "0" ]; then
+              TITLE=$(gh pr view "$PR" --repo "$REPO" --json title --jq .title)
+              echo "All checks green — merging PR #$PR: $TITLE"
+              gh pr merge "$PR" \
+                --repo "$REPO" \
+                --squash \
+                --delete-branch \
+                --subject "$TITLE" \
+                && echo "Merged." \
+                || echo "Merge attempt failed (branch protection or approval gate may be active)."
+            else
+              echo "PR #$PR not ready ($PENDING pending, $FAILED failed) — skipping."
+            fi
+          done
