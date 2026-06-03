@@ -1,6 +1,6 @@
 # Pre-Genesis Evidence Snapshot
 
-**Date:** 2026-06-02 (updated: Outcome B RC-only milestone)
+**Date:** 2026-06-03 (updated: QASH-0 profile boundary complete; QASH-2 integration review slices pass)
 **Status:** **Outcome B — RC-only milestone** (PR #228). Owner reviewed the complete
 Waves 0–7 evidence suite and selected the RC-only path. `GENESIS_CONSTANTS.toml`
 remains `genesis_status = "provisional"`, `deployment_authoritative = false`.
@@ -42,6 +42,10 @@ Phase 1 prerequisite status (updated 2026-05-30):
 | 1-F: Proof-debt classification | ✅ Done — `proofs/COVERAGE.md` has v1.0 genesis-lock proof-debt section |
 
 Remaining genesis-lock gate: **Phase 1-G** (final evidence capture PR #239 + owner sign-off PR #240).
+
+**QASH-0 and QASH-2 gates (2026-06-03):**
+- QASH-0: Profile boundary enforcement complete — PR #237. `scripts/check_profile_boundary.sh` (5 blocking rules) wired into CI. Pure QASH implementation subtree removed from umbrella; pointer README in `pure-qash/README.md`.
+- QASH-2: All four integration review slices verified on current `main`. See `docs/release/current_integration_review_slices.md` for full slice map and evidence table.
 
 The current post-GRC local verification on `main` (2026-05-30) passed:
 
