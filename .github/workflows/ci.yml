@@ -72,6 +72,8 @@ jobs:
         run: bash scripts/check_document_hygiene.sh
       - name: Privacy admission checklist lint (P5/P7/P8)
         run: bash scripts/check_privacy_admission.sh
+      - name: Profile boundary enforcement (umbrella must not claim Pure QASH-only invariants)
+        run: bash scripts/check_profile_boundary.sh
 
   zero-persistence-boundary:
     runs-on: ubuntu-latest
