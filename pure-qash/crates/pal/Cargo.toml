@@ -1,0 +1,19 @@
+[package]
+name    = "qash-pal"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+default          = []
+zero-persistence = []
+pure-qash        = ["zero-persistence"]
+
+[dependencies]
+zeroize              = { version = "1", default-features = false, features = ["zeroize_derive"] }
+heapless             = { version = "0.8",  default-features = false }
+static_assertions    = "1"
+qash-consensus       = { path = "../consensus" }
+
+[dev-dependencies]
+# No external dev-deps — keep supply chain minimal.

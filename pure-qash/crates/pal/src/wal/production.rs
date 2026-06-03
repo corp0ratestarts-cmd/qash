@@ -4,8 +4,8 @@
 //! blind audit event IDs, validation failure class (no payload), shred commitment IDs.
 //!
 //! Forbidden fields (compile-time enforced via type system):
-//! raw_txs, payload bytes, peer_ip, socket_addr, receipt body, graph edge,
-//! transaction lists, routing metadata.
+//! transaction bytes, payload bytes, peer addresses, socket addresses, receipt body,
+//! graph edges, transaction lists, routing metadata.
 
 use qash_consensus::public::PublicTranscript;
 
@@ -41,7 +41,8 @@ impl WalRecord {
         state_root.copy_from_slice(&encoded[0..32]);
         receipt_root.copy_from_slice(&encoded[32..64]);
         efb_root.copy_from_slice(&encoded[64..96]);
-        let epoch = u64::from_le_bytes(
+        // encode_canonical uses to_be_bytes() for epoch; decode with from_be_bytes.
+        let epoch = u64::from_be_bytes(
             encoded[96..104].try_into().expect("PublicTranscript must encode epoch at bytes 96-104"),
         );
         let halt_flag = encoded[104] != 0;
@@ -90,15 +91,10 @@ pub enum WalError {
     Full,
 }
 
-// These types deliberately do not exist in this module:
-//
-//   RawTxWalRecord       — forbidden: contains transaction bytes
-//   PayloadWalRecord     — forbidden: contains payload bytes
-//   PeerIpWalRecord      — forbidden: contains peer IP
-//   ReceiptBodyWalRecord — forbidden: contains receipt plaintext
-//
-// If you need to log a transaction admission failure, use `failure_class: Some(code)`
-// in WalRecord. Do NOT include transaction bytes, peer addresses, or payload data.
+// These record types deliberately do not exist in this module.
+// Any type that would carry transaction bytes, payload bytes, peer addresses,
+// or receipt body is forbidden. Use `failure_class: Some(code)` in WalRecord
+// to log admission failures without including any graph material.
 
 #[cfg(test)]
 mod tests {

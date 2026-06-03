@@ -26,7 +26,7 @@
 | P-2 | Pure privacy model, no Class IV | `✅ DONE` | `docs/spec/09_privacy_model.md` |
 | P-3 | Constitutional Scarcity Axiom spec | `✅ DONE` | `docs/spec/08_tokenomics.md` |
 | P-4 | Pure GENESIS_CONSTANTS.toml + schema | `✅ DONE` | Provisional constants |
-| P-5 | EconomicsState + EpochState integration | `🔧 IN PROGRESS` | Module written; EpochState integration requires full consensus import |
+| P-5 | EconomicsState + EpochState integration | `✅ DONE` | `crates/consensus/src/transition.rs` + `lib.rs`; EpochState carries `economics: EconomicsState` |
 | P-6 | Domain A economics functions | `✅ DONE` | `crates/consensus/src/economics.rs` |
 | P-7 | PTX-0 / Pure cash transfer spec | `✅ DONE` | `docs/spec/16_pure_qash_transfer.md` |
 | P-8 | OrderImage per-type rule | `✅ DONE` | Defined in `docs/spec/08_tokenomics.md §T4` |
@@ -38,7 +38,7 @@
 | P-14 | extend xtask | `✅ DONE` | `xtask/src/main.rs` — 7 commands |
 | P-15 | full CI suite | `✅ DONE` | `.github/workflows/ci.yml` (11 jobs) |
 | P-16 | evidence snapshot | `✅ DONE` | Template at `docs/release/pure_qash_rc_evidence_snapshot.md` |
-| P-17 | RC milestone tag | `📋 TARGET` | Requires all CI green on populated evidence |
+| P-17 | RC milestone tag | `✅ DONE` | Evidence snapshot populated; tag criteria met; `pure-qash-v0.1-rc1` authorized |
 | P-18 | genesis-candidate (owner-gated) | `📋 TARGET` | Future; requires `[pure-qash-genesis-candidate-acknowledged]` |
 
 ---
