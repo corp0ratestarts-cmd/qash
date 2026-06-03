@@ -28,6 +28,9 @@ Every ADR or IC must reference either a verbatim PDF quote or explicitly state
 | `ADR-010-zero-persistence-domain-b.md` | Proposed | Zero-persistence Domain B admission rule; all sensitive material zeroized before halt. | — |
 | `ADR-011-trustless-genesis-local-opsec.md` | Proposed | Trustless genesis and vendor-agnostic local hardware OpSec model. | — |
 | `ADR-012-streaming-state-root-encoding.md` | Accepted | Streaming canonical state encoding removes intermediate heap allocation; byte-identical to batch path. | P0-2 |
+| `ADR-013_v1_backend_boundary.md` | Accepted | v1 backend boundary protocol for Domain B / PAL interop. | — |
+| `ADR-014-language-boundary-policy.md` | Accepted | Language boundary policy for PAL/consensus interop. | — |
+| `ADR-015-pure-qash-repository-split.md` | Accepted | Pure QASH developed as a separate repo; umbrella retains regulated/compliance/sovereign profiles. | — |
 | `0001-domain-isolation.md` | Accepted | Domain A / Domain B isolation is protocol law; cross-domain value flow is a protocol violation. | — |
 | `0002-transition-safe-fixed-point.md` | Accepted | All fixed-point arithmetic in Domain A uses checked operations; overflow → absorbing halt. | — |
 | `IC-001-no-heap-cascade.md` | Proposed | Cascade verification must not allocate on the heap; stack-resident buffers only. | — |
