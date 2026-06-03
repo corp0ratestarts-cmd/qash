@@ -30,13 +30,20 @@ impl WalRecord {
         let encoded = t.encode_canonical();
         // PublicTranscript canonical encoding: state_root(32) + receipt_root(32) + efb_root(8+32)
         // + epoch(8) + halt_flag(1) = 105 bytes total. Extract fields by position.
+        assert!(
+            encoded.len() >= 105,
+            "PublicTranscript encoding too short: expected >=105 bytes, got {}",
+            encoded.len()
+        );
         let mut state_root   = [0u8; 32];
         let mut receipt_root = [0u8; 32];
         let mut efb_root     = [0u8; 32];
         state_root.copy_from_slice(&encoded[0..32]);
         receipt_root.copy_from_slice(&encoded[32..64]);
         efb_root.copy_from_slice(&encoded[64..96]);
-        let epoch = u64::from_le_bytes(encoded[96..104].try_into().unwrap_or([0u8; 8]));
+        let epoch = u64::from_le_bytes(
+            encoded[96..104].try_into().expect("PublicTranscript must encode epoch at bytes 96-104"),
+        );
         let halt_flag = encoded[104] != 0;
 
         Self {

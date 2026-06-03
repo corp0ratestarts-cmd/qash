@@ -162,7 +162,10 @@ pub fn verify_conservation(e: &EconomicsState) -> Result<(), HaltReason> {
     if e.total_supply == expected {
         Ok(())
     } else {
-        Err(HaltReason::ArithOverflow)
+        // Invariant violated: supply accounting is inconsistent.
+        // LyapunovViolation is the correct halt code for state invariant failure,
+        // distinct from ArithOverflow (which signals arithmetic overflow, not inconsistency).
+        Err(HaltReason::LyapunovViolation)
     }
 }
 
@@ -286,7 +289,7 @@ mod tests {
             burned_fees_total: 60,
             burned_slashes_total: 40,
         };
-        assert_eq!(verify_conservation(&e), Err(HaltReason::ArithOverflow));
+        assert_eq!(verify_conservation(&e), Err(HaltReason::LyapunovViolation));
     }
 
     #[test]

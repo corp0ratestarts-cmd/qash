@@ -33,8 +33,14 @@ impl EphemeralEnvelope {
     /// Consume the envelope and return the raw bytes for processing.
     /// After this call the envelope is dropped and its backing memory is zeroized.
     pub fn consume(mut self) -> impl AsRef<[u8]> + Drop {
-        // Return a newtype that zeroizes on drop, not a plain Vec.
-        OwnedZeroBytes(core::mem::take(&mut self.inner))
+        // Use replace+forget to guarantee zeroization even if a panic occurs between
+        // extracting inner and the caller's drop. mem::take would leave self.inner
+        // pointing at an empty slice while the original bytes are still live;
+        // mem::forget(self) prevents the Drop impl from running on the now-empty shell,
+        // and OwnedZeroBytes zeroizes the actual bytes when the caller drops it.
+        let inner = core::mem::replace(&mut self.inner, Box::new([]));
+        core::mem::forget(self);
+        OwnedZeroBytes(inner)
     }
 
     /// Length of the envelope in bytes.
