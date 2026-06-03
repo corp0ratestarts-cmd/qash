@@ -1,0 +1,14 @@
+[package]
+name    = "qash-consensus"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+default = []
+std     = []
+
+[dependencies]
+
+[dev-dependencies]
+# No external dev-deps — keep supply chain minimal.

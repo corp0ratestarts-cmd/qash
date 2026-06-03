@@ -41,7 +41,8 @@ impl WalRecord {
         state_root.copy_from_slice(&encoded[0..32]);
         receipt_root.copy_from_slice(&encoded[32..64]);
         efb_root.copy_from_slice(&encoded[64..96]);
-        let epoch = u64::from_le_bytes(
+        // encode_canonical uses to_be_bytes() for epoch; decode with from_be_bytes.
+        let epoch = u64::from_be_bytes(
             encoded[96..104].try_into().expect("PublicTranscript must encode epoch at bytes 96-104"),
         );
         let halt_flag = encoded[104] != 0;

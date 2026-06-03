@@ -134,9 +134,9 @@ fn cmd_verify_genesis() -> Result<(), String> {
         "validator_fee_revenue_enabled",
         "monetary_governance_enabled",
     ];
-    let missing: Vec<_> = required.iter().filter(|f| !content.contains(**f)).collect();
+    let missing: Vec<&str> = required.iter().filter(|f| !content.contains(**f)).map(|s| *s).collect();
     if !missing.is_empty() {
-        return Err(format!("Missing required fields: {}", missing.iter().map(|s| *s).collect::<Vec<_>>().join(", ")));
+        return Err(format!("Missing required fields: {}", missing.join(", ")));
     }
 
     // No floating-point values
@@ -180,7 +180,7 @@ fn cmd_check_absence() -> Result<(), String> {
         if !status.success() {
             return Err("Absence guard check failed — see script output above".to_string());
         }
-        println!("{\"absence_guard\": \"pass\", \"method\": \"script\"}");
+        println!("{{\"absence_guard\": \"pass\", \"method\": \"script\"}}");
         return Ok(());
     }
 
@@ -211,7 +211,7 @@ fn cmd_check_absence() -> Result<(), String> {
         for f in &failures { eprintln!("FAIL: {f}"); }
         return Err("Absence guard check failed".to_string());
     }
-    println!("{\"absence_guard\": \"pass\", \"method\": \"inline\"}");
+    println!("{{\"absence_guard\": \"pass\", \"method\": \"inline\"}}");
     Ok(())
 }
 
@@ -298,7 +298,7 @@ fn cmd_check_zero_persistence() -> Result<(), String> {
     let pal_src = root.join("crates/pal/src");
     if !pal_src.exists() {
         // Scaffold: PAL source not present yet — report as informational
-        println!("{\"zero_persistence\": \"scaffold-only\", \"result\": \"pass\"}");
+        println!("{{\"zero_persistence\": \"scaffold-only\", \"result\": \"pass\"}}");
         return Ok(());
     }
 

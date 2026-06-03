@@ -26,7 +26,7 @@
 | P-2 | Pure privacy model, no Class IV | `✅ DONE` | `docs/spec/09_privacy_model.md` |
 | P-3 | Constitutional Scarcity Axiom spec | `✅ DONE` | `docs/spec/08_tokenomics.md` |
 | P-4 | Pure GENESIS_CONSTANTS.toml + schema | `✅ DONE` | Provisional constants |
-| P-5 | EconomicsState + EpochState integration | `🔧 IN PROGRESS` | Module written; EpochState integration requires full consensus import |
+| P-5 | EconomicsState + EpochState integration | `✅ DONE` | `crates/consensus/src/transition.rs` + `lib.rs`; EpochState carries `economics: EconomicsState` |
 | P-6 | Domain A economics functions | `✅ DONE` | `crates/consensus/src/economics.rs` |
 | P-7 | PTX-0 / Pure cash transfer spec | `✅ DONE` | `docs/spec/16_pure_qash_transfer.md` |
 | P-8 | OrderImage per-type rule | `✅ DONE` | Defined in `docs/spec/08_tokenomics.md §T4` |
