@@ -62,6 +62,23 @@ fn workspace_root() -> PathBuf {
     .to_path_buf()
 }
 
+/// Check whether a TOML file has `key = value` (ignoring surrounding whitespace).
+/// Handles both boolean (`= false`) and quoted string (`= "total"`) values.
+fn toml_has_kv(content: &str, key: &str, value: &str) -> bool {
+    for line in content.lines() {
+        let t = line.trim();
+        if t.starts_with('#') || t.is_empty() { continue; }
+        if let Some(eq) = t.find('=') {
+            let k = t[..eq].trim();
+            let v = t[eq + 1..].trim().trim_matches('"');
+            if k == key && v == value {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 /// SHA-256 a file via the system `sha256sum` (standard on Linux CI).
 fn sha256_file(path: &Path) -> Result<String, String> {
     let out = Command::new("sha256sum")
@@ -144,9 +161,13 @@ fn cmd_verify_genesis() -> Result<(), String> {
         let line = line.trim();
         if line.starts_with('#') || line.is_empty() { continue; }
         if let Some(pos) = line.find('=') {
-            let val = line[pos + 1..].trim().trim_matches('"');
-            if val.contains('.') && val.chars().next().map_or(false, |c| c.is_ascii_digit()) {
-                return Err(format!("Float value in GENESIS_CONSTANTS.toml: {line}"));
+            let raw_val = line[pos + 1..].trim();
+            // Skip quoted strings — version strings like "0.1.0" are not floats.
+            if !raw_val.starts_with('"') && !raw_val.starts_with('[') {
+                let val = raw_val.trim_matches('"');
+                if val.contains('.') && val.chars().next().map_or(false, |c| c.is_ascii_digit()) {
+                    return Err(format!("Float value in GENESIS_CONSTANTS.toml: {line}"));
+                }
             }
         }
     }
@@ -351,7 +372,7 @@ fn cmd_check_tokenomics() -> Result<(), String> {
     let path = root.join("GENESIS_CONSTANTS.toml");
     let content = fs::read_to_string(&path).map_err(|e| format!("read GENESIS_CONSTANTS.toml: {e}"))?;
 
-    // Boolean flags that must be false
+    // Boolean flags that must be false (use whitespace-tolerant TOML lookup)
     let must_be_false = [
         "priority_fees_enabled",
         "fee_overpayment_allowed",
@@ -363,21 +384,21 @@ fn cmd_check_tokenomics() -> Result<(), String> {
     ];
     let mut violations: Vec<String> = Vec::new();
     for flag in &must_be_false {
-        if content.contains(flag) && !content.contains(&format!("{flag} = false")) {
+        if content.contains(flag) && !toml_has_kv(&content, flag, "false") {
             violations.push(format!("{flag} must be false"));
         }
     }
 
     // Burn policies must be "total"
-    if content.contains("fee_burn_policy") && !content.contains("fee_burn_policy = \"total\"") {
+    if content.contains("fee_burn_policy") && !toml_has_kv(&content, "fee_burn_policy", "total") {
         violations.push("fee_burn_policy must be \"total\"".to_string());
     }
-    if content.contains("slash_burn_policy") && !content.contains("slash_burn_policy = \"total\"") {
+    if content.contains("slash_burn_policy") && !toml_has_kv(&content, "slash_burn_policy", "total") {
         violations.push("slash_burn_policy must be \"total\"".to_string());
     }
 
     // Monetary policy string
-    if !content.contains("monetary_policy = \"qash-constitutional-scarcity-v1\"") {
+    if !toml_has_kv(&content, "monetary_policy", "qash-constitutional-scarcity-v1") {
         violations.push("monetary_policy must be \"qash-constitutional-scarcity-v1\"".to_string());
     }
 

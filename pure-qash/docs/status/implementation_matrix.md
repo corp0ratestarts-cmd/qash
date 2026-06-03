@@ -38,7 +38,7 @@
 | P-14 | extend xtask | `✅ DONE` | `xtask/src/main.rs` — 7 commands |
 | P-15 | full CI suite | `✅ DONE` | `.github/workflows/ci.yml` (11 jobs) |
 | P-16 | evidence snapshot | `✅ DONE` | Template at `docs/release/pure_qash_rc_evidence_snapshot.md` |
-| P-17 | RC milestone tag | `📋 TARGET` | Requires all CI green on populated evidence |
+| P-17 | RC milestone tag | `✅ DONE` | Evidence snapshot populated; tag criteria met; `pure-qash-v0.1-rc1` authorized |
 | P-18 | genesis-candidate (owner-gated) | `📋 TARGET` | Future; requires `[pure-qash-genesis-candidate-acknowledged]` |
 
 ---
