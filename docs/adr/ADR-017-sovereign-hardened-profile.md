@@ -28,8 +28,8 @@ The Sovereign Hardened Profile uses the identical observer class structure as Pu
 Class I (public), Class II (validator), Class III (receipt holder). No Class IV observer,
 no genesis-authorised disclosure key, no lawful-basis flows.
 
-The profile distinction is exclusively in **Domain B** (hardware boundary), never in Domain A
-(consensus core). Domain A is profile-unaware.
+The profile distinction is exclusively in **Domain B** — the hardware admission boundary.
+Domain A (consensus core) is profile-unaware by construction.
 
 ### D2 — Hardware admission boundary (post-v1)
 
@@ -53,7 +53,7 @@ Sovereign Hardened adds hardware assurance evidence on top of the Pure QASH Core
 zero-persistence requirement:
 
 - Platform measurements attesting that the Domain B WAL redaction policies are enforced
-  at hardware level (not just software-asserted)
+  at the hardware level (not just software-asserted)
 - TEE-sealed validator key material (not available without TEE attestation)
 - IOMMU-enforced memory isolation between Domain A and Domain B processes
 
@@ -89,8 +89,8 @@ requiring the `[genesis-change-acknowledged]` PR protocol.
 
 ### D6 — Compliance evidence boundary
 
-Sovereign Hardened certification evidence may include hardware attestation reports
-(platform PCR measurements, TEE quotes) proving the hardware boundary is enforced.
+Sovereign Hardened certification evidence may include attestation reports
+(platform PCR measurements, TEE quotes) proving the boundary is enforced.
 These are control-level evidence (they prove implementation behavior) and are permitted
 in the Sovereign Hardened evidence bundle.
 
@@ -117,8 +117,8 @@ The zero-persistence claim is identical to Pure QASH Core.
 
 **Positive:**
 - Pure QASH Core and Regulated Profile are unaffected — no code change in this ADR.
-- The hardware attestation stubs in `crates/pal/src/hardware/` already provide the
-  correct interface boundary for future SOV implementation.
+- The attestation stubs in `crates/pal/src/hardware/` already provide the
+  correct interface boundary for future SOV-2..5 implementations.
 - Profile taxonomy is complete with all three profiles documented.
 
 **Negative:**
@@ -141,7 +141,7 @@ It does not change observer classes or consensus behavior. A feature flag would 
 misleading signals about what is or is not enforced at compile time.
 
 **Alternative B: Fold Sovereign Hardened into Pure QASH Core**  
-Rejected: Hardware attestation requirements are deployment-specific. Mandating them
-in Pure QASH Core would prevent deployments on platforms without hardware TEE support,
+Rejected: Attestation requirements are deployment-specific. Mandating them
+in Pure QASH Core would prevent deployments on platforms without TEE support,
 which would conflict with the authorized platform list in `GENESIS_CONSTANTS.toml`
 (which includes platforms without TEE requirements).

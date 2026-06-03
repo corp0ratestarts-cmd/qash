@@ -31,6 +31,9 @@ paths = [
   '''artifacts/build/build-manifest\.md''',
   # Test vectors hash registry — SHA-256 digests of test vector files.
   '''tests/vectors/vector-hashes\.txt''',
+  # Pre-genesis evidence snapshot — documentation-only prose describing protocol
+  # features (e.g. 'disclosure key', 'epoch-scoped') with no real key material.
+  '''docs/release/pre_genesis_evidence_snapshot\.md''',
 ]
 regexes = [
   # genesis_hash field — QASH-CASCADE-7 or SHA3-256 prefixed public hash
