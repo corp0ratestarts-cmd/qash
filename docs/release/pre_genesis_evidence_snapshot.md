@@ -1,6 +1,6 @@
 # Pre-Genesis Evidence Snapshot
 
-**Date:** 2026-06-02 (updated: Outcome B RC-only milestone)
+**Date:** 2026-06-03 (updated: QASH-3 Regulated Profile + QASH-4 Sovereign Hardened Profile stubs)
 **Status:** **Outcome B — RC-only milestone** (PR #228). Owner reviewed the complete
 Waves 0–7 evidence suite and selected the RC-only path. `GENESIS_CONSTANTS.toml`
 remains `genesis_status = "provisional"`, `deployment_authoritative = false`.
@@ -41,7 +41,7 @@ Phase 1 prerequisite status (updated 2026-05-30):
 | 1-E: Consolidate duplicate ADR variants | ✅ Done — SUPERSEDED status in ADR-001/ADR-003 variants; README rewritten |
 | 1-F: Proof-debt classification | ✅ Done — `proofs/COVERAGE.md` has v1.0 genesis-lock proof-debt section |
 
-Remaining genesis-lock gate: **Phase 1-G** (final evidence capture PR #239 + owner sign-off PR #240).
+Remaining genesis-lock gate: **Phase 1-G** (final evidence capture + owner sign-off PR with `[genesis-change-acknowledged]`).
 
 The current post-GRC local verification on `main` (2026-05-30) passed:
 
@@ -104,7 +104,7 @@ Expected caveats:
 
 ## Claims Allowed Now
 
-The following claims are supported by current repo artifacts (updated 2026-06-01):
+The following claims are supported by current repo artifacts (updated 2026-06-03):
 
 - Domain A remains deterministic and `no_std` constrained.
 - TX-0 and TX-1 perturbation proof obligations are represented (TV-10, TV-11 in vectors.json).
@@ -117,12 +117,18 @@ The following claims are supported by current repo artifacts (updated 2026-06-01
 - Domain B backend scope is classified and bounded (`docs/release/v1_domain_b_backend_boundary.md`, ADR-013).
 - Benchmark evidence suite is complete for all genesis-lock performance evidence.
 - Domain B hardware/offline stubs are classified as post-v1 or demo-only behind feature gates.
+- Regulated Profile scaffolding is complete (QASH-3, PR #239): Class IV observer, disclosure key,
+  ChaCha20-Poly1305 AEAD receipt encrypt/decrypt, lawful-basis gate, epoch-scoped non-retroactive
+  access, 25 regulated tests pass, feature-isolated behind `regulated` Cargo flag (ADR-016).
+- Sovereign Hardened Profile design is documented (QASH-4, ADR-017): post-v1 research track;
+  hardware attestation stubs in `crates/pal/src/hardware/` serve as SOV-2..7 scaffolding hooks;
+  no implementation in v1.0.
 
 ## Claims Not Yet Allowed
 
 The following claims require future evidence or owner sign-off:
 
-- Genesis lock or deployment authority (requires PR #240 owner sign-off).
+- Genesis lock or deployment authority (requires PR with `[genesis-change-acknowledged]` owner sign-off).
 - Production networking or hardware-backed attestation (TPM/TDX/CCA/SEV-SNP are post-v1).
 - Production threshold signing (TALUS is demo-only, combine_shares uses XOR placeholder).
 - Production Plonky3 ZK verification (interface-only in v1.0).
