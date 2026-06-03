@@ -1,0 +1,151 @@
+name: Pure QASH CI
+
+on:
+  push:
+    branches: [main, "claude/**", "feat/**", "fix/**"]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  build:
+    name: build-x86_64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.81.0
+      - run: cargo build --workspace --no-default-features
+      - run: cargo build --workspace --features pure-qash
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.81.0
+      - run: cargo test --workspace --no-default-features
+      - run: cargo test -p qash-pal --features pure-qash
+
+  clippy:
+    name: clippy-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.81.0
+        with:
+          components: clippy
+      - run: cargo clippy --workspace --no-default-features -- -D warnings
+      - run: cargo clippy -p qash-pal --features pure-qash -- -D warnings
+
+  absence-guard:
+    name: absence-guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Pure QASH absence guards
+        run: |
+          chmod +x scripts/check_pure_absence_guards.sh
+          ./scripts/check_pure_absence_guards.sh
+
+  zero-persistence-gates:
+    name: zero-persistence-gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.81.0
+      - run: cargo test -p qash-pal --features pure-qash -- admission
+      - run: cargo test -p qash-pal --features pure-qash -- wal
+      - run: cargo test -p qash-pal --features pure-qash -- ephemeral
+
+  economics-tests:
+    name: economics-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.81.0
+      - run: cargo test -p qash-consensus --no-default-features -- economics
+
+  privacy-tests:
+    name: privacy-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.81.0
+      - run: cargo test -p qash-consensus --no-default-features -- public
+      - run: cargo test -p qash-pal --features pure-qash -- privacy
+
+  supply-chain:
+    name: supply-chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.81.0
+      - run: cargo install cargo-deny --locked 2>/dev/null || true
+      - run: cargo deny check
+
+  cross-isa-determinism:
+    name: cross-isa-determinism
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.81.0
+        with:
+          targets: aarch64-unknown-linux-gnu,riscv64gc-unknown-linux-gnu
+      - run: sudo apt-get install -y gcc-aarch64-linux-gnu gcc-riscv64-linux-gnu
+      - run: cargo build -p qash-consensus --no-default-features --target aarch64-unknown-linux-gnu --release
+      - run: cargo build -p qash-consensus --no-default-features --target riscv64gc-unknown-linux-gnu --release
+
+  genesis-guard:
+    name: genesis-guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block genesis changes without acknowledgement
+        run: |
+          # Check if GENESIS_CONSTANTS.toml was modified in this PR
+          if git diff --name-only origin/main...HEAD 2>/dev/null | grep -q "GENESIS_CONSTANTS.toml"; then
+            # Require acknowledgement token in PR body (checked via commit message)
+            if ! git log --format="%B" origin/main..HEAD | grep -q "\[pure-qash-genesis-change-acknowledged\]"; then
+              echo "ERROR: GENESIS_CONSTANTS.toml changed without [pure-qash-genesis-change-acknowledged] in commit message"
+              exit 1
+            fi
+          fi
+          echo "Genesis guard: OK"
+
+  claim-boundary:
+    name: claim-boundary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify claim boundary compliance
+        run: |
+          FAIL=0
+          # README must not claim external certification
+          if grep -r "certified by\|externally certified\|standards body certified" README.md 2>/dev/null; then
+            echo "FAIL: README claims external certification"
+            FAIL=1
+          fi
+          # Must not claim total metadata immunity
+          if grep -r "immune to all metadata\|all metadata attacks\|all MEV everywhere" . --include="*.md" 2>/dev/null; then
+            echo "FAIL: Overclaim detected (metadata/MEV)"
+            FAIL=1
+          fi
+          # Must not claim transport anonymity without qualifier
+          if grep -r "transport.layer anonymity" . --include="*.md" 2>/dev/null | grep -v "unless\|Optional\|separate\|not claim"; then
+            echo "FAIL: Unqualified transport anonymity claim"
+            FAIL=1
+          fi
+          if [ $FAIL -eq 0 ]; then echo "Claim boundary: OK"; fi
+          exit $FAIL
+
+  automerge:
+    name: Auto-merge
+    needs: [build, test, clippy, absence-guard, zero-persistence-gates, economics-tests, privacy-tests, supply-chain, genesis-guard, claim-boundary]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: All checks passed
+        run: echo "All required checks passed — auto-merge eligible"
