@@ -42,7 +42,7 @@ Every ADR or IC must reference either a verbatim PDF quote or explicitly state
 ## Superseded Variants (history only)
 
 | File | Superseded by |
-|------|--------------|
+|------|----------------|
 | `ADR-001-phi-safety-and-threshold.md` | `ADR-001-phi-safety-accumulator.md` |
 | `ADR-003-state-root-encoding.md` | `ADR-003-state-root-and-encoding.md` |
 | `ADR-004-halt-layering-domain-a-vs-pal.md` | `ADR-004-absorbing-halt-layering.md` |
