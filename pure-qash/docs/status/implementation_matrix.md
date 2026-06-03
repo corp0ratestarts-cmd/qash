@@ -9,7 +9,7 @@
 ## Status taxonomy
 
 | Label | Meaning |
-|-------|---------|
+|-------|-------|
 | `✅ DONE` | Implemented, tested, in CI |
 | `🔧 IN PROGRESS` | Work started, not yet merged |
 | `📋 TARGET` | Planned, not yet started |
@@ -35,7 +35,7 @@
 | P-11 | blind certification evidence boundary | `✅ DONE` | `docs/spec/17_blind_certification_evidence.md` |
 | P-12 | theorem target scaffolding | `✅ DONE` | All 19 theorems as TARGET stubs |
 | P-13 | absence guards | `✅ DONE` | `scripts/check_pure_absence_guards.sh` |
-| P-14 | extend xtask | `📋 TARGET` | xtask commands stub needed |
+| P-14 | extend xtask | `✅ DONE` | `xtask/src/main.rs` — 7 commands |
 | P-15 | full CI suite | `✅ DONE` | `.github/workflows/ci.yml` (11 jobs) |
 | P-16 | evidence snapshot | `✅ DONE` | Template at `docs/release/pure_qash_rc_evidence_snapshot.md` |
 | P-17 | RC milestone tag | `📋 TARGET` | Requires all CI green on populated evidence |
