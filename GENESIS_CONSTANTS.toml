@@ -184,3 +184,23 @@ tee_quote = "not-attested"
 
 [genesis.timestamps]
 rfc3161 = []
+
+# ── Regulated Profile — Class IV disclosure domain ──────────────────────────
+# Populated only in Regulated Profile deployments. Empty by default.
+# Any non-empty [disclosure_domain] entry authorises a Class IV observer.
+# See docs/spec/19_profile_taxonomy.md §19.1 and docs/spec/09_privacy_model.md §P4.
+#
+# IMPORTANT: These entries are genesis-locked. Modifying them post-genesis
+# requires a full re-genesis under [genesis-change-acknowledged] protocol.
+# An empty list means no Class IV observer is authorised for this genesis.
+[regulated]
+enabled = false
+disclosure_domains = []
+
+# Example (not active — template only):
+# [[regulated.disclosure_domain]]
+# domain_id         = "EU-AML-EXAMPLE"
+# jurisdiction      = "DE"
+# activation_epoch  = 0
+# expiry_epoch      = 0
+# key_commitment    = "0000000000000000000000000000000000000000000000000000000000000000"

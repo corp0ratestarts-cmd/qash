@@ -117,5 +117,5 @@ Cross-references: `docs/audit/domain_b_stub_register.md` (stub details),
 | Profile | Repo | Status | Notes |
 |---------|------|--------|-------|
 | Pure QASH Core | `corp0ratestarts-cmd/pure-qash` | `📋 POST-V1` | Separate repo; ADR-015; see `docs/spec/19_profile_taxonomy.md` |
-| QASH Regulated Profile | `corp0ratestarts-cmd/qash` (umbrella) | `📋 POST-V1` | Class IV + disclosure key; same umbrella repo |
+| QASH Regulated Profile | `corp0ratestarts-cmd/qash` (umbrella) | `⚠️ INTERFACE-ONLY` | Class IV + disclosure key scaffolding in `crates/pal/src/regulated/`; feature-gated; production HSM key management deferred. ADR-016. |
 | QASH Sovereign Hardened Profile | `corp0ratestarts-cmd/qash` (umbrella) | `📋 POST-V1` | Attested HW admission boundary; post-v1 research track |

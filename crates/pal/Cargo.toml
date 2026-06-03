@@ -66,6 +66,10 @@ suite_korea = []
 hardened = []
 sca-hardened = []
 threshold-signing = []
+# Regulated Profile (Class IV observer, disclosure key, lawful-basis flows).
+# Domain B only. MUST NOT appear in corp0ratestarts-cmd/pure-qash.
+# See docs/spec/19_profile_taxonomy.md §19.1 and ADR-016.
+regulated = ["std"]
 # Power-On Self-Test (POST) for FIPS-aligned crypto module boundary.
 # Enables run_post() in crates/pal/src/crypto/post.rs. Not required for
 # normal operation; intended for FIPS evidence and startup self-tests.
