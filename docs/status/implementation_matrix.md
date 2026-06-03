@@ -1,6 +1,6 @@
 # QASH v1.0 RC — Implementation Status Matrix
 
-**Date:** 2026-06-02
+**Date:** 2026-06-03
 **Milestone:** Outcome B — RC-only milestone (PR #228)
 **Authoritative source:** This file is the single source of truth for what is shipped vs. post-v1.
 
@@ -109,3 +109,13 @@ Cross-references: `docs/audit/domain_b_stub_register.md` (stub details),
 | Genesis hash lock | `❌ BLOCKER` | Requires Outcome A decision (`[genesis-change-acknowledged]` PR) |
 | `v1.0-reference` tag | `❌ NOT CREATED` | Reserved for Outcome A; do not create without owner decision |
 | `v1.0-rc1` tag | `✅ ACTIVE V1` | RC evidence milestone tag |
+
+---
+
+## Profile Taxonomy
+
+| Profile | Repo | Status | Notes |
+|---------|------|--------|-------|
+| Pure QASH Core | `corp0ratestarts-cmd/pure-qash` | `📋 POST-V1` | Separate repo; ADR-015; see `docs/spec/19_profile_taxonomy.md` |
+| QASH Regulated Profile | `corp0ratestarts-cmd/qash` (umbrella) | `📋 POST-V1` | Class IV + disclosure key; same umbrella repo |
+| QASH Sovereign Hardened Profile | `corp0ratestarts-cmd/qash` (umbrella) | `📋 POST-V1` | Attested HW admission boundary; post-v1 research track |

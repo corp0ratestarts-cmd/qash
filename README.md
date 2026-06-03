@@ -82,6 +82,7 @@ graph TD
   * [01_consensus.md](file:///home/debian/Downloads/QASH/qash/docs/spec/01_consensus.md) — State space, encoding, and transition function.
   * [07_hash_cascade.md](file:///home/debian/Downloads/QASH/qash/docs/spec/07_hash_cascade.md) — Depth-7 cryptographic hash cascade.
   * [12_sharded_protocol.md](file:///home/debian/Downloads/QASH/qash/docs/spec/12_sharded_protocol.md) — Cross-shard receipts and sharded protocol details.
+  * [19_profile_taxonomy.md](docs/spec/19_profile_taxonomy.md) — QASH profile taxonomy: Pure QASH Core, Regulated Profile, Sovereign Hardened Profile. See also `ADR-015`.
 * [proofs/](file:///home/debian/Downloads/QASH/qash/proofs/) — Formal Coq theorems and proof obligations.
 * [model/](file:///home/debian/Downloads/QASH/qash/model/) — Canonical executable semantics (extracted from proofs).
 * [crates/](file:///home/debian/Downloads/QASH/qash/crates/) — Core implementation source.
