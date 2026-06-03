@@ -4,7 +4,7 @@
 **Milestone:** pure-qash-v0.1-rc1  
 **Genesis status:** provisional  
 **Deployment authoritative:** false  
-**Captured:** 2026-06-03
+**Captured:** 2026-06-03 (refreshed against merge commit)
 
 ---
 
@@ -22,7 +22,7 @@ cargo run -p xtask -- capture-evidence
 ```json
 {
   "schema": "pure-qash-evidence-v1",
-  "commit_sha": "0a72f9222b922175f89aac7357d70e9d3ef05501",
+  "commit_sha": "26720fd31b120a7c2494cf9d706b0c595fe58cb3",
   "genesis_constants_sha256": "d799299ea42ae3fac80d52ee7dbc9d32abc481213a8d69ec5b16a326104aafa6",
   "genesis_status": "provisional",
   "deployment_authoritative": false,
@@ -46,7 +46,7 @@ cargo run -p xtask -- capture-evidence
 
 | Field | Value | Status |
 |-------|-------|--------|
-| Commit SHA | `0a72f9222b922175f89aac7357d70e9d3ef05501` | ✅ |
+| Commit SHA | `26720fd31b120a7c2494cf9d706b0c595fe58cb3` (squash-merge of PR #234 onto main) | ✅ |
 | GENESIS_CONSTANTS SHA-256 | `d799299ea42ae3fac80d52ee7dbc9d32abc481213a8d69ec5b16a326104aafa6` | ✅ |
 | PublicTranscript field audit | No forbidden fields (sender/receiver/amount/payload absent) | ✅ |
 | Zero-persistence gate results | wal_no_raw_txs, wal_no_payload_bytes, wal_no_peer_ip: all pass | ✅ |
