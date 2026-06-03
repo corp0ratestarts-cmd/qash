@@ -91,7 +91,7 @@ with no recognised lawful basis cannot be constructed.
 The initial implementation is in `crates/pal/src/regulated/`:
 
 | Module | Purpose |
-|--------|---------|
+|--------|--------|
 | `mod.rs` | `ObserverClass` enum (with `ClassIV` under `regulated` feature), `LawfulBasis` |
 | `disclosure.rs` | `DisclosureDomain`, `DisclosureKey`, `EpochDisclosureKey`, `DisclosureRequest`, `validate_disclosure_request()` |
 | `receipt.rs` | `RegulatedReceiptDecrypt` — encrypt/decrypt with lawful-basis gate |
@@ -129,6 +129,6 @@ Rejected: would contaminate the receipt module with regulated-profile concepts, 
 it harder to audit the boundary and easier to accidentally enable Class IV in non-regulated builds.
 
 **Alternative B: Separate crate (`qash-regulated`)**  
-Deferred: would be cleaner long-term but adds workspace complexity before the feature
-is production-ready. The `regulated` feature gate in `qash-pal` achieves the same
-isolation with less overhead for the current implementation phase.
+Deferred: would be cleaner long-term but adds workspace complexity at the current
+implementation phase. The `regulated` feature gate in `qash-pal` achieves the same
+isolation with less overhead until the feature matures.

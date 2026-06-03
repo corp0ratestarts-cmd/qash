@@ -192,7 +192,7 @@ rfc3161 = []
 #
 # IMPORTANT: These entries are genesis-locked. Modifying them post-genesis
 # requires a full re-genesis under [genesis-change-acknowledged] protocol.
-# An empty list means no Class IV observer is authorised for this genesis.
+# An empty list means Class IV regulatory disclosure is disabled for this genesis.
 [regulated]
 enabled = false
 disclosure_domains = []

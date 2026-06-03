@@ -47,7 +47,7 @@ pub enum RegulatedDecryptError {
 /// Encrypted receipt body for Class IV disclosure.
 ///
 /// The `ciphertext` is a ChaCha20-Poly1305 AEAD ciphertext (plaintext + 16-byte tag).
-/// The `nonce` is a 12-byte domain-separated value derived per receipt.
+/// The `nonce` is a 12-byte random value generated fresh for each encryption.
 /// The `domain_tag` identifies which disclosure domain encrypted this receipt.
 #[derive(Debug, Clone)]
 pub struct EncryptedRegulatedReceipt {
@@ -135,15 +135,12 @@ impl RegulatedReceiptDecrypt {
         let cipher = ChaCha20Poly1305::new_from_slice(&epoch_key.key)
             .expect("32-byte key is always valid for ChaCha20Poly1305");
 
-        // Derive a deterministic per-receipt nonce from domain_id + epoch + plaintext commitment.
-        let mut h = Sha3_256::new();
-        h.update(b"QASH-CLASS-IV-NONCE-V1\x00");
-        h.update(domain.domain_id);
-        h.update(epoch.to_be_bytes());
-        h.update(plaintext);
-        let nonce_preimage: [u8; 32] = h.finalize().into();
+        // Generate a fresh random nonce for each encryption.
+        // A deterministic nonce would allow correlation attacks on identical plaintexts
+        // at the same epoch (CWE-323). The nonce is stored in the ciphertext envelope
+        // and passed to decrypt(), so randomness here causes no key-management issue.
         let mut nonce = [0u8; 12];
-        nonce.copy_from_slice(&nonce_preimage[..12]);
+        getrandom::fill(&mut nonce).expect("RNG failure");
 
         let mut aad = [0u8; 40];
         aad[..32].copy_from_slice(&domain.domain_id);
