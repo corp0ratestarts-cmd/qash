@@ -116,6 +116,6 @@ Cross-references: `docs/audit/domain_b_stub_register.md` (stub details),
 
 | Profile | Repo | Status | Notes |
 |---------|------|--------|-------|
-| Pure QASH Core | `corp0ratestarts-cmd/pure-qash` | `✅ ACTIVE V1` | Separate repo; P-0..P-17 complete; RC evidence snapshot at `pure-qash-v0.1-rc1`; see ADR-015 |
-| QASH Regulated Profile | `corp0ratestarts-cmd/qash` (umbrella) | `⚠️ INTERFACE-ONLY` | Class IV observer, disclosure key, lawful-basis gate, 25 tests pass (QASH-3, PR #239, ADR-016); production HSM key loading is post-v1 |
-| QASH Sovereign Hardened Profile | `corp0ratestarts-cmd/qash` (umbrella) | `📋 POST-V1` | Design documented (QASH-4, ADR-017, SOV-1); TPM/TDX/SEV-SNP/CCA backends (SOV-2..5) and attestation gate (SOV-6) all post-v1 |
+| Pure QASH Core | `corp0ratestarts-cmd/pure-qash` | `📋 POST-V1` | Separate repo; ADR-015; see `docs/spec/19_profile_taxonomy.md` |
+| QASH Regulated Profile | `corp0ratestarts-cmd/qash` (umbrella) | `📋 POST-V1` | Class IV + disclosure key; same umbrella repo |
+| QASH Sovereign Hardened Profile | `corp0ratestarts-cmd/qash` (umbrella) | `📋 POST-V1` | Attested HW admission boundary; post-v1 research track |

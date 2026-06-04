@@ -37,7 +37,7 @@ exits 0 with a notice.
 Phase 1 prerequisite status (updated 2026-05-30):
 
 | Item | Status |
-|------|---------|
+|------|--------|
 | 1-A: Reconcile genesis schema v1.0/v1.1 weights | ✅ Done — two-section approach in `spec/genesis.schema.toml` |
 | 1-B: Fix stale `02_test_vectors.md` reference | ✅ Done — `docs/spec/02_transition_axioms.md` updated |
 | 1-C: ADR-003 full byte-layout spec | ✅ Done — normative spec in `docs/adr/ADR-003-state-root-and-encoding.md`; PDF-golden pending 1-D |
@@ -47,6 +47,10 @@ Phase 1 prerequisite status (updated 2026-05-30):
 
 Phase 1-G gate: ✅ **Complete** — see `docs/release/genesis_candidate_gate.md`.
 To advance to genesis-candidate, open a new PR with `[genesis-change-acknowledged]` in the body and select Outcome A per `docs/release/genesis_decision_record.md`.
+
+**QASH-0 and QASH-2 gates (2026-06-03):**
+- QASH-0: Profile boundary enforcement complete — PR #237. `scripts/check_profile_boundary.sh` (5 blocking rules) wired into CI. Pure QASH implementation subtree removed from umbrella; pointer README in `pure-qash/README.md`.
+- QASH-2: All four integration review slices verified on current `main`. See `docs/release/current_integration_review_slices.md` for full slice map and evidence table.
 
 The current post-GRC local verification on `main` (2026-05-30) passed:
 
@@ -154,7 +158,7 @@ The following claims require future evidence or owner sign-off:
 The following CI/evidence work is complete on branch `claude/modest-gates-tgIDP`:
 
 | Phase | Item | Status |
-|-------|------|---------|
+|-------|------|--------|
 | 2-A | Domain A tripwires (f32/f64, HashMap, usize struct fields) | ✅ |
 | 2-B | Cranelift differential — blocking, pinned nightly | ✅ |
 | 2-C | Miri-consensus blocking job | ✅ |
