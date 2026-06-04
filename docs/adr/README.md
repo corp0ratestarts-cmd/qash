@@ -31,6 +31,10 @@ Every ADR or IC must reference either a verbatim PDF quote or explicitly state
 | `ADR-013_v1_backend_boundary.md` | Accepted | v1 backend boundary protocol for Domain B / PAL interop. | — |
 | `ADR-014-language-boundary-policy.md` | Accepted | Language boundary policy for PAL/consensus interop. | — |
 | `ADR-015-pure-qash-repository-split.md` | Accepted | Pure QASH developed as a separate repo; umbrella retains regulated/compliance/sovereign profiles. | — |
+| `ADR-016-regulated-profile-design.md` | Accepted | QASH Regulated Profile — Class IV observer, disclosure key, lawful-basis gate; feature-isolated behind `regulated` Cargo feature. | — |
+| `ADR-017-sovereign-hardened-profile.md` | Accepted (Post-V1) | QASH Sovereign Hardened Profile — Pure QASH privacy model + attested hardware admission boundary in Domain B; all implementation deferred to post-v1. | — |
+| `ADR-018-production-networking.md` | Accepted (Post-V1) | Clone protocol transport gap — frame format and auxiliary infrastructure complete; six hardware transport drivers (NET-2..7) deferred to post-v1. | — |
+| `ADR-019-zk-threshold-gap.md` | Accepted (Post-V1) | ZK proof verification and TALUS threshold signing gap — types and traits stable; Plonky3 circuit and MPC share combination deferred to post-v1; XOR placeholder MUST NOT be used in production. | — |
 | `0001-domain-isolation.md` | Accepted | Domain A / Domain B isolation is protocol law; cross-domain value flow is a protocol violation. | — |
 | `0002-transition-safe-fixed-point.md` | Accepted | All fixed-point arithmetic in Domain A uses checked operations; overflow → absorbing halt. | — |
 | `IC-001-no-heap-cascade.md` | Proposed | Cascade verification must not allocate on the heap; stack-resident buffers only. | — |
@@ -38,7 +42,7 @@ Every ADR or IC must reference either a verbatim PDF quote or explicitly state
 ## Superseded Variants (history only)
 
 | File | Superseded by |
-|------|--------------|
+|------|----------------|
 | `ADR-001-phi-safety-and-threshold.md` | `ADR-001-phi-safety-accumulator.md` |
 | `ADR-003-state-root-encoding.md` | `ADR-003-state-root-and-encoding.md` |
 | `ADR-004-halt-layering-domain-a-vs-pal.md` | `ADR-004-absorbing-halt-layering.md` |

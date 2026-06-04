@@ -12,7 +12,7 @@ Cross-references: `docs/audit/domain_b_stub_register.md` (stub details),
 ## Status taxonomy
 
 | Label | Meaning |
-|-------|---------|
+|-------|----------|
 | `✅ ACTIVE V1` | Implemented, tested in CI, in the production consensus path |
 | `✅ SELF-TESTED` | Implemented and self-tested; not externally certified |
 | `⚠️ INTERFACE-ONLY` | Correct type surface; no production backend; fails closed |
