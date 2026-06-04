@@ -1,16 +1,36 @@
 # Current Integration Review Slices
 
-**Date:** 2026-05-30
-**Scope:** Post-GRC, pre-genesis. Not a genesis-lock decision.
+**Date:** 2026-06-03 (updated: QASH-0 profile boundary complete; QASH-2 evidence pass)
+**Scope:** Post-GRC, post-QASH-0, pre-genesis. Not a genesis-lock decision.
 
-**Current state:** PR #213 (CASCADE-7), #214 (GRC-7-7-v2), and #215 (preimage
-parity fixture) are merged to `main`. The GRC is complete. This file records the
-remaining review surface before Phase 1 genesis-lock prerequisites can be discharged.
-It is not a release approval and not a genesis-lock decision.
+**Current state:** PR #237 (QASH-0 profile boundary enforcement) is merged to `main`.
+The umbrella repo no longer carries the Pure QASH implementation subtree; it is
+replaced by a pointer README and enforced by `scripts/check_profile_boundary.sh`.
+This file records the remaining review surface before Phase 1 genesis-lock prerequisites
+can be discharged. It is not a release approval and not a genesis-lock decision.
 
-Review the merged pre-genesis RC surface as the following logical slices. Keep
-future changes separated by slice in PRs or commits when possible, and use this
-file as the review map.
+## QASH-0 Profile Boundary — COMPLETE ✅
+
+Completed in PR #237. Status:
+- `pure-qash/` implementation subtree removed; replaced with pointer README
+- `scripts/check_profile_boundary.sh` — 5 blocking rules wired into CI `document-hygiene`
+- `docs/adr/ADR-015-pure-qash-repository-split.md` — normative split decision
+- `docs/spec/19_profile_taxonomy.md` — three-profile taxonomy (Pure Core / Regulated / Sovereign)
+
+## QASH-2 Slice Evidence Summary (2026-06-03)
+
+All four integration review slices pass on current `main`:
+
+| Slice | Key check | Result |
+|-------|-----------|--------|
+| 1: Sharding/EFB | `cargo test -p qash-consensus --test v1_2_sharded_replay` | ✅ PASS |
+| 2: PAL scaffold | `cargo test -p qash-pal --features std` | ✅ PASS |
+| 2a: Hardware stubs | `bash scripts/check_domain_a_tripwires.sh` | ✅ PASS |
+| 3: Proof/refinement | `cargo test -p qash-consensus --test coq_refinement_vectors` | ✅ PASS |
+| 4: PR #93 hygiene | `bash scripts/check_document_hygiene.sh` | ✅ PASS |
+| 4: Phase 2-R gates | `cargo test -p qash-consensus --test phase2r_preconditions` | ✅ PASS |
+
+---
 
 ## Slice 1: Sharding and EFB Scaffold
 
@@ -31,6 +51,10 @@ Review focus:
 - Cross-shard receipt roots and EFB roots are replayable.
 - The ZK profile remains a public commitment/profile boundary, not a production verifier claim.
 
+**QASH-2 status:** ✅ Sharded replay corpus matches pinned hash; 1 test pass.
+
+---
+
 ## Slice 2: PAL Whole-Protocol Scaffold
 
 Primary files:
@@ -47,6 +71,10 @@ Review focus:
 - Domain B transport, attestation, and proof-bundle material does not feed nondeterminism into Domain A.
 - Hosted replay remains deterministic.
 - Production networking, hardware attestation, and Plonky3 verification remain explicitly out of scope.
+
+**QASH-2 status:** ✅ 2 PAL unit tests pass + 1 zero-persistence profile test pass.
+
+---
 
 ## Slice 2a: Domain B Hardware and Offline Stubs
 
@@ -72,6 +100,10 @@ Review focus:
 - Hardware/offline code remains Domain B scaffold material and does not create
   a production hardware-backed attestation or deployment claim.
 
+**QASH-2 status:** ✅ Domain A tripwires pass; hardware stubs correctly classified as post-v1.
+
+---
+
 ## Slice 3: Proof and Refinement Closure
 
 Primary files:
@@ -91,6 +123,10 @@ Review focus:
 - Active Coq files compile with no active `Admitted` outside approved axioms.
 - Rust/Coq observation vectors match the executable transition behavior.
 - New proof claims are reflected in `proofs/STATUS.md`.
+
+**QASH-2 status:** ✅ 3 refinement vector tests pass (encoding vectors, rejection vectors, Lyapunov transition observations).
+
+---
 
 ## Slice 4: PR #93 Hygiene and Phase 2-R Gates
 
@@ -117,6 +153,10 @@ Review focus:
   tie-breaker for equal sort keys.
 - Runtime optimization remains consensus-byte-preserving.
 
+**QASH-2 status:** ✅ Document hygiene pass; 6/6 phase2r_preconditions tests pass.
+
+---
+
 ## Whole-Branch Evidence
 
 Before requesting final review, capture the full local evidence bundle:
@@ -131,3 +171,15 @@ current passing bundle.
 The terminal external blocker for genesis lock is issue #209: commit the
 normative `spec/pdf/QASH_Spec_v1.0.pdf`, then reconcile `docs/traceability.md`,
 `GENESIS_CONSTANTS.toml`, and release sign-off evidence against that exact PDF.
+
+## Remaining Genesis-Lock Prerequisites
+
+| Item | Status |
+|------|--------|
+| QASH-0: Profile boundary enforcement | ✅ Done — PR #237 |
+| QASH-1: `QASH_Spec_v1.0.pdf` commit | ⏳ BLOCKED — owner must provide PDF |
+| QASH-1.2: Record PDF SHA-256 in traceability | ⏳ Blocked on QASH-1 |
+| QASH-1.3: Reconcile `docs/traceability.md` against PDF | ⏳ Blocked on QASH-1 |
+| QASH-1.4: Reconcile `GENESIS_CONSTANTS.toml` against locked doc set | ⏳ Blocked on QASH-1 |
+| QASH-2: Integration review slices (all 4 slices) | ✅ Done — all checks pass |
+| Phase 1-G: Final evidence capture + owner sign-off | ⏳ Pending QASH-1 unblock |
