@@ -9,6 +9,7 @@
 //! - Disclosure is non-retroactive: a key authorised at epoch T cannot decrypt
 //!   receipts from epoch T−k, even with full regulatory cooperation.
 //! - `DisclosureKey` implements `ZeroizeOnDrop` — key material is wiped on drop.
+//! - `DisclosureKey` does not implement `Clone` — key copies are prohibited.
 //! - Epoch-scoped: decryption fails with `EpochOutOfRange` outside the key's
 //!   declared `(activation_epoch, expiry_epoch)` window.
 //! - Requires a valid `LawfulBasis` from the caller for every disclosure operation.
@@ -56,8 +57,9 @@ impl DisclosureDomain {
 ///
 /// Private key material for epoch-scoped receipt disclosure.
 /// Must NEVER leave Domain B. Never serialized, never logged.
-/// Zeroized on drop.
-#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+/// Zeroized on drop. `Clone` is intentionally not implemented — key copies are
+/// prohibited; use references or pass by value for single-use operations.
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub struct DisclosureKey {
     /// Raw 32-byte key material derived at genesis.
     key_material: [u8; 32],
@@ -120,8 +122,9 @@ impl DisclosureKey {
 
 /// Epoch-scoped disclosure key — single-epoch, zeroized on drop.
 ///
-/// Does not implement Debug to prevent accidental key material logging.
-#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+/// Does not implement `Clone` or `Debug` to prevent accidental key material
+/// copies or logging.
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub struct EpochDisclosureKey {
     pub(crate) key: [u8; 32],
     pub epoch: u64,
@@ -160,6 +163,15 @@ pub enum DisclosureRequestError {
     RequestExceedsKeyScope,
     /// The requester identity is zero (likely uninitialized).
     RequesterIdentityBlank,
+    /// `key.domain_id` ≠ `domain.domain_id`, or `key.compute_commitment()` ≠
+    /// `domain.key_commitment`. Indicates a misconfigured key/domain pair.
+    DomainKeyMismatch,
+    /// `case_reference` is all zeros (likely uninitialized).
+    CaseReferenceBlank,
+    /// `epoch_start >= epoch_end` — the request covers an empty or inverted range.
+    EmptyEpochRange,
+    /// `NationalLawEquivalent` has blank `jurisdiction` or `citation_hash`.
+    InvalidLawfulBasis,
 }
 
 /// Validate a `DisclosureRequest` against a `DisclosureDomain` and `DisclosureKey`.
@@ -171,14 +183,37 @@ pub fn validate_disclosure_request(
     domain: &DisclosureDomain,
     key: &DisclosureKey,
 ) -> Result<(), DisclosureRequestError> {
+    // 1. Request epoch range must be non-empty (epoch_start < epoch_end).
+    if request.epoch_start >= request.epoch_end {
+        return Err(DisclosureRequestError::EmptyEpochRange);
+    }
+    // 2. Requester identity must be non-blank.
     if request.requester_id == [0u8; 32] {
         return Err(DisclosureRequestError::RequesterIdentityBlank);
     }
-    // Key scope must cover the full requested epoch range.
+    // 3. Case reference must be non-blank.
+    if request.case_reference == [0u8; 32] {
+        return Err(DisclosureRequestError::CaseReferenceBlank);
+    }
+    // 4. NationalLawEquivalent must carry non-blank jurisdiction and citation.
+    if let LawfulBasis::NationalLawEquivalent { jurisdiction, citation_hash } =
+        &request.lawful_basis
+    {
+        if jurisdiction == &[0u8; 2] || citation_hash == &[0u8; 32] {
+            return Err(DisclosureRequestError::InvalidLawfulBasis);
+        }
+    }
+    // 5. Key must be bound to the presented domain (prevents key/domain swap attacks).
+    if key.domain_id != domain.domain_id
+        || key.compute_commitment() != domain.key_commitment
+    {
+        return Err(DisclosureRequestError::DomainKeyMismatch);
+    }
+    // 6. Key scope must cover the full requested epoch range.
     if request.epoch_start < key.activation_epoch || request.epoch_end > key.expiry_epoch {
         return Err(DisclosureRequestError::RequestExceedsKeyScope);
     }
-    // Domain must cover the full requested epoch range.
+    // 7. Domain scope must cover the full requested epoch range.
     if !domain.epoch_is_in_scope(request.epoch_start)
         || !domain.epoch_is_in_scope(request.epoch_end.saturating_sub(1))
     {
@@ -193,16 +228,6 @@ pub fn validate_disclosure_request(
 mod tests {
     use super::*;
 
-    fn test_domain() -> DisclosureDomain {
-        DisclosureDomain {
-            domain_id: *b"QASH-TEST-DOMAIN-EU-AML-0000000\x00",
-            jurisdiction: *b"DE",
-            activation_epoch: 100,
-            expiry_epoch: 200,
-            key_commitment: [0u8; 32],
-        }
-    }
-
     fn test_key() -> DisclosureKey {
         DisclosureKey::from_genesis_material(
             [0x42u8; 32],
@@ -210,6 +235,26 @@ mod tests {
             200,
             *b"QASH-TEST-DOMAIN-EU-AML-0000000\x00",
         )
+    }
+
+    fn test_domain() -> DisclosureDomain {
+        DisclosureDomain {
+            domain_id: *b"QASH-TEST-DOMAIN-EU-AML-0000000\x00",
+            jurisdiction: *b"DE",
+            activation_epoch: 100,
+            expiry_epoch: 200,
+            key_commitment: test_key().compute_commitment(),
+        }
+    }
+
+    fn valid_request() -> DisclosureRequest {
+        DisclosureRequest {
+            lawful_basis: LawfulBasis::GdprArt6LegalObligation,
+            requester_id: [1u8; 32],
+            epoch_start: 100,
+            epoch_end: 150,
+            case_reference: [2u8; 32],
+        }
     }
 
     #[test]
@@ -250,9 +295,8 @@ mod tests {
 
     #[test]
     fn different_epochs_produce_different_keys() {
-        let key = test_key();
-        let k1 = key.derive_epoch_key(100).unwrap().key;
-        let k2 = key.derive_epoch_key(101).unwrap().key;
+        let k1 = test_key().derive_epoch_key(100).unwrap().key;
+        let k2 = test_key().derive_epoch_key(101).unwrap().key;
         assert_ne!(k1, k2, "epoch keys must be distinct");
     }
 
@@ -260,27 +304,15 @@ mod tests {
     fn validate_request_passes() {
         let domain = test_domain();
         let key = test_key();
-        let req = DisclosureRequest {
-            lawful_basis: LawfulBasis::GdprArt6LegalObligation,
-            requester_id: [1u8; 32],
-            epoch_start: 100,
-            epoch_end: 150,
-            case_reference: [2u8; 32],
-        };
-        assert!(validate_disclosure_request(&req, &domain, &key).is_ok());
+        assert!(validate_disclosure_request(&valid_request(), &domain, &key).is_ok());
     }
 
     #[test]
     fn validate_request_blank_requester_rejected() {
         let domain = test_domain();
         let key = test_key();
-        let req = DisclosureRequest {
-            lawful_basis: LawfulBasis::GdprArt6LegalObligation,
-            requester_id: [0u8; 32],
-            epoch_start: 100,
-            epoch_end: 150,
-            case_reference: [2u8; 32],
-        };
+        let mut req = valid_request();
+        req.requester_id = [0u8; 32];
         assert_eq!(
             validate_disclosure_request(&req, &domain, &key).unwrap_err(),
             DisclosureRequestError::RequesterIdentityBlank
@@ -291,13 +323,8 @@ mod tests {
     fn validate_request_out_of_range_rejected() {
         let domain = test_domain();
         let key = test_key();
-        let req = DisclosureRequest {
-            lawful_basis: LawfulBasis::GdprArt6LegalObligation,
-            requester_id: [1u8; 32],
-            epoch_start: 50,
-            epoch_end: 150,
-            case_reference: [2u8; 32],
-        };
+        let mut req = valid_request();
+        req.epoch_start = 50; // below key.activation_epoch
         assert_eq!(
             validate_disclosure_request(&req, &domain, &key).unwrap_err(),
             DisclosureRequestError::RequestExceedsKeyScope
@@ -306,9 +333,8 @@ mod tests {
 
     #[test]
     fn key_commitment_is_deterministic() {
-        let key = test_key();
-        let c1 = key.compute_commitment();
-        let c2 = key.compute_commitment();
+        let c1 = test_key().compute_commitment();
+        let c2 = test_key().compute_commitment();
         assert_eq!(c1, c2);
     }
 
@@ -323,5 +349,114 @@ mod tests {
             *b"QASH-TEST-DOMAIN-EU-AML-0000000\x00",
         );
         assert_ne!(k1.compute_commitment(), k2.compute_commitment());
+    }
+
+    // ── Hardening tests ──────────────────────────────────────────────────────
+
+    #[test]
+    fn validate_rejects_empty_epoch_range() {
+        let domain = test_domain();
+        let key = test_key();
+        let mut req = valid_request();
+        req.epoch_start = 150;
+        req.epoch_end = 150;
+        assert_eq!(
+            validate_disclosure_request(&req, &domain, &key).unwrap_err(),
+            DisclosureRequestError::EmptyEpochRange
+        );
+    }
+
+    #[test]
+    fn validate_rejects_inverted_epoch_range() {
+        let domain = test_domain();
+        let key = test_key();
+        let mut req = valid_request();
+        req.epoch_start = 150;
+        req.epoch_end = 100;
+        assert_eq!(
+            validate_disclosure_request(&req, &domain, &key).unwrap_err(),
+            DisclosureRequestError::EmptyEpochRange
+        );
+    }
+
+    #[test]
+    fn validate_rejects_blank_case_reference() {
+        let domain = test_domain();
+        let key = test_key();
+        let mut req = valid_request();
+        req.case_reference = [0u8; 32];
+        assert_eq!(
+            validate_disclosure_request(&req, &domain, &key).unwrap_err(),
+            DisclosureRequestError::CaseReferenceBlank
+        );
+    }
+
+    #[test]
+    fn validate_rejects_wrong_domain_id_in_key() {
+        let domain = test_domain();
+        let key = DisclosureKey::from_genesis_material(
+            [0x42u8; 32], 100, 200,
+            [0xFFu8; 32], // different domain_id
+        );
+        assert_eq!(
+            validate_disclosure_request(&valid_request(), &domain, &key).unwrap_err(),
+            DisclosureRequestError::DomainKeyMismatch
+        );
+    }
+
+    #[test]
+    fn validate_rejects_wrong_key_commitment() {
+        let domain = DisclosureDomain {
+            domain_id: *b"QASH-TEST-DOMAIN-EU-AML-0000000\x00",
+            jurisdiction: *b"DE",
+            activation_epoch: 100,
+            expiry_epoch: 200,
+            key_commitment: [0xAAu8; 32], // wrong commitment
+        };
+        let key = test_key();
+        assert_eq!(
+            validate_disclosure_request(&valid_request(), &domain, &key).unwrap_err(),
+            DisclosureRequestError::DomainKeyMismatch
+        );
+    }
+
+    #[test]
+    fn validate_rejects_national_law_blank_jurisdiction() {
+        let domain = test_domain();
+        let key = test_key();
+        let req = DisclosureRequest {
+            lawful_basis: LawfulBasis::NationalLawEquivalent {
+                jurisdiction: [0u8; 2],
+                citation_hash: [1u8; 32],
+            },
+            requester_id: [1u8; 32],
+            epoch_start: 100,
+            epoch_end: 150,
+            case_reference: [2u8; 32],
+        };
+        assert_eq!(
+            validate_disclosure_request(&req, &domain, &key).unwrap_err(),
+            DisclosureRequestError::InvalidLawfulBasis
+        );
+    }
+
+    #[test]
+    fn validate_rejects_national_law_blank_citation() {
+        let domain = test_domain();
+        let key = test_key();
+        let req = DisclosureRequest {
+            lawful_basis: LawfulBasis::NationalLawEquivalent {
+                jurisdiction: *b"DE",
+                citation_hash: [0u8; 32],
+            },
+            requester_id: [1u8; 32],
+            epoch_start: 100,
+            epoch_end: 150,
+            case_reference: [2u8; 32],
+        };
+        assert_eq!(
+            validate_disclosure_request(&req, &domain, &key).unwrap_err(),
+            DisclosureRequestError::InvalidLawfulBasis
+        );
     }
 }

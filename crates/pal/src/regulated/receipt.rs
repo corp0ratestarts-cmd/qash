@@ -42,6 +42,12 @@ pub enum RegulatedDecryptError {
     InvalidNonce,
     /// Decrypted plaintext is empty (likely wrong key or corrupt ciphertext).
     EmptyPlaintext,
+    /// `receipt.domain_tag` does not match `domain.domain_id`.
+    DomainTagMismatch,
+    /// Decrypted plaintext hash does not match the stored `plaintext_commitment`.
+    PlaintextCommitmentMismatch,
+    /// OS RNG failure — `getrandom` could not produce random bytes.
+    RngFailure,
 }
 
 /// Encrypted receipt body for Class IV disclosure.
@@ -55,7 +61,7 @@ pub struct EncryptedRegulatedReceipt {
     pub nonce: [u8; 12],
     pub domain_tag: [u8; 32],
     pub ciphertext: Vec<u8>,
-    /// Commitment to the plaintext receipt (for integrity verification).
+    /// Commitment to the plaintext receipt (for integrity verification after decryption).
     pub plaintext_commitment: [u8; 32],
 }
 
@@ -73,15 +79,22 @@ impl RegulatedReceiptDecrypt {
     ///
     /// # Errors
     ///
+    /// - `DomainTagMismatch` — receipt.domain_tag ≠ domain.domain_id.
     /// - `RequestInvalid` — lawful basis or epoch scope validation failed.
-    /// - `AuthenticationFailed` — AEAD tag mismatch.
-    /// - `EmptyPlaintext` — decrypted to empty bytes (key mismatch or corrupt).
+    /// - `AuthenticationFailed` — AEAD tag mismatch (corrupt ciphertext or wrong key).
+    /// - `EmptyPlaintext` — decrypted to empty bytes.
+    /// - `PlaintextCommitmentMismatch` — decrypted content does not match stored commitment.
     pub fn decrypt(
         receipt: &EncryptedRegulatedReceipt,
         request: &DisclosureRequest,
         domain: &DisclosureDomain,
         key: &DisclosureKey,
     ) -> Result<Vec<u8>, RegulatedDecryptError> {
+        // Pre-check: domain tag must match the presented domain.
+        if receipt.domain_tag != domain.domain_id {
+            return Err(RegulatedDecryptError::DomainTagMismatch);
+        }
+
         // Gate 1: validate the disclosure request.
         validate_disclosure_request(request, domain, key)
             .map_err(RegulatedDecryptError::RequestInvalid)?;
@@ -115,6 +128,14 @@ impl RegulatedReceiptDecrypt {
             return Err(RegulatedDecryptError::EmptyPlaintext);
         }
 
+        // Gate 4: verify plaintext commitment (belt-and-suspenders over AEAD integrity).
+        let mut hc = Sha3_256::new();
+        hc.update(&plaintext);
+        let computed: [u8; 32] = hc.finalize().into();
+        if computed != receipt.plaintext_commitment {
+            return Err(RegulatedDecryptError::PlaintextCommitmentMismatch);
+        }
+
         Ok(plaintext)
     }
 
@@ -140,16 +161,21 @@ impl RegulatedReceiptDecrypt {
         // at the same epoch (CWE-323). The nonce is stored in the ciphertext envelope
         // and passed to decrypt(), so randomness here causes no key-management issue.
         let mut nonce = [0u8; 12];
-        getrandom::fill(&mut nonce).expect("RNG failure");
+        getrandom::fill(&mut nonce).map_err(|_| {
+            epoch_key.key.zeroize();
+            RegulatedDecryptError::RngFailure
+        })?;
 
         let mut aad = [0u8; 40];
         aad[..32].copy_from_slice(&domain.domain_id);
         aad[32..40].copy_from_slice(&epoch.to_be_bytes());
 
         let payload = Payload { msg: plaintext, aad: &aad };
-        let ciphertext = cipher.encrypt(&nonce.into(), payload).expect("encrypt cannot fail for valid key/nonce");
+        let ciphertext = cipher
+            .encrypt(&nonce.into(), payload)
+            .expect("encrypt cannot fail for valid key/nonce");
 
-        // Compute plaintext commitment for integrity.
+        // Compute plaintext commitment for integrity verification on decrypt.
         let mut hc = Sha3_256::new();
         hc.update(plaintext);
         let plaintext_commitment: [u8; 32] = hc.finalize().into();
@@ -174,21 +200,21 @@ mod tests {
     use super::super::{LawfulBasis, disclosure::DisclosureRequest};
     use super::super::disclosure::{DisclosureDomain, DisclosureKey};
 
+    fn test_key() -> DisclosureKey {
+        DisclosureKey::from_genesis_material(
+            [0x42u8; 32], 100, 200,
+            *b"QASH-TEST-DOMAIN-EU-AML-0000000\x00",
+        )
+    }
+
     fn test_domain() -> DisclosureDomain {
         DisclosureDomain {
             domain_id: *b"QASH-TEST-DOMAIN-EU-AML-0000000\x00",
             jurisdiction: *b"DE",
             activation_epoch: 100,
             expiry_epoch: 200,
-            key_commitment: [0u8; 32],
+            key_commitment: test_key().compute_commitment(),
         }
-    }
-
-    fn test_key() -> DisclosureKey {
-        DisclosureKey::from_genesis_material(
-            [0x42u8; 32], 100, 200,
-            *b"QASH-TEST-DOMAIN-EU-AML-0000000\x00",
-        )
     }
 
     fn test_request(epoch_start: u64, epoch_end: u64) -> DisclosureRequest {
@@ -219,7 +245,6 @@ mod tests {
         let key = test_key();
         let plaintext = b"receipt data";
 
-        // Encrypt at epoch 150; try to decrypt with a request scoped to epoch 50..99.
         let encrypted = RegulatedReceiptDecrypt::encrypt(plaintext, 150, &domain, &key).unwrap();
         let bad_request = test_request(50, 99);
 
@@ -235,7 +260,7 @@ mod tests {
         let plaintext = b"tamper test receipt";
 
         let mut encrypted = RegulatedReceiptDecrypt::encrypt(plaintext, 150, &domain, &key).unwrap();
-        encrypted.ciphertext[0] ^= 0xFF; // tamper
+        encrypted.ciphertext[0] ^= 0xFF;
 
         let request = test_request(100, 199);
         let err = RegulatedReceiptDecrypt::decrypt(&encrypted, &request, &domain, &key).unwrap_err();
@@ -262,7 +287,7 @@ mod tests {
         let encrypted = RegulatedReceiptDecrypt::encrypt(plaintext, 150, &domain, &key).unwrap();
         let bad_request = DisclosureRequest {
             lawful_basis: LawfulBasis::GdprArt6LegalObligation,
-            requester_id: [0u8; 32], // blank
+            requester_id: [0u8; 32],
             epoch_start: 100,
             epoch_end: 199,
             case_reference: [2u8; 32],
@@ -271,5 +296,35 @@ mod tests {
         assert!(matches!(err, RegulatedDecryptError::RequestInvalid(
             DisclosureRequestError::RequesterIdentityBlank
         )));
+    }
+
+    // ── Hardening tests ──────────────────────────────────────────────────────
+
+    #[test]
+    fn decrypt_rejects_wrong_domain_tag() {
+        let domain = test_domain();
+        let key = test_key();
+        let plaintext = b"test receipt";
+
+        let mut encrypted = RegulatedReceiptDecrypt::encrypt(plaintext, 150, &domain, &key).unwrap();
+        encrypted.domain_tag = [0xFFu8; 32];
+
+        let request = test_request(100, 199);
+        let err = RegulatedReceiptDecrypt::decrypt(&encrypted, &request, &domain, &key).unwrap_err();
+        assert_eq!(err, RegulatedDecryptError::DomainTagMismatch);
+    }
+
+    #[test]
+    fn decrypt_rejects_tampered_plaintext_commitment() {
+        let domain = test_domain();
+        let key = test_key();
+        let plaintext = b"test receipt";
+
+        let mut encrypted = RegulatedReceiptDecrypt::encrypt(plaintext, 150, &domain, &key).unwrap();
+        encrypted.plaintext_commitment[0] ^= 0xFF;
+
+        let request = test_request(100, 199);
+        let err = RegulatedReceiptDecrypt::decrypt(&encrypted, &request, &domain, &key).unwrap_err();
+        assert_eq!(err, RegulatedDecryptError::PlaintextCommitmentMismatch);
     }
 }
