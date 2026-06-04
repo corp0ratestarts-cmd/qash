@@ -23,6 +23,10 @@ pub mod signing;
 #[cfg(feature = "threshold-signing")]
 pub mod threshold;
 pub mod zero_wal;
+/// Regulated Profile — Class IV observer scaffolding, disclosure key, lawful-basis flows.
+/// Domain B only. MUST NOT appear in corp0ratestarts-cmd/pure-qash.
+#[cfg(feature = "regulated")]
+pub mod regulated;
 #[cfg(all(feature = "plonky3", feature = "std"))]
 pub mod zk;
 
