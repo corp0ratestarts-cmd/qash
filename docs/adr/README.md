@@ -31,8 +31,6 @@ Every ADR or IC must reference either a verbatim PDF quote or explicitly state
 | `ADR-013_v1_backend_boundary.md` | Accepted | v1 backend boundary protocol for Domain B / PAL interop. | — |
 | `ADR-014-language-boundary-policy.md` | Accepted | Language boundary policy for PAL/consensus interop. | — |
 | `ADR-015-pure-qash-repository-split.md` | Accepted | Pure QASH developed as a separate repo; umbrella retains regulated/compliance/sovereign profiles. | — |
-| `ADR-016-regulated-profile-design.md` | Accepted | QASH Regulated Profile — Class IV observer, disclosure key, lawful-basis gate; feature-isolated behind `regulated` Cargo feature. | — |
-| `ADR-017-sovereign-hardened-profile.md` | Accepted (Post-V1) | QASH Sovereign Hardened Profile — Pure QASH privacy model + attested hardware admission boundary; all implementation deferred to post-v1. | — |
 | `0001-domain-isolation.md` | Accepted | Domain A / Domain B isolation is protocol law; cross-domain value flow is a protocol violation. | — |
 | `0002-transition-safe-fixed-point.md` | Accepted | All fixed-point arithmetic in Domain A uses checked operations; overflow → absorbing halt. | — |
 | `IC-001-no-heap-cascade.md` | Proposed | Cascade verification must not allocate on the heap; stack-resident buffers only. | — |
